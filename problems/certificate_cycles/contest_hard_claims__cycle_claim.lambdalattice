@@ -1,0 +1,77 @@
+# CERTIFICATE POINTS BEYOND H22 AND H24: MEMBERS ON A CYCLE.
+#
+# H22 (typing_natural_symbol) judges one member whose method passes the
+# member itself back through the certificate of its argument; H24
+# (typing_natural_pair) splits it into two members that pass each other.
+# A point here splits it into Count members m0, ..., m(Count - 1) on a
+# cycle: the method of m_i passes m_(i+1), and that of the last passes
+# m0, each through the identity of the certificate the judgment gives its
+# argument (`contest_hard_clauses.pl`, the section of H22 and H24, whose
+# object triples, certificate and judgment are reused unchanged):
+#
+#     J x   = (tag x) ((base x) certificate (J (method x m0)))
+#                     ((J x) (\i. \w. w))
+#     m_i   = (true, \that. (identity_of (J that)) m_(i+1), false)
+#
+# Assumed the certificate for J m0, the assumption comes back after
+# Count laps through the members.
+#
+# THE CLAIMS (class certificate_cycle): the templates of H22 and H24,
+# member(1, natural), member(2, natural) and member(2, stream), all
+# scored, proved by certificate_collapse extended to a cycle of any Count
+# >= 1 members (`doc/proofs/certificate_cycles.md`,
+# `osprey_certificate_cycle_collapse.md`,
+# `individual_certificate_cycles_consistency.md`).
+#
+# TARGET ALGORITHMS, the specific known algorithms the problem targets, each
+# with its prior work:
+# - proving that lambda beta eta plus an equation is consistent by adding it
+#   as a reduction rule and showing the union confluent, the Jacopini
+#   technique of the collapse lemma the proofs above use: J. Kuper, On the
+#   Jacopini Technique, Information and Computation 1997,
+#   doi:10.1006/inco.1997.2655.
+# - confirming an assumed certificate coinductively, by the equations: D.
+#   Kozen, A. Silva, Practical Coinduction, Mathematical Structures in
+#   Computer Science 2016, doi:10.1017/S0960129515000493.
+
+#
+# The template is a constructor of schema/template and the proof one of
+# schema/proof. Each other text is from_cbor of a string literal, a Scott
+# list of bytes, imported from corpora/library/text/cbor. Each number is from_cbor of an
+# integer literal, a Scott integer, imported from corpora/library/integer/cbor.
+# FIXME: the imports project "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λx. x)
+λ integer
+. omega (omega (omega (omega gezi "problems") "schema") "template")
+λ _ _ member
+. omega (omega (omega (omega gezi "problems") "schema") "proof")
+λ proved _
+. export
+λ
+. cons
+  ( λ _cycle_claim
+    . _cycle_claim (text "certificate_cycle") (text "scored") (member (integer 1) λ. text "natural") λ. proved λ. text "certificate_collapse"
+  )
+λ
+. cons
+  ( λ _cycle_claim
+    . _cycle_claim (text "certificate_cycle") (text "scored") (member (integer 2) λ. text "natural") λ. proved λ. text "certificate_collapse"
+  )
+λ
+. cons
+  ( λ _cycle_claim
+    . _cycle_claim (text "certificate_cycle") (text "scored") (member (integer 2) λ. text "stream") λ. proved λ. text "certificate_collapse"
+  ) nil

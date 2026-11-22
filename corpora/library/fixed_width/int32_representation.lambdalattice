@@ -1,0 +1,79 @@
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "native_types") "natural")
+λ zero successor _ _
+. omega (omega (omega (omega corpora "library") "fixed_width") "word_representation")
+λ _ _ _ _ word_type word_to_natural
+. omega (omega (omega (omega corpora "library") "fixed_width") "word_arithmetic")
+λ _ _ _ _ _ word_of_natural
+# int32_width:
+# The width 32, a natural written out, so that the schemes of the
+# operations at it unfold.
+. ( λ tuple
+    . tuple
+    λ
+    . successor
+    λ
+    . successor
+    λ
+    . successor
+    λ
+    . successor
+    λ
+    . successor
+    λ
+    . successor
+    λ
+    . successor
+    λ
+    . successor
+    λ
+    . successor
+    λ
+    . successor
+    λ
+    . successor
+    λ
+    . successor
+    λ
+    . successor
+    λ
+    . successor
+    λ
+    . successor
+    λ
+    . successor
+    λ
+    . successor
+    λ
+    . successor
+    λ
+    . successor
+    λ
+    . successor
+    λ
+    . successor
+    λ
+    . successor
+    λ
+    . successor
+    λ
+    . successor
+    λ
+    . successor λ. successor λ. successor λ. successor λ. successor λ. successor λ. successor λ. successor zero
+  )
+λ int32_width
+# int32_type:
+# word_type at the width 32, a thin define naming the instance.
+. (λtuple. tuple λ. word_type int32_width)
+λ int32_type
+# int32_of_natural:
+# word_of_natural at the width 32, a thin define naming the instance.
+. (λtuple. tuple λ. word_of_natural int32_width)
+λ int32_of_natural
+# int32_to_natural:
+# word_to_natural at the width 32, a thin define naming the instance.
+. (λtuple. tuple λ. word_to_natural int32_width)
+λ int32_to_natural
+. export int32_width int32_type int32_of_natural int32_to_natural

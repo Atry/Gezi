@@ -1,0 +1,90 @@
+# An entry, read as the generic entry reads entry.lambdalattice (gezi.contest.entry.EntryData.at), that runs FFI
+# programs: its executor is the module of corpora/modules/moore
+# with the parameters of java_ffi/moore_parameters, and its backend's knowledge is corpora/compiler/java_ffi, whose data
+# families those parameters name. It has no round, and its other options are the fixture entry's
+# (contest-entries-fixture).
+# FIXME: the imports project "corpora" off the variable gezi, the name of the project root's own directory; they break https://github.com/Atry/private-overlay/issues/1924
+# if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil _ _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "checkpoints")
+λ profitable _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "lookahead")
+λ lazily _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "native_blocks")
+λ no_native_blocks
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "application")
+λ by_layer _ _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "continuation")
+λ substituted_continuations _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "parallel")
+λ both_sides _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "table_sharing")
+λ local_tables _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "table_retention")
+λ _ no_tables_kept _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "instance_retention")
+λ generations _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "dispatch")
+λ fallback
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "implementation")
+λ closure
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "granularity")
+λ predicate_per_code
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "executor")
+λ _ module
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "compilation_place")
+λ upfront_compilation _
+. omega (omega (omega (omega gezi "corpora") "compiler") "java_ffi")
+λ java_ffi
+. omega (omega (omega (omega gezi "corpora") "modules") "moore")
+λ moore_selector
+. omega (omega (omega (omega (omega gezi "corpora") "library") "java_ffi") "moore_parameters")
+λ moore_parameters
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λx. x)
+λ integer_literal
+. export
+λ s
+. s nil
+λ s
+. s java_ffi
+λ jit instances reading execution
+. ( λ
+    . jit
+    λ dispatch implementation granularity native_blocks budget trial
+    . ( dispatch fallback
+      + implementation closure
+      + granularity predicate_per_code
+      + native_blocks no_native_blocks
+      + budget λ. integer_literal 10000
+      + trial λ. integer_literal 1024
+      )
+  + λ
+    . instances
+    λ instance_table instance_retention checkpoints lookahead
+    . ( instance_table λt f. t
+      + instance_retention λ. generations λ. integer_literal 524288
+      + checkpoints profitable
+      + lookahead lazily
+      )
+  + λ
+    . reading
+    λ application table_sharing table_retention continuation parallel
+    . ( application by_layer
+      + table_sharing local_tables
+      + table_retention no_tables_kept
+      + continuation substituted_continuations
+      + parallel both_sides
+      )
+  + λ
+    . execution
+    λ executor compilation_place
+    . ( executor λ. module moore_selector moore_parameters
+      + compilation_place upfront_compilation
+      )
+  )

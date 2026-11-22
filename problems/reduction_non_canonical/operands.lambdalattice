@@ -1,0 +1,25 @@
+#   operands(?Point, -LeftTree, -RightTree): each tree a plain pair of its
+#   constructor's name and the list of its subtrees,
+#   `λtuple. tuple Name Subtrees`.
+#
+# Each text is from_cbor of a string literal, a Scott list of bytes,
+# imported from corpora/library/text/cbor. FIXME: the imports project "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. export
+λ
+. cons
+  ( λ _operands
+    . _operands
+      (text "reduction_non_canonical_even_zero")
+      (λtuple. tuple (text "even") λ. cons (λtuple. tuple (text "zero") nil) nil) λtuple. tuple (text "zero") nil
+  ) nil

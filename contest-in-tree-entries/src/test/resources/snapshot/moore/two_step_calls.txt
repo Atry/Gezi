@@ -1,0 +1,39 @@
+# sample 0
+-24 52
+=>
+λx. x (λx_2. x_2 "test/Echo.echo(B)V[8:232]") λx_2. x_2 "test/Echo.echo(B)V[8:52]"
+
+# sample 1
+57 -124
+=>
+λx. x (λx_2. x_2 "test/Echo.echo(B)V[8:57]") λx_2. x_2 "test/Echo.echo(B)V[8:132]"
+
+# sample 2
+75 101
+=>
+λx. x (λx_2. x_2 "test/Echo.echo(B)V[8:75]") λx_2. x_2 "test/Echo.echo(B)V[8:101]"
+
+# sample 3
+-109 87
+=>
+λx. x (λx_2. x_2 "test/Echo.echo(B)V[8:147]") λx_2. x_2 "test/Echo.echo(B)V[8:87]"
+
+# sample 4
+-1 -31
+=>
+λx. x (λx_2. x_2 "test/Echo.echo(B)V[8:255]") λx_2. x_2 "test/Echo.echo(B)V[8:225]"
+
+# sample 5
+-85 48
+=>
+λx. x (λx_2. x_2 "test/Echo.echo(B)V[8:171]") λx_2. x_2 "test/Echo.echo(B)V[8:48]"
+
+# sample 6
+-19 -83
+=>
+λx. x (λx_2. x_2 "test/Echo.echo(B)V[8:237]") λx_2. x_2 "test/Echo.echo(B)V[8:173]"
+
+# sample 7
+-89 -15
+=>
+λx. x (λx_2. x_2 "test/Echo.echo(B)V[8:167]") λx_2. x_2 "test/Echo.echo(B)V[8:241]"

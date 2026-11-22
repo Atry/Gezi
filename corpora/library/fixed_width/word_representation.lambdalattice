@@ -1,0 +1,54 @@
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "native_types") "markers")
+λ _ $constructor _ _
+. omega (omega (omega (omega corpora "library") "native_types") "natural")
+λ zero successor nat_fold _
+. omega (omega (omega (omega corpora "library") "native_types") "boolean")
+λ true false boolean_type _
+# word_end:
+# The end of a word, the word of width zero: one alternative with no field,
+# under the marker $constructor so that its handle is its own (λk.k alone is
+# the term of λx.x).
+. (λtuple. tuple λ. $constructor λk. k)
+λ word_end
+# word_cell:
+# A word of width w + 1: its least significant bit b, a boolean, and the
+# word above of the w bits above it; one alternative with two fields, under the
+# marker $constructor.
+. (λtuple. tuple λ. $constructor λb above k. k b above)
+λ word_cell
+# word_zero:
+# The word of width w whose bits are all false.
+. (λtuple. tuple λw. nat_fold word_end (λabove. word_cell false above) w)
+λ word_zero
+# word_not:
+# The bitwise negation of a word of width w.
+. ( λ tuple
+    . tuple λw. nat_fold (λx. word_end) (λrest x. x λa above. word_cell (a false true) λ. rest above) w
+  )
+λ word_not
+# word_type:
+# The words of width w, the filter of the type: w cells of a boolean, then
+# the end; written with the constructors' bodies, as list_type is.
+. (λtuple. tuple λw. nat_fold (λk. k) (λabove_type. (λb above k. k b above) boolean_type above_type) w)
+λ word_type
+# word_to_natural:
+# The unsigned value of a word of width w, a natural: b + 2 v at the least
+# significant bit b and the value v of the bits above it. The doubling is a
+# fold that reads v once, since a reading that does not share computes a
+# value read twice twice; the steps are linear in the value.
+. ( λ tuple
+    . tuple
+    λ w
+    . nat_fold
+      (λx. zero)
+      ( λ rest x
+        . x
+        λ a above
+        . (λabove_value. a (successor above_value) above_value) λ. nat_fold zero (λm. successor λ. successor m) λ. rest above
+      ) w
+  )
+λ word_to_natural
+. export word_end word_cell word_zero word_not word_type word_to_natural

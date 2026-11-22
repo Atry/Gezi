@@ -1,0 +1,34 @@
+# The static argument transformation of a recursion (Santos 1995; lambda
+# dropping, Danvy and Schultz 1997): a fixpoint whose body passes its third
+# argument G unchanged to every recursive call, `S M G`, is applied to a
+# count X and a value H as the fixpoint of a body of two arguments with H in
+# place of G. The left side's `K @ (M^(S @ M @ G)) @ N @ G` is a
+# higher-order occurrence under the object lambda S^N^G^: it matches a body B
+# by beta, K being B with every `S M G` replaced by `K's first argument
+# applied to M`, N by its second and G by its third, when that leaves no S, N
+# or G.
+# fixpoint is prelude's.
+#
+# The lemma holds in DdLP96's D∞ for every environment, by fixpoint
+# induction (the paper proof its declaration cites), and is sound by
+# Definition 14, its sides ≃_O under every substitution, through the
+# completeness of that reading, which is proved in Lean (gezi/lean,
+# ContextualPreorder.completeness). ⊢ does not derive it: λx. fixpoint F x H
+# is a fixed point of G, and that it is fixpoint G needs the induction. The
+# induction is a paper proof, so the lemma stands as a named axiom citing it
+# until a Lean proof in wadsworthModel replaces it.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "prelude") "fixpoint")
+λ fixpoint
+. export
+λ _ rewriting _ _
+. rewriting
+λ _ lemmas _
+. lemmas
+λ s
+. s
+  (λk. k "static_argument_fixpoint")
+  (λx_0 x_1 x_2. fixpoint (λx_3 x_4 x_5. x_0 (λx_6. x_3 x_6 x_5) x_4 x_5) x_1 x_2)
+  (λx_0 x_1 x_2. fixpoint (λx_3 x_4. x_0 x_3 x_4 x_2) x_1) λ_ md _. md λk. k "[static_argument_fixpoint](docs/design/gezi-set-equations-proofs.md)"

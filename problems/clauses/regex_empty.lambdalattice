@@ -1,0 +1,7 @@
+#   BRZOZOWSKI DERIVATIVES OF A RECURSIVE GRAMMAR. A regular expression is
+#   Scott data with five constructors, empty, epsilon, a letter, an
+#   alternation and a concatenation; a letter is a Scott boolean (`a` is
+#   true, `b` is false); a word is a Scott list of letters. A RECURSIVE
+#   GRAMMAR is a cyclic expression built by a fixpoint, which may describe a
+#   language that is not regular (a^n b^n below).
+λ export. export λx_0 x_1 x_2 x_3 x_4. x_0

@@ -1,0 +1,96 @@
+# An interpreter in lambda plus merge, with no label: problems of the
+# reduction series, each program's answer one binary natural.
+#
+# THE OBJECT LANGUAGE is a small expression language, its syntax Scott
+# encoded with six constructors, \num. \add. \mul. \var. \let. \amb. C:
+# - num n, a binary numeral;
+# - add a b and mul a b;
+# - var i, the i-th binding of the environment, i a unary numeral;
+# - let a b, b with a bound as var 0;
+# - amb a b, both a and b, as a merge.
+# THE INTERPRETER is a curried function, recursive by self-application:
+# eval env e cases on e's constructor, with the label-free binary plus and
+# times of contest_merge_dynamic.pl. The environment is a Scott list, and
+# a let conses the unevaluated call eval env a onto it: the object
+# language is call by name, so every use of a variable evaluates its
+# binding again, unless a reading shares the calls.
+#
+# THE PROGRAMS:
+# - Fibonacci by lets: x0 = 0, x1 = 1, x(k) = x(k - 1) + x(k - 2), the
+#   answer x(n). Call by name makes it exponential; a reading that shares
+#   eval env a by spelling makes it linear in the lets, the environment
+#   being the same term wherever the call recurs;
+# - squaring by lets: x0 = 3, x(k) = x(k - 1) * x(k - 1), the answer
+#   3^(2^n): speed of evaluation, the numbers doubling their bits each let;
+# - both orders: amb (a + b) (b + a), two heads that decode to one value.
+# The reference (reference_value/2) evaluates the syntax in Prolog, call
+# by value, while the interpreter is call by name. The two agree when every
+# amb has alternatives of one value: then each choice gives the same value
+# wherever a binding is used. With alternatives of different values they
+# differ once the amb sits in a binding used twice (let x = amb 1 2 in
+# x + x has {2, 4} by value and {2, 3, 4} by name), and a problem of the reduction series has one value anyway.
+# So every amb here has alternatives of one value, and reference_value/2
+# throws on an amb whose alternatives differ.
+#
+# The sizes: Fibonacci by 20, 40, 80 and 160 lets and 320 beyond; squaring
+# by 4, 5, 6 and 7 lets and 8 beyond; both orders at 16 and 32 digits.
+#
+# READINGS (2026-09-28, CPU 2 under contest_limited.sh, a fresh process per
+# reading, every answer of lambda_jit_scott_decoding:decoded/4 collected,
+# 10 s, 256 MB, 256 MB), each answer the expected tree where read:
+# - weak_head: Fibonacci by 10 lets in 200 ms and by 20 stopped, call by
+#   name evaluating each binding again at every use; squaring by 3 lets in
+#   580 ms and by 4 stopped; both orders at 16 and 32 digits in 82 and 173
+#   ms;
+# - tabling(weak_head): Fibonacci by 20, 40, 80 and 160 lets in 72, 314,
+#   1009 and 4707 ms, by 320 stopped; squaring by 4, 5, 6 and 7 lets in 47,
+#   172, 734 and 2982 ms, by 8 stopped; both orders in 73 and 189 ms.
+#   Tabling shares the calls eval env a, whose environment is the same
+#   term wherever the call recurs, so the interpreter's call by name costs
+#   it nothing; what remains is the interpretation itself and the binary
+#   arithmetic.
+# LIMITS: the family's, 10 s, 256 MB, 256 MB.
+
+#
+# An expression is a constructor of reduction_interpreter/expression,
+# number, add, multiply, variable, let or amb, with its fields.
+# Each other text is from_cbor of a string literal, a Scott list of bytes,
+# imported from corpora/library/text/cbor. Each number is from_cbor of an
+# integer literal, a Scott integer, imported from corpora/library/integer/cbor.
+# FIXME: the imports project "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λx. x)
+λ integer
+. omega (omega (omega (omega gezi "problems") "reduction_interpreter") "expression")
+λ number add multiply variable let amb
+. export
+λ
+. cons
+  ( λ _program
+    . _program (text "reduction_interpreter_both_orders_sixteen_digits")
+    λ
+    . amb (add (number λ. integer 1234567890123456) λ. number λ. integer 6543210987654321) λ. add (number λ. integer 6543210987654321) λ. number λ. integer 1234567890123456
+  )
+λ
+. cons
+  ( λ _program
+    . _program (text "reduction_interpreter_both_orders_thirty_two_digits")
+    λ
+    . amb
+      ( add (number λ. integer 12345678901234567890123456789012) λ. number λ. integer 21098765432109876543210987654321
+      )
+    λ
+    . add (number λ. integer 21098765432109876543210987654321) λ. number λ. integer 12345678901234567890123456789012
+  ) nil

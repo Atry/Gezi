@@ -1,0 +1,488 @@
+# sample 0
+λ
+# comment 1
+x_0
+.
+x_0
+=>
+# comment 1
+λ x_0
+. x_0
+
+
+# sample 1
+λ
+x_0 .
+(
+# comment 4
+x_0
+∥ x_0 )
+# comment 8
+
+=>
+λ x_0
+# comment 4
+. ( x_0
+  ∥ x_0
+  )
+# comment 8
+
+
+# sample 2
+# comment 0
+λ x_0
+. (
+# comment 4
+x_0 ∥
+x_0
+∥ x_0
+x_0 )
+=>
+# comment 0
+λ x_0
+# comment 4
+. ( x_0
+  ∥ x_0
+  ∥ x_0 x_0
+  )
+
+
+# sample 3
+# comment 0
+λ x_0
+.
+(
+λ x_1 .
+(
+x_0 x_0 ∥ (
+x_1
++ x_1 )
+)
++
+(
+λ x_1 . x_0
+) (
+x_0
++
+x_0
+# comment 28
+) )
+=>
+# comment 0
+λ x_0
+. ( λ x_1
+    . ( x_0 x_0
+      ∥ ( x_1
+        + x_1
+        )
+      )
+  + ( λx_1. x_0
+    )
+    ( x_0
+    + x_0
+    )
+  )
+# comment 28
+
+
+# sample 4
+# comment 0
+λ
+x_0 .
+λ
+x_1
+.
+( λ x_2 . (
+# comment 11
+x_0
+# comment 12
+∥
+x_2
+# comment 14
+)
++ λ
+x_2
+.
+( x_0 ∥ x_2
+)
++ ( x_0
+x_0
+∥ x_0
+# comment 30
+x_0 ) )
+=>
+# comment 0
+λ x_0 x_1
+. ( λ x_2
+    # comment 11
+    . ( x_0
+      # comment 12
+      ∥ x_2
+      )
+  # comment 14
+  + λ x_2
+    . ( x_0 ∥ x_2
+      )
+  + ( x_0 x_0
+    ∥ x_0
+      # comment 30
+      x_0
+    )
+  )
+
+
+# sample 5
+# comment 0
+λ
+# comment 1
+x_0 .
+(
+λ x_1 . x_0 x_0 + λ
+x_1 .
+# comment 13
+x_0 x_0
+)
+( x_0
+x_0 ∥
+# comment 20
+λ x_1
+.
+( x_1 ∥
+x_1
+# comment 27
+) )
+=>
+# comment 0
+# comment 1
+λ x_0
+. ( λx_1. x_0 x_0
+  + λ x_1
+    # comment 13
+    . x_0 x_0
+  )
+  ( x_0 x_0
+  # comment 20
+  ∥ λ x_1
+    . ( x_1
+      ∥ x_1
+      )
+  )
+# comment 27
+
+
+# sample 6
+λ
+x_0
+# comment 2
+.
+# comment 3
+x_0 (
+# comment 5
+( x_0 +
+x_0 + x_0 )
+# comment 12
+x_0 )
+# comment 14
+
+=>
+λ x_0
+# comment 2
+# comment 3
+. x_0
+# comment 5
+λ
+. ( x_0
+  + x_0
+  + x_0
+  )
+  # comment 12
+  x_0
+# comment 14
+
+
+# sample 7
+# comment 0
+λ
+# comment 1
+x_0
+.
+# comment 3
+x_0
+=>
+# comment 0
+# comment 1
+λ x_0
+# comment 3
+. x_0
+
+
+# sample 8
+λ
+x_0
+# comment 2
+.
+# comment 3
+(
+(
+# comment 5
+x_0 + x_0 +
+# comment 9
+x_0 ) ( x_0
++ x_0
+# comment 15
++ x_0
+)
+(
+( λ
+# comment 21
+x_1 .
+# comment 23
+x_1
+x_1 ) ( λ
+x_1
+# comment 29
+. (
+x_1 ∥ x_1 )
+) )
+# comment 37
+∥
+# comment 38
+x_0 (
+λ
+x_1 .
+# comment 43
+λ
+x_2
+.
+(
+x_2
+∥ x_1 ∥
+# comment 51
+( x_2 ∥
+# comment 54
+x_1
+# comment 55
+) ) )
+)
+=>
+λ x_0
+# comment 2
+# comment 3
+# comment 5
+. ( λ
+    . ( x_0
+      + x_0
+      # comment 9
+      + x_0
+      )
+      ( x_0
+      + x_0
+      # comment 15
+      + x_0
+      )
+    # comment 21
+    λ
+    . ( λ x_1
+        # comment 23
+        . x_1 x_1
+      )
+    λ x_1
+    # comment 29
+    . ( x_1 ∥ x_1
+      )
+  # comment 37
+  # comment 38
+  ∥ λ
+    . x_0
+    λ x_1
+      # comment 43
+      x_2
+    . ( x_2
+      ∥ x_1
+      # comment 51
+      ∥ ( x_2
+        # comment 54
+        ∥ x_1
+        )
+      )
+  )
+# comment 55
+
+
+# sample 9
+λ x_0
+. x_0
+=>
+λ x_0
+. x_0
+
+
+# sample 10
+λ x_0
+# comment 2
+.
+( λ
+x_1 .
+# comment 7
+x_0
+# comment 8
+∥
+λ
+# comment 10
+x_1
+.
+x_0
++
+( λ
+x_1
+.
+x_1 ∥
+( x_0 ∥ x_0
+)
+)
++
+x_0 +
+λ x_1
+.
+( (
+x_1 ∥ x_1 )
+(
+x_1 x_0
+) +
+# comment 43
+(
+# comment 44
+x_1
+∥
+x_1 )
+( x_1 x_0 ) )
+# comment 53
+)
+=>
+λ x_0
+# comment 2
+. ( λ x_1
+    # comment 7
+    . x_0
+  # comment 8
+  # comment 10
+  ∥ λ x_1
+    . x_0
+  + ( λ x_1
+      . x_1
+    ∥ ( x_0 ∥ x_0
+      )
+    )
+  + x_0
+  + λ x_1
+    . ( λ
+        . ( x_1 ∥ x_1
+          )
+        λ
+        . x_1 x_0
+      # comment 43
+      # comment 44
+      + λ
+        . ( x_1
+          ∥ x_1
+          )
+        λ
+        . x_1 x_0
+      )
+  )
+# comment 53
+
+
+# sample 11
+λ
+x_0 .
+( (
+x_0
+# comment 6
+∥
+x_0
+∥
+x_0 x_0
+# comment 11
+)
+# comment 12
+( x_0 ∥ x_0
+∥
+x_0 x_0 ) ( λ
+# comment 22
+x_1
+# comment 23
+. x_1
+)
+# comment 26
+∥
+# comment 27
+( x_0
+∥ x_0
+∥
+x_0 x_0
+# comment 34
+)
+# comment 35
+(
+x_0
+# comment 37
+∥
+x_0
+∥
+# comment 40
+x_0
+# comment 41
+x_0
+# comment 42
+)
+(
+# comment 44
+λ x_1
+# comment 46
+. x_1 ) )
+# comment 50
+
+=>
+λ x_0
+. ( λ
+    . ( x_0
+      # comment 6
+      ∥ x_0
+      ∥ x_0 x_0
+      )
+      # comment 11
+      # comment 12
+      ( x_0
+      ∥ x_0
+      ∥ x_0 x_0
+      )
+    # comment 22
+    λ x_1
+    # comment 23
+    . x_1
+  # comment 26
+  # comment 27
+  ∥ λ
+    . ( x_0
+      ∥ x_0
+      ∥ x_0 x_0
+      )
+      # comment 34
+      # comment 35
+      ( x_0
+      # comment 37
+      ∥ x_0
+      # comment 40
+      ∥ x_0
+        # comment 41
+        x_0
+      )
+    # comment 42
+    # comment 44
+    λ x_1
+    # comment 46
+    . x_1
+  )
+# comment 50
+

@@ -1,0 +1,6 @@
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega opacity "library") "opacity_terms") "identity")
+λ identity
+. export λ. identity identity

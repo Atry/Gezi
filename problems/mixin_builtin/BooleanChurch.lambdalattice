@@ -1,0 +1,8 @@
+# The observer of a Boolean of mixin_builtin/Builtin as a Church Boolean: the
+# member church of True and False, `λt f. t` and `λt f. f`, in the encoding of
+# the Builtin files, inheriting Builtin's BooleanData. MIXINv2 observes a
+# Boolean by the FFI file BooleanToPython (Builtin/__init__.py), which has no
+# term; this file takes its place for a reading at church.
+(λo. o o "BooleanData") (mixin_builtin mixin_builtin "Builtin") BooleanChurch
++ (λ"BooleanFactory" BooleanFactory. ( (λ"True" True. (λ"church" church. λt f. t))
++ (λ"False" False. (λ"church" church. λt f. f))))

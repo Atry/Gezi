@@ -1,0 +1,46 @@
+# The Prolog backend's preset with the fixed-width integers: the base preset
+# (prolog_backend_preset.lambdalattice) and the native typing of the words,
+# enabled together with the backend's representation of them, as one module
+# (CONTRIBUTING.md, "Efficiency by design, with native structures"). It extends the base preset,
+# which it imports whole, since fixed_width_shapes is compiled with
+# prolog_backend_shapes: enabling it always brings the backend along.
+#
+# The fixed-width typing is fixed_width_unions (the words' schemes in the
+# zero universe) and fixed_width_shapes (the words' candidacy for the
+# backend's typed versions); its backend half is fixed_width_prolog_backend
+# (the words represented natively, one integer of w bits each); fixed_width
+# declares the words' library terms.
+#
+# prolog_backend_fixed_width_preset        the knowledge a library is
+#                                          compiled from
+# prolog_backend_fixed_width_type_check    the knowledge of the type-check
+#                                          round, the backend's shapes always
+#                                          with it
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega corpora "compiler") "prolog_backend_preset")
+λ prolog_backend_preset _
+. omega (omega (omega corpora "compiler") "prolog_backend_preset")
+λ _ prolog_backend_type_check
+. omega (omega (omega corpora "compiler") "fixed_width")
+λ fixed_width
+. omega (omega (omega corpora "compiler") "fixed_width_unions")
+λ fixed_width_unions
+. omega (omega (omega corpora "compiler") "fixed_width_prolog_backend")
+λ fixed_width_prolog_backend
+. omega (omega (omega corpora "compiler") "fixed_width_shapes")
+λ fixed_width_shapes
+. ( λ tuple
+    . tuple
+      ( fixed_width_shapes
+      + fixed_width_prolog_backend
+      + fixed_width_unions
+      + fixed_width
+      + prolog_backend_preset
+      )
+  )
+λ prolog_backend_fixed_width_preset
+. (λtuple. tuple (fixed_width_shapes + fixed_width_unions + prolog_backend_type_check))
+λ prolog_backend_fixed_width_type_check
+. export prolog_backend_fixed_width_preset prolog_backend_fixed_width_type_check

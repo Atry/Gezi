@@ -1,0 +1,157 @@
+# THE HARD CONTEST POINTS, and the pieces they are built from.
+#
+# Every point is a program on which plain call-by-name weak
+# head reduction is slow or runs forever, and whose answer is still
+# well defined: a head (a Scott boolean or natural of the prelude), or no
+# head at all. As in `contest_clauses.pl`, a coinductive claim is written
+# as a search for a refutation, so its greatest-fixed-point answer "the
+# claim holds" is the absence of a head, read `failed` by a tabled
+# evaluation that recognises the recursion coming back.
+#
+# Pieces of `contest_clauses.pl` (numerals, labelled lists, the subtype
+# check) are reached by module-qualified calls into `contest`; the prelude
+# through `use_module`. EVERY BINDER IS A DISTINCT PROLOG VARIABLE within
+# one clause, and a piece used twice is called twice.
+#
+# Each point's comment gives its intended answer and why, what makes it
+# hard for plain weak head reduction, and which mechanism it is aimed
+# at. The table of intended answers and limits is
+# `contest_hard_answers.pl`.
+#
+# TARGET ALGORITHMS, the specific known algorithms the problem targets, each
+# with its prior work:
+# - H1, H2, H8, H10, H11, H19, H27: minimising the automaton of a rational
+#   value whose spelling grows or repeats late: R. Paige, R. E. Tarjan,
+#   Three Partition Refinement Algorithms, SIAM J. Computing 1987,
+#   doi:10.1137/0216062; F. Bonchi, D. Pous, Checking NFA Equivalence with
+#   Bisimulations up to Congruence, POPL 2013, doi:10.1145/2429069.2429124.
+# - H3, H6, H9, H13, H17: sharing under call by need: J. Launchbury, A
+#   Natural Semantics for Lazy Evaluation, POPL 1993,
+#   doi:10.1145/158511.158618; Z. M. Ariola, M. Felleisen, J. Maraist, M.
+#   Odersky, P. Wadler, A Call-by-Need Lambda Calculus, POPL 1995,
+#   doi:10.1145/199448.199507.
+# - H4: checking EG good on the graph of states: E. M. Clarke, E. A.
+#   Emerson, A. P. Sistla, Automatic Verification of Finite-State Concurrent
+#   Systems Using Temporal Logic Specifications, TOPLAS 1986,
+#   doi:10.1145/5397.5399.
+# - H5, H13, H14, H17: driving with generalisation, which folds a path whose
+#   arguments are rebuilt: V. F. Turchin, The Concept of a Supercompiler,
+#   TOPLAS 1986, doi:10.1145/5956.5957.
+# - H7: tabled evaluation: W. Chen, D. S. Warren, Tabled Evaluation with
+#   Delaying for General Logic Programs, J. ACM 1996,
+#   doi:10.1145/227595.227597.
+# - H9: circular programs: R. S. Bird, Using Circular Programs to Eliminate
+#   Multiple Traversals of Data, Acta Informatica 1984,
+#   doi:10.1007/BF00264249.
+# - H12: productivity of stream definitions: J. Endrullis, C. Grabmayer, D.
+#   Hendriks, A. Isihara, J. W. Klop, Productivity of Stream Definitions,
+#   TCS 2010, doi:10.1016/j.tcs.2009.10.014.
+# - H16, H23, H26: a JIT of the interpreter's hot loops: C. F. Bolz, A.
+#   Cuni, M. Fijalkowski, A. Rigo, Tracing the Meta-Level: PyPy's Tracing
+#   JIT Compiler, ICOOOLPS 2009, doi:10.1145/1565824.1565827.
+# - H18: dynamic programming by memoisation: D. Michie, "Memo" Functions and
+#   Machine Learning, Nature 1968, doi:10.1038/218019a0.
+# - H20: regular expressions by derivatives, compared by bisimulation: J. A.
+#   Brzozowski, Derivatives of Regular Expressions, J. ACM 1964,
+#   doi:10.1145/321239.321249; F. Bonchi, D. Pous, Checking NFA Equivalence
+#   with Bisimulations up to Congruence, POPL 2013,
+#   doi:10.1145/2429069.2429124.
+# - H22, H24, H28: coinductive certificates confirmed by the equations: D.
+#   Kozen, A. Silva, Practical Coinduction, Mathematical Structures in
+#   Computer Science 2016, doi:10.1017/S0960129515000493.
+# - H15: coinductive equality of cyclic trees, read as the program's
+#   sequential conjunction computes it: D. Kozen, A. Silva, Practical
+#   Coinduction, Mathematical Structures in Computer Science 2016,
+#   doi:10.1017/S0960129515000493.
+# - H29, H30: closing an assumption only on the nearest ancestor judgment,
+#   as coinductive logic programming does: L. Simon, A. Mallya, A. Bansal,
+#   G. Gupta, Coinductive Logic Programming, ICLP 2006,
+#   doi:10.1007/11799573_25.
+
+#
+# Each text is from_cbor of a string literal, a Scott list of bytes,
+# imported from corpora/library/text/cbor. Each number is from_cbor of an
+# integer literal, a Scott integer, imported from corpora/library/integer/cbor.
+# FIXME: the imports project "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λx. x)
+λ integer
+. export
+λ
+. cons
+  ( λ _repmin_values
+    . _repmin_values (text "small") λ. cons (integer 5) λ. cons (integer 3) λ. cons (integer 7) λ. cons (integer 4) nil
+  )
+λ
+. cons
+  ( λ _repmin_values
+    . _repmin_values (text "large")
+    λ
+    . cons (integer 7)
+    λ
+    . cons (integer 5)
+    λ
+    . cons (integer 9)
+    λ
+    . cons (integer 6)
+    λ
+    . cons (integer 8)
+    λ
+    . cons (integer 5)
+    λ
+    . cons (integer 7)
+    λ
+    . cons (integer 9)
+    λ
+    . cons (integer 6)
+    λ
+    . cons (integer 8)
+    λ
+    . cons (integer 5)
+    λ
+    . cons (integer 7)
+    λ
+    . cons (integer 9)
+    λ
+    . cons (integer 2)
+    λ
+    . cons (integer 6)
+    λ
+    . cons (integer 8)
+    λ
+    . cons (integer 9)
+    λ
+    . cons (integer 7)
+    λ
+    . cons (integer 5)
+    λ
+    . cons (integer 8)
+    λ
+    . cons (integer 6)
+    λ
+    . cons (integer 9)
+    λ
+    . cons (integer 7)
+    λ
+    . cons (integer 5)
+    λ
+    . cons (integer 8)
+    λ
+    . cons (integer 6)
+    λ
+    . cons (integer 9)
+    λ
+    . cons (integer 7) λ. cons (integer 5) λ. cons (integer 8) λ. cons (integer 6) λ. cons (integer 9) nil
+  ) nil

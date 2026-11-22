@@ -1,0 +1,92 @@
+hard_intended(mixin_chord_ring_reach)	head	boolean(true)
+hard_intended(mixin_common_subsequence_eight)	head	boolean(true)
+hard_intended(mixin_common_subsequence_five)	head	boolean(true)
+hard_intended(mixin_common_subsequence_four)	head	boolean(true)
+hard_intended(mixin_common_subsequence_seven)	head	boolean(true)
+hard_intended(mixin_common_subsequence_six)	head	boolean(true)
+hard_intended(mixin_common_subsequence_three)	head	boolean(true)
+hard_intended(mixin_common_subsequence_two)	head	boolean(true)
+hard_intended(mixin_diamond_two_hop)	head	boolean(true)
+hard_intended(mixin_direct_first_reaches)	head	boolean(true)
+hard_intended(mixin_double_successor_ring_reach)	head	boolean(true)
+hard_intended(mixin_lasso_reach)	head	boolean(true)
+hard_intended(mixin_ring_forty_reaches)	head	boolean(true)
+hard_intended(mixin_ring_three_reaches)	head	boolean(true)
+hard_intended(mixin_ring_twenty_reaches)	head	boolean(true)
+hard_intended(mixin_subset_sum_eight)	head	boolean(true)
+hard_intended(mixin_subset_sum_four)	head	boolean(true)
+hard_intended(mixin_subset_sum_six)	head	boolean(true)
+hard_intended(mixin_subset_sum_sixteen)	head	boolean(true)
+hard_intended(mixin_subset_sum_ten)	head	boolean(true)
+hard_intended(mixin_subset_sum_twelve)	head	boolean(true)
+hard_intended(mixin_subset_sum_two)	head	boolean(true)
+hard_intended(mixin_two_rings_reach)	head	boolean(true)
+hard_raised_limits(mixin_chord_ring_reach)	limits(10,256,256)
+hard_raised_limits(mixin_common_subsequence_eight)	limits(10,256,256)
+hard_raised_limits(mixin_common_subsequence_five)	limits(10,256,256)
+hard_raised_limits(mixin_common_subsequence_four)	limits(10,256,256)
+hard_raised_limits(mixin_common_subsequence_seven)	limits(10,256,256)
+hard_raised_limits(mixin_common_subsequence_six)	limits(10,256,256)
+hard_raised_limits(mixin_common_subsequence_three)	limits(10,256,256)
+hard_raised_limits(mixin_common_subsequence_two)	limits(10,256,256)
+hard_raised_limits(mixin_diamond_two_hop)	limits(10,256,256)
+hard_raised_limits(mixin_direct_first_reaches)	limits(10,256,256)
+hard_raised_limits(mixin_double_successor_ring_reach)	limits(10,256,256)
+hard_raised_limits(mixin_lasso_reach)	limits(10,256,256)
+hard_raised_limits(mixin_ring_forty_reaches)	limits(10,256,256)
+hard_raised_limits(mixin_ring_three_reaches)	limits(10,256,256)
+hard_raised_limits(mixin_ring_twenty_reaches)	limits(10,256,256)
+hard_raised_limits(mixin_subset_sum_eight)	limits(10,256,256)
+hard_raised_limits(mixin_subset_sum_four)	limits(10,256,256)
+hard_raised_limits(mixin_subset_sum_six)	limits(10,256,256)
+hard_raised_limits(mixin_subset_sum_sixteen)	limits(10,256,256)
+hard_raised_limits(mixin_subset_sum_ten)	limits(10,256,256)
+hard_raised_limits(mixin_subset_sum_twelve)	limits(10,256,256)
+hard_raised_limits(mixin_subset_sum_two)	limits(10,256,256)
+hard_raised_limits(mixin_two_rings_reach)	limits(10,256,256)
+point_purpose(mixin_chord_ring_reach)	inheritance
+point_purpose(mixin_common_subsequence_eight)	inheritance
+point_purpose(mixin_common_subsequence_five)	inheritance
+point_purpose(mixin_common_subsequence_four)	inheritance
+point_purpose(mixin_common_subsequence_seven)	inheritance
+point_purpose(mixin_common_subsequence_six)	inheritance
+point_purpose(mixin_common_subsequence_three)	inheritance
+point_purpose(mixin_common_subsequence_two)	inheritance
+point_purpose(mixin_diamond_two_hop)	inheritance
+point_purpose(mixin_direct_first_reaches)	inheritance
+point_purpose(mixin_double_successor_ring_reach)	inheritance
+point_purpose(mixin_lasso_reach)	inheritance
+point_purpose(mixin_ring_forty_reaches)	inheritance
+point_purpose(mixin_ring_three_reaches)	inheritance
+point_purpose(mixin_ring_twenty_reaches)	inheritance
+point_purpose(mixin_subset_sum_eight)	inheritance
+point_purpose(mixin_subset_sum_four)	inheritance
+point_purpose(mixin_subset_sum_six)	inheritance
+point_purpose(mixin_subset_sum_sixteen)	inheritance
+point_purpose(mixin_subset_sum_ten)	inheritance
+point_purpose(mixin_subset_sum_twelve)	inheritance
+point_purpose(mixin_subset_sum_two)	inheritance
+point_purpose(mixin_two_rings_reach)	inheritance
+scored_finite_head(mixin_chord_ring_reach)	[boolean(true)]	the path [n0,n1,n2,n3,n4,n5,n6,n7,n8,n9] of the query reaches(n0,n9) is a finite sequence of choices, each union of classes choosing the class of the path's next node or its reachable, and its end reads the marker of the target, the Church true, so the test yields \\a. a
+scored_finite_head(mixin_common_subsequence_eight)	[boolean(true)]	[a,a,b,b,b,b,a,b] and [a,a,a,a,b,b,a,a] have a common subsequence of length 5 (the reference's table); following its matches through the three-way union reaches need zero in finitely many steps, whose found is the Church true, so the test yields \\a. a
+scored_finite_head(mixin_common_subsequence_five)	[boolean(true)]	[a,a,b,b,b] and [a,a,a,a,b] have a common subsequence of length 3 (the reference's table); following its matches through the three-way union reaches need zero in finitely many steps, whose found is the Church true, so the test yields \\a. a
+scored_finite_head(mixin_common_subsequence_four)	[boolean(true)]	[a,a,b,b] and [a,a,a,a] have a common subsequence of length 2 (the reference's table); following its matches through the three-way union reaches need zero in finitely many steps, whose found is the Church true, so the test yields \\a. a
+scored_finite_head(mixin_common_subsequence_seven)	[boolean(true)]	[a,a,b,b,b,b,a] and [a,a,a,a,b,b,a] have a common subsequence of length 5 (the reference's table); following its matches through the three-way union reaches need zero in finitely many steps, whose found is the Church true, so the test yields \\a. a
+scored_finite_head(mixin_common_subsequence_six)	[boolean(true)]	[a,a,b,b,b,b] and [a,a,a,a,b,b] have a common subsequence of length 4 (the reference's table); following its matches through the three-way union reaches need zero in finitely many steps, whose found is the Church true, so the test yields \\a. a
+scored_finite_head(mixin_common_subsequence_three)	[boolean(true)]	[a,a,b] and [a,a,a] have a common subsequence of length 2 (the reference's table); following its matches through the three-way union reaches need zero in finitely many steps, whose found is the Church true, so the test yields \\a. a
+scored_finite_head(mixin_common_subsequence_two)	[boolean(true)]	[a,a] and [a,a] have a common subsequence of length 2 (the reference's table); following its matches through the three-way union reaches need zero in finitely many steps, whose found is the Church true, so the test yields \\a. a
+scored_finite_head(mixin_diamond_two_hop)	[boolean(true)]	the path [a,b,d] of the query two_hop(a,d) is a finite sequence of choices, each union of classes choosing the class of the path's next node or its reachable, and its end reads the marker of the target, the Church true, so the test yields \\a. a
+scored_finite_head(mixin_direct_first_reaches)	[boolean(true)]	the path [a,b,c] of the query reaches(a,c) is a finite sequence of choices, each union of classes choosing the class of the path's next node or its reachable, and its end reads the marker of the target, the Church true, so the test yields \\a. a
+scored_finite_head(mixin_double_successor_ring_reach)	[boolean(true)]	the path [n0,n2,n4,n6,n8,n10,n11] of the query reaches(n0,n11) is a finite sequence of choices, each union of classes choosing the class of the path's next node or its reachable, and its end reads the marker of the target, the Church true, so the test yields \\a. a
+scored_finite_head(mixin_lasso_reach)	[boolean(true)]	the path [t0,t1,t2,r0,r1,r2,r3,r4,r5,r6,r7] of the query reaches(t0,r7) is a finite sequence of choices, each union of classes choosing the class of the path's next node or its reachable, and its end reads the marker of the target, the Church true, so the test yields \\a. a
+scored_finite_head(mixin_ring_forty_reaches)	[boolean(true)]	the path [n0,n1,n2,n3,n4,n5,n6,n7,n8,n9,n10,n11,n12,n13,n14,n15,n16,n17,n18,n19,n20,n21,n22,n23,n24,n25,n26,n27,n28,n29,n30,n31,n32,n33,n34,n35,n36,n37,n38,n39] of the query reaches(n0,n39) is a finite sequence of choices, each union of classes choosing the class of the path's next node or its reachable, and its end reads the marker of the target, the Church true, so the test yields \\a. a
+scored_finite_head(mixin_ring_three_reaches)	[boolean(true)]	the path [n0,n1,n2] of the query reaches(n0,n2) is a finite sequence of choices, each union of classes choosing the class of the path's next node or its reachable, and its end reads the marker of the target, the Church true, so the test yields \\a. a
+scored_finite_head(mixin_ring_twenty_reaches)	[boolean(true)]	the path [n0,n1,n2,n3,n4,n5,n6,n7,n8,n9,n10,n11,n12,n13,n14,n15,n16,n17,n18,n19] of the query reaches(n0,n19) is a finite sequence of choices, each union of classes choosing the class of the path's next node or its reachable, and its end reads the marker of the target, the Church true, so the test yields \\a. a
+scored_finite_head(mixin_subset_sum_eight)	[boolean(true)]	98 is the sum of all of the items [3,5,7,11,13,17,19,23]: choosing the branch that takes the item at every level makes n finite binary additions and then the binary equality, which reaches the Church true, so the test yields \\a. a
+scored_finite_head(mixin_subset_sum_four)	[boolean(true)]	26 is the sum of all of the items [3,5,7,11]: choosing the branch that takes the item at every level makes n finite binary additions and then the binary equality, which reaches the Church true, so the test yields \\a. a
+scored_finite_head(mixin_subset_sum_six)	[boolean(true)]	56 is the sum of all of the items [3,5,7,11,13,17]: choosing the branch that takes the item at every level makes n finite binary additions and then the binary equality, which reaches the Church true, so the test yields \\a. a
+scored_finite_head(mixin_subset_sum_sixteen)	[boolean(true)]	438 is the sum of all of the items [3,5,7,11,13,17,19,23,29,31,37,41,43,47,53,59]: choosing the branch that takes the item at every level makes n finite binary additions and then the binary equality, which reaches the Church true, so the test yields \\a. a
+scored_finite_head(mixin_subset_sum_ten)	[boolean(true)]	158 is the sum of all of the items [3,5,7,11,13,17,19,23,29,31]: choosing the branch that takes the item at every level makes n finite binary additions and then the binary equality, which reaches the Church true, so the test yields \\a. a
+scored_finite_head(mixin_subset_sum_twelve)	[boolean(true)]	236 is the sum of all of the items [3,5,7,11,13,17,19,23,29,31,37,41]: choosing the branch that takes the item at every level makes n finite binary additions and then the binary equality, which reaches the Church true, so the test yields \\a. a
+scored_finite_head(mixin_subset_sum_two)	[boolean(true)]	8 is the sum of all of the items [3,5]: choosing the branch that takes the item at every level makes n finite binary additions and then the binary equality, which reaches the Church true, so the test yields \\a. a
+scored_finite_head(mixin_two_rings_reach)	[boolean(true)]	the path [n0,n1,n2,n3,m0,m1,m2,m3,m4,m5] of the query reaches(n0,m5) is a finite sequence of choices, each union of classes choosing the class of the path's next node or its reachable, and its end reads the marker of the target, the Church true, so the test yields \\a. a

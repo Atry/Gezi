@@ -1,0 +1,10 @@
+λ export
+. (λtuple. tuple λt _. t)
+λ true
+. (λtuple. tuple λ_ f. f)
+λ false
+. (λtuple. tuple λb. b true false)
+λ boolean
+. (λtuple. tuple λa. a true)
+λ or
+. export true false boolean or

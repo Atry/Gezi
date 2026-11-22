@@ -1,0 +1,14 @@
+# The representation boolean without the data family that gives its
+# constructors.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega backend_boolean_codec "library") "boolean_library") "boolean_type")
+λ boolean_type
+. export
+λ _ _ _ backend
+. backend
+λ _ _ representations _ _ _
+. representations
+λ s
+. s boolean_type λk. k "boolean"

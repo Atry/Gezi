@@ -1,0 +1,30 @@
+#   ladder_size(?Size, ?Height): sized by weak_head's reading of the
+#   unreachable direct point (a probe of 2026-09-30, CPU 11,
+#   20 s: height 6 in 417 ms, 10 in 8380 ms, 14 stopped), about doubling
+#   with every rung, so that ten is read within the limits (by weak_head at the edge
+#   of its 10 s) and fourteen is not, which needs the search replaced.
+#
+# Each text is from_cbor of a string literal, a Scott list of bytes,
+# imported from corpora/library/text/cbor. Each number is from_cbor of an
+# integer literal, a Scott integer, imported from corpora/library/integer/cbor.
+# FIXME: the imports project "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λx. x)
+λ integer
+. export
+λ
+. cons (λ_ladder_size. _ladder_size (text "ten") λ. integer 10)
+λ
+. cons (λ_ladder_size. _ladder_size (text "fourteen") λ. integer 14) nil

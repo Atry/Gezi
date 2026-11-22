@@ -1,0 +1,109 @@
+# +Words, +Budget, -Term
+# +Words, +Budget, -Totals
+# +Words, -Length
+#   * <module> The shortest common superstring: three nested layers, each to be replaced natively
+#
+# A family of the reduction series: a non-trivial problem with a concise
+# definition whose solution needs a pattern recognised and replaced natively
+# at every layer of nested subproblems. The problem is LeetCode 943, "Find the Shortest
+# Superstring", over bit strings, asking for the length.
+#
+# The program writes top (corpora/library/top) where the pseudo-code and the
+# argument below write {}, the empty choice of the calculus that still has
+# it; doc/proofs/reduction_series_answers.md carries the argument over to
+# Definition 14, and the generator is the family's Scala object in
+# gezi/contest-corpora.
+#
+# THE PROGRAM, in continuation passing style (a set chosen once, at the head),
+# the words let bound once:
+#
+#     overlaps a b  = { prefix a b (\k. k (length a)) {},  a {} (\h. \rest. overlaps rest b) }
+#     tour c p r k  = full c (k r)
+#                       { member c i {} (overlaps p w_i (\o.
+#                           (\cost. at_least r cost (tour (insert c i) w_i (difference r cost) k) {})
+#                             (difference (length w_i) o))) | i a word }
+#     program       = tour none nil T (\r. difference T r)
+#
+# - the inner layer, overlaps, is the set of the lengths of the suffixes of a
+#   that are prefixes of b (the attractor bits_prefix); replaced natively it
+#   is string matching, the longest overlap by a failure function;
+# - the middle layer chooses the next word among those not used, the used
+#   words a bit set (bit_set_member, bit_set_insert, bit_set_full); replaced
+#   natively it is the dynamic programme over subsets and the last word;
+# - the outer layer is the length arithmetic (length, natural_at_least,
+#   natural_difference); replaced natively it is integer arithmetic.
+# The first word follows the empty word nil, whose only overlap with it is 0.
+# The inner layer's members are boxes \k. k o, o an overlap length, as in
+# corpora/contest_collect_keys.pl: merging equal boxes by value, read as data
+# of a one-constructor Scott type, leaves one member per overlap length.
+#
+# THE SNAPSHOT. S(P) is the set of the lengths at most T of the strings made
+# by writing the words in some order, each overlapping the one before by some
+# overlap: superstring_totals/3. The points take T the least such length, the
+# shortest superstring's (every order at its longest overlaps), so S(P) is that
+# one number; the near miss takes T one less, so S(P) is empty. PROOF, as for
+# corpora/contest_collect_keys.pl, with Lemma 2b of
+# gezi/doc/proofs/certificate_meta_lemmas.md: (⊇) choose each word's
+# branch and, in overlaps, the member of the chosen overlap; (⊆) a pure term
+# is reached only through a full bit set, every word once, each cost the
+# length of a word less an overlap its predecessor has with it (the members of
+# overlaps are boxes of such lengths, bits_prefix and length giving the
+# Boolean and the numeral of their definitions), and at_least keeping the
+# budget; the term is difference T r, the total length, at most T.
+#
+# TARGET ALGORITHMS, the specific known algorithms the problem targets, each
+# with its prior work:
+# - string matching by a failure function: D. E. Knuth, J. H. Morris,
+#   V. R. Pratt, Fast Pattern Matching in Strings, SIAM J. Comput. 1977,
+#   doi:10.1137/0206024;
+# - the dynamic programme over subsets: M. Held, R. M. Karp, A Dynamic
+#   Programming Approach to Sequencing Problems, J. SIAM 1962,
+#   doi:10.1137/0110015.
+#
+# READINGS AND SIZES: in the points' comment below (THE POINTS).
+# LIMITS: the reduction family's, 10 s, 256 MB, 256 MB.
+
+#   THE POINTS: superstring_point(?Point, ?Count, ?Length, ?Slack), Count
+#   words of Length bits from a linear congruential sequence (seed 7), the
+#   budget the shortest superstring's length plus Slack. Sized by a
+#   probe of 2026-09-30 (CPUs 0-7, the whole set under a 10 s limit,
+#   the budget the least length): tabling(weak_head) reads four words of 6
+#   bits in 369 ms, five in 1854 ms and six of 8 bits in 3147 ms, and is
+#   stopped at seven words of 8 bits; weak_head reads four words of 6 bits
+#   in 2628 ms. The near miss takes the budget one short.
+#
+# Each text is from_cbor of a string literal, a Scott list of bytes,
+# imported from corpora/library/text/cbor. Each number is from_cbor of an
+# integer literal, a Scott integer, imported from corpora/library/integer/cbor.
+# FIXME: the imports project "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λx. x)
+λ integer
+. export
+λ
+. cons
+  ( λ _superstring_point
+    . _superstring_point (text "reduction_shortest_superstring_small") (integer 4) (integer 6) λ. integer 0
+  )
+λ
+. cons
+  ( λ _superstring_point
+    . _superstring_point (text "reduction_shortest_superstring_large") (integer 7) (integer 8) λ. integer 0
+  )
+λ
+. cons
+  ( λ _superstring_point
+    . _superstring_point (text "reduction_shortest_superstring_near_miss") (integer 4) (integer 6) λ. integer -1
+  ) nil

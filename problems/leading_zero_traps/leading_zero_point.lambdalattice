@@ -1,0 +1,87 @@
+# POINTS: catalogued binary APIs applied to a Scott binary natural that is not
+# canonical (a replacement must check by full structure that
+# every argument at a data position is a canonical value, and fall back
+# otherwise; gezi/doc/proofs/certificate_meta_lemmas.md,
+# Corollary 4a).
+#
+# A binary natural with a LEADING ZERO has `even zero` where the
+# canonical term has `zero`: the same number, another term. The
+# definitional equality compares variants layer by layer, so it tells
+# `even zero` from `zero` and answers false; a replacement that reads
+# both arguments as numbers answers true. Plus returns its other
+# operand on a zero, so a leading zero survives addition, and times
+# carries it into the product.
+#
+# - hidden_leading_zero_equal_N: equality of N with a leading zero
+#   against canonical N.
+# - hidden_leading_zero_times_A: equality of times A (even zero) against
+#   canonical zero.
+#
+# The scored claim is the definitional Boolean, the trap the one a
+# numeric reading answers; the proof is the finite head class with the
+# derivation at the fact.
+#
+# TARGET ALGORITHMS, the specific known algorithms the problem targets, each
+# with its prior work:
+# - recognising catalogued code by the content address of its normal form,
+#   as hash-consing shares equal terms: J.-C. Filliâtre, S. Conchon,
+#   Type-Safe Modular Hash-Consing, ML Workshop 2006,
+#   doi:10.1145/1159876.1159880.
+# - a closure is its code and its captures, the representation a replacement
+#   must inspect before it trusts the code's address: J. C. Reynolds,
+#   Definitional Interpreters for Higher-Order Programming Languages,
+#   Higher-Order and Symbolic Computation 1998, doi:10.1023/A:1010027404223.
+# - replacing recognised code by a native implementation is a rewrite by a
+#   library law, applied only where its side condition (the domain check)
+#   holds: R. Tate, M. Stepp, Z. Tatlock, S. Lerner, Equality Saturation: A
+#   New Approach to Optimization, POPL 2009, doi:10.1145/1480881.1480915.
+
+#
+# The value is a constructor of schema/intended_value, here `boolean` of a
+# Church Boolean of corpora/library/prelude/boolean. Each other text is
+# from_cbor of a string literal, a Scott list of bytes, imported from
+# corpora/library/text/cbor. FIXME: the imports project "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "boolean")
+λ _ false _ _
+. omega (omega (omega (omega gezi "problems") "schema") "intended_value")
+λ boolean _ _ _
+. export
+λ
+. cons
+  ( λ _leading_zero_point
+    . _leading_zero_point (text "hidden_leading_zero_equal_one_thousand") (boolean false)
+    λ
+    . text "equality recurses on both numerals bit by bit, the variants equal at every layer, until the leading zero's even zero meets the canonical term's zero, where it answers false"
+  )
+λ
+. cons
+  ( λ _leading_zero_point
+    . _leading_zero_point (text "hidden_leading_zero_equal_thirty_two_digits") (boolean false)
+    λ
+    . text "equality recurses on both numerals bit by bit, the variants equal at every layer, until the leading zero's even zero meets the canonical term's zero, where it answers false"
+  )
+λ
+. cons
+  ( λ _leading_zero_point
+    . _leading_zero_point (text "hidden_leading_zero_times_one_thousand_one") (boolean false)
+    λ
+    . text "times on an odd bit adds its right operand, even zero, to the doubled rest; plus on a zero returns the other operand and on two evens returns the even of the halves' sum, so the product is a nonempty tower of evens over zero, which equality tells from the canonical zero and answers false"
+  )
+λ
+. cons
+  ( λ _leading_zero_point
+    . _leading_zero_point (text "hidden_leading_zero_times_thirty_two_digits") (boolean false)
+    λ
+    . text "times on an odd bit adds its right operand, even zero, to the doubled rest; plus on a zero returns the other operand and on two evens returns the even of the halves' sum, so the product is a nonempty tower of evens over zero, which equality tells from the canonical zero and answers false"
+  ) nil

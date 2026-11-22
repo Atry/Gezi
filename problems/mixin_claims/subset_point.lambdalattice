@@ -1,0 +1,98 @@
+# Searches in the mixin encoding of inheritance
+# (corpora/contest_mixin_library.pl): scored points of the hard corpus,
+# ported from the retired labeled points of contest_inheritance.pl,
+# contest_inheritance_middle.pl, contest_inheritance_dynamic.pl and
+# contest_inheritance_dynamic_middle.pl. Each asks whether a search
+# reaches the Church true, boolean(true), as the labeled point did; the
+# other answers of the search are the other branches' (false, or none),
+# so these points are asked by membership, not whole.
+#
+# REACHABILITY. A graph is a module whose slots are its nodes' classes,
+# and a node's hierarchy has one marker slot is_x for each node x of the
+# graph, then reachable, next and two_hop: the labels of the labeled
+# port are the positions of a fixed-width hierarchy. The class of node x
+# implements is_x alone, the Church true, so that a union of node classes
+# answers is_x when x's class is in the union. Its reachable is a class,
+# the union of each successor's reachable and of the successor's class,
+# the recursive branches first (the shape of the labeled rings); next is
+# the union of the successors' classes, and two_hop is self.next.next.
+# The test reads from.reachable.is_to, or a.two_hop.is_d.
+# - contest_inheritance.pl's rings of 3, 20 and 40 nodes (does n0 reach
+#   the last node?), the graph a -> b, b -> a, b -> c with each direct
+#   successor first (does a reach c?), and the diamond a -> b, a -> c,
+#   b -> d, c -> d (is d two hops from a?);
+# - contest_inheritance_middle.pl's two rings, ring with a chord, lasso,
+#   and ring with double successors.
+#
+# SUBSET SUM. The module has one class search_k for each level k = 0 .. n
+# of the n items, whose hierarchy has accumulated and found; search_n's found is
+# target.equality(self.accumulated), and search_k's found is the union of
+# {search_(k+1), accumulated : self.accumulated}.found and
+# {search_(k+1), accumulated : self.accumulated.plus(a_(k+1))}.found. The test reads
+# {search_0, accumulated : 0}.found at church. The items are the first n odd
+# primes and the target their total, reached only by taking every item.
+#
+# LONGEST COMMON SUBSEQUENCE, as a decision: the symbols a and b, the
+# lists nil and cons (head, tail), and common_subsequence (left, right, need), whose
+# found is true when need is zero, false when a list is empty, and
+# otherwise the union of leaving out left's head, leaving out right's
+# head and, when the heads are equal, leaving out both with need - 1. The
+# strings are contest_inheritance_dynamic.pl's pseudo-random pair, need
+# the length of their longest common subsequence.
+#
+# PROOF of each scored claim, a finite head: a finite sequence of choices
+# reaches a yield equal to the Church true (the path to the target; the
+# subset of every item; the matches of a longest common subsequence),
+# whose test yields \a. a, and lambda beta eta with sets is consistent.
+#
+# LIMITS: the family's, 10 s, 256 MB, 256 MB.
+#
+# TARGET ALGORITHMS, the specific known algorithms the problem targets, each
+# with its prior work:
+# - reachability: search with a set of visited nodes: J. Hopcroft, R.
+#   Tarjan, Algorithm 447: Efficient Algorithms for Graph Manipulation, CACM
+#   1973, doi:10.1145/362248.362272.
+# - subset sum and longest common subsequence: dynamic programming: R.
+#   Bellman, Dynamic Programming, Princeton University Press 1957; R. A.
+#   Wagner, M. J. Fischer, The String-to-String Correction Problem, J. ACM
+#   1974, doi:10.1145/321796.321811.
+# - all three, reached from the definitions by tabled evaluation: W. Chen,
+#   D. S. Warren, Tabled Evaluation with Delaying for General Logic
+#   Programs, J. ACM 1996, doi:10.1145/227595.227597.
+
+#   subset_point(?Point, ?Count): the first Count odd primes.
+#
+# Each text is from_cbor of a string literal, a Scott list of bytes,
+# imported from corpora/library/text/cbor. Each number is from_cbor of an
+# integer literal, a Scott integer, imported from corpora/library/integer/cbor.
+# FIXME: the imports project "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λx. x)
+λ integer
+. export
+λ
+. cons (λ_subset_point. _subset_point (text "mixin_subset_sum_two") λ. integer 2)
+λ
+. cons (λ_subset_point. _subset_point (text "mixin_subset_sum_four") λ. integer 4)
+λ
+. cons (λ_subset_point. _subset_point (text "mixin_subset_sum_six") λ. integer 6)
+λ
+. cons (λ_subset_point. _subset_point (text "mixin_subset_sum_eight") λ. integer 8)
+λ
+. cons (λ_subset_point. _subset_point (text "mixin_subset_sum_ten") λ. integer 10)
+λ
+. cons (λ_subset_point. _subset_point (text "mixin_subset_sum_twelve") λ. integer 12)
+λ
+. cons (λ_subset_point. _subset_point (text "mixin_subset_sum_sixteen") λ. integer 16) nil

@@ -1,0 +1,14 @@
+wren_own_loop_lifted: λ x_0 x_1 x_2
+        . wren_fixpoint_by_value
+          (λx_3 x_4 x_5. x_4 x_5 (λx_6. x_3 x_6 λ. x_3 x_6 x_5) λx_6. x_0 λ. x_3 x_6 λ. x_3 x_6 x_5) x_1 x_2 = λ x_0 x_1 x_2
+        . wren_fixpoint_by_value
+          ( λ x_3 x_4 x_5 x_6
+            . x_4 x_6 (λx_7. x_3 x_7 x_5 λ. x_3 x_7 x_5 x_6) λx_7. x_5 λ. x_3 x_7 x_5 λ. x_3 x_7 x_5 x_6
+          ) x_1 x_0 x_2
+wren_own_loop_lifted_respelled: λ x_0 x_1 x_2
+        . wren_fixpoint_by_value
+          (λx_3 x_4 x_5. x_4 x_5 (λx_6. x_3 x_6 λ. x_3 x_6 x_5) λx_6. x_3 x_6 λ. x_3 x_6 λ. x_0 x_5) x_1 x_2 = λ x_0 x_1 x_2
+        . wren_fixpoint_by_value
+          ( λ x_3 x_4 x_5 x_6
+            . x_4 x_6 (λx_7. x_3 x_7 x_5 λ. x_3 x_7 x_5 x_6) λx_7. x_3 x_7 x_5 λ. x_3 x_7 x_5 λ. x_5 x_6
+          ) x_1 x_0 x_2

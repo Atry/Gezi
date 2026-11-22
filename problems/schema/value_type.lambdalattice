@@ -1,0 +1,7 @@
+# The type of a problem's expected values (reduction_mixin_library/problem):
+# a Scott sum of two constructors, in order: boolean, each value a Church
+# Boolean of corpora/library/prelude/boolean, and unary, each value a Scott
+# integer of corpora/library/integer/cbor, the natural a unary numeral reads
+# as. Read by its position
+# (gezi.contest.corpora.reductions.ReductionMixinLibrary).
+λ export. export (λboolean unary. boolean) λboolean unary. unary

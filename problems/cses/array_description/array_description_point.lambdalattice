@@ -1,0 +1,62 @@
+# The base problems of the CSES families repeated_cses_array_description_*: a bound m and an array of integers from 0 to m, 0 meaning unknown, the answer the number of ways to give each unknown entry a value from 1 to m so that neighbours differ by at most 1, modulo 10^9 + 7.
+#
+# THE ANSWER of each row is the problem's definition computed exhaustively by a
+# brute-force script (2026-11-22), which enumerates every candidate the problem's
+# statement describes. PROOF: the program of the problem's file follows the
+# definition, and its header argues under Definition 14 that its one normal form
+# is that answer; the data are finite and within the family's bottom rungs, which
+# the reference reading answers. The inputs are the author's own, no CSES test
+# data.
+#
+#   array_description_point(?Point, ?Bound, ?Entries, ?Result)
+#
+# Bound is an integer (corpora/library/integer/cbor) m >= 1; Entries is a Scott list (corpora/library/prelude/list) of integers from 0 to m; Result is an integer. Every value is below 10^9 + 7, since the program enumerates the fillings.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λvalue. value)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λvalue. value)
+λ integer
+. export
+λ
+. cons
+  ( λ _array_description_point
+    . _array_description_point (text "cses_array_description_sample") (integer 5) (cons (integer 2) λ. cons (integer 0) λ. cons (integer 2) λ. nil) λ. (integer 3)
+  )
+λ
+. cons
+  ( λ _array_description_point
+    . _array_description_point (text "cses_array_description_all_unknown") (integer 3) (cons (integer 0) λ. cons (integer 0) λ. cons (integer 0) λ. nil) λ. (integer 17)
+  )
+λ
+. cons
+  ( λ _array_description_point
+    . _array_description_point (text "cses_array_description_single_unknown") (integer 4) (cons (integer 0) λ. nil) λ. (integer 4)
+  )
+λ
+. cons
+  ( λ _array_description_point
+    . _array_description_point (text "cses_array_description_all_known") (integer 3) (cons (integer 1) λ. cons (integer 2) λ. cons (integer 3) λ. nil) λ. (integer 1)
+  )
+λ
+. cons
+  ( λ _array_description_point
+    . _array_description_point (text "cses_array_description_jump_of_two") (integer 3) (cons (integer 1) λ. cons (integer 3) λ. nil) λ. (integer 0)
+  )
+λ
+. cons
+  ( λ _array_description_point
+    . _array_description_point (text "cses_array_description_unknown_between_distant_ends") (integer 4) (cons (integer 1) λ. cons (integer 0) λ. cons (integer 0) λ. cons (integer 4) λ. nil) λ. (integer 1)
+  )
+λ
+. cons
+  ( λ _array_description_point
+    . _array_description_point (text "cses_array_description_bound_one") (integer 1) (cons (integer 0) λ. cons (integer 0) λ. cons (integer 0) λ. nil) λ. (integer 1)
+  ) nil

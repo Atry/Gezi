@@ -1,0 +1,1 @@
+λ export. export λx_0 x_1 x_2 x_3. x_2 x_3 λx_4 x_5. x_1 x_1 x_5 λ. x_0 x_4 (λx_6 x_7. x_7 x_3) x_3

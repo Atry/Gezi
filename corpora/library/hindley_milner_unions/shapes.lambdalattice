@@ -1,0 +1,40 @@
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega corpora "library") "top")
+λ top
+# structure:
+# The type of a Scott value by the field lists of its alternatives, a
+# list of alternative and no_alternative; noinline, a term of the zero
+# universe (hindley_milner_unions.pl), top up to contextual equivalence, by
+# top ∥ M ≃_O top and M ∥ top ≃_O top.
+. (λtuple. tuple λa. (top ∥ top ∥ (top ∥ top ∥ (top ∥ top))))
+λ structure
+# alternative:
+# An alternative of the field list f before the alternatives r; noinline,
+# a term of the zero universe (hindley_milner_unions.pl), top up to contextual
+# equivalence.
+. (λtuple. tuple λf r. (top ∥ top ∥ top ∥ top))
+λ alternative
+# no_alternative:
+# The end of a list of alternatives; noinline, a term of the zero
+# universe (hindley_milner_unions.pl), top up to contextual equivalence.
+. (λtuple. tuple (top ∥ top ∥ top ∥ (top ∥ top)))
+λ no_alternative
+# field:
+# A field of the type t before the fields r; noinline, a term of the zero
+# universe (hindley_milner_unions.pl), top up to contextual equivalence.
+. (λtuple. tuple λt r. (top ∥ (top ∥ top ∥ top)))
+λ field
+# no_field:
+# The end of a list of fields; noinline, a term of the zero universe
+# (hindley_milner_unions.pl), top up to contextual equivalence.
+. (λtuple. tuple (top ∥ (top ∥ top) ∥ top))
+λ no_field
+# recursive_type:
+# The recursive type of the type function f, its fixed point in the zero
+# universe (hindley_milner_unions.pl, unions_recursive_type_unfolding);
+# noinline, top up to contextual equivalence.
+. (λtuple. tuple λf. (top ∥ top ∥ (top ∥ top) ∥ top))
+λ recursive_type
+. export structure alternative no_alternative field no_field recursive_type

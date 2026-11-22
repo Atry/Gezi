@@ -1,0 +1,95 @@
+# Fibonacci in the mixin encoding of inheritance
+# (corpora/contest_mixin_library.pl, the library `natural`): problems of
+# the reduction series, ported from the retired labeled points of
+# contest_inheritance_fibonacci.pl and contest_inheritance_middle_sizes.pl.
+#
+# THE SOURCE is the naive recursion `Fibonacci` of MIXINv2's
+# FibonacciLibrary.mixin.yaml (MIXINv2/packages/mixinv2-examples/src/
+# mixinv2_examples/): fibonacci(n) = fibonacci(n - 1) + fibonacci(n - 2)
+# for n > 1. The class fibonacci has the slots n and value, and is the
+# one slot of a module of width 1, so that its value makes objects of the
+# class read through the module's self, as the labeled port's
+# `arithmetic / fibonacci`. value dispatches on self.n's accept and on
+# self.n.predecessor's accept, which tell 0, 1 and more apart, and makes
+# once = {fibonacci, n : self.n.predecessor} and
+# twice = {fibonacci, n : self.n.predecessor.predecessor}, and answers
+# once.value.plus(twice.value). The two recursive calls reach n - 2 by two
+# spellings, the inner call's own n.predecessor and the outer call's
+# n.predecessor.predecessor: equal values, different terms, so a reading
+# that shares only equal spellings makes the naive recursion's calls,
+# about the golden ratio a step.
+#
+# THE PROGRAM reads C.equality({fibonacci, n : K}.value) at church,
+# the labeled program's check: fibonacci(8) = 21, fibonacci(10) = 55,
+# fibonacci(12) = 144, fibonacci(14) = 377 (contest_inheritance_middle_sizes.pl),
+# fibonacci(15) = 610, and the wrong fibonacci(10) == 56; and, smaller
+# than the labeled family's, fibonacci(3) = 2 and fibonacci(4) = 3, so
+# that the family has points weak_head reads.
+#
+# THE SNAPSHOT of each is the Boolean of the equation. PROOF:
+# the recursion descends on the finite numeral n under every choice, every
+# class has one implementation of each slot it is read at, and every end
+# is the Boolean of the equation.
+#
+# LIMITS: the family's, 10 s, 256 MB, 256 MB.
+
+#   fibonacci_point(?Point, ?Count, ?Claimed)
+#
+# Each text is from_cbor of a string literal, a Scott list of bytes,
+# imported from corpora/library/text/cbor. Each number is from_cbor of an
+# integer literal, a Scott integer, imported from corpora/library/integer/cbor.
+# FIXME: the imports project "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λx. x)
+λ integer
+. export
+λ
+. cons
+  ( λ _fibonacci_point
+    . _fibonacci_point (text "reduction_mixin_fibonacci_three") (integer 3) λ. integer 2
+  )
+λ
+. cons
+  (λ_fibonacci_point. _fibonacci_point (text "reduction_mixin_fibonacci_four") (integer 4) λ. integer 3)
+λ
+. cons
+  ( λ _fibonacci_point
+    . _fibonacci_point (text "reduction_mixin_fibonacci_eight") (integer 8) λ. integer 21
+  )
+λ
+. cons
+  ( λ _fibonacci_point
+    . _fibonacci_point (text "reduction_mixin_fibonacci_ten") (integer 10) λ. integer 55
+  )
+λ
+. cons
+  ( λ _fibonacci_point
+    . _fibonacci_point (text "reduction_mixin_fibonacci_ten_wrong") (integer 10) λ. integer 56
+  )
+λ
+. cons
+  ( λ _fibonacci_point
+    . _fibonacci_point (text "reduction_mixin_fibonacci_twelve") (integer 12) λ. integer 144
+  )
+λ
+. cons
+  ( λ _fibonacci_point
+    . _fibonacci_point (text "reduction_mixin_fibonacci_fourteen") (integer 14) λ. integer 377
+  )
+λ
+. cons
+  ( λ _fibonacci_point
+    . _fibonacci_point (text "reduction_mixin_fibonacci_fifteen") (integer 15) λ. integer 610
+  ) nil

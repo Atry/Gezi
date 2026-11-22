@@ -1,0 +1,9 @@
+#   The body `map` hands its fixpoint.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega gezi "problems") "prelude_clauses") "nil")
+λ nil
+. omega (omega (omega (omega gezi "problems") "prelude_clauses") "cons")
+λ cons
+. export λself f xs. xs nil λh t. cons (f h) λ. self f t

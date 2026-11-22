@@ -1,0 +1,17 @@
+# The justified entries of the vocabulary of combinator properties
+# (CombinatorPropertyVocabulary): for each property, the lemma a knowledge
+# file must declare for a combinator C before it may declare the property
+# of C. The file's one field is a Scott tuple of one member per property,
+# in the order of CombinatorPropertyVocabulary's justifiedProperties, each
+# member `λs. s Left Right`: the lemma's two sides, in either order, each a
+# program whose first abstraction binds the combinator. No property is named
+# in the file (https://github.com/Atry/private-overlay/issues/1792; the user,
+# 2026-11-20: "字符串是违规的").
+#
+#   - `associative`: C is associative; its lemma has the sides
+#     λx. λy. λz. C x (C y z) and λx. λy. λz. C (C x y) z.
+
+λ export
+. export
+λ properties
+. properties λs. s (λc x y z. c x λ. c y z) λc x y z. c (c x y) z

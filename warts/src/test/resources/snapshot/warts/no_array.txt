@@ -1,0 +1,20 @@
+Error planted.scala:2:16 marking "Array": [wartremover:NoArray] making or writing an array is disabled, use IArray
+Error planted.scala:3:24 marking "Array[Int]": [wartremover:NoArray] making or writing an array is disabled, use IArray
+Error planted.scala:4:23 marking ".ofDim": [wartremover:NoArray] making or writing an array is disabled, use IArray
+Error planted.scala:5:20 marking ".fill": [wartremover:NoArray] making or writing an array is disabled, use IArray
+Error planted.scala:6:23 marking ".tabulate": [wartremover:NoArray] making or writing an array is disabled, use IArray
+Error planted.scala:7:21 marking ".empty": [wartremover:NoArray] making or writing an array is disabled, use IArray
+Error planted.scala:8:20 marking ".range": [wartremover:NoArray] making or writing an array is disabled, use IArray
+Error planted.scala:9:22 marking ".iterate": [wartremover:NoArray] making or writing an array is disabled, use IArray
+Error planted.scala:10:26 marking ".concat": [wartremover:NoArray] making or writing an array is disabled, use IArray
+Error planted.scala:11:22 marking ".copyOf": [wartremover:NoArray] making or writing an array is disabled, use IArray
+Error planted.scala:12:22 marking ".copyAs": [wartremover:NoArray] making or writing an array is disabled, use IArray
+Error planted.scala:13:23 marking ".update": [wartremover:NoArray] making or writing an array is disabled, use IArray
+Error planted.scala:14:17 marking "applied": [wartremover:NoArray] making or writing an array is disabled, use IArray
+Error planted.scala:15:21 marking ".arraycopy": [wartremover:NoArray] making or writing an array is disabled, use IArray
+Error planted.scala:16:37 marking ".fill": [wartremover:NoArray] making or writing an array is disabled, use IArray
+Error planted.scala:17:34 marking ".setAll": [wartremover:NoArray] making or writing an array is disabled, use IArray
+Error planted.scala:18:37 marking ".sort": [wartremover:NoArray] making or writing an array is disabled, use IArray
+Error planted.scala:19:45 marking ".parallelSort": [wartremover:NoArray] making or writing an array is disabled, use IArray
+Error planted.scala:20:30 marking ".toArray": [wartremover:NoArray] making or writing an array is disabled, use IArray
+19 errors found

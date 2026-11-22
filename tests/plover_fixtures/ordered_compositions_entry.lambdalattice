@@ -1,0 +1,183 @@
+# A fixture entry, read by OrderedCompositionsEntrySnapshotTest: four rounds of typed blocks over the binary naturals, the
+# narrow blocks with lists, and before them one round that recognises a count of ordered
+# compositions or of unordered combinations, the fewest digit steps or a modular power,
+# written by its definition, and binds it to its native
+# (corpora/compiler/plover_ordered_compositions, plover_unordered_combinations,
+# plover_digit_steps and plover_modular_power).
+# The rounds and the options are read by position, as the framework's generic entry reads them.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "rules")
+λ beta
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "indexer")
+λ standard
+. omega
+  (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "orientation_compiler")
+λ standard_orientations
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "saturator")
+λ higher_order
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "extractor")
+λ _ narrow_list_block _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "lemma_encoding")
+λ baseline
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "ematching")
+λ closures _ _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "memo_retention")
+λ memo_kept _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "opening_criterion")
+λ calls_a_head _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "checkpoints")
+λ profitable _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "lookahead")
+λ lazily _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "native_blocks")
+λ no_native_blocks
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "application")
+λ by_layer _ _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "continuation")
+λ _ packed_continuations
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "parallel")
+λ both_sides _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "table_sharing")
+λ local_tables _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "table_retention")
+λ _ no_tables_kept _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "instance_retention")
+λ generations _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "dispatch")
+λ fallback
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "implementation")
+λ closure
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "granularity")
+λ predicate_per_code
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "executor")
+λ framework_jit _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "compilation_place")
+λ upfront_compilation _
+. omega (omega (omega (omega gezi "corpora") "library") "top")
+λ top
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λvalue. value)
+λ integer_literal
+. omega (omega (omega (omega gezi "corpora") "compiler") "prolog_backend_preset")
+λ prolog_backend_preset _
+. omega (omega (omega (omega gezi "corpora") "compiler") "closure_application")
+λ closure_application
+. omega (omega (omega (omega gezi "corpora") "compiler") "occurrence_erasure")
+λ occurrence_erasure
+. omega (omega (omega (omega gezi "corpora") "compiler") "wren_binary_preset")
+λ wren_binary_preset _ _ _ _
+. omega (omega (omega (omega gezi "corpora") "compiler") "wren_binary_preset")
+λ _ wren_typed_block _ _ _
+. omega (omega (omega (omega gezi "corpora") "compiler") "wren_binary_preset")
+λ _ _ wren_typed_specialization _ _
+. omega (omega (omega (omega gezi "corpora") "compiler") "wren_binary_preset")
+λ _ _ _ wren_own_loop_lifting _
+. omega (omega (omega (omega gezi "corpora") "compiler") "plover_ordered_compositions")
+λ plover_ordered_compositions
+. omega (omega (omega (omega gezi "corpora") "compiler") "plover_unordered_combinations")
+λ plover_unordered_combinations
+. omega (omega (omega (omega gezi "corpora") "compiler") "plover_digit_steps")
+λ plover_digit_steps
+. omega (omega (omega (omega gezi "corpora") "compiler") "plover_modular_power")
+λ plover_modular_power
+. omega (omega (omega (omega gezi "corpora") "compiler") "binary_restoration")
+λ binary_restoration
+. export
+λ
+. ( λ every
+    . ( λ round compiler_fields
+        . compiler_fields
+          ( λ
+            . cons (round (λopened closed. opened) (plover_ordered_compositions + plover_unordered_combinations + plover_digit_steps + plover_modular_power + binary_restoration))
+            λ
+            . cons (round (λopened closed. closed) wren_typed_block)
+            λ
+            . cons (round (λopened closed. opened) wren_typed_specialization)
+            λ
+            . cons (round (λopened closed. closed) wren_own_loop_lifting)
+            λ
+            . cons (round (λopened closed. opened) wren_typed_specialization) nil
+          )
+        λ backend_fields
+        . backend_fields every
+        λ jit instances reading execution
+        . ( λ
+            . jit
+            λ dispatch implementation granularity native_blocks budget trial
+            . ( dispatch fallback
+              + implementation closure
+              + granularity predicate_per_code
+              + native_blocks no_native_blocks
+              + budget λ. integer_literal 10000
+              + trial λ. integer_literal 1024
+              )
+          + λ
+            . instances
+            λ instance_table instance_retention checkpoints lookahead
+            . ( instance_table λenabled disabled. enabled
+              + instance_retention λ. generations λ. integer_literal 524288
+              + checkpoints profitable
+              + lookahead lazily
+              )
+          + λ
+            . reading
+            λ application table_sharing table_retention continuation parallel
+            . ( application by_layer
+              + table_sharing local_tables
+              + table_retention no_tables_kept
+              + continuation packed_continuations
+              + parallel both_sides
+              )
+          + λ
+            . execution
+            λ executor compilation_place
+            . ( executor framework_jit
+              + compilation_place upfront_compilation
+              )
+          )
+      )
+    λ opening knowledge round_fields
+    . round_fields
+      ( λ_ rewriting _ _. rewriting λ_ _ leaves. leaves λ. every every (λreader. reader reader top λleaf. leaf) top top
+      + knowledge
+      )
+    λ implementations behaviour
+    . ( λ
+        . implementations
+        λ indexer orientation_compiler saturator extractor lemma_encoding ematching
+        . ( indexer standard
+          + orientation_compiler standard_orientations
+          + saturator higher_order
+          + extractor λ. narrow_list_block (integer_literal 256) λ. integer_literal 1
+          + lemma_encoding baseline
+          + ematching closures
+          )
+      + λ
+        . behaviour
+        λ opened rules respellings write_back_spellings opening_criterion
+        . ( opened opening
+          + rules beta
+          + respellings memo_kept
+          + write_back_spellings memo_kept
+          + opening_criterion calls_a_head
+          )
+      )
+  )
+  ( plover_ordered_compositions
+  + plover_unordered_combinations
+  + plover_digit_steps
+  + plover_modular_power
+  + binary_restoration
+  + wren_own_loop_lifting
+  + wren_typed_specialization
+  + wren_typed_block
+  + wren_binary_preset
+  + occurrence_erasure
+  + closure_application
+  + prolog_backend_preset
+  )

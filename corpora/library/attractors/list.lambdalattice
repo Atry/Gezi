@@ -1,0 +1,40 @@
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "prelude") "fixpoint")
+λ fixpoint
+. omega (omega (omega (omega corpora "library") "prelude") "list")
+λ nil cons append map _
+. omega (omega (omega (omega corpora "library") "prelude") "pair")
+λ pair _ _
+# foldl:
+#   foldl f z xs = xs z (\h. \t. foldl f (f z h) t).
+. (λtuple. tuple λ. fixpoint λself f z xs. xs z λh t. self f (f z h) t)
+λ foldl
+# foldr:
+#   foldr f z xs = xs z (\h. \t. f h (foldr f z t)).
+. (λtuple. tuple λ. fixpoint λself f z xs. xs z λh t. f h λ. self f z t)
+λ foldr
+# concat:
+#   concat = foldr append nil.
+. (λtuple. tuple λ. foldr append nil)
+λ concat
+# flat_map:
+#   flat_map f xs = concat (map f xs).
+. (λtuple. tuple λf xs. concat λ. map f xs)
+λ flat_map
+# filter:
+#   filter p xs keeps the elements for which p answers true.
+. (λtuple. tuple λ. fixpoint λself p xs. xs nil λh t. p h (cons h λ. self p t) λ. self p t)
+λ filter
+# reverse:
+#   reverse = foldl (\a. \x. cons x a) nil.
+. (λtuple. tuple λ. foldl (λaccumulated x. cons x accumulated) nil)
+λ reverse
+# zip:
+#   zip xs ys pairs the elements while both lists last.
+. ( λ tuple
+    . tuple λ. fixpoint λself xs ys. xs nil λx rest1. ys nil λy rest2. cons (pair x y) λ. self rest1 rest2
+  )
+λ zip
+. export foldl foldr concat flat_map filter reverse zip

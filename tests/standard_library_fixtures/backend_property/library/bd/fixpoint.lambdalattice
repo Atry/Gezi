@@ -1,0 +1,1 @@
+λ export. export λ. (λx f. f λ. x x f) λx f. f λ. x x f

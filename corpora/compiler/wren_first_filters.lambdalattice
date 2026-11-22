@@ -1,0 +1,141 @@
+# The first filters: the filters that a list of binary naturals and its
+# elements get from the constants up, with no occurrence tag. A class is typed when it holds the choice x + (x ∥ T), the
+# convention of hindley_milner_unions' candidates; each lemma writes that
+# choice into the class of its left side, and each left side matches its
+# arguments' classes in that form. T is read from the head's filter in the
+# term, never chosen, and the nine lemmas are the same whatever a list's length.
+#
+# Zero is the one constant whose filtered member is closed: binary_zero ∥
+# binary_set true is wren_typed_zero of wren_typed_block, a noinline leaf of
+# the e-graph wherever that file's leaves are read, and e-matching never looks
+# into a leaf. So zero's class holds binary_zero + wren_typed_zero, which the
+# pattern x + (x ∥ T) does not match, and three lemmas read that form where a
+# zero head or argument meets one: wren_first_filter_odd_of_zero, and
+# wren_first_filter_singleton_of_zero and wren_first_filter_cons_of_zero.
+# Measured on the IR 2026-11-21 (repeated_library_edit_distances_small, direct,
+# one repetition, seed 20261116, the knowledge of contest-entries-wren): the six
+# lemmas without these three added 4 instances and no parallel; without
+# wren_typed_block's knowledge they typed 240 of the 241 cons cells by
+# list_type (binary_set true).
+#
+# Every lemma is (6), M + (M ∥ N) = M, read right to left with M its left
+# side, except wren_first_filter_widening, whose two sides each equal x by
+# (6) (CONTRIBUTING.md, "Terms"); so each holds up to ≃_O whatever its
+# filter (the paper proof absorption).
+# Whether a filter is true decides only whether a typed path is taken. On
+# canonical binary constants every filter these lemmas write is true: zero is
+# a canonical natural (binary_set true); 2h + 1 is a canonical positive
+# natural (binary_set false) for every canonical h, and 2h is one for every
+# canonical positive h, while binary_even binary_zero is matched by no lemma;
+# a canonical positive natural is a canonical natural; and a cons of a member
+# of T onto nil or onto a member of list_type T is a member of list_type T.
+#
+# Termination, derived and not proved, in a round with no built-in rule:
+# wren_first_filter_zero has no metavariable and matches once; widening adds
+# binary_set true and writes no binary_set false, so it does not feed itself;
+# a class holds at most the two element filters, so each application of
+# binary_odd or binary_even in the input is matched at most once by its
+# lemma, and each cons cell at most twice, once for each filter of its head;
+# no right side adds an application of binary_odd, binary_even or cons, and
+# the applications of list_type it adds are matched by no left side.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "binary") "natural")
+λ binary_zero binary_even binary_odd _ binary_set
+. omega (omega (omega (omega corpora "library") "native_types") "boolean")
+λ true false _ _
+. omega (omega (omega (omega corpora "library") "native_types") "list")
+λ nil cons _ list_type
+. omega (omega (omega (omega corpora "library") "wren_typed_block") "wren_typed_block")
+λ _ _ wren_typed_zero _ _ _ _ _ _
+. export
+λ _ rewriting _ _
+. rewriting
+λ _ lemmas _
+. lemmas
+  # A cons of a head typed by T onto a tail typed by list_type T is typed by
+  # list_type T.
+  ( λ s
+    . s
+      (λk. k "wren_first_filter_cons")
+      (λx_0 x_1 x_2. cons (x_0 ∥ x_1 + x_0) (x_2 ∥ list_type x_1 + x_2))
+      ( λ x_0 x_1 x_2
+        . ( cons (x_0 ∥ x_1 + x_0) (x_2 ∥ list_type x_1 + x_2)
+          ∥ list_type x_1
+          + cons (x_0 ∥ x_1 + x_0) (x_2 ∥ list_type x_1 + x_2)
+          )
+      ) λ_ md _. md λk. k "[absorption](docs/design/gezi-hindley-milner-unions-proofs.md#absorption)"
+  # A cons of a head typed by T onto nil is typed by list_type T.
+  + λ s
+    . s
+      (λk. k "wren_first_filter_singleton")
+      (λx_0 x_1. cons (x_0 ∥ x_1 + x_0) nil)
+      (λx_0 x_1. (cons (x_0 ∥ x_1 + x_0) nil ∥ list_type x_1 + cons (x_0 ∥ x_1 + x_0) nil))
+      λ_ md _. md λk. k "[absorption](docs/design/gezi-hindley-milner-unions-proofs.md#absorption)"
+  # A value typed by the canonical positive naturals is typed by the canonical
+  # naturals: both sides are x by (6).
+  + λ s
+    . s
+      (λk. k "wren_first_filter_widening")
+      (λx_0. (x_0 ∥ binary_set false + x_0))
+      (λx_0. (x_0 ∥ binary_set true + x_0))
+      λ_ md _. md λk. k "[absorption](docs/design/gezi-hindley-milner-unions-proofs.md#absorption)"
+  # 2h of a canonical positive h is a canonical positive natural.
+  + λ s
+    . s
+      (λk. k "wren_first_filter_even")
+      (λx_0. binary_even (x_0 ∥ binary_set false + x_0))
+      ( λ x_0
+        . ( binary_even (x_0 ∥ binary_set false + x_0)
+          ∥ binary_set false
+          + binary_even (x_0 ∥ binary_set false + x_0)
+          )
+      ) λ_ md _. md λk. k "[absorption](docs/design/gezi-hindley-milner-unions-proofs.md#absorption)"
+  # 2h + 1 of a canonical h is a canonical positive natural.
+  + λ s
+    . s
+      (λk. k "wren_first_filter_odd")
+      (λx_0. binary_odd (x_0 ∥ binary_set true + x_0))
+      ( λ x_0
+        . ( binary_odd (x_0 ∥ binary_set true + x_0)
+          ∥ binary_set false
+          + binary_odd (x_0 ∥ binary_set true + x_0)
+          )
+      ) λ_ md _. md λk. k "[absorption](docs/design/gezi-hindley-milner-unions-proofs.md#absorption)"
+  # Zero is a canonical natural.
+  + λ s
+    . s (λk. k "wren_first_filter_zero") binary_zero (binary_zero ∥ binary_set true + binary_zero)
+      λ_ md _. md λk. k "[absorption](docs/design/gezi-hindley-milner-unions-proofs.md#absorption)"
+  # 2h + 1 of zero typed by its typed version is a canonical positive natural.
+  + λ s
+    . s
+      (λk. k "wren_first_filter_odd_of_zero")
+      (λx_0. binary_odd (wren_typed_zero + x_0))
+      (λx_0. (binary_odd (wren_typed_zero + x_0) ∥ binary_set false + binary_odd (wren_typed_zero + x_0)))
+      λ_ md _. md λk. k "[absorption](docs/design/gezi-hindley-milner-unions-proofs.md#absorption)"
+  # A cons of zero typed by its typed version onto nil is typed by list_type
+  # (binary_set true).
+  + λ s
+    . s
+      (λk. k "wren_first_filter_singleton_of_zero")
+      (λx_0. cons (wren_typed_zero + x_0) nil)
+      ( λ x_0
+        . ( cons (wren_typed_zero + x_0) nil
+          ∥ list_type (binary_set true)
+          + cons (wren_typed_zero + x_0) nil
+          )
+      ) λ_ md _. md λk. k "[absorption](docs/design/gezi-hindley-milner-unions-proofs.md#absorption)"
+  # A cons of zero typed by its typed version onto a tail typed by list_type
+  # (binary_set true) is typed by list_type (binary_set true).
+  + λ s
+    . s
+      (λk. k "wren_first_filter_cons_of_zero")
+      (λx_0 x_1. cons (wren_typed_zero + x_0) (x_1 ∥ list_type (binary_set true) + x_1))
+      ( λ x_0 x_1
+        . ( cons (wren_typed_zero + x_0) (x_1 ∥ list_type (binary_set true) + x_1)
+          ∥ list_type (binary_set true)
+          + cons (wren_typed_zero + x_0) (x_1 ∥ list_type (binary_set true) + x_1)
+          )
+      ) λ_ md _. md λk. k "[absorption](docs/design/gezi-hindley-milner-unions-proofs.md#absorption)"
+  )

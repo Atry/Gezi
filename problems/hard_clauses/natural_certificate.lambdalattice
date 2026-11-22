@@ -1,0 +1,4 @@
+#   natural_certificate(-Certificate): the certificate, `\sel. sel (\x. x)
+#   (\a. \b. \c. c)`, the package whose `identity` member is the identity
+#   function; its second member only makes its code unique in the corpus.
+λ export. export λx_0. x_0 (λx_1. x_1) λx_1 x_2 x_3. x_3

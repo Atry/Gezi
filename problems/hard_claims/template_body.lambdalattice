@@ -1,0 +1,52 @@
+#
+# The template is a constructor of schema/template, a Boolean a Church
+# Boolean of corpora/library/prelude/boolean. Each other text is from_cbor
+# of a string literal, a Scott list of bytes, imported from
+# corpora/library/text/cbor. Each number is from_cbor of an integer
+# literal, a Scott integer, imported from corpora/library/integer/cbor.
+# FIXME: the imports project "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λx. x)
+λ integer
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "boolean")
+λ true false _ _
+. omega (omega (omega (omega gezi "problems") "schema") "template")
+λ boolean _ member
+. export
+λ
+. cons
+  ( λ _template_body
+    . _template_body (boolean true) (text "Term") (text "Argument") λ_open. _open (integer 1) λx_0 x_1 x_2. x_0 x_1 x_2
+  )
+λ
+. cons
+  ( λ _template_body
+    . _template_body (boolean false) (text "Term") (text "Argument") λ_open. _open (integer 1) λx_0 x_1 x_2. x_0 x_2 x_1
+  )
+λ
+. cons
+  ( λ _template_body
+    . _template_body (member (integer 1) λ. text "natural") (text "Term") (text "Argument") λ_open. _open (integer 0) λx_0 x_1. x_0 λx_2 x_3. x_2 x_1
+  )
+λ
+. cons
+  ( λ _template_body
+    . _template_body (member (integer 2) λ. text "natural") (text "Term") (text "Argument") λ_open. _open (integer 2) λx_0 x_1 x_2 x_3. x_0 λx_4 x_5. x_5 x_2 x_3 x_1
+  )
+λ
+. cons
+  ( λ _template_body
+    . _template_body (member (integer 2) λ. text "stream") (text "Term") (text "Argument") λ_open. _open (integer 2) λx_0 x_1 x_2 x_3. x_0 λx_4 x_5. x_5 x_2 x_1 x_3
+  ) nil

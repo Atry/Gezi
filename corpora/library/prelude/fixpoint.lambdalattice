@@ -1,0 +1,3 @@
+# Turing's fixed point combinator: fixpoint g is g (fixpoint g) after two beta steps,
+# so the recursive occurrence in the unfolding of a recursive define is that define's own term.
+λ export. export λ. (λx f. f λ. x x f) λx f. f λ. x x f

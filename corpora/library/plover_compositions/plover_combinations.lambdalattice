@@ -1,0 +1,56 @@
+# The unordered combinations: the number of ways to reach target with items, each
+# usable any number of times, a way being a sequence that never moves back along
+# the list, modulo modulus, written by the definition, and its typed version, which
+# a native computes. The recursion is spelled as problems/cses/coin_combinations_unordered
+# spells it, so that it is the same IR term.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "prelude") "fixpoint")
+λ fixpoint
+. omega (omega (omega (omega corpora "library") "prelude") "list")
+λ nil cons append map _
+. omega (omega (omega (omega corpora "library") "binary") "natural")
+λ binary_zero _ _ _ binary_set
+. omega (omega (omega (omega corpora "library") "binary") "arithmetic")
+λ _ merge_binary_plus _ merge_binary_equality
+. omega (omega (omega (omega corpora "library") "binary") "order")
+λ binary_less_than _ _
+. omega (omega (omega (omega corpora "library") "native_types") "list")
+λ _ _ _ list_type
+. omega (omega (omega (omega corpora "library") "native_types") "boolean")
+λ criterion_true criterion_false _ _
+. omega (omega (omega (omega corpora "library") "plover_compositions") "plover_compositions")
+λ _ plover_count_from plover_binary_modulo _ _ _
+# plover_combination_sequences:
+# Q₂ of the proofs file, section 7: the list of the ways. A noinline attractor.
+. ( λ tuple
+    . tuple
+    λ items target
+    . fixpoint
+      ( λ self suffix partial_sum
+        . binary_less_than target partial_sum nil
+        λ. merge_binary_equality partial_sum target (cons nil nil)
+        λ. fixpoint
+          ( λ along rest
+            . rest nil λcoin later. append (map (cons coin) λ. self rest λ. merge_binary_plus partial_sum coin) λ. along later
+          ) suffix
+      ) items binary_zero
+  )
+λ plover_combination_sequences
+# plover_combinations:
+# A₂ of the proofs file, section 7.
+. ( λ tuple
+    . tuple λ items target modulus. plover_binary_modulo (plover_count_from binary_zero λ. plover_combination_sequences items target) modulus
+  )
+λ plover_combinations
+# plover_typed_combinations:
+# A₂_T of the proofs file, section 7: the items positive canonical naturals, the target a
+# canonical natural and the modulus a positive one.
+. ( λ tuple
+    . tuple
+    λ items target modulus
+    . (plover_combinations (items ∥ list_type (binary_set criterion_false)) (target ∥ binary_set criterion_true) (modulus ∥ binary_set criterion_false) ∥ binary_set criterion_true)
+  )
+λ plover_typed_combinations
+. export plover_combination_sequences plover_combinations plover_typed_combinations

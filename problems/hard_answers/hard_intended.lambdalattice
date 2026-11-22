@@ -1,0 +1,340 @@
+# ?Point, ?Outcome, ?Value
+# +Point, -Limits
+# ?Point, ?Role
+# ?Point, ?Weight
+# ?Point, ?Purpose
+# ?Point
+# THE INTENDED ANSWERS OF THE HARD CONTEST CORPUS (`contest_hard.pl`), as
+# data, and the limits every point is read under; the same protocol as
+# `contest_answers.pl`.
+#
+# `hard_intended(Point, Outcome, Value)`: Outcome is a constructor of
+# schema/outcome, `head` or `failed`;
+# Value is a constructor of schema/intended_value, `boolean _`,
+# `natural _`, `certificate _` or `none`. Each is the program's
+# intended answer, argued in the comment above the point in
+# `contest_hard_clauses.pl`. A reading is judged by
+# `contest_answers:verdict/5`, the decoder both runners share.
+#
+# `hard_point_limits(Point, limits(Seconds, StackMegabytes, TableMegabytes))`:
+# one second, 32 MB of stack and 32 MB of table space unless a raised
+# limit below says otherwise, with its reason.
+
+#   ---- H1. streams of coprime periods ----
+#
+# The outcome is a constructor of schema/outcome, the value a constructor
+# of schema/intended_value, a Boolean a Church Boolean of
+# corpora/library/prelude/boolean. Each other text is from_cbor
+# of a string literal, a Scott list of bytes, imported from
+# corpora/library/text/cbor. Each number is from_cbor of an integer
+# literal, a Scott integer, imported from corpora/library/integer/cbor.
+# FIXME: the imports project "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λx. x)
+λ integer
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "boolean")
+λ true false _ _
+. omega (omega (omega (omega gezi "problems") "schema") "intended_value")
+λ boolean natural certificate none
+. omega (omega (omega (omega gezi "problems") "schema") "outcome")
+λ head failed
+. export
+λ
+. cons (λ_hard_intended. _hard_intended (text "jit_hot_body_count_down") head λ. boolean true)
+λ
+. cons (λ_hard_intended. _hard_intended (text "jit_hot_combinator_count_down") head λ. boolean true)
+λ
+. cons (λ_hard_intended. _hard_intended (text "jit_hot_compose_count_down") head λ. boolean true)
+λ
+. cons (λ_hard_intended. _hard_intended (text "coarsen_reused_stream") head λ. boolean true)
+#   ---- H23. suites ----
+λ
+. cons (λ_hard_intended. _hard_intended (text "suite_regex_a_n_b_n") head λ. boolean true)
+λ
+. cons (λ_hard_intended. _hard_intended (text "suite_palindrome") head λ. boolean true)
+#   ---- H22 and H24. coinductive typing, the ghost certificate ----
+#   Their claims are in contest_hard_claims.pl; the legacy
+#   verdict reads the certificate.
+λ
+. cons
+  (λ_hard_intended. _hard_intended (text "typing_natural_symbol") head λ. certificate λ. text "natural")
+λ
+. cons
+  (λ_hard_intended. _hard_intended (text "typing_natural_pair") head λ. certificate λ. text "natural")
+λ
+. cons (λ_hard_intended. _hard_intended (text "typing_natural_returns_bad") failed none)
+λ
+. cons (λ_hard_intended. _hard_intended (text "typing_natural_bad_unrolled") failed none)
+#   ---- H29. cycles that fool the probes ----
+λ
+. cons (λ_hard_intended. _hard_intended (text "probe_cycle_and_false") failed none)
+λ
+. cons (λ_hard_intended. _hard_intended (text "probe_cycle_if_false") failed none)
+λ
+. cons (λ_hard_intended. _hard_intended (text "probe_cycle_and_or") failed none)
+λ
+. cons (λ_hard_intended. _hard_intended (text "self_application_flip_cycle") failed none)
+#   ---- H30. cycles of the value map ----
+λ
+. cons (λ_hard_intended. _hard_intended (text "value_map_two_cycle") failed none)
+λ
+. cons (λ_hard_intended. _hard_intended (text "value_map_three_cycle") failed none)
+λ
+. cons (λ_hard_intended. _hard_intended (text "stream_periods_equal_small") failed none)
+λ
+. cons (λ_hard_intended. _hard_intended (text "stream_periods_equal_medium") failed none)
+λ
+. cons (λ_hard_intended. _hard_intended (text "stream_periods_equal_large") failed none)
+λ
+. cons (λ_hard_intended. _hard_intended (text "stream_periods_differ_large") head λ. boolean false)
+λ
+. cons (λ_hard_intended. _hard_intended (text "stream_periods_equal_unrolled") head λ. boolean true)
+#   ---- H2. recursive types of coprime periods ----
+λ
+. cons (λ_hard_intended. _hard_intended (text "type_periods_subtype_small") failed none)
+λ
+. cons (λ_hard_intended. _hard_intended (text "type_periods_subtype_large") failed none)
+λ
+. cons (λ_hard_intended. _hard_intended (text "type_periods_not_subtype") head λ. boolean false)
+λ
+. cons (λ_hard_intended. _hard_intended (text "type_periods_subtype_unrolled") head λ. boolean true)
+#   ---- H3. exponential call by name ----
+λ
+. cons (λ_hard_intended. _hard_intended (text "sharing_conjunction_chain") head λ. boolean true)
+λ
+. cons
+  (λ_hard_intended. _hard_intended (text "sharing_conjunction_chain_unrolled") head λ. boolean true)
+#   ---- H4. safety games ----
+λ
+. cons (λ_hard_intended. _hard_intended (text "safety_diamond_trapped") head λ. boolean false)
+λ
+. cons
+  (λ_hard_intended. _hard_intended (text "safety_diamond_trapped_unrolled") head λ. boolean false)
+λ
+. cons (λ_hard_intended. _hard_intended (text "safety_escape_behind_traps") failed none)
+λ
+. cons
+  (λ_hard_intended. _hard_intended (text "safety_escape_behind_traps_unrolled") head λ. boolean false)
+#   ---- H5. rebuilt paths ----
+λ
+. cons (λ_hard_intended. _hard_intended (text "path_rebuilt_by_identity") failed none)
+λ
+. cons (λ_hard_intended. _hard_intended (text "path_rebuilt_by_plus_minus_small") failed none)
+λ
+. cons (λ_hard_intended. _hard_intended (text "path_rebuilt_by_plus_minus_large") failed none)
+λ
+. cons (λ_hard_intended. _hard_intended (text "path_rebuilt_unrolled") head λ. boolean false)
+#   ---- H6. laziness guards ----
+λ
+. cons (λ_hard_intended. _hard_intended (text "lasso_ends_carrying_junk") failed none)
+λ
+. cons (λ_hard_intended. _hard_intended (text "acyclic_ends_carrying_junk") head λ. boolean true)
+λ
+. cons
+  (λ_hard_intended. _hard_intended (text "acyclic_ends_carrying_junk_unrolled") head λ. boolean true)
+#   ---- H7. cost guards ----
+λ
+. cons (λ_hard_intended. _hard_intended (text "lasso_long_prefix_ends") failed none)
+λ
+. cons (λ_hard_intended. _hard_intended (text "acyclic_long_ends") head λ. boolean true)
+#   ---- H8. a period against a growing spelling ----
+λ
+. cons (λ_hard_intended. _hard_intended (text "stream_period_against_map") failed none)
+λ
+. cons
+  (λ_hard_intended. _hard_intended (text "stream_period_against_map_differ") head λ. boolean false)
+#   ---- H9. circular programs ----
+λ
+. cons (λ_hard_intended. _hard_intended (text "repmin_sum_small") head λ. boolean true)
+λ
+. cons (λ_hard_intended. _hard_intended (text "repmin_sum_large") head λ. boolean true)
+#   ---- H10. the Fibonacci stream modulo 2 ----
+λ
+. cons (λ_hard_intended. _hard_intended (text "fibonacci_parity_nth") head λ. natural λ. integer 0)
+λ
+. cons
+  (λ_hard_intended. _hard_intended (text "fibonacci_parity_nth_unrolled") head λ. natural λ. integer 1)
+λ
+. cons (λ_hard_intended. _hard_intended (text "fibonacci_parity_periodic") failed none)
+λ
+. cons (λ_hard_intended. _hard_intended (text "fibonacci_parity_not_periodic") head λ. boolean false)
+#   ---- H11. the infinite natural ----
+λ
+. cons (λ_hard_intended. _hard_intended (text "omega_equal_by_two") failed none)
+λ
+. cons (λ_hard_intended. _hard_intended (text "omega_equal_by_copy") failed none)
+λ
+. cons (λ_hard_intended. _hard_intended (text "omega_not_forty") head λ. boolean false)
+λ
+. cons (λ_hard_intended. _hard_intended (text "omega_at_least_forty") head λ. boolean true)
+#   ---- H12. unproductive streams ----
+λ
+. cons (λ_hard_intended. _hard_intended (text "stream_unproductive_second") failed none)
+λ
+. cons (λ_hard_intended. _hard_intended (text "stream_unproductive_by_map_second") failed none)
+λ
+. cons
+  ( λ _hard_intended
+    . _hard_intended (text "stream_unproductive_by_map_first") head λ. natural λ. integer 1
+  )
+#   ---- H5, a step towards the frontier ----
+λ
+. cons (λ_hard_intended. _hard_intended (text "path_rebuilt_by_plus_minus_tiny") failed none)
+#   ---- H13. accumulators recomputed to the same value ----
+λ
+. cons (λ_hard_intended. _hard_intended (text "lasso_ends_with_flag") failed none)
+λ
+. cons (λ_hard_intended. _hard_intended (text "acyclic_ends_with_flag") head λ. boolean true)
+λ
+. cons (λ_hard_intended. _hard_intended (text "lasso_ends_with_reversed_list") failed none)
+λ
+. cons (λ_hard_intended. _hard_intended (text "acyclic_ends_with_reversed_list") head λ. boolean true)
+#   ---- H14. extensional growth ----
+λ
+. cons (λ_hard_intended. _hard_intended (text "path_eta_expanded") failed none)
+λ
+. cons (λ_hard_intended. _hard_intended (text "path_eta_expanded_unrolled") head λ. boolean false)
+#   ---- H15. the answer, not the truth ----
+λ
+. cons (λ_hard_intended. _hard_intended (text "tree_same_left_first_differ_right") failed none)
+λ
+. cons
+  (λ_hard_intended. _hard_intended (text "tree_same_right_first_differ_right") head λ. boolean false)
+λ
+. cons (λ_hard_intended. _hard_intended (text "tree_same_right_first_equal") failed none)
+#   ---- H16. the JIT framework's own ground ----
+λ
+. cons (λ_hard_intended. _hard_intended (text "jit_hot_count_down") head λ. boolean true)
+λ
+. cons (λ_hard_intended. _hard_intended (text "jit_hot_count_down_unrolled") head λ. boolean true)
+λ
+. cons (λ_hard_intended. _hard_intended (text "jit_many_codes") head λ. boolean true)
+λ
+. cons (λ_hard_intended. _hard_intended (text "jit_accumulating_parameter") head λ. boolean true)
+#   ---- H17. recomputed accumulators, the growth one level deeper ----
+λ
+. cons (λ_hard_intended. _hard_intended (text "lasso_ends_with_count") failed none)
+λ
+. cons (λ_hard_intended. _hard_intended (text "acyclic_ends_with_count") head λ. boolean true)
+λ
+. cons (λ_hard_intended. _hard_intended (text "lasso_ends_with_pair") failed none)
+λ
+. cons (λ_hard_intended. _hard_intended (text "acyclic_ends_with_pair") head λ. boolean true)
+#   ---- H18. olympiad problems written by their definitions ----
+λ
+. cons (λ_hard_intended. _hard_intended (text "game_subtraction_win") head λ. boolean true)
+λ
+. cons (λ_hard_intended. _hard_intended (text "game_subtraction_lose") head λ. boolean false)
+λ
+. cons (λ_hard_intended. _hard_intended (text "game_subtraction_unrolled") head λ. boolean false)
+λ
+. cons (λ_hard_intended. _hard_intended (text "coins_twenty") head λ. boolean true)
+λ
+. cons (λ_hard_intended. _hard_intended (text "coins_twenty_wrong_count") head λ. boolean false)
+λ
+. cons (λ_hard_intended. _hard_intended (text "coins_unrolled") head λ. boolean true)
+λ
+. cons (λ_hard_intended. _hard_intended (text "congruential_unreachable") failed none)
+λ
+. cons (λ_hard_intended. _hard_intended (text "congruential_reachable") head λ. boolean true)
+λ
+. cons (λ_hard_intended. _hard_intended (text "game_subtraction_medium") head λ. boolean false)
+λ
+. cons (λ_hard_intended. _hard_intended (text "congruential_small_unreachable") failed none)
+λ
+. cons (λ_hard_intended. _hard_intended (text "congruential_tiny_unreachable") failed none)
+#   ---- H21. common material ----
+λ
+. cons (λ_hard_intended. _hard_intended (text "common_length_of_map") head λ. boolean true)
+λ
+. cons (λ_hard_intended. _hard_intended (text "common_append_length") head λ. boolean true)
+λ
+. cons (λ_hard_intended. _hard_intended (text "common_reverse_twice") head λ. boolean true)
+λ
+. cons (λ_hard_intended. _hard_intended (text "common_all_zero") head λ. boolean true)
+#   ---- H19. where the baseline does not converge at all ----
+λ
+. cons (λ_hard_intended. _hard_intended (text "theorem_alternation") failed none)
+λ
+. cons (λ_hard_intended. _hard_intended (text "theorem_alternation_refuted") head λ. boolean false)
+λ
+. cons (λ_hard_intended. _hard_intended (text "series_product_identity") failed none)
+λ
+. cons (λ_hard_intended. _hard_intended (text "series_product_refuted") head λ. boolean false)
+λ
+. cons (λ_hard_intended. _hard_intended (text "type_dead_index_subtype") failed none)
+λ
+. cons (λ_hard_intended. _hard_intended (text "type_dead_index_not_subtype") head λ. boolean false)
+λ
+. cons (λ_hard_intended. _hard_intended (text "type_recomputed_index_subtype") failed none)
+#   ---- H20. symbolic computation ----
+λ
+. cons (λ_hard_intended. _hard_intended (text "regex_equivalent_star") failed none)
+λ
+. cons (λ_hard_intended. _hard_intended (text "regex_inequivalent_even") head λ. boolean false)
+λ
+. cons (λ_hard_intended. _hard_intended (text "regex_equivalent_even") failed none)
+λ
+. cons (λ_hard_intended. _hard_intended (text "tree_zero_by_maps") failed none)
+λ
+. cons (λ_hard_intended. _hard_intended (text "tree_zero_by_maps_refuted") head λ. boolean false)
+#   ---- the former JIT arena ----
+#   gain
+λ
+. cons (λ_hard_intended. _hard_intended (text "input_independent_stretch") head λ. boolean true)
+λ
+. cons (λ_hard_intended. _hard_intended (text "jit_hot_body_count_down_3200") head λ. boolean true)
+λ
+. cons
+  (λ_hard_intended. _hard_intended (text "jit_hot_combinator_count_down_3200") head λ. boolean true)
+λ
+. cons (λ_hard_intended. _hard_intended (text "argument_used_twice_16") head λ. boolean true)
+λ
+. cons (λ_hard_intended. _hard_intended (text "argument_used_twice_24") head λ. boolean true)
+λ
+. cons (λ_hard_intended. _hard_intended (text "edit_distance_6") head λ. boolean true)
+λ
+. cons (λ_hard_intended. _hard_intended (text "edit_distance_8") head λ. boolean true)
+λ
+. cons (λ_hard_intended. _hard_intended (text "regex_matches_8") head λ. boolean true)
+λ
+. cons (λ_hard_intended. _hard_intended (text "regex_rejects_medium") head λ. boolean false)
+λ
+. cons
+  ( λ _hard_intended
+    . _hard_intended (text "lasso_visited_cycle_start_medium") head λ. natural λ. integer 8
+  )
+#   regression, scored here with purpose speed
+λ
+. cons (λ_hard_intended. _hard_intended (text "acyclic_floyd_has_cycle_medium") head λ. boolean false)
+λ
+. cons (λ_hard_intended. _hard_intended (text "type_this_superclass") head λ. boolean false)
+λ
+. cons (λ_hard_intended. _hard_intended (text "acyclic_ends_medium") head λ. boolean true)
+λ
+. cons (λ_hard_intended. _hard_intended (text "proof_infinite_finite_list") head λ. boolean false)
+λ
+. cons (λ_hard_intended. _hard_intended (text "reverse_of_three") head λ. boolean true)
+λ
+. cons (λ_hard_intended. _hard_intended (text "length_of_eight") head λ. natural λ. integer 8)
+#   controls
+λ
+. cons (λ_hard_intended. _hard_intended (text "lasso_ends_unrolled") head λ. boolean true)
+λ
+. cons (λ_hard_intended. _hard_intended (text "stream_all_one_unrolled") head λ. boolean true)
+λ
+. cons (λ_hard_intended. _hard_intended (text "regex_all_prefixes_unrolled") head λ. boolean true)
+λ
+. cons (λ_hard_intended. _hard_intended (text "type_self_record_unrolled") head λ. boolean true) nil

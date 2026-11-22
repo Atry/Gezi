@@ -1,0 +1,5 @@
+#   Every predicate below builds a fresh surface term on each call: a term
+#   holding a binder may occur once in a program, so a term used twice is
+#   built twice, and a value used more than once is let bound and then
+#   referred to by its variable.
+λ export. export λx_0 x_1. x_0

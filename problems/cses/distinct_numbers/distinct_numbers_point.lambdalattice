@@ -1,0 +1,58 @@
+# The base problems of the CSES families repeated_cses_distinct_numbers_*: a list of integers, the answer the number of different
+# values in it.
+#
+# THE ANSWER of each row is the problem's definition computed exhaustively by
+# a brute-force script of it (enumerating the walks, subsets, divisors or
+# elements, 2026-11-21), not by the efficient algorithm. PROOF: the program of the problem's
+# file follows the definition, and its header argues under Definition 14 that
+# its one normal form is that answer; the data are finite and small. The inputs
+# are our own, no CSES test data.
+#
+#   distinct_numbers_point(?Point, ?Numbers, ?Result)
+#
+# Numbers is a Scott list (corpora/library/prelude/list) of integers (corpora/library/integer/cbor); Result is an
+# integer.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λvalue. value)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λvalue. value)
+λ integer
+. export
+λ
+. cons
+  ( λ _distinct_numbers_point
+    . _distinct_numbers_point (text "cses_distinct_numbers_repeats") (cons (integer 3) λ. cons (integer 1) λ. cons (integer 3) λ. cons (integer 2) λ. cons (integer 1) λ. nil) λ. (integer 3)
+  )
+λ
+. cons
+  ( λ _distinct_numbers_point
+    . _distinct_numbers_point (text "cses_distinct_numbers_single") (cons (integer 5) λ. nil) λ. (integer 1)
+  )
+λ
+. cons
+  ( λ _distinct_numbers_point
+    . _distinct_numbers_point (text "cses_distinct_numbers_all_equal") (cons (integer 4) λ. cons (integer 4) λ. cons (integer 4) λ. cons (integer 4) λ. nil) λ. (integer 1)
+  )
+λ
+. cons
+  ( λ _distinct_numbers_point
+    . _distinct_numbers_point (text "cses_distinct_numbers_all_different") (cons (integer 1) λ. cons (integer 2) λ. cons (integer 3) λ. cons (integer 4) λ. nil) λ. (integer 4)
+  )
+λ
+. cons
+  ( λ _distinct_numbers_point
+    . _distinct_numbers_point (text "cses_distinct_numbers_empty_list") nil λ. (integer 0)
+  )
+λ
+. cons
+  ( λ _distinct_numbers_point
+    . _distinct_numbers_point (text "cses_distinct_numbers_equal_ends") (cons (integer 9) λ. cons (integer 2) λ. cons (integer 9) λ. nil) λ. (integer 2)
+  ) nil

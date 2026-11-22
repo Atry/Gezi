@@ -1,0 +1,13 @@
+# A lemma whose right side is a parallel.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega parallel "library") "s") "both")
+λ both
+. export
+λ _ rewriting _ _
+. rewriting
+λ _ lemmas _
+. lemmas
+λ s
+. s (λk. k "both_of_one") (λx. both x x) (λx. (x ∥ x)) λ_ _ tex. tex λk. k "\\cite{paper}"

@@ -1,0 +1,35 @@
+#   common_subsequence_twin(?Twin, ?Recursion, ?Spelling)
+#
+# The recursion is a constructor of set_free_dynamic/recursion,
+# longest_common_subsequence or near; the spelling is a constructor of
+# schema/spelling, direct or respelled.
+# Each other text is from_cbor of a string literal, a Scott list of bytes,
+# imported from corpora/library/text/cbor. FIXME: the imports project "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. omega (omega (omega (omega gezi "problems") "schema") "spelling")
+λ direct respelled
+. omega (omega (omega (omega gezi "problems") "set_free_dynamic") "recursion")
+λ longest_common_subsequence near
+. export
+λ
+. cons
+  ( λ _common_subsequence_twin
+    . _common_subsequence_twin (text "direct") longest_common_subsequence direct
+  )
+λ
+. cons
+  ( λ _common_subsequence_twin
+    . _common_subsequence_twin (text "respelled") longest_common_subsequence respelled
+  )
+λ
+. cons (λ_common_subsequence_twin. _common_subsequence_twin (text "near_miss") near direct) nil

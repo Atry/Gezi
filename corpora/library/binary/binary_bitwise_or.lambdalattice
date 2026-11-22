@@ -1,0 +1,17 @@
+# The bitwise or of two canonical binary naturals, read as bit sets their
+# union: 0 | b = b, a | 0 = a, 2h | 2k = 2(h | k), 2h | 2k + 1 and
+# 2h + 1 | 2k are 2(h | k) + 1, and 2h + 1 | 2k + 1 = 2(h | k) + 1. A
+# binary_even is built only over the or of two positive halves, which is
+# positive, so the result stays canonical. Each bit is read once.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "native_types") "fixpoint")
+λ fixpoint
+. omega (omega (omega (omega corpora "library") "binary") "natural")
+λ _ binary_even binary_odd _ _
+. export
+λ
+. fixpoint
+λ self a b
+. a b (λh1. b a (λk1. binary_even λ. self h1 k1) λk2. binary_odd λ. self h1 k2) λh2. b a (λk3. binary_odd λ. self h2 k3) λk4. binary_odd λ. self h2 k4

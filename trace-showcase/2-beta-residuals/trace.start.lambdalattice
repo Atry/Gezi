@@ -1,0 +1,9 @@
+λ start
+. start (λk. k 1)
+  ( λ
+    . (λt. t λa. a)
+    λ $merkle$fc082a46
+    . $merkle$fc082a46
+    λ
+    . (λx y z. (z λ. x $merkle$fc082a46 + x)) λ. $merkle$fc082a46 λ. (λx z. z λ. x λd. d d) $merkle$fc082a46
+  )

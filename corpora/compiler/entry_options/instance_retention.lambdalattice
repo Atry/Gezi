@@ -1,0 +1,11 @@
+# The published list of the ways the JIT's state keeps the instance table's complete tables (InstanceRetentionOption): generations, two generations of its one field's entries each; never_dropped, every complete table kept for as long as the state lives.
+# A Scott sum whose constructors are the tuple's fields, in the order of the
+# enum's cases; an entry.lambdalattice imports this file and writes a
+# constructor, and EntryData reads which alternative it takes by structure
+# (gezi.contest.entry.EntryData, THE OPTIONS AS SCOTT CONSTRUCTORS).
+λ export
+. (λtuple. tuple λsize generations never_dropped. generations size)
+λ generations
+. (λtuple. tuple λgenerations never_dropped. never_dropped)
+λ never_dropped
+. export generations never_dropped

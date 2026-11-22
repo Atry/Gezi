@@ -1,0 +1,121 @@
+# Binary multiplication in lambda plus merge, with no label: scored points
+# of the label-free family.
+#
+# THE PROGRAM compares the product of two Scott binary naturals with a
+# claimed one: times (contest_merge_dynamic.pl, times_function/3) shifts
+# and adds, a times b = 0 when a is 0, double(h b) when a is 2h and
+# b + double(h b) when a is 2h + 1, with the curried plus and equality of
+# the same module, each let bound once. No merge occurs: these points
+# measure how fast a reading evaluates, not how it shares, the ground of
+# the JIT settings, now without labels.
+#
+# THE REFERENCE is Prolog's own multiplication; the schoolbook algorithm
+# the program follows costs O(n^2) in the number of bits n, a doubling of
+# the digits costing 4.
+#
+# READINGS (2026-09-28, CPU 2 under contest_limited.sh, a fresh process per
+# reading, the intended template, 10 s, 256 MB, 256 MB), in a probe of the
+# same program:
+# - weak_head: products of 8, 16, 32 and 64 digits in 195, 632, 2465 and
+#   11143 ms, 128 digits stopped;
+# - tabling(weak_head): 147, 451, 1790 and 8374 ms, 128 digits stopped.
+# A second run on the points themselves: weak_head 646 and 2554 ms at 16
+# and 32 digits, tabling(weak_head) 520 and 1752 ms; both stopped at 64
+# digits near 7.8 s, which is at the edge, and at 128.
+# The labeled family (contest_inheritance_binary.pl) was stopped on the
+# product of 16 digits under every reading at the family's limits.
+# The sizes are 16, 32 and 64 digits (n, 2n and 4n; 64 at the edge) and
+# 128 beyond, and a wrong claim at 32 digits, the product with bit 50
+# flipped, which the comparison reaches after the 50 bits below it.
+# BEYOND THE FRONTIER (four settings read the product of 128 digits): one
+# step beyond, 256 digits, the two
+# 128-digit factors concatenated in both orders. Readings (2026-09-28,
+# point_claims/2): weak_head and tabling(weak_head) stopped, in 6653 and
+# 6483 ms.
+# LIMITS: the family's, 10 s, 256 MB, 256 MB.
+#
+# TARGET ALGORITHMS, the specific known algorithms the problem targets, each
+# with its prior work:
+# - recognising the catalogued times by its content address and multiplying
+#   natively: J.-C. Filliâtre, S. Conchon, Type-Safe Modular Hash-Consing,
+#   ML Workshop 2006, doi:10.1145/1159876.1159880.
+# - or compiling the interpreter's hot loop, the ground of the JIT settings:
+#   C. F. Bolz, A. Cuni, M. Fijalkowski, A. Rigo, Tracing the Meta-Level:
+#   PyPy's Tracing JIT Compiler, ICOOOLPS 2009, doi:10.1145/1565824.1565827.
+
+#   product_point(?Point, ?Left, ?Right, ?Flipped): the claim is
+#   Left * Right with the bits of Flipped flipped, the true product when
+#   Flipped is 0.
+#
+# Each text is from_cbor of a string literal, a Scott list of bytes,
+# imported from corpora/library/text/cbor. Each number is from_cbor of an
+# integer literal, a Scott integer, imported from corpora/library/integer/cbor.
+# FIXME: the imports project "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λx. x)
+λ integer
+. export
+λ
+. cons
+  ( λ _product_point
+    . _product_point
+      (text "merge_binary_product_sixteen_digits")
+      (integer 1234567890123456)
+      (integer 6543210987654321) λ. integer 0
+  )
+λ
+. cons
+  ( λ _product_point
+    . _product_point
+      (text "merge_binary_product_thirty_two_digits")
+      (integer 12345678901234567890123456789012)
+      (integer 21098765432109876543210987654321) λ. integer 0
+  )
+λ
+. cons
+  ( λ _product_point
+    . _product_point
+      (text "merge_binary_product_thirty_two_digits_wrong")
+      (integer 12345678901234567890123456789012)
+      (integer 21098765432109876543210987654321) λ. integer 1125899906842624
+  )
+λ
+. cons
+  ( λ _product_point
+    . _product_point
+      (text "merge_binary_product_sixty_four_digits")
+      (integer 1234567890123456789012345678901234567890123456789012345678901234)
+      (integer 9876543210987654321098765432109876543210987654321098765432109876) λ. integer 0
+  )
+λ
+. cons
+  ( λ _product_point
+    . _product_point
+      (text "merge_binary_product_one_hundred_twenty_eight_digits")
+      ( integer 12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678
+      )
+      ( integer 98765432109876543210987654321098765432109876543210987654321098765432109876543210987654321098765432109876543210987654321098765432
+      ) λ. integer 0
+  )
+λ
+. cons
+  ( λ _product_point
+    . _product_point
+      (text "merge_binary_product_two_hundred_fifty_six_digits")
+      ( integer 1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567898765432109876543210987654321098765432109876543210987654321098765432109876543210987654321098765432109876543210987654321098765432
+      )
+      ( integer 9876543210987654321098765432109876543210987654321098765432109876543210987654321098765432109876543210987654321098765432109876543212345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678
+      ) λ. integer 0
+  ) nil

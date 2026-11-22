@@ -1,0 +1,235 @@
+# The schemes of fixed_width's names in the zero universe of the module
+# hindley_milner_unions, as native_arithmetic_unions writes native_arithmetic's.
+# Compiled with native_types, fixed_width and hindley_milner_unions. A word's
+# type is its structure: word_end one alternative with no field, word_cell
+# one alternative with two fields, the bit and the word above it, so the
+# type of a word of width w is w nested structures and the width is in the
+# type. word_structure w is that type, unfolded by two lemmas on the width
+# written out; each operation's scheme is one lemma over the operation
+# applied to its width W, a metavariable. Every lemma here has both sides top
+# up to contextual equivalence, or is absorption.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "fixed_width") "word_representation")
+λ word_end word_cell _ _ _ word_to_natural
+. omega (omega (omega (omega corpora "library") "hindley_milner_unions") "types")
+λ function_type _ scheme zero_universe_scheme _
+. omega (omega (omega (omega corpora "library") "hindley_milner_unions") "shapes")
+λ structure alternative no_alternative field no_field recursive_type
+. omega (omega (omega (omega corpora "library") "fixed_width_unions") "fixed_width_unions")
+λ word_structure word_structure_above
+. omega (omega (omega (omega corpora "library") "native_types") "natural")
+λ zero successor _ _
+. omega (omega (omega (omega corpora "library") "hindley_milner_unions") "judgments")
+λ _ _ unify
+. omega (omega (omega (omega corpora "library") "fixed_width") "word_arithmetic")
+λ _ word_add _ word_subtract word_negate word_of_natural
+. omega (omega (omega (omega corpora "library") "fixed_width") "word_multiplication")
+λ _ _ word_multiply
+. omega (omega (omega (omega corpora "library") "fixed_width") "word_comparison")
+λ word_equal word_less_than
+. export
+  ( λ _ rewriting _ _
+    . rewriting
+    λ _ _ leaves
+    . leaves
+      ( λk. k word_structure_above
+      + λk. k word_structure
+      )
+  + λ _ rewriting _ _
+    . rewriting
+    λ _ lemmas _
+    . lemmas
+      # The operations at a width W, s = word_structure W: absorption.
+      ( λ s
+        . s
+          (λk. k "unions_word_of_natural_scheme")
+          (λx_0. word_of_natural x_0)
+          ( λ x_0
+            . ( word_of_natural x_0
+              ∥ λ
+                . zero_universe_scheme
+                λ
+                . function_type
+                  ( recursive_type λx_1. structure λ. alternative no_field λ. alternative (field x_1 no_field) no_alternative
+                  ) λ. word_structure x_0
+              + word_of_natural x_0
+              )
+          ) λ_ md _. md λk. k "[absorption](docs/design/gezi-hindley-milner-unions-proofs.md#absorption)"
+      + λ s
+        . s
+          (λk. k "unions_word_to_natural_scheme")
+          (λx_0. word_to_natural x_0)
+          ( λ x_0
+            . ( word_to_natural x_0
+              ∥ λ
+                . zero_universe_scheme
+                λ
+                . function_type (word_structure x_0)
+                λ
+                . recursive_type λx_1. structure λ. alternative no_field λ. alternative (field x_1 no_field) no_alternative
+              + word_to_natural x_0
+              )
+          ) λ_ md _. md λk. k "[absorption](docs/design/gezi-hindley-milner-unions-proofs.md#absorption)"
+      + λ s
+        . s
+          (λk. k "unions_word_equal_scheme")
+          (λx_0. word_equal x_0)
+          ( λ x_0
+            . ( word_equal x_0
+              ∥ λ
+                . zero_universe_scheme
+                λ
+                . function_type (word_structure x_0)
+                λ
+                . function_type (word_structure x_0) λ. structure λ. alternative no_field λ. alternative no_field no_alternative
+              + word_equal x_0
+              )
+          ) λ_ md _. md λk. k "[absorption](docs/design/gezi-hindley-milner-unions-proofs.md#absorption)"
+      + λ s
+        . s
+          (λk. k "unions_word_less_than_scheme")
+          (λx_0. word_less_than x_0)
+          ( λ x_0
+            . ( word_less_than x_0
+              ∥ λ
+                . zero_universe_scheme
+                λ
+                . function_type (word_structure x_0)
+                λ
+                . function_type (word_structure x_0) λ. structure λ. alternative no_field λ. alternative no_field no_alternative
+              + word_less_than x_0
+              )
+          ) λ_ md _. md λk. k "[absorption](docs/design/gezi-hindley-milner-unions-proofs.md#absorption)"
+      + λ s
+        . s
+          (λk. k "unions_word_negate_scheme")
+          (λx_0. word_negate x_0)
+          ( λ x_0
+            . ( word_negate x_0
+              ∥ zero_universe_scheme λ. function_type (word_structure x_0) λ. word_structure x_0
+              + word_negate x_0
+              )
+          ) λ_ md _. md λk. k "[absorption](docs/design/gezi-hindley-milner-unions-proofs.md#absorption)"
+      + λ s
+        . s
+          (λk. k "unions_word_multiply_scheme")
+          (λx_0. word_multiply x_0)
+          ( λ x_0
+            . ( word_multiply x_0
+              ∥ zero_universe_scheme λ. function_type (word_structure x_0) λ. function_type (word_structure x_0) λ. word_structure x_0
+              + word_multiply x_0
+              )
+          ) λ_ md _. md λk. k "[absorption](docs/design/gezi-hindley-milner-unions-proofs.md#absorption)"
+      + λ s
+        . s
+          (λk. k "unions_word_subtract_scheme")
+          (λx_0. word_subtract x_0)
+          ( λ x_0
+            . ( word_subtract x_0
+              ∥ zero_universe_scheme λ. function_type (word_structure x_0) λ. function_type (word_structure x_0) λ. word_structure x_0
+              + word_subtract x_0
+              )
+          ) λ_ md _. md λk. k "[absorption](docs/design/gezi-hindley-milner-unions-proofs.md#absorption)"
+      + λ s
+        . s
+          (λk. k "unions_word_add_scheme")
+          (λx_0. word_add x_0)
+          ( λ x_0
+            . ( word_add x_0
+              ∥ zero_universe_scheme λ. function_type (word_structure x_0) λ. function_type (word_structure x_0) λ. word_structure x_0
+              + word_add x_0
+              )
+          ) λ_ md _. md λk. k "[absorption](docs/design/gezi-hindley-milner-unions-proofs.md#absorption)"
+      # word_structure_above w, the type of the w bits above a word's least
+      # significant one, unfolded as word_structure is. It is a second combinator
+      # so that the cells inside a word are not of the type word_structure k that
+      # the operations at a width k have: the candidacy of fixed_width_shapes.pl
+      # is anchored on word_structure alone, and in a program that names one width
+      # filters a word at its width, not each of its cells at theirs.
+      # FIXME (2026-10-31, derived and measured): in a program https://github.com/Atry/private-overlay/issues/2007
+      # that names two widths, 16 and 32, word_structure 16's unfolding and
+      # word_structure_above 16's, reached inside the 32 chain, are the same
+      # hash-consed structure, so unions_unify_structure_right unites the two
+      # classes, and the 16 upper bits of a 32-bit word become a candidate for
+      # int16_type. Measured on the list of int16_add on the 16-bit literals 5 and
+      # 6 and int32_add on the 32-bit literals 7 and 8: the extracted output
+      # holds 3 int32_type and 5 int16_type filter layers, counted distinct by
+      # handle, against 3 and 3 for the two operations apart, at the fixed point
+      # of 8,595 instances. The count is of layers, not of words: equal upper
+      # halves (all false for these small literals) are one hash-consed layer, so
+      # how many extra filters a word costs is not read off it. Sound (those bits
+      # are a 16-bit word), but extra work. A fix is not tried. A
+      # derivation, not measured: a cell structure of the upper bits that
+      # differed from a word's own would not unify with a literal's cells, and an
+      # anchor in the type's class is shared once the classes unite.
+      + λ s
+        . s
+          (λk. k "unions_word_structure_above_successor")
+          (λx_0. word_structure_above λ. successor x_0)
+          ( λ x_0
+            . unify (word_structure_above λ. successor x_0)
+            λ
+            . structure
+            λ
+            . alternative
+              ( field (structure λ. alternative no_field λ. alternative no_field no_alternative) λ. field (word_structure_above x_0) no_field
+              ) no_alternative
+          ) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      + λ s
+        . s
+          (λk. k "unions_word_structure_above_zero")
+          (word_structure_above zero)
+          (unify (word_structure_above zero) λ. structure λ. alternative no_field no_alternative) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      # word_structure w unified with its unfolding on the width written out: the
+      # end's structure at zero, a cell of a boolean and the word of w bits at
+      # successor w. Both sides are top up to contextual equivalence. The unfolding
+      # stands under
+      # unify with word_structure w on the right side, never alone on a side, as
+      # hindley_milner_unions' unions_recursive_type_unfolding does: read from
+      # right to left, a right side that were the unfolding alone would match
+      # every cell structure whose field is word_structure w and write
+      # word_structure (successor w), and on a class that a clash makes a cycle of
+      # cells it would write a longer width at every instance, without end. Under
+      # unify, a program HM rejects reaches its fixed point (strategies'
+      # FixedWidthTypingLawTest).
+      + λ s
+        . s
+          (λk. k "unions_word_structure_successor")
+          (λx_0. word_structure λ. successor x_0)
+          ( λ x_0
+            . unify (word_structure λ. successor x_0)
+            λ
+            . structure
+            λ
+            . alternative
+              ( field (structure λ. alternative no_field λ. alternative no_field no_alternative) λ. field (word_structure_above x_0) no_field
+              ) no_alternative
+          ) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      + λ s
+        . s
+          (λk. k "unions_word_structure_zero")
+          (word_structure zero)
+          (unify (word_structure zero) λ. structure λ. alternative no_field no_alternative) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      # The constructors, by the structures of their bodies.
+      + λ s
+        . s
+          (λk. k "unions_word_cell_scheme") word_cell
+          ( word_cell
+          ∥ λ
+            . zero_universe_scheme
+            λ
+            . scheme
+            λ x_0
+            . scheme
+            λ x_1
+            . function_type x_0 λ. function_type x_1 λ. structure λ. alternative (field x_0 λ. field x_1 no_field) no_alternative
+          + word_cell
+          ) λ_ md _. md λk. k "[absorption](docs/design/gezi-hindley-milner-unions-proofs.md#absorption)"
+      + λ s
+        . s
+          (λk. k "unions_word_end_scheme") word_end
+          (word_end ∥ zero_universe_scheme λ. structure λ. alternative no_field no_alternative + word_end) λ_ md _. md λk. k "[absorption](docs/design/gezi-hindley-milner-unions-proofs.md#absorption)"
+      )
+  )

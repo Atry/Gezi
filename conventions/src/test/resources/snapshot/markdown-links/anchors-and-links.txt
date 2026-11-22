@@ -1,0 +1,328 @@
+# sample 0
+see [text](CONTRIBUTING.md) here
+=>
+link 1: CONTRIBUTING.md
+
+# sample 1
+a code span `[text](../outside.md)` is no link
+=>
+
+
+# sample 2
+    [indented](../outside.md)
+=>
+
+
+# sample 3
+see [text](CONTRIBUTING.md#building-and-testing) here
+=>
+link 1: CONTRIBUTING.md#building-and-testing
+
+# sample 4
+- [listed](https://example.org/page)
+an escaped bracket D\[Z](../outside.md) opens no link
+=>
+link 1: https://example.org/page
+
+# sample 5
+an escaped bracket D\[Z](https://example.org/page) opens no link
+- [listed](#a)
+=>
+link 2: #a
+
+# sample 6
+see [text](CONTRIBUTING.md) here
+- [listed](CONTRIBUTING.md#building-and-testing)
+=>
+link 1: CONTRIBUTING.md
+link 2: CONTRIBUTING.md#building-and-testing
+
+# sample 7
+# testing
+=>
+anchor testing
+
+# sample 8
+- [listed](https://example.org/page)
+- [listed](../outside.md)
+a code span `[text](CONTRIBUTING.md)` is no link
+=>
+link 1: https://example.org/page
+link 2: ../outside.md
+
+# sample 9
+an escaped bracket D\[Z](https://example.org/page) opens no link
+=>
+
+
+# sample 10
+a code span `[text](https://example.org/page)` is no link
+a code span `[text](doc/proofs/x.md#a-1)` is no link
+=>
+
+
+# sample 11
+![image](#a)
+an escaped bracket D\[Z](../outside.md) opens no link
+=>
+link 1: #a
+
+# sample 12
+# testing
+an escaped bracket D\[Z](CONTRIBUTING.md) opens no link
+
+=>
+anchor testing
+
+# sample 13
+a [titled](CONTRIBUTING.md "title") link
+an escaped bracket D\[Z](doc/proofs/x.md#a-1) opens no link
+## testing A
+=>
+anchor testing-a
+link 1: CONTRIBUTING.md
+
+# sample 14
+a [titled](../outside.md "title") link
+## hyphen-ated
+![image](#a)
+=>
+anchor hyphen-ated
+link 1: ../outside.md
+link 3: #a
+
+# sample 15
+# `zero_universe` `zero_universe`
+    [indented](doc/proofs/x.md#a-1)
+=>
+anchor zero_universe-zero_universe
+link 2: doc/proofs/x.md#a-1
+
+# sample 16
+![image](#a)
+an escaped bracket D\[Z](CONTRIBUTING.md) opens no link
+see [text](#a) here
+an escaped bracket D\[Z](doc/proofs/x.md#a-1) opens no link
+=>
+link 1: #a
+link 3: #a
+
+# sample 17
+```
+an escaped bracket D\[Z](#a) opens no link
+=>
+
+
+# sample 18
+    [indented](../outside.md)
+a [titled](#a "title") link
+a [titled](https://example.org/page "title") link
+=>
+link 2: #a
+link 3: https://example.org/page
+
+# sample 19
+an escaped bracket D\[Z](../outside.md) opens no link
+see [text](#a) here
+    [indented](CONTRIBUTING.md#building-and-testing)
+=>
+link 2: #a
+link 3: CONTRIBUTING.md#building-and-testing
+
+# sample 20
+## C++ a
+    [indented](https://example.org/page)
+an escaped bracket D\[Z](CONTRIBUTING.md) opens no link
+![image](../outside.md)
+=>
+anchor c-a
+link 2: https://example.org/page
+link 4: ../outside.md
+
+# sample 21
+see [text](#a) here
+    [indented](CONTRIBUTING.md)
+=>
+link 1: #a
+link 2: CONTRIBUTING.md
+
+# sample 22
+![image](#a)
+see [text](CONTRIBUTING.md#building-and-testing) here
+a [titled](CONTRIBUTING.md#building-and-testing "title") link
+    [indented](../outside.md)
+plain prose
+see [text](../outside.md) here
+=>
+link 1: #a
+link 2: CONTRIBUTING.md#building-and-testing
+link 3: CONTRIBUTING.md#building-and-testing
+link 4: ../outside.md
+link 6: ../outside.md
+
+# sample 23
+a [titled](doc/proofs/x.md#a-1 "title") link
+see [text](#a) here
+    [indented](#a)
+~~~
+see [text](doc/proofs/x.md#a-1) here
+![image](CONTRIBUTING.md)
+=>
+link 1: doc/proofs/x.md#a-1
+link 2: #a
+link 3: #a
+
+# sample 24
+    [indented](CONTRIBUTING.md#building-and-testing)
+=>
+
+
+# sample 25
+a code span `[text](CONTRIBUTING.md)` is no link
+=>
+
+
+# sample 26
+- [listed](CONTRIBUTING.md#building-and-testing)
+- [listed](CONTRIBUTING.md#building-and-testing)
+=>
+link 1: CONTRIBUTING.md#building-and-testing
+link 2: CONTRIBUTING.md#building-and-testing
+
+# sample 27
+## testing [linked](elsewhere.md)
+- [listed](https://example.org/page)
+### hyphen-ated hyphen-ated
+see [text](#a) here
+=>
+anchor testing-linked
+anchor hyphen-ated-hyphen-ated
+link 1: elsewhere.md
+link 2: https://example.org/page
+link 4: #a
+
+# sample 28
+see [text](CONTRIBUTING.md) here
+![image](CONTRIBUTING.md#building-and-testing)
+a code span `[text](#a)` is no link
+an escaped bracket D\[Z](https://example.org/page) opens no link
+see [text](CONTRIBUTING.md) here
+=>
+link 1: CONTRIBUTING.md
+link 2: CONTRIBUTING.md#building-and-testing
+link 5: CONTRIBUTING.md
+
+# sample 29
+a [titled](https://example.org/page "title") link
+=>
+link 1: https://example.org/page
+
+# sample 30
+a code span `[text](doc/proofs/x.md#a-1)` is no link
+a [titled](https://example.org/page "title") link
+see [text](CONTRIBUTING.md) here
+a [titled](https://example.org/page "title") link
+    [indented](../outside.md)
+a [titled](#a "title") link
+=>
+link 2: https://example.org/page
+link 3: CONTRIBUTING.md
+link 4: https://example.org/page
+link 5: ../outside.md
+link 6: #a
+
+# sample 31
+    [indented](CONTRIBUTING.md#building-and-testing)
+=>
+
+
+# sample 32
+- [listed](doc/proofs/x.md#a-1)
+an escaped bracket D\[Z](../outside.md) opens no link
+=>
+link 1: doc/proofs/x.md#a-1
+
+# sample 33
+![image](CONTRIBUTING.md)
+a [titled](#a "title") link
+see [text](CONTRIBUTING.md#building-and-testing) here
+a code span `[text](CONTRIBUTING.md#building-and-testing)` is no link
+an escaped bracket D\[Z](CONTRIBUTING.md#building-and-testing) opens no link
+- [listed](https://example.org/page)
+=>
+link 1: CONTRIBUTING.md
+link 2: #a
+link 3: CONTRIBUTING.md#building-and-testing
+link 6: https://example.org/page
+
+# sample 34
+a [titled](CONTRIBUTING.md "title") link
+a [titled](CONTRIBUTING.md#building-and-testing "title") link
+plain prose
+- [listed](CONTRIBUTING.md#building-and-testing)
+see [text](CONTRIBUTING.md#building-and-testing) here
+a code span `[text](CONTRIBUTING.md#building-and-testing)` is no link
+an escaped bracket D\[Z](CONTRIBUTING.md) opens no link
+~~~
+a [titled](../outside.md "title") link
+an escaped bracket D\[Z](../outside.md) opens no link
+=>
+link 1: CONTRIBUTING.md
+link 2: CONTRIBUTING.md#building-and-testing
+link 4: CONTRIBUTING.md#building-and-testing
+link 5: CONTRIBUTING.md#building-and-testing
+
+# sample 35
+see [text](CONTRIBUTING.md#building-and-testing) here
+=>
+link 1: CONTRIBUTING.md#building-and-testing
+
+# sample 36
+# Building [linked](elsewhere.md) `zero_universe`
+an escaped bracket D\[Z](#a) opens no link
+    [indented](https://example.org/page)
+see [text](CONTRIBUTING.md) here
+plain prose
+- [listed](../outside.md)
+![image](../outside.md)
+=>
+anchor building-linked-zero_universe
+link 1: elsewhere.md
+link 3: https://example.org/page
+link 4: CONTRIBUTING.md
+link 6: ../outside.md
+link 7: ../outside.md
+
+# sample 37
+an escaped bracket D\[Z](../outside.md) opens no link
+see [text](../outside.md) here
+=>
+link 2: ../outside.md
+
+# sample 38
+- [listed](doc/proofs/x.md#a-1)
+##### *emphasis* C++ a
+### [linked](elsewhere.md) `zero_universe` [linked](elsewhere.md)
+an escaped bracket D\[Z](CONTRIBUTING.md#building-and-testing) opens no link
+![image](CONTRIBUTING.md#building-and-testing)
+    [indented](CONTRIBUTING.md)
+![image](CONTRIBUTING.md#building-and-testing)
+plain prose
+=>
+anchor emphasis-c-a
+anchor linked-zero_universe-linked
+link 1: doc/proofs/x.md#a-1
+link 3: elsewhere.md
+link 3: elsewhere.md
+link 5: CONTRIBUTING.md#building-and-testing
+link 6: CONTRIBUTING.md
+link 7: CONTRIBUTING.md#building-and-testing
+
+# sample 39
+
+    [indented](CONTRIBUTING.md)
+### a and
+    [indented](#a)
+=>
+anchor a-and
+link 4: #a

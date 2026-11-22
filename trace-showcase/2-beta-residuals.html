@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>trace.html</title>
+<link rel="stylesheet" href="trace-player/lib/bootstrap/dist/css/bootstrap.min.css">
+<link rel="stylesheet" href="trace-player/lib/bootstrap-icons/font/bootstrap-icons.min.css">
+<link rel="stylesheet" href="trace-player/player.css">
+</head>
+<body>
+<main id="trace-player"></main>
+<script type="application/x-lambdalattice" data-role="start">λ start
+. start (λk. k 1)
+  ( λ
+    . (λt. t λa. a)
+    λ $merkle$fc082a46
+    . $merkle$fc082a46
+    λ
+    . (λx y z. (z λ. x $merkle$fc082a46 + x)) λ. $merkle$fc082a46 λ. (λx z. z λ. x λd. d d) $merkle$fc082a46
+  )</script>
+<script type="application/x-lambdalattice" data-role="trace">λtrace. trace
+  (λn. λc. c (λh0. h0 (λh0. λh1. h1 (λh0. h0 (λk. k "lemmas.lambdalattice") (λk. k 0) (λk. k 33))) (λf. λa. (λu. u) (f a)) (λf. λa. f a))
+    (λn. λc. n))
+  (λn. λc. n)
+  (λn. λc. c (λn. λc. c (λh0. λh1. λh2. λh3. h0 (λh0. λh1. λh2. λh3. λh4. h0 (λk. k 0)) (λh0. h0 (λk. k 0) (λn. λc. n)) (λh0. λh1. h0) (λn. λc. n))
+      (λn. λc. c (λh0. λh1. λh2. λh3. h0 (λh0. λh1. λh2. λh3. λh4. h0 (λk. k 0)) (λh0. h0 (λk. k 0) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h1) (λn. λc. n))) (λh0. λh1. h0) (λn. λc. n))
+      (λn. λc. c (λh0. λh1. λh2. λh3. h0 (λh0. λh1. λh2. λh3. λh4. h2 (λh0. λh1. h0)) (λh0. h0 (λk. k 0) (λn. λc. n)) (λh0. λh1. h0) (λn. λc. n))
+      (λn. λc. n))))
+    (λn. λc. n))
+</script>
+<script src="trace-player/main.js"></script>
+</body>
+</html>

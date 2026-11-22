@@ -1,0 +1,11 @@
+# The published list of which closures a round opens (OpeningCriterionOption): calls_a_head, every closure that calls a name some enabled lemma's left side applies; calls_a_head_with_matching_arguments, only those where some such call's arguments may match one of that name's spines in a left side.
+# A Scott sum whose constructors are the tuple's fields, in the order of the
+# enum's cases; an entry.lambdalattice imports this file and writes a
+# constructor, and EntryData reads which alternative it takes by structure
+# (gezi.contest.entry.EntryData, THE OPTIONS AS SCOTT CONSTRUCTORS).
+λ export
+. (λtuple. tuple λcalls_a_head calls_a_head_with_matching_arguments. calls_a_head)
+λ calls_a_head
+. (λtuple. tuple λcalls_a_head calls_a_head_with_matching_arguments. calls_a_head_with_matching_arguments)
+λ calls_a_head_with_matching_arguments
+. export calls_a_head calls_a_head_with_matching_arguments

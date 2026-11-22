@@ -1,0 +1,25 @@
+# The library terms the program families are written with
+# (gezi.programfamilies.ProgramFamilies), each imported from its own file
+# of corpora/library/native_types and exported at its position of the file's
+# Scott tuple, whose names the host keeps in
+# gezi.standardlibrary.TermTables.programFamilyLibraryTerms, read by projection
+# (StandardLibrary.entryMembers). Only the program families read these terms;
+# no framework code reads them.
+# FIXME: the imports project "corpora" off the variable gezi, the name https://github.com/Atry/private-overlay/issues/1924
+# of the project root's own directory; they break if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "native_types") "natural")
+λ zero successor nat_fold _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "native_types") "list")
+λ nil cons list_fold _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "native_types") "boolean")
+λ true false _ boolean_not
+. omega (omega (omega (omega (omega gezi "corpora") "library") "native_types") "combinators")
+λ identity konstant compose
+. omega (omega (omega (omega (omega gezi "corpora") "library") "native_types") "fixpoint")
+λ fixpoint
+. export
+λ s
+. s fixpoint list_fold nat_fold compose konstant identity boolean_not false true cons nil successor zero

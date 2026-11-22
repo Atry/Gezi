@@ -1,0 +1,247 @@
+# GENERATED, do not edit: the beta eta normal forms of the attractors of
+# corpora/contest_attractors.pl, which includes this file, one
+# attractor_function(Name, Function) fact per attractor_entry/3 in the
+# order of definition. Written from the gezi directory by
+#
+#     swipl -g write_normal_forms -t halt doc/contest_attractor_normal_forms.pl > corpora/contest_attractor_normal_forms.pl
+#
+# and checked fresh by tests/contest_attractor_normal_forms.plt.
+
+#
+# Each text is from_cbor of a string literal, a Scott list of bytes,
+# imported from corpora/library/text/cbor. FIXME: the import projects "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. export
+λ
+. cons (λ_attractor_function. _attractor_function (text "identity") λx_0. x_0)
+λ
+. cons (λ_attractor_function. _attractor_function (text "konstant") λx_0 x_1. x_0)
+λ
+. cons (λ_attractor_function. _attractor_function (text "true") λx_0 x_1. x_0)
+λ
+. cons (λ_attractor_function. _attractor_function (text "false") λx_0 x_1. x_1)
+λ
+. cons (λ_attractor_function. _attractor_function (text "or") λx_0. x_0 λx_1 x_2. x_1)
+λ
+. cons (λ_attractor_function. _attractor_function (text "pair") λx_0 x_1 x_2. x_2 x_0 x_1)
+λ
+. cons (λ_attractor_function. _attractor_function (text "first") λx_0. x_0 λx_1 x_2. x_1)
+λ
+. cons (λ_attractor_function. _attractor_function (text "second") λx_0. x_0 λx_1 x_2. x_2)
+λ
+. cons (λ_attractor_function. _attractor_function (text "zero") λx_0 x_1. x_0)
+λ
+. cons (λ_attractor_function. _attractor_function (text "successor") λx_0 x_1 x_2. x_2 x_0)
+λ
+. cons
+  ( λ _attractor_function
+    . _attractor_function (text "natural_equal") λx_0 x_1 x_2. x_1 (x_2 (λx_3 x_4. x_3) λx_3 x_4 x_5. x_5) λx_3. x_2 (λx_4 x_5. x_5) λ. x_0 x_3
+  )
+λ
+. cons
+  ( λ _attractor_function
+    . _attractor_function (text "natural_at_least") λx_0 x_1 x_2. x_2 (λx_3 x_4. x_3) λx_3. x_1 (λx_4 x_5. x_5) λx_4. x_0 x_4 x_3
+  )
+λ
+. cons
+  ( λ _attractor_function
+    . _attractor_function (text "natural_difference") λx_0 x_1 x_2. x_2 x_1 λx_3. x_1 (λx_4 x_5. x_4) λx_4. x_0 x_4 x_3
+  )
+λ
+. cons
+  ( λ _attractor_function
+    . _attractor_function (text "natural_double") λx_0 x_1. x_1 (λx_2 x_3. x_2) λx_2 x_3 x_4. x_4 λx_5 x_6. x_6 λ. x_0 x_2
+  )
+λ
+. cons (λ_attractor_function. _attractor_function (text "nil") λx_0 x_1. x_0)
+λ
+. cons (λ_attractor_function. _attractor_function (text "cons") λx_0 x_1 x_2 x_3. x_3 x_0 x_1)
+λ
+. cons
+  ( λ _attractor_function
+    . _attractor_function (text "append") λx_0 x_1 x_2. x_1 x_2 λx_3 x_4 x_5 x_6. x_6 x_3 λ. x_0 x_4 x_2
+  )
+λ
+. cons
+  ( λ _attractor_function
+    . _attractor_function (text "map") λx_0 x_1 x_2. x_2 (λx_3 x_4. x_3) λx_3 x_4 x_5 x_6. x_6 (x_1 x_3) λ. x_0 x_1 x_4
+  )
+λ
+. cons
+  ( λ _attractor_function
+    . _attractor_function (text "length") λx_0 x_1. x_1 (λx_2 x_3. x_2) λx_2 x_3 x_4 x_5. x_5 λ. x_0 x_3
+  )
+λ
+. cons
+  ( λ _attractor_function
+    . _attractor_function (text "depth_first")
+    λ x_0 x_1 x_2 x_3 x_4
+    . x_4 (λx_5 x_6. x_6) λx_5 x_6. x_3 x_5 (λx_7 x_8. x_7) λ. x_1 x_2 x_3 λ. x_0 (x_2 x_5) x_6
+  )
+λ
+. cons
+  ( λ _attractor_function
+    . _attractor_function (text "filter")
+    λ x_0 x_1 x_2
+    . x_2 (λx_3 x_4. x_3) λx_3 x_4. x_1 x_3 (λx_5 x_6. x_6 x_3 λ. x_0 x_1 x_4) λ. x_0 x_1 x_4
+  )
+λ
+. cons
+  ( λ _attractor_function
+    . _attractor_function (text "binary_to_unary") λx_0 x_1 x_2. x_2 (λx_3 x_4. x_3) λx_3 x_4. x_3 (λx_5 x_6. x_6 λ. x_0 λ. x_1 x_4) λ. x_0 λ. x_1 x_4
+  )
+λ
+. cons
+  ( λ _attractor_function
+    . _attractor_function (text "binary_increment")
+    λ x_0 x_1
+    . x_1 (λx_2 x_3. x_3 (λx_4 x_5. x_4) λx_4 x_5. x_4) λx_2 x_3. x_2 (λx_4 x_5. x_5 (λx_6 x_7. x_7) λ. x_0 x_3) λx_4 x_5. x_5 (λx_6 x_7. x_6) x_3
+  )
+λ
+. cons
+  ( λ _attractor_function
+    . _attractor_function (text "unary_to_binary") λx_0 x_1 x_2. x_2 (λx_3 x_4. x_3) λx_3. x_0 λ. x_1 x_3
+  )
+λ
+. cons (λ_attractor_function. _attractor_function (text "absorbing") λx_0 x_1. x_0)
+λ
+. cons (λ_attractor_function. _attractor_function (text "binary_zero") λx_0 x_1 x_2. x_0)
+λ
+. cons (λ_attractor_function. _attractor_function (text "binary_even") λx_0 x_1 x_2 x_3. x_2 x_0)
+λ
+. cons (λ_attractor_function. _attractor_function (text "binary_odd") λx_0 x_1 x_2 x_3. x_3 x_0)
+λ
+. cons
+  ( λ _attractor_function
+    . _attractor_function (text "merge_binary_increment")
+    λ x_0 x_1
+    . x_1 (λx_2 x_3 x_4. x_4 λx_5 x_6 x_7. x_5) (λx_2 x_3 x_4 x_5. x_5 x_2) λx_2 x_3 x_4 x_5. x_4 λ. x_0 x_0 x_2
+  )
+λ
+. cons
+  ( λ _attractor_function
+    . _attractor_function (text "merge_binary_plus")
+    λ x_0 x_1 x_2 x_3
+    . x_2 x_3
+      (λx_4. x_3 x_2 (λx_5 x_6 x_7 x_8. x_7 λ. x_1 x_1 x_4 x_5) λx_5 x_6 x_7 x_8. x_8 λ. x_1 x_1 x_4 x_5)
+    λ x_4
+    . x_3 x_2 (λx_5 x_6 x_7 x_8. x_8 λ. x_1 x_1 x_4 x_5) λx_5 x_6 x_7 x_8. x_7 λ. x_0 λ. x_1 x_1 x_4 x_5
+  )
+λ
+. cons
+  ( λ _attractor_function
+    . _attractor_function (text "merge_binary_times")
+    λ x_0 x_1 x_2 x_3
+    . x_2
+      (λx_4 x_5 x_6. x_4)
+      ( λ x_4
+        . x_1 x_1 x_4 x_3 (λx_5 x_6 x_7. x_5) (λx_5 x_6 x_7 x_8. x_7 λ. x_1 x_1 x_4 x_3) λx_5 x_6 x_7 x_8. x_7 λ. x_1 x_1 x_4 x_3
+      )
+    λ x_4
+    . x_0 x_3
+    λ
+    . x_1 x_1 x_4 x_3 (λx_5 x_6 x_7. x_5) (λx_5 x_6 x_7 x_8. x_7 λ. x_1 x_1 x_4 x_3) λx_5 x_6 x_7 x_8. x_7 λ. x_1 x_1 x_4 x_3
+  )
+λ
+. cons
+  ( λ _attractor_function
+    . _attractor_function (text "merge_binary_equality")
+    λ x_0 x_1 x_2
+    . x_1
+      (x_2 (λx_3 x_4. x_3) (λx_3 x_4 x_5. x_5) λx_3 x_4 x_5. x_5)
+      (λx_3. x_2 (λx_4 x_5. x_5) (x_0 x_0 x_3) λx_4 x_5 x_6. x_6) λx_3. x_2 (λx_4 x_5. x_5) (λx_4 x_5 x_6. x_6) λ. x_0 x_0 x_3
+  )
+λ
+. cons
+  ( λ _attractor_function
+    . _attractor_function (text "merge_symbols_equal") λx_0 x_1. x_0 (x_1 (λx_2 x_3. x_2) λx_2 x_3. x_3) λ. x_1 (λx_2 x_3. x_3) λx_2 x_3. x_2
+  )
+λ
+. cons
+  (λ_attractor_function. _attractor_function (text "not") λx_0. x_0 (λx_1 x_2. x_2) λx_1 x_2. x_1)
+λ
+. cons (λ_attractor_function. _attractor_function (text "and") λx_0 x_1. x_0 x_1 λx_2 x_3. x_3)
+λ
+. cons
+  ( λ _attractor_function
+    . _attractor_function (text "exclusive") λx_0 x_1. x_0 (x_1 (λx_2 x_3. x_3) λx_2 x_3. x_2) x_1
+  )
+λ
+. cons
+  ( λ _attractor_function
+    . _attractor_function (text "every_assignment") λx_0. x_0 (λx_1 x_2. x_1) (x_0 λx_1 x_2. x_2) λx_1 x_2. x_2
+  )
+λ
+. cons (λ_attractor_function. _attractor_function (text "none") λx_0 x_1. x_0)
+λ
+. cons (λ_attractor_function. _attractor_function (text "some") λx_0 x_1 x_2. x_2 x_0)
+λ
+. cons
+  ( λ _attractor_function
+    . _attractor_function (text "foldr") λx_0 x_1 x_2 x_3. x_3 x_2 λx_4 x_5. x_1 x_4 λ. x_0 x_1 x_2 x_5
+  )
+λ
+. cons
+  ( λ _attractor_function
+    . _attractor_function (text "foldl") λx_0 x_1 x_2 x_3. x_3 x_2 λx_4. x_0 x_1 λ. x_1 x_2 x_4
+  )
+λ
+. cons
+  ( λ _attractor_function
+    . _attractor_function (text "reverse") λx_0. x_0 (λx_1 x_2 x_3 x_4. x_4 x_2 x_1) λx_1 x_2. x_1
+  )
+λ
+. cons (λ_attractor_function. _attractor_function (text "concat") λx_0 x_1. x_0 x_1 λx_2 x_3. x_2)
+λ
+. cons
+  (λ_attractor_function. _attractor_function (text "flat_map") λx_0 x_1 x_2 x_3. x_0 λ. x_1 x_2 x_3)
+λ
+. cons
+  ( λ _attractor_function
+    . _attractor_function (text "zip")
+    λ x_0 x_1 x_2
+    . x_1 (λx_3 x_4. x_3) λx_3 x_4. x_2 (λx_5 x_6. x_5) λx_5 x_6 x_7 x_8. x_8 (λx_9. x_9 x_3 x_5) λ. x_0 x_4 x_6
+  )
+λ
+. cons
+  ( λ _attractor_function
+    . _attractor_function (text "bit_set_member") λx_0 x_1 x_2. x_1 (λx_3 x_4. x_4) λx_3 x_4. x_2 x_3 λ. x_0 x_4
+  )
+λ
+. cons
+  ( λ _attractor_function
+    . _attractor_function (text "bit_set_insert")
+    λ x_0 x_1 x_2
+    . x_1 (λx_3 x_4. x_3) λx_3 x_4. x_2 (λx_5 x_6. x_6 (λx_7 x_8. x_7) x_4) λx_5 x_6 x_7. x_7 x_3 λ. x_0 x_4 x_5
+  )
+λ
+. cons
+  ( λ _attractor_function
+    . _attractor_function (text "bit_set_full") λx_0 x_1. x_1 (λx_2 x_3. x_2) λx_2 x_3. x_2 (x_0 x_3) λx_4 x_5. x_5
+  )
+λ
+. cons
+  ( λ _attractor_function
+    . _attractor_function (text "bits_prefix")
+    λ x_0 x_1 x_2
+    . x_1 (λx_3 x_4. x_3)
+    λ x_3 x_4
+    . x_2 (λx_5 x_6. x_6) λx_5 x_6. x_3 (x_5 (x_0 x_4 x_6) λx_7 x_8. x_8) λ. x_5 (λx_7 x_8. x_8) λ. x_0 x_4 x_6
+  )
+λ
+. cons
+  ( λ _attractor_function
+    . _attractor_function (text "bit_set_union")
+    λ x_0 x_1 x_2
+    . x_1 x_2 λx_3 x_4. x_2 x_1 λx_5 x_6 x_7 x_8. x_8 (x_3 (λx_9 x_10. x_9) x_5) λ. x_0 x_4 x_6
+  ) nil

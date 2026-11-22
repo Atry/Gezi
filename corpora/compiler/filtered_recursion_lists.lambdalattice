@@ -1,0 +1,73 @@
+# The contracts and the typed branches of the filtered structural recursion
+# over Scott lists, list_fold_filtered of parallel_lists. Each lemma holds
+# for every element type, output type, base and step: list_fold_filtered
+# filters the base, the recursive result handed to the step and the step's
+# output by the output type, so no lemma here asks anything of the step.
+# The lemmas are sound, and they are kept out of the lemma set of HM. They
+# are a module of their own so that every lemma set is a union of whole
+# modules: a configuration enables them without the lemmas on the
+# filtered folds of the naturals.
+#
+# A typed branch adds to a term a smaller alternative, A = A + B with B ≤ A,
+# an equation that holds up to ≃_O, so adding B changes the meaning of no
+# term in any context, and dropping A at
+# compile time only loses answers.
+#
+# Every lemma here is a theorem of λ-lattice-unit-η (CONTRIBUTING.md,
+# "Terms"); each declaration cites its paper proof. None uses
+# induction. This module declares no define:
+# it uses compose (prelude), nat_type (parallel_types), filter_by,
+# list_type, list_fold and list_fold_filtered (parallel_lists), with which
+# it is compiled.
+
+# The contracts of structural recursion over lists with filters, for every
+# element type, output type, base and step: every output path of
+# list_fold_filtered ends with a filter by the output type, and the scrutinee
+# filtered by a list type takes one of the two paths.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "prelude") "combinators")
+λ _ _ compose _ _ _ _
+. omega (omega (omega (omega corpora "library") "parallel_lists") "parallel_lists")
+λ list_type list_fold list_fold_filtered filter_by
+. omega (omega (omega (omega corpora "library") "parallel_types") "natural")
+λ nat_type _ _ _
+. export
+λ _ rewriting _ _
+. rewriting
+λ _ lemmas _
+. lemmas
+  ( λ s
+    . s
+      (λk. k "list_fold_filtered_branch_nat_type_in_context")
+      (λx_0 x_1 x_2. x_0 λ. list_fold x_1 x_2)
+      (λx_0 x_1 x_2. (x_0 λ. list_fold_filtered nat_type x_1 x_2 + x_0 λ. list_fold x_1 x_2))
+    λ _ md _
+    . md λk. k "[list_fold_filtered_branch_nat_type_in_context](docs/design/gezi-normality-measure.md)"
+  # The typed branch into nat_type, alone and in any context: the filtered
+  # recursion is smaller than the unfiltered one, by monotonicity (10), for
+  # every output type; one lemma per output type enumerates the type cases,
+  # and nat_type is the one case written so far.
+  + λ s
+    . s
+      (λk. k "list_fold_filtered_branch_nat_type")
+      (λx_0 x_1. list_fold x_0 x_1)
+      (λx_0 x_1. (list_fold_filtered nat_type x_0 x_1 + list_fold x_0 x_1)) λ_ md _. md λk. k "[list_fold_filtered_branch_nat_type](docs/design/gezi-normality-measure.md)"
+  + λ s
+    . s
+      (λk. k "list_fold_filtered_contract_chained")
+      ( λ x_0 x_1 x_2 x_3 x_4
+        . compose (filter_by x_1) λ. compose (list_fold_filtered x_1 x_2 x_3) λ. compose (filter_by λ. list_type x_0) x_4
+      )
+      ( λ x_0 x_1 x_2 x_3 x_4
+        . compose (list_fold_filtered x_1 x_2 x_3) λ. compose (filter_by λ. list_type x_0) x_4
+      ) λ_ md _. md λk. k "[list_fold_filtered_contract_chained](docs/design/gezi-normality-measure.md)"
+  + λ s
+    . s
+      (λk. k "list_fold_filtered_contract")
+      ( λ x_0 x_1 x_2 x_3
+        . compose (filter_by x_1) λ. compose (list_fold_filtered x_1 x_2 x_3) λ. filter_by λ. list_type x_0
+      )
+      (λx_0 x_1 x_2 x_3. compose (list_fold_filtered x_1 x_2 x_3) λ. filter_by λ. list_type x_0) λ_ md _. md λk. k "[list_fold_filtered_contract](docs/design/gezi-normality-measure.md)"
+  )

@@ -1,0 +1,30 @@
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "native_types") "markers")
+λ _ $constructor _ _
+. omega (omega (omega (omega corpora "library") "native_types") "fixpoint")
+λ fixpoint
+# zero:
+# The natural zero; its scheme nat_type is the lemma zero_scheme of
+# native_types.pl.
+. (λtuple. tuple λ. $constructor λz s. z)
+λ zero
+# successor:
+# The successor of a natural; its scheme nat_type -> nat_type is the lemma
+# successor_scheme of native_types.pl.
+. (λtuple. tuple λ. $constructor λn z s. s n)
+λ successor
+# nat_fold:
+# The fold over a natural; its scheme forall r. r -> (r -> r) -> nat_type -> r
+# is the lemma nat_fold_scheme of native_types.pl. The scrutinee carries no
+# filter here: a typed program filters it where the fold is applied (the
+# typed version, hindley_milner_unions), and the backend eliminates a natural
+# in its representation by its codec.
+. (λtuple. tuple λ. fixpoint λself z s n. n z λp. s λ. self z s p)
+λ nat_fold
+# nat_type:
+# The naturals: the Scott numeral zero, and the successors of naturals.
+. (λtuple. tuple λ. fixpoint λn. ((λm z s. s m) n + λz s. z))
+λ nat_type
+. export zero successor nat_fold nat_type

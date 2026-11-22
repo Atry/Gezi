@@ -1,0 +1,124 @@
+# The knowledge of the Java FFI: the data families of
+# the JVM's value types, read from the library's java_ffi/bits and native_types/boolean, so that a filter x ∥ C, C one
+# of their criteria, is an assertion the runner of the FFI and a backend read from the term (CONTRIBUTING.md, "Types
+# live only in the term": the host decodes a value whose term carries an assertion).
+#
+# The JVM's boolean is the Scott boolean; its facts here are the ones prolog_backend states, the family of
+# true and false held as the backend's boolean, so that the tuples' fields, booleans, name a family when this file is
+# enabled alone; enabled with prolog_backend they are one fact each.
+#
+# The lists of 8-bit and of 16-bit tuples, the arguments of the literal constructs, are declared families of the
+# Scott lists of prelude/list, nil of no field and cons of a tuple and the rest, under the criteria of
+# java_ffi/literals; the runner finds each by its fields, a tuple's criterion and the recursion.
+#
+# A tuple of w bits is the family of the codec jvm_bits_w (gezi.jit.JvmBitsFamily), of one constructor, its tuple maker,
+# whose w fields are booleans, held as a JVM value, so that a value the FFI passes on costs no encoding.
+#
+# The Moore machine state, its output, the expressions of a computation graph, their argument lists and a method's
+# symbols are declared families as well, under the criteria of java_ffi/moore_types, so that an executor decodes a
+# filtered state with no normal form. A position the
+# criterion leaves open has the criterion Ω, whose representation is the codec `unread`, which holds the field as it is
+# written, since x ∥ Ω ≃_O x (Lean: omegaParallelContextualEquivalence).
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "prelude") "list")
+λ prelude_nil prelude_cons _ _ _
+. omega (omega (omega (omega corpora "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λx. x)
+λ integer_literal
+. omega (omega (omega (omega corpora "library") "native_types") "boolean")
+λ true false boolean_type _
+. omega (omega (omega (omega corpora "library") "java_ffi") "bits")
+λ bits_8 bits_8_type bits_16 bits_16_type bits_32 bits_32_type bits_64 bits_64_type
+. omega (omega (omega (omega corpora "library") "java_ffi") "literals")
+λ bits_8_list_type bits_16_list_type _ _ _
+. omega (omega (omega (omega corpora "library") "java_ffi") "moore")
+λ moore_state finish run call new decode _
+. omega (omega (omega (omega corpora "library") "java_ffi") "moore_types")
+λ bottom expression_type arguments_type output_alphabet moore_state_type symbols symbols_type _
+# The field a criterion leaves open, and the field of a closed criterion.
+. (λtuple. tuple λ_ _ closed. closed λ. prelude_cons bottom prelude_nil)
+λ open_field
+. (λtuple. tuple λcriterion _ _ closed. closed λ. prelude_cons criterion prelude_nil)
+λ closed_field
+. omega (omega (omega (omega corpora "compiler") "backend_vocabulary") "jvm_types")
+λ generic _
+. export
+  ( λ _ _ _ backend
+    . backend
+    λ _ _ _ _ _ jvm_types
+    . jvm_types
+      ( λs. s bits_8_list_type generic
+      + λs. s moore_state_type generic
+      + λs. s output_alphabet generic
+      + λs. s expression_type generic
+      + λs. s arguments_type generic
+      + λs. s symbols_type generic
+      )
+  + λ _ _ _ backend
+    . backend
+    λ _ _ _ _ fields _
+    . fields
+      ( λ s
+        . s bits_8_list_type prelude_cons
+        λ
+        . prelude_cons (λ_ _ closed. closed λ. prelude_cons bits_8_type prelude_nil) λ. prelude_cons (λ_ recursive _. recursive) prelude_nil
+      + λ s
+        . s bits_16_list_type prelude_cons
+        λ
+        . prelude_cons (λ_ _ closed. closed λ. prelude_cons bits_16_type prelude_nil) λ. prelude_cons (λ_ recursive _. recursive) prelude_nil
+      + λs. s moore_state_type moore_state λ. prelude_cons (closed_field output_alphabet) λ. prelude_cons open_field prelude_nil
+      + λs. s output_alphabet finish λ. prelude_cons open_field prelude_nil
+      + λs. s output_alphabet run λ. prelude_cons (closed_field expression_type) prelude_nil
+      + λs. s expression_type call λ. prelude_cons open_field λ. prelude_cons (closed_field arguments_type) prelude_nil
+      + λ s
+        . s expression_type new
+        λ
+        . prelude_cons open_field λ. prelude_cons open_field λ. prelude_cons (closed_field arguments_type) prelude_nil
+      + λs. s expression_type decode λ. prelude_cons open_field prelude_nil
+      + λ s
+        . s arguments_type prelude_cons
+        λ
+        . prelude_cons (closed_field expression_type) λ. prelude_cons (λ_ recursive _. recursive) prelude_nil
+      + λ s
+        . s symbols_type symbols
+        λ
+        . prelude_cons (closed_field bits_8_list_type)
+        λ
+        . prelude_cons (closed_field bits_8_list_type) λ. prelude_cons (closed_field bits_8_list_type) prelude_nil
+      )
+  + λ _ _ _ backend
+    . backend
+    λ _ _ _ families _ _
+    . families
+      ( λs. s boolean_type (integer_literal 0) λ. prelude_cons true λ. prelude_cons false prelude_nil
+      + λs. s bits_8_type (integer_literal 0) λ. prelude_cons bits_8 prelude_nil
+      + λs. s bits_16_type (integer_literal 0) λ. prelude_cons bits_16 prelude_nil
+      + λs. s bits_32_type (integer_literal 0) λ. prelude_cons bits_32 prelude_nil
+      + λs. s bits_64_type (integer_literal 0) λ. prelude_cons bits_64 prelude_nil
+      + λ s
+        . s bits_8_list_type (integer_literal 0) λ. prelude_cons prelude_nil λ. prelude_cons prelude_cons prelude_nil
+      + λ s
+        . s bits_16_list_type (integer_literal 0) λ. prelude_cons prelude_nil λ. prelude_cons prelude_cons prelude_nil
+      + λs. s moore_state_type (integer_literal 0) λ. prelude_cons moore_state prelude_nil
+      + λs. s output_alphabet (integer_literal 0) λ. prelude_cons finish λ. prelude_cons run prelude_nil
+      + λs. s expression_type (integer_literal 0) λ. prelude_cons call λ. prelude_cons new λ. prelude_cons decode prelude_nil
+      + λ s
+        . s arguments_type (integer_literal 0) λ. prelude_cons prelude_nil λ. prelude_cons prelude_cons prelude_nil
+      + λs. s symbols_type (integer_literal 0) λ. prelude_cons symbols prelude_nil
+      + λs. s bottom (integer_literal 0) prelude_nil
+      )
+  + λ _ _ _ backend
+    . backend
+    λ _ _ representations _ _ _
+    . representations
+      ( λs. s boolean_type λk. k "boolean"
+      + λs. s bits_8_type λk. k "jvm_bits_8"
+      + λs. s bits_16_type λk. k "jvm_bits_16"
+      + λs. s bits_32_type λk. k "jvm_bits_32"
+      + λs. s bits_64_type λk. k "jvm_bits_64"
+      + λs. s bottom λk. k "unread"
+      )
+  )

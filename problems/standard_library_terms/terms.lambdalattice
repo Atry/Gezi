@@ -1,0 +1,39 @@
+# The library terms the repeated problem families of contest-corpora build
+# their programs from (gezi.contest.corpora.reductions.StandardLibraryTerms),
+# each imported from its own file of corpora/library and exported at its
+# position of the file's Scott tuple, whose names the host keeps in
+# gezi.standardlibrary.TermTables.problemLibraryTerms. Only the problem
+# generators read these terms, to build problems; no framework code reads them.
+# FIXME: the imports project "corpora" off the variable gezi, the name https://github.com/Atry/private-overlay/issues/1923
+# of the project root's own directory; they break if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "native_types") "natural")
+λ zero successor nat_fold _
+. omega
+  (omega (omega (omega (omega gezi "corpora") "library") "native_arithmetic") "native_arithmetic")
+λ double even
+. omega (omega (omega (omega (omega gezi "corpora") "library") "native_types") "combinators")
+λ identity _ compose
+. omega (omega (omega (omega (omega gezi "corpora") "library") "native_types") "list")
+λ nil cons list_fold _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "native_types") "boolean")
+λ true false _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "fixed_width") "word_representation")
+λ word_end word_cell _ _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "fixed_width") "word_multiplication")
+λ _ _ word_multiply
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "natural")
+λ binary_zero binary_even binary_odd _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "arithmetic")
+λ merge_binary_increment merge_binary_plus merge_binary_times merge_binary_equality
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "order")
+λ _ binary_maximum binary_minimum
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "binary_bitwise_or")
+λ binary_bitwise_or
+. omega (omega (omega (omega (omega gezi "corpora") "library") "native_types") "fixpoint")
+λ fixpoint
+. export
+λ s
+. s fixpoint binary_bitwise_or binary_minimum binary_maximum merge_binary_equality merge_binary_times merge_binary_plus merge_binary_increment binary_odd binary_even binary_zero word_multiply word_end word_cell false true identity nil cons list_fold compose even double nat_fold successor zero

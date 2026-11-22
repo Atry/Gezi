@@ -1,0 +1,122 @@
+# 1
+#   retired(?Point): a point no longer read, kept in the corpus: read by
+#   21 or more of 23 settings with little spread in time, a control beyond
+#   the four kept, or a frontier point whose smaller sibling stays read
+#   (reinstated once that sibling is read).
+#   typing_natural_bad_unrolled (H22's control): its answer
+#   set is empty (no_head, an unobserved cycle), a claim no single reading
+#   proves, so it cannot be a control every sound setting reads.
+#
+# Each text is from_cbor of a string literal, a Scott list of bytes,
+# imported from corpora/library/text/cbor. FIXME: the import projects "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. export
+λ
+. cons (λ_retired. _retired λ. text "typing_natural_bad_unrolled")
+#   Retired 2026-09-27, when the judging semantics became the
+#   equations alone (no observed condition, literal equality): each of these
+#   hands its value on around a cycle that never applies it (a tail call,
+#   the second argument of `and` or `or`), so every closed abstraction is a
+#   solution's value there, every trap they carried became true, and they
+#   separate nothing. stream_unproductive_by_map_second's claim natural(1)
+#   rested on bisimilarity (`map id c` is `cons (id h) ...`, never c
+#   literally) and is withdrawn with it.
+λ
+. cons (λ_retired. _retired λ. text "stream_periods_equal_small")
+λ
+. cons (λ_retired. _retired λ. text "stream_periods_equal_medium")
+λ
+. cons (λ_retired. _retired λ. text "stream_period_against_map")
+λ
+. cons (λ_retired. _retired λ. text "fibonacci_parity_periodic")
+λ
+. cons (λ_retired. _retired λ. text "theorem_alternation")
+λ
+. cons (λ_retired. _retired λ. text "series_product_identity")
+λ
+. cons (λ_retired. _retired λ. text "omega_equal_by_two")
+λ
+. cons (λ_retired. _retired λ. text "omega_equal_by_copy")
+λ
+. cons (λ_retired. _retired λ. text "congruential_tiny_unreachable")
+λ
+. cons (λ_retired. _retired λ. text "regex_equivalent_star")
+λ
+. cons (λ_retired. _retired λ. text "regex_equivalent_even")
+λ
+. cons (λ_retired. _retired λ. text "tree_zero_by_maps")
+λ
+. cons (λ_retired. _retired λ. text "lasso_ends_with_flag")
+λ
+. cons (λ_retired. _retired λ. text "tree_same_right_first_equal")
+λ
+. cons (λ_retired. _retired λ. text "lasso_ends_carrying_junk")
+λ
+. cons (λ_retired. _retired λ. text "lasso_long_prefix_ends")
+λ
+. cons (λ_retired. _retired λ. text "lasso_ends_with_reversed_list")
+λ
+. cons (λ_retired. _retired λ. text "lasso_ends_with_count")
+λ
+. cons (λ_retired. _retired λ. text "stream_unproductive_second")
+λ
+. cons (λ_retired. _retired λ. text "stream_unproductive_by_map_second")
+λ
+. cons (λ_retired. _retired λ. text "fibonacci_parity_not_periodic")
+#   Each separated 23 settings exactly as a cheaper sibling of the same
+#   family and purpose did, and costs more: stream_periods_equal_large as
+#   stream_periods_equal_medium (11.4 against 7.4 CPU seconds over the 23), lasso_ends_with_pair as
+#   lasso_ends_with_count (11.7 against 10.1).
+λ
+. cons (λ_retired. _retired λ. text "stream_periods_equal_large")
+λ
+. cons (λ_retired. _retired λ. text "lasso_ends_with_pair")
+λ
+. cons (λ_retired. _retired λ. text "stream_period_against_map_differ")
+λ
+. cons (λ_retired. _retired λ. text "theorem_alternation_refuted")
+λ
+. cons (λ_retired. _retired λ. text "tree_same_right_first_differ_right")
+λ
+. cons (λ_retired. _retired λ. text "tree_zero_by_maps_refuted")
+λ
+. cons (λ_retired. _retired λ. text "type_dead_index_not_subtype")
+λ
+. cons (λ_retired. _retired λ. text "stream_periods_equal_unrolled")
+λ
+. cons (λ_retired. _retired λ. text "sharing_conjunction_chain_unrolled")
+λ
+. cons (λ_retired. _retired λ. text "safety_diamond_trapped_unrolled")
+λ
+. cons (λ_retired. _retired λ. text "safety_escape_behind_traps_unrolled")
+λ
+. cons (λ_retired. _retired λ. text "path_rebuilt_unrolled")
+λ
+. cons (λ_retired. _retired λ. text "acyclic_ends_carrying_junk_unrolled")
+λ
+. cons (λ_retired. _retired λ. text "fibonacci_parity_nth_unrolled")
+λ
+. cons (λ_retired. _retired λ. text "path_eta_expanded_unrolled")
+λ
+. cons (λ_retired. _retired λ. text "jit_hot_count_down_unrolled")
+λ
+. cons (λ_retired. _retired λ. text "congruential_small_unreachable")
+λ
+. cons (λ_retired. _retired λ. text "congruential_unreachable")
+λ
+. cons (λ_retired. _retired λ. text "path_rebuilt_by_plus_minus_large")
+# TODO (https://github.com/Atry/private-overlay/issues/1567, 删除): retired/1 by labeled_point/1, the points whose claim tests held an embedded inheritance(Program); labels are gone since 2026-09-29; read it back with git show 26517aeca:lambda_jit/corpora/contest_hard_answers.pl.
+#   typing_natural_returns_bad is withdrawn: the intended answer of its
+#   two traps (class rejects_certificate) is disputed, and a point with no agreed answer is withdrawn, not
+#   re-answered.
+λ . cons (λ_retired. _retired λ. text "typing_natural_returns_bad") nil

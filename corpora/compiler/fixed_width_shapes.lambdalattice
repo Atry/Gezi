@@ -1,0 +1,29 @@
+# The fixed-width integers' candidacy for the Prolog backend's typed versions,
+# compiled with prolog_backend_shapes, whose typed versions and contracts are
+# lemmas for every representation r, and with fixed_width and
+# fixed_width_unions. A type is a candidate for the words of width w when it
+# is word_structure w, the type every operation at the width w has on its
+# words (fixed_width_unions.pl): the candidacy is anchored on the widths the
+# program's operations name, not induced up from the structures, so that it
+# writes no width the program does not name and a clash that makes a cycle
+# of cells grows no candidacy. One lemma for every width; both sides are top
+# up to contextual equivalence.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "fixed_width_unions") "fixed_width_unions")
+λ word_structure _
+. omega (omega (omega (omega corpora "library") "prolog_backend_shapes") "prolog_backend_shapes")
+λ candidate _ _ _ _ _
+. omega (omega (omega (omega corpora "library") "fixed_width") "word_representation")
+λ _ _ _ _ word_type _
+. export
+λ _ rewriting _ _
+. rewriting
+λ _ lemmas _
+. lemmas
+λ s
+. s
+  (λk. k "shapes_word_candidate")
+  (λx_0. word_structure x_0)
+  (λx_0. candidate (word_type x_0) λ. word_structure x_0) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"

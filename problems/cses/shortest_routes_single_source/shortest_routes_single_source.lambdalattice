@@ -1,0 +1,108 @@
+# shortest_routes_single_source:
+# CSES 1671, Shortest Routes I (https://cses.fi/problemset/task/1671), in our
+# own words: city_count cities and one-way flights, each from a city to another with a
+# positive cost; the least total cost of a trip from city 1 to each city, the
+# answer the list of these city_count costs in the order of the cities. CSES promises
+# that every city can be reached; for a city that cannot, this program answers
+# the total cost of all flights plus one, which no trip costs. Part of the CSES
+# port's second batch.
+#
+# INPUT: the number of cities, a binary natural (corpora/library/binary/natural),
+# and the flights, a Scott list (corpora/library/prelude/list) of triples
+# `pair from (pair to cost)` (corpora/library/prelude/pair), each a positive
+# binary natural. The answer is a Scott list of binary naturals.
+#
+# THE PROGRAM, written by the definition: a trip of total cost exactly trip_cost
+# reaches the city (reaches trip_cost city) when trip_cost = 0 and the city is city 1, or when some flight
+# from a city intermediate to the city of cost <= trip_cost has a trip of cost trip_cost - cost to intermediate, by its
+# recursion on trip_cost (every cost is positive, so trip_cost - cost < trip_cost); the least cost of a
+# trip to the city is the least trip_cost, counted up from 0 while trip_cost stays within the total
+# cost total of all flights (a shortest trip uses no flight twice), for which
+# reaches trip_cost city holds, and total + 1 when none does. Under tabling the reading shares
+# reaches trip_cost city for each trip_cost and city, about city_count total flight_count steps for flight_count flights; the
+# replacement the family asks for is Dijkstra's algorithm with a priority
+# queue, about (city_count + flight_count) log city_count steps, on fixed-width integers.
+#
+# DEFINITION 14: the program P, the point's term, is built of λ and application
+# only, with no top, no choice and no parallel. It β-reduces to V, the Scott
+# list of the canonical binary numerals of the costs (reaches consumes trip_cost, the
+# search consumes total - trip_cost, each fold a finite list, and every flight costs at
+# least 1, as the problem states, so the argument trip_cost - cost of the recursive call
+# is smaller than d). binary_subtract, which writes no top
+# (../common/binary_modular), is never asked for less than zero, since the
+# program subtracts only a cost that is no larger. So ⊢_β P = V, and P ≃_O V by
+# the soundness of the derivable equations for the contextual preorder of
+# Definition 14 (Lean `ContextualPreorder.contextualEquivalenceOfDerivableLatticeEta`):
+# V is an answer, P ⊑_O V. No other closed βη normal form W has P ⊑_O W: then
+# V ⊑_O W, while Böhm's theorem gives a pure context that takes V to λx y. x and
+# W to λx y. y, and applying both to λa. a and Ω makes the first solvable and
+# the second not.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "fixpoint")
+λ fixpoint
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "boolean")
+λ true false _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "natural")
+λ binary_zero _ binary_odd _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "arithmetic")
+λ merge_binary_increment merge_binary_plus _ merge_binary_equality
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "order")
+λ binary_less_than _ _
+. omega (omega (omega (omega (omega gezi "problems") "cses") "common") "binary_modular")
+λ _ binary_subtract _ _
+. (λtuple. tuple (binary_odd binary_zero))
+λ one
+. ( λ tuple
+    . tuple
+    λ flights
+    . fixpoint
+      ( λ self sum rest
+        . rest sum λ flight others. flight λ origin destination_and_cost. destination_and_cost λ destination cost. self (merge_binary_plus sum cost) others
+      ) binary_zero flights
+  )
+λ total_cost
+. ( λ tuple
+    . tuple
+    λ flights
+    . fixpoint
+    λ self trip_cost city
+    . ( λ any
+        . trip_cost (merge_binary_equality city one) (λ_. any flights) λ_. any flights
+      )
+    λ
+    . fixpoint
+    λ any rest
+    . rest false
+    λ flight others
+    . flight
+    λ origin destination_and_cost
+    . destination_and_cost
+    λ destination cost
+    . merge_binary_equality destination city (binary_less_than trip_cost cost (any others) (self (binary_subtract trip_cost cost false) origin true (any others))) (any others)
+  )
+λ reaches
+. ( λ tuple
+    . tuple
+    λ flights total city
+    . fixpoint
+      ( λ self trip_cost
+        . binary_less_than total trip_cost trip_cost (reaches flights trip_cost city trip_cost (self (merge_binary_increment trip_cost)))
+      ) binary_zero
+  )
+λ distance
+. ( λ tuple
+    . tuple
+    λ city_count flights
+    . ( λ total
+        . fixpoint
+          ( λ self city
+            . binary_less_than city_count city nil (cons (distance flights total city) (self (merge_binary_increment city)))
+          ) one
+      ) (total_cost flights)
+  )
+λ shortest_routes_single_source
+. export shortest_routes_single_source

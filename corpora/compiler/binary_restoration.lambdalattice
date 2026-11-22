@@ -1,0 +1,34 @@
+# The binary naturals' constructors restored where a numeral is written in β normal form:
+# `λz e o. o h`, the β normal form of `binary_odd h`, is in one
+# class with `binary_odd h`, and `λz e o. e h` with `binary_even h`, so that a back end that reads the constructors'
+# applications (narrow-blocks' literals) reads such a numeral, and nothing in the host recognizes the shape. This is
+# the reverse β that restores a noinline function where its unfolded shape appears, written as one lemma per constructor with a field; binary_zero needs none, its β normal form being its
+# own body.
+#
+# Sound by δ and β alone: binary_odd is `λh _ _ o. o h` and binary_even `λh _ e _. e h` (library binary/natural), so
+# each left side contracts to its right side in one β step after δ, inside ⊢_{βη} (CONTRIBUTING.md, "Terms").
+#
+# Termination, derived and not proved: an instance read right to left adds the application of a constructor to a class
+# the match already had; read left to right it adds the thunk that the β rule adds as well. Neither side's match
+# creates a node the other side matches anew, so the instances are at most the thunks of the two codes and the
+# constructors' applications in the input graph.
+#
+# Measured 2026-11-19 by a probe kept out of the tree, set_free_sum_small_direct through the rounds of contest-entries-wren with this module
+# added to the first: the class of the numeral 13 gains `binary_odd` applied to the class of 6, the extraction writes
+# every numeral as the constructors applied, and the program's one narrow block compiles; without it the block is
+# refused, "a literal does not decode".
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "binary") "natural")
+λ _ binary_even binary_odd _ _
+. export
+λ _ rewriting _ _
+. rewriting
+λ _ lemmas _
+. lemmas
+  ( λ s
+    . s (λk. k "binary_odd_restored") (λh. binary_odd h) (λh z e o. o h) λ_ md _. md λk. k "[β](docs/design/gezi-set-equations-proofs.md)"
+  + λ s
+    . s (λk. k "binary_even_restored") (λh. binary_even h) (λh z e o. e h) λ_ md _. md λk. k "[β](docs/design/gezi-set-equations-proofs.md)"
+  )

@@ -1,0 +1,45 @@
+# The facts of one backend, in a knowledge file of their own: no lemma
+# justifies them. The data family gives the constructors the codec of the
+# representation big_integer needs, at their positions.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λx. x)
+λ integer_literal
+. omega (omega (omega (omega backend_property "library") "bd") "zero")
+λ zero
+. omega (omega (omega (omega backend_property "library") "bd") "successor")
+λ successor
+. omega (omega (omega (omega backend_property "library") "bd") "nat_type")
+λ nat_type
+. export
+  ( λ _ _ _ backend
+    . backend
+    λ _ _ _ _ fields _
+    . fields
+    λ s
+    . s nat_type successor λ. cons (λ_ recursive _. recursive) nil
+  + λ _ _ _ backend
+    . backend
+    λ _ _ _ families _ _
+    . families
+    λ s
+    . s nat_type (integer_literal 0) λ. cons zero λ. cons successor nil
+  + λ _ _ _ backend
+    . backend
+    λ _ _ representations _ _ _
+    . representations
+    λ s
+    . s nat_type λk. k "big_integer"
+  + λ _ _ properties _
+    . properties
+    λ _ _ first_order_constructor _ _ _ _ _
+    . first_order_constructor
+      ( λk. k successor
+      + λk. k zero
+      )
+  )

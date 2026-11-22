@@ -1,0 +1,31 @@
+# MIXINv2's Builtin/BinNatDecrement.mixin.yaml (the package mixinv2-library),
+# desugared to the literal partial-function mixin encoding, a
+# definition `L : V` written `λ"L" L. V`: after the key, a class whose self is
+# named by the label. A lexical reference [a, w…] reads
+# off the self of the nearest enclosing scope that writes a, a qualified one
+# [S, ~, w…] off the self S, and an inherited mixin is applied to the
+# inheritor's self. top is written out, the term of corpora/library/top.lambdalattice.
+# The names BinNatDecrement, Builtin and mixin_builtin are the selves the directory tree
+# binds. Written by a translator, a scratch prototype of that desugaring.
+# FIXME: once the .mixin.yaml front end (#1520) reads MIXINv2's YAML, read https://github.com/Atry/private-overlay/issues/1520
+# that YAML and delete this file.
+Builtin Builtin "BinNatVisitor" BinNatDecrement
++ (λ"BinNatFactory" BinNatFactory. ( (λ"Product" Product. (λ"Decrement" Decrement. (λ"decreased" decreased. BinNatFactory BinNatFactory "Product" decreased)))
++ (λ"Zero" Zero. (λ"Decrement" Decrement. (λ"decreased" decreased. BinNatFactory BinNatFactory "Zero" decreased)))
++ (λ"Even" Even. ( (λ"half" half. (λ"Decrement" Decrement. (λ"decreased" decreased. BinNatFactory BinNatFactory "Product" decreased)))
++ (λ"Decrement" Decrement. ( (λ"_HalfAcceptance" _HalfAcceptance. ( (λo. o o "Acceptance") (Even Even "half") _HalfAcceptance
++ (λ"VisitorMap" VisitorMap. ( (λ"ZeroVisitor" ZeroVisitor. (λ"decreased" decreased. BinNatFactory BinNatFactory "Zero" decreased))
++ (λ"EvenVisitor" EvenVisitor. (λ"decreased" decreased. ( BinNatFactory BinNatFactory "Odd" decreased
++ (λ"halfOfPredecessor" halfOfPredecessor. (λo. o o "decreased") ((λo. o o "Decrement") (Even Even "half")) halfOfPredecessor))))
++ (λ"OddVisitor" OddVisitor. (λ"decreased" decreased. ( BinNatFactory BinNatFactory "Odd" decreased
++ (λ"halfOfPredecessor" halfOfPredecessor. (λo. o o "decreased") ((λo. o o "Decrement") (Even Even "half")) halfOfPredecessor))))))
++ (λ"Accepted" Accepted. (λ"decreased" decreased. BinNatFactory BinNatFactory "Product" decreased))))
++ (λ"decreased" decreased. (λo. o o "decreased") ((λo. o o "Accepted") (Decrement Decrement "_HalfAcceptance")) decreased)))))
++ (λ"Odd" Odd. (λ"Decrement" Decrement. ( (λ"_HalfAcceptance" _HalfAcceptance. ( (λo. o o "Acceptance") (Odd Odd "halfOfPredecessor") _HalfAcceptance
++ (λ"VisitorMap" VisitorMap. ( (λ"ZeroVisitor" ZeroVisitor. (λ"decreased" decreased. BinNatFactory BinNatFactory "Zero" decreased))
++ (λ"EvenVisitor" EvenVisitor. (λ"decreased" decreased. ( BinNatFactory BinNatFactory "Even" decreased
++ (λ"half" half. Odd Odd "halfOfPredecessor" half))))
++ (λ"OddVisitor" OddVisitor. (λ"decreased" decreased. ( BinNatFactory BinNatFactory "Even" decreased
++ (λ"half" half. Odd Odd "halfOfPredecessor" half))))))
++ (λ"Accepted" Accepted. (λ"decreased" decreased. BinNatFactory BinNatFactory "Product" decreased))))
++ (λ"decreased" decreased. (λo. o o "decreased") ((λo. o o "Accepted") (Decrement Decrement "_HalfAcceptance")) decreased))))))

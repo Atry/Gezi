@@ -1,0 +1,85 @@
+# Powers by repeated multiplication in lambda plus merge, with no label:
+# scored points where a reverse index of a knowledge base pays (the reverse
+# index: one large Scott value read many times).
+#
+# THE PROGRAM computes base^k by k multiplications, power k = k 1
+# (\p. times base (power p)), with the label-free binary times and
+# equality of contest_merge_dynamic.pl, and compares it with a claimed
+# numeral. The base, one let-bound binary numeral, is an argument of every
+# multiplication: a knowledge base that recognizes its meaning once, and
+# the catalogued times (merge_binary_times) by its address, can multiply
+# natively from then on. The accumulator occurs twice in times's odd case
+# and the language is call by name, so without sharing each power is
+# evaluated again at every use.
+#
+# THE TWINS (miss twins) are ALGORITHMIC, measuring a setting's
+# fallback: they use the twin arithmetic of contest_merge_dynamic.pl,
+# whose times recurses on its right operand, here the growing accumulator,
+# and whose plus and equality case on the second operand first; no
+# catalogued API and no Böhm-equal respelling of one occurs in them.
+#
+# THE POINTS: the base 12345678 raised to 4, 8 and 16 (n, 2n and 4n; 16 at
+# the edge) and to 32 beyond, each with its twin. The claims are computed
+# from Prolog's arithmetic.
+#
+# READINGS (2026-09-28, CPU 2 under contest_limited.sh, a fresh process per
+# reading, the boolean(true) template, 10 s, 256 MB, 256 MB):
+# - weak_head is stopped on every point, the accumulator evaluated again
+#   at every use;
+# - tabling(weak_head): 4 and 8 in 642 and 2639 ms, 16 at the edge (read in
+#   11296 ms of CPU in a probe, stopped at 11683 ms in the points' run), 32
+#   stopped; the twins 4, 8 and 16 in 571, 2458 and 11015 ms, 32 stopped.
+#   A doubling of the exponent costs about 4, the numbers growing in bits
+#   with the exponent.
+# LIMITS: the family's, 10 s, 256 MB, 256 MB.
+#
+# TARGET ALGORITHMS, the specific known algorithms the problem targets, each
+# with its prior work:
+# - sharing the accumulator, which call by name evaluates again at every
+#   use: J. Launchbury, A Natural Semantics for Lazy Evaluation, POPL 1993,
+#   doi:10.1145/158511.158618.
+# - recognising the base's meaning and the catalogued times once, then
+#   multiplying natively: J.-C. Filliâtre, S. Conchon, Type-Safe Modular
+#   Hash-Consing, ML Workshop 2006, doi:10.1145/1159876.1159880.
+
+#   power_point(?Point, ?Arithmetic, ?Exponent)
+#
+# The arithmetic is a constructor of merge_power/arithmetic, original or
+# twin. Each other text is from_cbor of a string literal, a Scott list of
+# bytes, imported from corpora/library/text/cbor. Each number is from_cbor of an
+# integer literal, a Scott integer, imported from corpora/library/integer/cbor.
+# FIXME: the imports project "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λx. x)
+λ integer
+. omega (omega (omega (omega gezi "problems") "merge_power") "arithmetic")
+λ original twin
+. export
+λ
+. cons (λ_power_point. _power_point (text "merge_power_four") original λ. integer 4)
+λ
+. cons (λ_power_point. _power_point (text "merge_power_eight") original λ. integer 8)
+λ
+. cons (λ_power_point. _power_point (text "merge_power_sixteen") original λ. integer 16)
+λ
+. cons (λ_power_point. _power_point (text "merge_power_thirty_two") original λ. integer 32)
+λ
+. cons (λ_power_point. _power_point (text "merge_power_four_twin") twin λ. integer 4)
+λ
+. cons (λ_power_point. _power_point (text "merge_power_eight_twin") twin λ. integer 8)
+λ
+. cons (λ_power_point. _power_point (text "merge_power_sixteen_twin") twin λ. integer 16)
+λ
+. cons (λ_power_point. _power_point (text "merge_power_thirty_two_twin") twin λ. integer 32) nil

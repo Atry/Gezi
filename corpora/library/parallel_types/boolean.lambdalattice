@@ -1,0 +1,16 @@
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "prelude") "boolean")
+λ true false _ _
+# boolean_type:
+# The type of the Scott booleans as a choice of its two constructors:
+# the closed βη normal forms N with boolean_type ⊑_O N are exactly true and false
+# (a paper proof, not yet in Lean).
+. (λtuple. tuple (false + true))
+λ boolean_type
+# filter_boolean:
+# The filter of the booleans: the parallel of x with boolean_type.
+. (λtuple. tuple λx. (x ∥ boolean_type))
+λ filter_boolean
+. export boolean_type filter_boolean

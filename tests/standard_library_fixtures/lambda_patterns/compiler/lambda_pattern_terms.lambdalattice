@@ -1,0 +1,30 @@
+# A closure is judged pending from a new variable to its body there: the
+# left side is a lambda pattern, M a function metavariable, V a metavariable
+# of the right side alone. applied a f = f a: f is no function metavariable,
+# so its application is an application node and no body is read.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega lambda_patterns "library") "lambda_pattern_terms") "pending")
+λ pending
+. omega (omega (omega (omega lambda_patterns "library") "lambda_pattern_terms") "applied")
+λ applied
+. omega (omega (omega (omega lambda_patterns "library") "lambda_pattern_terms") "opaque_identity")
+λ opaque_identity
+. export
+  ( λ _ rewriting _ _
+    . rewriting
+    λ _ _ leaves
+    . leaves
+      ( λk. k opaque_identity
+      + λk. k pending
+      )
+  + λ _ rewriting _ _
+    . rewriting
+    λ _ lemmas _
+    . lemmas
+      ( λs. s (λk. k "applied_unfolded") (λa f. applied a f) (λa f. f a) λ_ _ tex. tex λk. k "\\cite{paper}"
+      + λ s
+        . s (λk. k "abstraction") (λm v x. m x) (λm v. (λw. m w ∥ pending v λ. m v + λy. m y)) λ_ _ tex. tex λk. k "\\cite{paper}"
+      )
+  )

@@ -1,0 +1,139 @@
+# An entry, read as the generic entry reads entry.lambdalattice
+# (gezi.contest.entry.EntryData.at), whose one round chooses the test
+# extractor module of contest-entry's tests
+# (gezi.contest.entry.TestExtractorModule, ExtractorModuleLawTest) by
+# importing its selector file, test_extractor, and writing the term it gives
+# as the extractor's selector: the selector the entry imports and the one the module registers
+# are to be one interned instruction. Its parameters are a tuple of one
+# integer, 7, which the module reads by structure. The round's knowledge is
+# top and it enables no built-in rule; its other implementations, and the
+# backend's options, are the fixture entry's (contest-entries-fixture), the
+# executor the framework's JIT.
+# FIXME: the imports project "corpora" and "tests" off the variable gezi, the https://github.com/Atry/private-overlay/issues/1924
+# name of the project root's own directory; they break if that directory is
+# renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "indexer")
+λ standard
+. omega
+  (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "orientation_compiler")
+λ standard_orientations
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "saturator")
+λ higher_order
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "extractor")
+λ _ _ module
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "lemma_encoding")
+λ baseline
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "ematching")
+λ closures _ _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "memo_retention")
+λ memo_kept _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "opening_criterion")
+λ calls_a_head _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "checkpoints")
+λ profitable _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "lookahead")
+λ lazily _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "native_blocks")
+λ no_native_blocks
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "application")
+λ by_layer _ _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "continuation")
+λ substituted_continuations _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "parallel")
+λ both_sides _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "table_sharing")
+λ local_tables _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "table_retention")
+λ _ no_tables_kept _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "instance_retention")
+λ generations _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "dispatch")
+λ fallback
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "implementation")
+λ closure
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "granularity")
+λ predicate_per_code
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "executor")
+λ framework_jit _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "compilation_place")
+λ upfront_compilation _
+. omega (omega (omega (omega gezi "tests") "extractor_module_fixtures") "test_extractor")
+λ test_extractor
+. omega (omega (omega (omega gezi "corpora") "library") "top")
+λ top
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λx. x)
+λ integer_literal
+. export
+λ s
+. s
+  ( λ
+    . cons
+      ( λ s
+        . s top
+        λ implementations behaviour
+        . ( λ
+            . implementations
+            λ indexer orientation_compiler saturator extractor lemma_encoding ematching
+            . ( indexer standard
+              + orientation_compiler standard_orientations
+              + saturator higher_order
+              + extractor λ. module test_extractor λs. s λ. integer_literal 7
+              + lemma_encoding baseline
+              + ematching closures
+              )
+          + λ
+            . behaviour
+            λ opened rules respellings write_back_spellings opening_criterion
+            . ( opened λt f. f
+              + respellings memo_kept
+              + write_back_spellings memo_kept
+              + opening_criterion calls_a_head
+              )
+          )
+      )
+      nil
+  )
+λ s
+. s top
+λ jit instances reading execution
+. ( λ
+    . jit
+    λ dispatch implementation granularity native_blocks budget trial
+    . ( dispatch fallback
+      + implementation closure
+      + granularity predicate_per_code
+      + native_blocks no_native_blocks
+      + budget λ. integer_literal 10000
+      + trial λ. integer_literal 1024
+      )
+  + λ
+    . instances
+    λ instance_table instance_retention checkpoints lookahead
+    . ( instance_table λt f. t
+      + instance_retention λ. generations λ. integer_literal 524288
+      + checkpoints profitable
+      + lookahead lazily
+      )
+  + λ
+    . reading
+    λ application table_sharing table_retention continuation parallel
+    . ( application by_layer
+      + table_sharing local_tables
+      + table_retention no_tables_kept
+      + continuation substituted_continuations
+      + parallel both_sides
+      )
+  + λ
+    . execution
+    λ executor compilation_place
+    . ( executor framework_jit
+      + compilation_place upfront_compilation
+      )
+  )

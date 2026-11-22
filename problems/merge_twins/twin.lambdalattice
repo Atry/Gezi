@@ -1,0 +1,123 @@
+# The miss twins of the label-free families: a knowledge base helps, and a
+# setting must also handle the cases where the knowledge base does not
+# hit. Each twin asks what
+# its original asks, at the original's size, with the arithmetic
+# respelled, so that no catalogued code address and no registered
+# replacement meets it:
+# - the twin arithmetic of contest_merge_dynamic.pl (with_twin_arithmetic/3,
+#   twin_times_function/3): an increment whose even goes through a redex,
+#   a plus and an equality that case on their second operand first, the
+#   plus adding the odd-odd carry to the first half, and a times that
+#   recurses on its right operand;
+# - grid paths case on the column first and add the two paths the other
+#   way round; Fibonacci adds fib(n - 2) first.
+# An original and its twin form a pair: the same question, the same size,
+# the same intended answer and claim, the same limits and weight
+# (inheritance). The originals are contest_merge_dynamic.pl (grid paths),
+# contest_merge_fibonacci.pl and contest_merge_binary.pl.
+# READINGS (2026-09-28, CPU 2 under contest_limited.sh, a fresh process per
+# reading, the intended template, 10 s, 256 MB, 256 MB). The twins cost a
+# little more than their originals, the respelled arithmetic casing on the
+# second operand first and the twin increment going through a redex:
+# - grid paths, tabling(weak_head): 8, 16 and 16 wrong in 164, 1174 and
+#   1080 ms (originals 138 and 826 at 8 and 16), 32 and 64 stopped (the
+#   original 32 was read in 7799 ms); weak_head stopped on all, the
+#   original 8 having been read in 8604 ms;
+# - Fibonacci, tabling(weak_head): 20, 40, 40 wrong, 80 and 160 in 67, 231,
+#   221, 857 and 3439 ms, 320 stopped; weak_head stopped on all, the
+#   original 20 having been read in 5795 ms;
+# - products, weak_head: 16, 32 and 32 wrong digits in 1054, 4036 and 2193
+#   ms; tabling(weak_head) 670, 2284 and 1134 ms; 64 and 128 stopped by
+#   both, as the originals were near 7.8 s at 64.
+#
+# TARGET ALGORITHMS, the specific known algorithms the problem targets, each
+# with its prior work:
+# - the fallback when no catalogued address meets the program: tabled or
+#   memoised evaluation: W. Chen, D. S. Warren, Tabled Evaluation with
+#   Delaying for General Logic Programs, J. ACM 1996,
+#   doi:10.1145/227595.227597; D. Michie, "Memo" Functions and Machine
+#   Learning, Nature 1968, doi:10.1038/218019a0.
+# - or a JIT of the interpreter's hot loop: C. F. Bolz, A. Cuni, M.
+#   Fijalkowski, A. Rigo, Tracing the Meta-Level: PyPy's Tracing JIT
+#   Compiler, ICOOOLPS 2009, doi:10.1145/1565824.1565827.
+
+#   twin(?Problem, ?Twin, ?Original)
+#
+# The problem is a constructor of merge_twins/problem, grid, fibonacci or
+# product. Each other text is from_cbor of a string literal, a Scott list of
+# bytes, imported from corpora/library/text/cbor. FIXME: the imports project "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. omega (omega (omega (omega gezi "problems") "merge_twins") "problem")
+λ grid fibonacci product
+. export
+λ
+. cons (λ_twin. _twin grid (text "merge_grid_paths_eight_twin") λ. text "merge_grid_paths_eight")
+λ
+. cons (λ_twin. _twin grid (text "merge_grid_paths_sixteen_twin") λ. text "merge_grid_paths_sixteen")
+λ
+. cons
+  ( λ _twin
+    . _twin grid (text "merge_grid_paths_sixteen_wrong_twin") λ. text "merge_grid_paths_sixteen_wrong"
+  )
+λ
+. cons
+  (λ_twin. _twin grid (text "merge_grid_paths_thirty_two_twin") λ. text "merge_grid_paths_thirty_two")
+λ
+. cons
+  (λ_twin. _twin grid (text "merge_grid_paths_sixty_four_twin") λ. text "merge_grid_paths_sixty_four")
+λ
+. cons (λ_twin. _twin fibonacci (text "merge_fibonacci_twenty_twin") λ. text "merge_fibonacci_twenty")
+λ
+. cons (λ_twin. _twin fibonacci (text "merge_fibonacci_forty_twin") λ. text "merge_fibonacci_forty")
+λ
+. cons
+  ( λ _twin
+    . _twin fibonacci (text "merge_fibonacci_forty_wrong_twin") λ. text "merge_fibonacci_forty_wrong"
+  )
+λ
+. cons (λ_twin. _twin fibonacci (text "merge_fibonacci_eighty_twin") λ. text "merge_fibonacci_eighty")
+λ
+. cons
+  ( λ _twin
+    . _twin fibonacci (text "merge_fibonacci_one_hundred_sixty_twin") λ. text "merge_fibonacci_one_hundred_sixty"
+  )
+λ
+. cons
+  ( λ _twin
+    . _twin fibonacci (text "merge_fibonacci_three_hundred_twenty_twin") λ. text "merge_fibonacci_three_hundred_twenty"
+  )
+λ
+. cons
+  ( λ _twin
+    . _twin product (text "merge_binary_product_sixteen_digits_twin") λ. text "merge_binary_product_sixteen_digits"
+  )
+λ
+. cons
+  ( λ _twin
+    . _twin product (text "merge_binary_product_thirty_two_digits_twin") λ. text "merge_binary_product_thirty_two_digits"
+  )
+λ
+. cons
+  ( λ _twin
+    . _twin product (text "merge_binary_product_thirty_two_digits_wrong_twin") λ. text "merge_binary_product_thirty_two_digits_wrong"
+  )
+λ
+. cons
+  ( λ _twin
+    . _twin product (text "merge_binary_product_sixty_four_digits_twin") λ. text "merge_binary_product_sixty_four_digits"
+  )
+λ
+. cons
+  ( λ _twin
+    . _twin product (text "merge_binary_product_one_hundred_twenty_eight_digits_twin") λ. text "merge_binary_product_one_hundred_twenty_eight_digits"
+  ) nil

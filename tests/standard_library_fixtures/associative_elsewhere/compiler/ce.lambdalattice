@@ -1,0 +1,20 @@
+# The associativity law of cd's c written right to left, and c associative.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega associative_elsewhere "library") "cd") "c")
+λ c
+. export
+  ( λ _ _ properties _
+    . properties
+    λ _ associative _ _ _ _ _ _
+    . associative
+    λ k
+    . k c
+  + λ _ rewriting _ _
+    . rewriting
+    λ _ lemmas _
+    . lemmas
+    λ s
+    . s (λk. k "c_associative_right_to_left") (λx y z. c (c x y) z) (λx y z. c x λ. c y z) λ_ _ tex. tex λk. k "\\cite{paper}"
+  )

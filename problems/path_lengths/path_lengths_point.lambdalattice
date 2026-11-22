@@ -1,0 +1,126 @@
+# +Count, +Edges, +Start, +Target, +Bound, -Term
+# +Count, +Edges, +Start, +Target, +Bound, -Lengths
+#   * <module> The lengths of the walks to a target within a bound, written as a set
+#
+# A family of the reduction series, a graph family written with sets.
+#
+# The program writes top (corpora/library/top) where the pseudo-code and the
+# argument below write {}, the empty choice of the calculus that still has
+# it; doc/proofs/reduction_series_answers.md carries the argument over to
+# Definition 14, and the generator is the family's Scala object in
+# gezi/contest-corpora.
+#
+# THE PROGRAM is the definition:
+#
+#     lengths k v = { is_target v, walk k v }
+#     is_target v = 0 at the target, {} elsewhere
+#     walk 0 v     = {}
+#     walk (p + 1) v = { successor (lengths p u) | u a successor of v }
+#
+# over the unary numerals: a node is the numeral of its index, let bound once
+# as in corpora/contest_merge_graph.pl, and a length is a numeral. The
+# program is lengths k s. Its normal form solution set is the set of the
+# lengths of the walks from s to the target t of at most k edges: at most
+# k + 1 numbers although the walks are exponentially many, and its least is
+# the distance from s to t.
+#
+# THE SNAPSHOT is walk_lengths/6, the layers of a breadth-first expansion
+# (layer i is the set of the nodes that end a walk of i edges from s).
+# PROOF, with ⟦·⟧, D, S and Th and Lemma 2b of
+# gezi/doc/proofs/certificate_meta_lemmas.md.
+# - (⊇) For a walk s = v0 -> ... -> vl = t with l =< k: at vi choose walk and
+#   the member successor (lengths (k - i - 1) v(i+1)); at vl choose
+#   is_target, which reduces to 0. The term reached is l successors around
+#   0, the numeral l, pure and normal, in ⟦P⟧ by Lemma 2b.2.
+# - (⊆) By Lemma 2b.3 every yield equals a pure term that P reaches by a
+#   finite sequence σ. What σ delivers inside the successors it has built is
+#   lengths q v, its set, is_target v, a successor set, or {}; {} is removed
+#   by no step (a set heads no redex and has no member, and a successor
+#   keeps its argument), so a pure term chooses is_target at the target
+#   after some walk, and the number of successors around its 0 is the
+#   walk's length, at most k since each successor spends one of the bound's
+#   predecessors. So S(P) is the set of those numerals (a yield with a normal
+#   form contributes only it).
+# - THE NEAR MISS bounds the walks by one less than the distance, so no walk
+#   reaches t: S(P) = {} and every answer on it, the distance included, is a
+#   false positive.
+#
+# TARGET ALGORITHMS, the specific known algorithms the problem targets, each
+# with its prior work:
+# - breadth-first expansion by layers, the shortest path by dynamic
+#   programming over the number of edges: R. Bellman, On a routing problem,
+#   Quarterly of Applied Mathematics 1958, doi:10.1090/qam/102435; and the
+#   shortest path's greedy order: E. W. Dijkstra, A note on two problems in
+#   connexion with graphs, Numerische Mathematik 1959, doi:10.1007/BF01386390;
+# - tabled evaluation, which keys lengths by the bound and the node, k times
+#   the nodes in all, where the definition enumerates the walks: W. Chen,
+#   D. S. Warren, Tabled Evaluation with Delaying for General Logic Programs,
+#   J. ACM 1996, doi:10.1145/227595.227597.
+#
+# READINGS AND SIZES: in the points' comment below (THE POINTS).
+# LIMITS: the reduction family's, 10 s, 256 MB, 256 MB.
+
+#   THE POINTS: path_lengths_point(?Point, ?Shape, ?Size, ?Bound), the bound
+#   relative to the distance from the start to the target. Sized by a
+#   probe of 2026-09-30 (CPUs 0-7, the whole set under a 10 s limit,
+#   the bound twice the distance): tabling(weak_head) reads the ring with
+#   chords of 8 in 260 ms and of 10 in 3502 ms and is stopped at 12 and 16,
+#   growing with the walks although the table keys, a bound and a node, are
+#   k times the nodes; it reads two rings of 8 in 117 ms and of 16 in 616
+#   ms and is stopped at 48. weak_head reads the ring with chords of 8 in
+#   5870 ms.
+#
+# The shape is a constructor of schema/graph_shape, two_rings or chord_ring;
+# the bound is a constructor of path_lengths/bound, times with its factor or
+# one_short.
+# Each other text is from_cbor of a string literal, a Scott list of bytes,
+# imported from corpora/library/text/cbor. Each number is from_cbor of an
+# integer literal, a Scott integer, imported from corpora/library/integer/cbor.
+# FIXME: the imports project "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λx. x)
+λ integer
+. omega (omega (omega (omega gezi "problems") "schema") "graph_shape")
+λ two_rings chord_ring
+. omega (omega (omega (omega gezi "problems") "path_lengths") "bound")
+λ times one_short
+. export
+λ
+. cons
+  ( λ _path_lengths_point
+    . _path_lengths_point (text "reduction_path_lengths_chord_ring_small") chord_ring (integer 8) λ. times λ. integer 2
+  )
+λ
+. cons
+  ( λ _path_lengths_point
+    . _path_lengths_point (text "reduction_path_lengths_chord_ring_large") chord_ring (integer 16) λ. times λ. integer 2
+  )
+λ
+. cons
+  ( λ _path_lengths_point
+    . _path_lengths_point (text "reduction_path_lengths_two_rings_small") two_rings (integer 16) λ. times λ. integer 2
+  )
+λ
+. cons
+  ( λ _path_lengths_point
+    . _path_lengths_point (text "reduction_path_lengths_two_rings_large") two_rings (integer 48) λ. times λ. integer 2
+  )
+λ
+. cons
+  ( λ _path_lengths_point
+    . _path_lengths_point
+      (text "reduction_path_lengths_chord_ring_near_miss") chord_ring
+      (integer 8) one_short
+  ) nil

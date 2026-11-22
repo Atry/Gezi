@@ -1,0 +1,80 @@
+λ
+. (λt. t λ. g 42 λa b. a)
+λ $merkle$89abcdef f x
+. f x $merkle$89abcdef
+λ y "k" w
+. (y w $merkle$89abcdef + λz. z ∥ x)
+--- laid out ---
+λ
+. (λt. t λ. g 42 λa b. a)
+λ $merkle$89abcdef f x
+. f x $merkle$89abcdef
+λ y "k" w
+. (y w $merkle$89abcdef + λz. z ∥ x)
+
+=====
+λ
+. (λt. t λ. g 42 λa b. a)
+λ $merkle$89abcdef f x
+. f x $merkle$89abcdef
+λ y "k" w
+. ( y w $merkle$89abcdef
++ λz. z
+∥ x
+)
+--- laid out ---
+λ
+. (λt. t λ. g 42 λa b. a)
+λ $merkle$89abcdef f x
+. f x $merkle$89abcdef
+λ y "k" w
+. ( y w $merkle$89abcdef
+  + λz. z
+  ∥ x
+  )
+
+=====
+λ
+. read_line f
+λ line
+. parse line
+λ number "k"
+. log number
+λ
+. done number
+--- laid out ---
+λ
+. read_line f
+λ line
+. parse line
+λ number "k"
+. log number
+λ
+. done number
+
+=====
+λ
+. fixpoint
+λ eval environment expression
+. expression
+(λname. lookup environment name)
+( λ function argument
+. apply (eval environment function)
+λ
+. eval environment argument
+)
+λ parameter body
+. closure environment parameter body
+--- laid out ---
+λ
+. fixpoint
+λ eval environment expression
+. expression
+  (λname. lookup environment name)
+  ( λ function argument
+    . apply (eval environment function)
+    λ
+    . eval environment argument
+  )
+λ parameter body
+. closure environment parameter body

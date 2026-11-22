@@ -1,0 +1,12 @@
+# The program of a point of datalog_point: a Scott sum of six
+# constructors, in order: composition, three_way, intersection,
+# constant_join, then closure and symmetric, whose one field is the shape
+# of their edges (a constructor of mixin_datalog/shape). Read by its
+# position (gezi.contest.corpora.merges.MixinDatalog, ProgramKind).
+λ export
+. export
+  (λcomposition three_way intersection constant_join closure symmetric. composition)
+  (λcomposition three_way intersection constant_join closure symmetric. three_way)
+  (λcomposition three_way intersection constant_join closure symmetric. intersection)
+  (λcomposition three_way intersection constant_join closure symmetric. constant_join)
+  (λshape composition three_way intersection constant_join closure symmetric. closure shape) λshape composition three_way intersection constant_join closure symmetric. symmetric shape

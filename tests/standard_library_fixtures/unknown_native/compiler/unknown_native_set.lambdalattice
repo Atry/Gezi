@@ -1,0 +1,18 @@
+# A native of the Prolog backend, which enables its set, beside a native
+# its table does not list. The file is not named unknown_native: its own
+# name would shadow the fixture's directory, the binder its imports read.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega unknown_native "library") "unknown_native") "zero")
+λ zero
+. omega (omega (omega (omega unknown_native "library") "unknown_native") "identity")
+λ identity
+. export
+λ _ _ _ backend
+. backend
+λ _ natives _ _ _ _
+. natives
+  ( λs. s identity λk. k "no_such_native"
+  + λs. s zero λk. k "natural_double"
+  )

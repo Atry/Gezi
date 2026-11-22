@@ -1,0 +1,16 @@
+# arrow:
+# The arrow type: the contract of a function from d to r.
+λ export
+. (λtuple. tuple λd r f x. (f (x ∥ d) ∥ r))
+λ arrow
+# forall:
+# The marker of a type scheme over its type function; noinline.
+. (λtuple. tuple λg x. (g x ∥ x))
+λ forall
+# parameter:
+# The parameter of a closure read at a type variable d: d itself, judged d by
+# the lemma parameter_judgment; noinline, written in a form programs do not
+# write.
+. (λtuple. tuple λd. (d ∥ (d ∥ d)))
+λ parameter
+. export arrow forall parameter

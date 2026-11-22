@@ -1,0 +1,63 @@
+# THE CONTEST POINTS, and the pieces they are built from.
+#
+# A POINT IS AN EXPORTED UNARY PREDICATE of the module that includes this
+# file, and a piece defined elsewhere is pulled in by a plain call, which
+# yields a fresh copy of that clause's variables; EVERY BINDER IS A
+# DISTINCT PROLOG VARIABLE within one clause, so a piece used twice in one
+# clause is called twice. The prelude's pieces reach this file through
+# the module's `use_module` of it. Pieces of this file that take a size
+# are Prolog predicates of higher arity and are not exported.
+#
+# Each point's comment gives its intended answer; the table of intended answers and limits is
+# `contest_answers.pl`.
+
+#   The field labels.
+#
+# Each text is from_cbor of a string literal, a Scott list of bytes,
+# imported from corpora/library/text/cbor. Each number is from_cbor of an
+# integer literal, a Scott integer, imported from corpora/library/integer/cbor.
+# FIXME: the imports project "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λx. x)
+λ integer
+. export
+λ
+. cons (λ_field. _field (text "next") λ. integer 0)
+λ
+. cons (λ_field. _field (text "value") λ. integer 1)
+λ
+. cons (λ_field. _field (text "compare") λ. integer 2)
+λ
+. cons (λ_field. _field (text "extra") λ. integer 3)
+λ
+. cons (λ_field. _field (text "push") λ. integer 4)
+λ
+. cons (λ_field. _field (text "pop") λ. integer 5)
+λ
+. cons (λ_field. _field (text "top") λ. integer 6)
+λ
+. cons (λ_field. _field (text "size") λ. integer 7)
+λ
+. cons (λ_field. _field (text "get") λ. integer 8)
+λ
+. cons (λ_field. _field (text "self") λ. integer 9)
+λ
+. cons (λ_field. _field (text "set") λ. integer 10)
+λ
+. cons (λ_field. _field (text "map") λ. integer 11)
+λ
+. cons (λ_field. _field (text "head") λ. integer 12)
+λ
+. cons (λ_field. _field (text "tail") λ. integer 13) nil

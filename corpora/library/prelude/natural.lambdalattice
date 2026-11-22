@@ -1,0 +1,22 @@
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "prelude") "fixpoint")
+λ fixpoint
+. omega (omega (omega (omega corpora "library") "prelude") "boolean")
+λ true false _ _
+. (λtuple. tuple λz _. z)
+λ zero
+. (λtuple. tuple λn _ s. s n)
+λ successor
+. (λtuple. tuple λ. fixpoint λself n. n zero λp. successor λ. self p)
+λ unary
+. (λtuple. tuple λ. fixpoint λself n. n zero λn1. successor λ. successor λ. self n1)
+λ natural_double
+. (λtuple. tuple λ. fixpoint λself m n. m (n true λ_. false) λm1. n false λ. self m1)
+λ natural_equal
+. (λtuple. tuple λ. fixpoint λself m n. n true λn1. m false λm1. self m1 n1)
+λ natural_at_least
+. (λtuple. tuple λ. fixpoint λself m n. n m λn1. m zero λm1. self m1 n1)
+λ natural_difference
+. export zero successor unary natural_double natural_equal natural_at_least natural_difference

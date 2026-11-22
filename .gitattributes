@@ -1,0 +1,6 @@
+# The trace player's end-to-end showcase: four traces and the player that
+# plays them, every file written by `sbt trace-showcase/regenerate` (run in
+# gezi/), which deletes the directory and writes it again from the generator
+# gezi.traceshowcase.ShowcasePages and the trace player's fullLinkJS. Do not
+# edit it by hand; change the generator or the player and regenerate.
+trace-showcase/** linguist-generated

@@ -1,0 +1,24 @@
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "native_types") "natural")
+λ _ successor nat_fold _
+. omega (omega (omega (omega corpora "library") "native_types") "boolean")
+λ true false _ _
+# double:
+# A natural added to itself: the fold over n from n by successor. Its scheme
+# nat_type -> nat_type is the lemma double_scheme of native_arithmetic.pl.
+. (λtuple. tuple λn. nat_fold n successor n)
+λ double
+# even:
+# Whether a natural is even: true at zero, and the negation at each
+# successor. Its scheme nat_type -> boolean_type is the lemma even_scheme of
+# native_arithmetic.pl. The step is the negation written out, with no
+# filter, so that the reference evaluator reads the fold in time linear in
+# the natural: boolean_not filters its results by boolean_type, and the
+# reference reads both sides of each filter, about three times the work at
+# each step (measured 2026-10-28: boolean_not applied 4, 6
+# and 8 times to true takes 28,157, 245,302 and 2,195,253 inferences).
+. (λtuple. tuple λn. nat_fold true (λb. b false true) n)
+λ even
+. export double even

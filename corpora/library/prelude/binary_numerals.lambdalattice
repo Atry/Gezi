@@ -1,0 +1,38 @@
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "prelude") "fixpoint")
+λ fixpoint
+. omega (omega (omega (omega corpora "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega corpora "library") "prelude") "boolean")
+λ true false _ _
+. omega (omega (omega (omega corpora "library") "prelude") "natural")
+λ zero successor _ natural_double _ _ _
+# binary_increment:
+# A BinNat plus one: a one bit carries, a zero bit stops the carry.
+. ( λ tuple
+    . tuple
+    λ
+    . fixpoint λself bits. bits (cons true nil) λbit rest. bit (cons false λ. self rest) λ. cons true rest
+  )
+λ binary_increment
+# binary_to_unary_step:
+# A BinNat, a Scott list of Scott booleans least significant bit first, as
+# a unary natural: `bit + 2 * rest`.
+# binary_to_unary_step @ Bit @ Twice is Twice + Bit: the let of the former
+# spelling `(Twice^(Bit @ (successor @ Twice) @ Twice)) @ (…)` was a beta
+# redex, which a library body may not be.
+. (λtuple. tuple λbit twice. bit (successor twice) twice)
+λ binary_to_unary_step
+. ( λ tuple
+    . tuple λ. fixpoint λself bits. bits zero λbit rest. binary_to_unary_step bit λ. natural_double λ. self rest
+  )
+λ binary_to_unary
+# unary_to_binary:
+# A unary natural as a BinNat, one increment per successor.
+. ( λ tuple
+    . tuple λ. fixpoint λself natural. natural nil λpredecessor. binary_increment λ. self predecessor
+  )
+λ unary_to_binary
+. export binary_increment binary_to_unary_step binary_to_unary unary_to_binary

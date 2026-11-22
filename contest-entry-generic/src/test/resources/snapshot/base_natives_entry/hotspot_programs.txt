@@ -1,0 +1,35 @@
+# sample 0
+(λx_0. (λx_1. (λx_2. (λx_3. (λx_4. (λx_5. (λx_6. (λx_7. x_7 x_0 (λx_8. x_3 x_8 x_8) x_0) (fixpoint (λx_7. λx_8. λx_9. λx_10. x_8 x_10 (λx_11. x_7 x_11 x_9 (x_7 x_11 x_9 x_10)) (λx_11. x_9 (x_7 x_11 x_9 (x_7 x_11 x_9 x_10)))))) binary_bitwise_or) binary_minimum) binary_maximum) merge_binary_plus) binary_odd) binary_even) binary_zero
+=>
+display: λx_0. λx_1. λx_2. x_0
+counts: lemma_saturation_instances=5 lemma_saturation_capped=0 reading_steps=12
+
+# sample 1
+(λx_0. (λx_1. (λx_2. (λx_3. (λx_4. (λx_5. (λx_6. (λx_7. x_7 x_0 (λx_8. x_3 x_8 x_0) (x_2 x_0)) (fixpoint (λx_7. λx_8. λx_9. λx_10. x_8 x_10 (λx_11. x_7 x_11 x_9 (x_7 x_11 x_9 x_10)) (λx_11. x_9 (x_7 x_11 x_9 (x_7 x_11 x_9 x_10)))))) binary_bitwise_or) binary_minimum) binary_maximum) merge_binary_plus) binary_odd) binary_even) binary_zero
+=>
+display: λx_0. λx_1. λx_2. x_2 (λx_3. λx_4. λx_5. x_3)
+counts: lemma_saturation_instances=5 lemma_saturation_capped=0 reading_steps=26
+
+# sample 2
+(λx_0. (λx_1. (λx_2. (λx_3. (λx_4. (λx_5. (λx_6. (λx_7. x_7 (x_1 (x_2 x_0)) (λx_8. x_3 x_8 x_8) (x_2 (x_2 x_0))) (fixpoint (λx_7. λx_8. λx_9. λx_10. x_8 x_10 (λx_11. x_7 x_11 x_9 (x_7 x_11 x_9 x_10)) (λx_11. x_9 (x_7 x_11 x_9 (x_7 x_11 x_9 x_10)))))) binary_bitwise_or) binary_minimum) binary_maximum) merge_binary_plus) binary_odd) binary_even) binary_zero
+=>
+display: λx_0. λx_1. λx_2. x_1 (λx_3. λx_4. λx_5. x_4 (λx_6. λx_7. λx_8. x_8 (λx_9. λx_10. λx_11. x_11 (λx_12. λx_13. λx_14. x_12))))
+counts: lemma_saturation_instances=5 lemma_saturation_capped=0 reading_steps=68
+
+# sample 3
+(λx_0. (λx_1. (λx_2. (λx_3. (λx_4. (λx_5. (λx_6. (λx_7. x_7 (x_2 x_0) (λx_8. x_4 x_8 (x_1 (x_2 (x_2 x_0)))) (x_1 (x_2 (x_2 x_0)))) (fixpoint (λx_7. λx_8. λx_9. λx_10. x_8 x_10 (λx_11. x_7 x_11 x_9 (x_7 x_11 x_9 x_10)) (λx_11. x_9 (x_7 x_11 x_9 (x_7 x_11 x_9 x_10)))))) binary_bitwise_or) binary_minimum) binary_maximum) merge_binary_plus) binary_odd) binary_even) binary_zero
+=>
+display: λx_0. λx_1. λx_2. x_1 (λx_3. λx_4. λx_5. x_5 (λx_6. λx_7. λx_8. x_8 (λx_9. λx_10. λx_11. x_9)))
+counts: lemma_saturation_instances=5 lemma_saturation_capped=0 reading_steps=54
+
+# sample 4
+(λx_0. (λx_1. (λx_2. (λx_3. (λx_4. (λx_5. (λx_6. (λx_7. x_7 (x_2 (x_2 x_0)) (λx_8. x_5 x_8 x_8) x_0) (fixpoint (λx_7. λx_8. λx_9. λx_10. x_8 x_10 (λx_11. x_7 x_11 x_9 (x_7 x_11 x_9 x_10)) (λx_11. x_9 (x_7 x_11 x_9 (x_7 x_11 x_9 x_10)))))) binary_bitwise_or) binary_minimum) binary_maximum) merge_binary_plus) binary_odd) binary_even) binary_zero
+=>
+display: λx_0. λx_1. λx_2. x_0
+counts: lemma_saturation_instances=5 lemma_saturation_capped=0 reading_steps=12
+
+# sample 5
+(λx_0. (λx_1. (λx_2. (λx_3. (λx_4. (λx_5. (λx_6. (λx_7. x_7 x_0 (λx_8. (λx_9. x_4 x_8 x_8) (x_4 x_8 (x_2 (x_1 (x_1 (x_2 x_0)))))) (x_2 x_0)) (fixpoint (λx_7. λx_8. λx_9. λx_10. x_8 x_10 (λx_11. x_7 x_11 x_9 (x_7 x_11 x_9 x_10)) (λx_11. x_9 (x_7 x_11 x_9 (x_7 x_11 x_9 x_10)))))) binary_bitwise_or) binary_minimum) binary_maximum) merge_binary_plus) binary_odd) binary_even) binary_zero
+=>
+display: λx_0. λx_1. λx_2. x_2 (λx_3. λx_4. λx_5. x_3)
+counts: lemma_saturation_instances=5 lemma_saturation_capped=0 reading_steps=26

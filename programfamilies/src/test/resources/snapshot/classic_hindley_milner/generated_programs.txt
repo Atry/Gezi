@@ -1,0 +1,200 @@
+konstant	arrow(T0,arrow(T1,T0))
+((boolean_not ((λx0. boolean_not) ((λx0. (nat_fold list_fold)) (λx0. (zero cons))))) ((λx0. (((successor konstant) (boolean_not nil)) (identity compose))) compose))	no_type
+(((fixpoint (successor (λx0. (nat_fold zero)))) (zero zero)) true)	no_type
+((fixpoint true) true)	no_type
+konstant	arrow(T0,arrow(T1,T0))
+zero	natural
+((((true (λx0. (boolean_not konstant))) nil) ((λx0. (fixpoint (cons true))) (λx0. (compose (λx1. zero))))) (λx0. (λx1. ((true (x1 zero)) ((list_fold konstant) boolean_not)))))	no_type
+(λx0. (λx1. ((((λx2. boolean_not) (compose successor)) ((compose false) (false list_fold))) ((λx2. (λx3. boolean_not)) identity))))	no_type
+(cons ((λx0. ((λx1. (zero konstant)) (λx1. (false compose)))) (λx0. nil)))	no_type
+((list_fold (((boolean_not compose) (zero (nat_fold compose))) (((cons fixpoint) compose) (λx0. (λx1. konstant))))) (true (λx0. (((fixpoint fixpoint) (konstant identity)) ((fixpoint cons) (λx1. nil))))))	no_type
+((((λx0. nat_fold) false) (fixpoint (boolean_not (λx0. (λx1. konstant))))) (λx0. ((boolean_not (λx1. (boolean_not x1))) nat_fold)))	no_type
+(konstant (λx0. ((((nil konstant) (false fixpoint)) ((x0 fixpoint) (λx1. true))) (((konstant zero) compose) ((λx1. true) (fixpoint boolean_not))))))	no_type
+((λx0. ((λx1. false) zero)) (konstant list_fold))	boolean
+(λx0. ((konstant (((λx1. successor) (x0 false)) ((successor nat_fold) false))) (false (((λx1. false) (compose successor)) ((λx1. list_fold) identity)))))	no_type
+konstant	arrow(T0,arrow(T1,T0))
+((false ((((λx0. cons) (nat_fold cons)) ((true cons) (konstant nil))) ((true (compose true)) (λx0. false)))) (((((true identity) (nil true)) (false (konstant konstant))) identity) (((false (successor nat_fold)) ((identity identity) nat_fold)) (identity konstant))))	no_type
+konstant	arrow(T0,arrow(T1,T0))
+(boolean_not (((compose (identity (nil list_fold))) (λx0. (λx1. (fixpoint x0)))) (((konstant konstant) ((λx0. cons) (nil successor))) nat_fold)))	no_type
+(λx0. (((true (successor (konstant x0))) successor) nat_fold))	no_type
+(((λx0. (((list_fold list_fold) (boolean_not boolean_not)) (successor cons))) (λx0. list_fold)) ((identity successor) (λx0. (λx1. ((nat_fold nil) identity)))))	no_type
+((konstant (λx0. (λx1. (λx2. (λx3. x1))))) (false (zero (((λx0. true) (true zero)) ((false zero) (list_fold cons))))))	no_type
+((((λx0. (x0 (successor list_fold))) compose) cons) boolean_not)	no_type
+konstant	arrow(T0,arrow(T1,T0))
+konstant	arrow(T0,arrow(T1,T0))
+true	boolean
+(((successor nil) boolean_not) (konstant (λx0. identity)))	no_type
+(zero compose)	no_type
+(compose cons)	arrow(arrow(T0,T1),arrow(T0,arrow(list(T1),list(T1))))
+compose	arrow(arrow(T0,T1),arrow(arrow(T2,T0),arrow(T2,T1)))
+(((compose compose) list_fold) ((((true (true boolean_not)) nat_fold) (((compose konstant) (λx0. nil)) ((λx0. false) identity))) ((λx0. nat_fold) (((λx0. fixpoint) nil) (false (nat_fold boolean_not))))))	no_type
+boolean_not	arrow(boolean,boolean)
+(λx0. (((((nil true) nat_fold) boolean_not) (((λx1. false) (λx1. konstant)) identity)) (λx1. list_fold)))	no_type
+(compose cons)	arrow(arrow(T0,T1),arrow(T0,arrow(list(T1),list(T1))))
+nil	list(T0)
+boolean_not	arrow(boolean,boolean)
+(nil (λx0. (λx1. ((λx2. (nat_fold identity)) (λx2. cons)))))	no_type
+nil	list(T0)
+(((((list_fold nat_fold) ((cons konstant) (zero nat_fold))) ((nat_fold (successor konstant)) ((successor boolean_not) (successor nil)))) (λx0. nil)) true)	no_type
+(fixpoint (((λx0. x0) (λx0. ((compose zero) (x0 true)))) (false ((λx0. false) ((nat_fold zero) (cons cons))))))	no_type
+(λx0. list_fold)	arrow(T0,arrow(T1,arrow(arrow(T2,arrow(T1,T1)),arrow(list(T2),T1))))
+((λx0. boolean_not) (λx0. (cons (λx1. ((successor identity) konstant)))))	no_type
+(λx0. (boolean_not (((λx1. (nil zero)) (true (λx1. compose))) ((λx1. (boolean_not x1)) ((boolean_not cons) (λx1. x1))))))	no_type
+true	boolean
+boolean_not	arrow(boolean,boolean)
+konstant	arrow(T0,arrow(T1,T0))
+list_fold	arrow(T0,arrow(arrow(T1,arrow(T0,T0)),arrow(list(T1),T0)))
+false	boolean
+(identity (λx0. (λx1. ((successor (compose list_fold)) ((compose nil) (λx2. x1))))))	no_type
+((list_fold ((λx0. (λx1. x1)) compose)) ((λx0. ((zero (fixpoint cons)) (λx1. (false successor)))) (compose ((cons (λx0. cons)) list_fold))))	no_type
+(λx0. nat_fold)	arrow(T0,arrow(T1,arrow(arrow(T1,T1),arrow(natural,T1))))
+(λx0. nat_fold)	arrow(T0,arrow(T1,arrow(arrow(T1,T1),arrow(natural,T1))))
+konstant	arrow(T0,arrow(T1,T0))
+(λx0. (λx1. (((λx2. x1) (λx2. (x1 cons))) compose)))	no_type
+(nat_fold fixpoint)	arrow(arrow(arrow(arrow(T0,T0),T0),arrow(arrow(T0,T0),T0)),arrow(natural,arrow(arrow(T0,T0),T0)))
+(λx0. ((true (λx1. ((λx2. boolean_not) zero))) (((λx1. (λx2. list_fold)) ((λx1. x0) (boolean_not nat_fold))) ((nat_fold (list_fold identity)) (compose (konstant x0))))))	no_type
+(successor (boolean_not (((cons true) zero) compose)))	no_type
+(λx0. (((λx1. (λx2. list_fold)) (λx1. zero)) (((λx1. (true cons)) x0) (boolean_not (successor (konstant successor))))))	no_type
+((successor ((λx0. (false (false false))) true)) konstant)	no_type
+boolean_not	arrow(boolean,boolean)
+compose	arrow(arrow(T0,T1),arrow(arrow(T2,T0),arrow(T2,T1)))
+boolean_not	arrow(boolean,boolean)
+(λx0. ((λx1. compose) (λx1. (((nil successor) (true x1)) (successor (konstant boolean_not))))))	no_type
+((((λx0. ((λx1. cons) nat_fold)) (((λx0. cons) (λx0. list_fold)) konstant)) (list_fold konstant)) (((((identity nat_fold) (boolean_not cons)) (cons zero)) (λx0. ((successor true) (identity false)))) (λx0. nil)))	no_type
+konstant	arrow(T0,arrow(T1,T0))
+((λx0. (λx1. ((λx2. (nil compose)) compose))) konstant)	no_type
+cons	arrow(T0,arrow(list(T0),list(T0)))
+(λx0. cons)	arrow(T0,arrow(T1,arrow(list(T1),list(T1))))
+(((λx0. boolean_not) (((λx0. successor) ((list_fold konstant) (fixpoint boolean_not))) (compose ((nil nat_fold) nil)))) fixpoint)	no_type
+(true (fixpoint (λx0. konstant)))	no_type
+((list_fold boolean_not) compose)	arrow(list(arrow(boolean,boolean)),arrow(boolean,boolean))
+nat_fold	arrow(T0,arrow(arrow(T0,T0),arrow(natural,T0)))
+(cons (λx0. ((((cons fixpoint) (λx1. cons)) ((compose cons) successor)) (λx1. nat_fold))))	no_type
+((((compose ((λx0. true) (cons fixpoint))) (λx0. true)) (λx0. (((λx1. konstant) (nil list_fold)) (λx1. (nil cons))))) (λx0. ((zero (λx1. konstant)) boolean_not)))	no_type
+((λx0. (false (λx1. ((λx2. true) (nil successor))))) (false nat_fold))	no_type
+boolean_not	arrow(boolean,boolean)
+nat_fold	arrow(T0,arrow(arrow(T0,T0),arrow(natural,T0)))
+((((((λx0. nat_fold) boolean_not) ((successor cons) nat_fold)) (((identity compose) (zero nat_fold)) ((λx0. successor) (successor fixpoint)))) ((((nat_fold false) true) (λx0. (λx1. successor))) (((λx0. boolean_not) false) (nil (λx0. true))))) (λx0. (false ((zero (boolean_not list_fold)) (compose (fixpoint nil))))))	no_type
+((nat_fold (cons (((list_fold true) nil) ((compose boolean_not) successor)))) ((λx0. (λx1. ((cons x1) (compose compose)))) ((((λx0. x0) (successor list_fold)) ((false identity) (λx0. boolean_not))) true)))	no_type
+((λx0. ((((list_fold konstant) (list_fold konstant)) identity) (λx1. true))) (λx0. (konstant (λx1. fixpoint))))	no_type
+nat_fold	arrow(T0,arrow(arrow(T0,T0),arrow(natural,T0)))
+(konstant true)	arrow(T0,boolean)
+konstant	arrow(T0,arrow(T1,T0))
+((konstant (true (λx0. konstant))) (((λx0. (x0 (false true))) (((true successor) (true list_fold)) (λx0. (true cons)))) ((compose fixpoint) nil)))	no_type
+((λx0. (λx1. compose)) (λx0. (λx1. nat_fold)))	arrow(T0,arrow(arrow(T1,T2),arrow(arrow(T3,T1),arrow(T3,T2))))
+konstant	arrow(T0,arrow(T1,T0))
+fixpoint	arrow(arrow(T0,T0),T0)
+(((λx0. konstant) (λx0. fixpoint)) (λx0. fixpoint))	arrow(T0,arrow(T1,arrow(arrow(T2,T2),T2)))
+zero	natural
+(nat_fold (((nil compose) ((nat_fold (λx0. false)) (successor (zero false)))) (fixpoint (λx0. ((cons boolean_not) (λx1. konstant))))))	no_type
+(λx0. x0)	arrow(T0,T0)
+(identity (boolean_not successor))	no_type
+((λx0. (((λx1. (konstant x1)) (nil nil)) ((λx1. x0) ((successor nat_fold) (λx1. zero))))) (((λx0. ((cons x0) (successor zero))) (((λx0. cons) (identity identity)) (zero (λx0. zero)))) nil))	no_type
+(λx0. boolean_not)	arrow(T0,arrow(boolean,boolean))
+(((λx0. identity) ((((identity konstant) true) ((λx0. konstant) (successor list_fold))) (((false cons) (zero boolean_not)) boolean_not))) (zero ((λx0. nat_fold) konstant)))	no_type
+list_fold	arrow(T0,arrow(arrow(T1,arrow(T0,T0)),arrow(list(T1),T0)))
+(((successor ((λx0. (compose zero)) (konstant (identity cons)))) ((((nat_fold false) (compose true)) identity) (((list_fold false) compose) (λx0. (nil cons))))) (λx0. ((λx1. (λx2. (fixpoint x1))) (((list_fold konstant) (nil true)) ((λx1. x0) (nat_fold x0))))))	no_type
+successor	arrow(natural,natural)
+(((λx0. cons) (((successor (fixpoint nat_fold)) ((cons konstant) (fixpoint fixpoint))) ((λx0. true) ((λx0. boolean_not) (λx0. nat_fold))))) (nil (((λx0. compose) zero) (((identity fixpoint) konstant) ((compose cons) nat_fold)))))	no_type
+(λx0. (x0 (λx1. (λx2. ((x0 konstant) compose)))))	arrow(arrow(arrow(T0,arrow(T1,T0)),arrow(arrow(arrow(T2,T3),arrow(arrow(T4,T2),arrow(T4,T3))),T0)),arrow(arrow(arrow(T2,T3),arrow(arrow(T4,T2),arrow(T4,T3))),T0))
+(zero (λx0. nat_fold))	no_type
+boolean_not	arrow(boolean,boolean)
+(identity ((λx0. nat_fold) (λx0. (λx1. (list_fold x0)))))	arrow(T0,arrow(arrow(T0,T0),arrow(natural,T0)))
+(λx0. ((((zero compose) ((compose identity) fixpoint)) (((nil true) (boolean_not boolean_not)) ((λx1. list_fold) compose))) ((((konstant konstant) (cons identity)) ((zero true) cons)) (λx1. (nil (λx2. compose))))))	no_type
+((((λx0. (list_fold (true true))) nat_fold) ((λx0. false) (λx0. zero))) konstant)	no_type
+((cons true) ((successor false) compose))	no_type
+list_fold	arrow(T0,arrow(arrow(T1,arrow(T0,T0)),arrow(list(T1),T0)))
+list_fold	arrow(T0,arrow(arrow(T1,arrow(T0,T0)),arrow(list(T1),T0)))
+boolean_not	arrow(boolean,boolean)
+(((true (λx0. konstant)) konstant) (successor true))	no_type
+konstant	arrow(T0,arrow(T1,T0))
+(nil list_fold)	no_type
+((((λx0. ((nil identity) (x0 true))) konstant) ((successor (λx0. boolean_not)) false)) (((((zero fixpoint) false) (λx0. (λx1. false))) ((λx0. compose) ((successor fixpoint) (nat_fold konstant)))) nil))	no_type
+true	boolean
+(nat_fold ((zero ((λx0. (λx1. false)) (λx0. (λx1. successor)))) ((((λx0. konstant) (nat_fold list_fold)) ((nil identity) (boolean_not false))) nat_fold)))	no_type
+(λx0. ((((compose (λx1. x0)) nat_fold) (nat_fold (λx1. (compose list_fold)))) (nat_fold true)))	arrow(arrow(arrow(arrow(boolean,boolean),arrow(natural,boolean)),T0),T0)
+(((λx0. false) ((((zero fixpoint) (nil compose)) (true konstant)) ((identity (nat_fold true)) (zero konstant)))) nat_fold)	no_type
+(nat_fold ((((λx0. fixpoint) (compose identity)) (λx0. konstant)) (boolean_not ((fixpoint nil) ((boolean_not konstant) successor)))))	no_type
+(((λx0. compose) (zero (((nat_fold nil) (compose nat_fold)) cons))) boolean_not)	no_type
+(λx0. ((compose ((λx1. (zero nat_fold)) (nil (successor zero)))) ((((fixpoint nat_fold) identity) identity) boolean_not)))	no_type
+(λx0. (zero ((λx1. successor) identity)))	no_type
+(((cons cons) konstant) ((λx0. true) cons))	no_type
+list_fold	arrow(T0,arrow(arrow(T1,arrow(T0,T0)),arrow(list(T1),T0)))
+(zero successor)	no_type
+(λx0. (λx1. (λx2. (((identity list_fold) (list_fold list_fold)) zero))))	no_type
+((nil ((compose identity) (false ((nil successor) nil)))) (compose (cons cons)))	no_type
+(λx0. fixpoint)	arrow(T0,arrow(arrow(T1,T1),T1))
+((λx0. boolean_not) (λx0. (list_fold (((nat_fold x0) (fixpoint cons)) identity))))	no_type
+(λx0. cons)	arrow(T0,arrow(T1,arrow(list(T1),list(T1))))
+identity	arrow(T0,T0)
+(fixpoint nil)	no_type
+((((zero zero) compose) ((λx0. (konstant (true cons))) (((compose list_fold) (false true)) (fixpoint (λx0. zero))))) ((((identity identity) true) zero) ((λx0. x0) ((nat_fold true) ((nat_fold nat_fold) (identity nil))))))	no_type
+nil	list(T0)
+list_fold	arrow(T0,arrow(arrow(T1,arrow(T0,T0)),arrow(list(T1),T0)))
+(zero successor)	no_type
+nat_fold	arrow(T0,arrow(arrow(T0,T0),arrow(natural,T0)))
+(((konstant (λx0. cons)) cons) identity)	arrow(T0,arrow(list(T0),list(T0)))
+false	boolean
+identity	arrow(T0,T0)
+(λx0. ((((λx1. (list_fold cons)) ((fixpoint x0) (compose konstant))) (konstant ((nat_fold identity) (λx1. cons)))) compose))	no_type
+((nil ((((successor compose) (nat_fold nil)) ((cons zero) nil)) ((successor (nat_fold cons)) successor))) ((compose (((fixpoint compose) (konstant list_fold)) (fixpoint (λx0. true)))) ((((λx0. x0) (successor boolean_not)) ((successor nil) list_fold)) (identity (λx0. (λx1. nat_fold))))))	no_type
+false	boolean
+((λx0. ((λx1. ((successor zero) x0)) compose)) konstant)	no_type
+(successor (λx0. nat_fold))	no_type
+compose	arrow(arrow(T0,T1),arrow(arrow(T2,T0),arrow(T2,T1)))
+(λx0. (((λx1. zero) (λx1. nil)) cons))	no_type
+(nat_fold (((zero ((zero nil) (compose false))) false) konstant))	no_type
+((((λx0. ((cons boolean_not) (identity false))) (λx0. (λx1. true))) ((nil fixpoint) (((compose successor) (identity nil)) (nat_fold cons)))) (nat_fold (λx0. (λx1. (λx2. (identity identity))))))	no_type
+(((λx0. (λx1. ((λx2. boolean_not) (x0 zero)))) true) identity)	no_type
+((((((nil successor) (konstant konstant)) ((λx0. x0) (λx0. list_fold))) zero) (λx0. (λx1. ((x1 nil) (list_fold false))))) ((λx0. nat_fold) ((identity (λx0. (λx1. true))) ((successor (λx0. successor)) (successor (list_fold identity))))))	no_type
+((λx0. (λx1. x0)) (λx0. ((((identity nil) (list_fold nil)) false) nil)))	no_type
+successor	arrow(natural,natural)
+((konstant false) (λx0. true))	boolean
+((λx0. false) (λx0. konstant))	boolean
+((((nil ((cons zero) (true identity))) ((λx0. true) ((zero identity) compose))) konstant) nat_fold)	no_type
+(λx0. (zero ((λx1. (λx2. (identity successor))) (nat_fold boolean_not))))	no_type
+(λx0. cons)	arrow(T0,arrow(T1,arrow(list(T1),list(T1))))
+((λx0. konstant) (((((λx0. successor) (konstant fixpoint)) (λx0. nil)) (λx0. (identity (nil nat_fold)))) (((λx0. (nat_fold false)) ((false false) (true boolean_not))) compose)))	no_type
+(boolean_not boolean_not)	no_type
+((((konstant (λx0. nil)) false) ((λx0. ((true nat_fold) successor)) ((λx0. list_fold) ((λx0. nat_fold) (λx0. zero))))) (false (successor (λx0. ((cons boolean_not) (λx1. false))))))	no_type
+(((nil (cons (λx0. compose))) fixpoint) (λx0. nat_fold))	no_type
+((((λx0. false) (((λx0. boolean_not) (list_fold boolean_not)) (λx0. true))) (cons ((λx0. (λx1. cons)) (λx0. (λx1. zero))))) successor)	no_type
+nil	list(T0)
+(λx0. (x0 identity))	arrow(arrow(arrow(T0,T0),T1),T1)
+nat_fold	arrow(T0,arrow(arrow(T0,T0),arrow(natural,T0)))
+true	boolean
+((((((λx0. identity) list_fold) true) (fixpoint compose)) ((boolean_not nil) list_fold)) (cons cons))	no_type
+(true (((((zero identity) (true list_fold)) ((λx0. identity) successor)) (((successor list_fold) (false cons)) ((successor boolean_not) (λx0. boolean_not)))) ((((nil true) false) (λx0. (list_fold konstant))) true)))	no_type
+(λx0. (nat_fold (((λx1. (fixpoint konstant)) (x0 (λx1. identity))) (((x0 compose) list_fold) ((successor nil) compose)))))	no_type
+((((λx0. ((λx1. list_fold) (λx1. nat_fold))) (false nil)) ((nil successor) (fixpoint ((λx0. list_fold) (fixpoint boolean_not))))) (λx0. x0))	no_type
+(((false ((λx0. nil) compose)) list_fold) ((λx0. (((x0 nil) (successor fixpoint)) nil)) (list_fold fixpoint)))	no_type
+(((λx0. ((λx1. true) (false (λx1. x1)))) ((nil nat_fold) nat_fold)) (λx0. konstant))	no_type
+(λx0. ((cons cons) ((((λx1. konstant) identity) (λx1. (λx2. x0))) (((boolean_not konstant) x0) ((list_fold true) (true successor))))))	no_type
+((((cons nat_fold) zero) konstant) true)	no_type
+((((((nil zero) (λx0. fixpoint)) ((list_fold cons) (λx0. nil))) (((λx0. cons) true) (λx0. cons))) ((((successor compose) fixpoint) ((λx0. zero) nat_fold)) (λx0. zero))) ((λx0. (λx1. (λx2. (fixpoint successor)))) (λx0. (((list_fold nat_fold) (nat_fold x0)) ((zero konstant) (λx1. successor))))))	no_type
+((((false zero) (λx0. cons)) (λx0. (nat_fold compose))) (fixpoint true))	no_type
+(nil identity)	no_type
+list_fold	arrow(T0,arrow(arrow(T1,arrow(T0,T0)),arrow(list(T1),T0)))
+(boolean_not (λx0. cons))	no_type
+(((((boolean_not (boolean_not boolean_not)) nat_fold) (zero zero)) ((λx0. (λx1. x1)) identity)) ((successor fixpoint) (((list_fold (false compose)) ((λx0. fixpoint) (identity boolean_not))) (list_fold (boolean_not (λx0. boolean_not))))))	no_type
+konstant	arrow(T0,arrow(T1,T0))
+compose	arrow(arrow(T0,T1),arrow(arrow(T2,T0),arrow(T2,T1)))
+((λx0. ((fixpoint ((nil cons) (nat_fold zero))) nat_fold)) identity)	no_type
+(((boolean_not (λx0. konstant)) boolean_not) fixpoint)	no_type
+(λx0. ((nil nil) (λx1. (λx2. (cons (konstant compose))))))	no_type
+((konstant (λx0. (boolean_not identity))) successor)	no_type
+identity	arrow(T0,T0)
+((fixpoint ((((λx0. identity) list_fold) (λx0. (compose true))) (λx0. (cons identity)))) (((λx0. ((compose fixpoint) (λx1. zero))) (λx0. ((cons false) (boolean_not x0)))) list_fold))	no_type
+(λx0. ((nil ((λx1. x1) ((λx1. list_fold) (konstant identity)))) fixpoint))	no_type
+((λx0. (zero (λx1. (λx2. (λx3. boolean_not))))) nat_fold)	no_type
+((cons ((fixpoint (λx0. list_fold)) konstant)) boolean_not)	no_type
+identity	arrow(T0,T0)
+((((λx0. (λx1. (λx2. true))) (λx0. (λx1. (λx2. konstant)))) false) compose)	boolean
+((λx0. (λx1. (λx2. list_fold))) (((((λx0. compose) true) zero) (λx0. ((λx1. successor) (identity successor)))) ((((zero successor) (true true)) true) (((fixpoint identity) (false identity)) identity))))	no_type
+(λx0. ((λx1. false) zero))	arrow(T0,boolean)
+compose	arrow(arrow(T0,T1),arrow(arrow(T2,T0),arrow(T2,T1)))
+((identity zero) konstant)	no_type
+(λx0. (nil fixpoint))	no_type
+((λx0. (successor konstant)) identity)	no_type
+compose	arrow(arrow(T0,T1),arrow(arrow(T2,T0),arrow(T2,T1)))
+zero	natural

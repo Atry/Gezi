@@ -1,0 +1,143 @@
+# Rationals read from and written to CBOR's tag 30, an array of an integer
+# numerator and a natural denominator
+# (the tag "Rational number" in IANA's registry): the bytes 0xd8 0x1e (tag 30) and 0x82 (an array of two), then
+# the two numbers. A literal `30([1, 2])` is the rational 1/2; `0.5` is a
+# float, which no module reads.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega corpora "library") "top")
+λ top
+. omega (omega (omega (omega corpora "library") "rational") "rational")
+λ rational
+. omega (omega (omega (omega corpora "library") "integer") "cbor")
+λ integer_from_cbor integer_to_cbor
+. omega (omega (omega (omega corpora "library") "binary") "cbor")
+λ natural_from_cbor natural_to_cbor _ _ _ _
+. (λtuple. tuple λt e. t)
+λ one_bit
+. (λtuple. tuple λt e. e)
+λ zero_bit
+# one_expected, zero_expected: the next bit is 1, or 0, and rest follows;
+# top otherwise.
+. (λtuple. tuple λrest bit. bit rest top)
+λ one_expected
+. (λtuple. tuple λrest bit. bit top rest)
+λ zero_expected
+# from_cbor k: 0xd8 0x1e 0x82, an integer, a natural.
+. ( λ tuple
+    . tuple
+    λ k
+    . one_expected
+    λ
+    . one_expected
+    λ
+    . zero_expected
+    λ
+    . one_expected
+    λ
+    . one_expected
+    λ
+    . zero_expected
+    λ
+    . zero_expected
+    λ
+    . zero_expected
+    λ
+    . zero_expected
+    λ
+    . zero_expected
+    λ
+    . zero_expected
+    λ
+    . one_expected
+    λ
+    . one_expected
+    λ
+    . one_expected
+    λ
+    . one_expected
+    λ
+    . zero_expected
+    λ
+    . one_expected
+    λ
+    . zero_expected
+    λ
+    . zero_expected
+    λ
+    . zero_expected
+    λ
+    . zero_expected
+    λ
+    . zero_expected
+    λ
+    . one_expected
+    λ
+    . zero_expected
+    λ
+    . integer_from_cbor
+    λ n
+    . natural_from_cbor
+    λ d
+    . k λ. rational n d
+  )
+λ from_cbor
+# to_cbor r f z: the rational r.
+. ( λ tuple
+    . tuple
+    λ r f z
+    . r
+    λ n d
+    . f one_bit
+    λ
+    . f one_bit
+    λ
+    . f zero_bit
+    λ
+    . f one_bit
+    λ
+    . f one_bit
+    λ
+    . f zero_bit
+    λ
+    . f zero_bit
+    λ
+    . f zero_bit
+    λ
+    . f zero_bit
+    λ
+    . f zero_bit
+    λ
+    . f zero_bit
+    λ
+    . f one_bit
+    λ
+    . f one_bit
+    λ
+    . f one_bit
+    λ
+    . f one_bit
+    λ
+    . f zero_bit
+    λ
+    . f one_bit
+    λ
+    . f zero_bit
+    λ
+    . f zero_bit
+    λ
+    . f zero_bit
+    λ
+    . f zero_bit
+    λ
+    . f zero_bit
+    λ
+    . f one_bit
+    λ
+    . f zero_bit
+    λ
+    . integer_to_cbor n f λ. natural_to_cbor d f z
+  )
+λ to_cbor
+. export from_cbor to_cbor

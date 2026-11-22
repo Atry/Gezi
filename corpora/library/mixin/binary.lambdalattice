@@ -1,0 +1,156 @@
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega corpora "library") "top")
+λ top
+. ( λ tuple
+    . tuple
+      (λ_ _ x16 _ _ _. x16 λ_ x21 _ _ _. x21 λ_ x26. x26 + λ_ x2 _ _ _ _. x2 λ_ x8 _ _ _. x8 λx12 _. x12)
+  )
+λ mixin_binary_boolean_data
+. ( λ tuple
+    . tuple
+      ( λ x49 _ _ _ _ x54
+        . x54
+        λ x55 x56 _ _ _ _ _ _
+        . x56
+          ( λ_ _ _ _ _ _ x70 _. x70 λ. (λx72. x72 x72 (λx73. x73) top top top top top top) λ. x55 x55 top top top top top top λx74. x74
+          + x49 x49 top top top (λx63. x63) top
+          )
+      + λ x25 _ _ _ x29 _
+        . x29
+        λ x31 x32 _ _ _ _ _ _
+        . x32 (λ_ _ _ _ _ _ _ x47. x47 λ. x31 x31 top top top top top (λx48. x48) top + x25 x25 top top top top λx39. x39)
+      + λ x1 _ _ x4 _ _
+        . x4
+        λ _ x8 _ _ _ _ _ _
+        . x8 (λ_ _ _ _ _ _ _ x23. x23 λ. x1 x1 top top (λx24. x24) top top + x1 x1 top top top top λx15. x15)
+      )
+  )
+λ mixin_binary_binary_increment
+. ( λ tuple
+    . tuple
+      ( λ_ _ _ _ _ x41. x41 λx42 _ x44 _ _ _ _ _. x44 λ_ _ x52. x52 λ. x42 x42 top top top top top top λx53. x53
+      + λ_ _ _ _ x22 _. x22 λx24 _ x26 _ _ _ _ _. x26 λ_ x33 _. x33 λ. x24 x24 top top top top top (λx35. x35) top
+      + λ_ _ _ x4 _ _. x4 λ_ _ x9 _ _ _ _ _. x9 λx15 _ _. x15
+      )
+  )
+λ mixin_binary_binary_visitor
+. ( λ tuple
+    . tuple
+      ( λ x58 _ _ _ _ x63
+        . x63
+        λ x64 _ _ x67 _ _ _ _
+        . x67
+        λ x72
+        . x72 x72 top
+          ( λ x73
+            . x73 x64
+              ( λ x74
+                . ( λ _ _ _ _ _ _ _ x83
+                    . x83 λ. (λx84. x84 x84 top top (λx85. x85 x74) top top top top) λ. x64 x64 top top top top top top λx86. x86
+                  + x58 x58 top top top top λx75. x75
+                  )
+              )
+            λ x87
+            . ( λ _ _ _ _ _ _ x95 _
+                . x95
+                λ
+                . (λx97. x97 x97 (λx98. x98) top top top top top top) λ. (λx99. x99 x99 top top (λx100. x100 x87) top top top top) λ. x64 x64 top top top top top top λx101. x101
+              + x58 x58 top top top (λx88. x88) top
+              )
+          ) top top top top top
+      + λ x16 _ _ _ x20 _
+        . x20
+        λ x22 _ _ x25 _ _ _ _
+        . x25
+        λ x30
+        . x30 x30 top
+          ( λ x31
+            . x31 x22
+              ( λ x32
+                . ( λ _ _ _ _ _ _ x40 _
+                    . x40 λ. (λx42. x42 x42 top top (λx43. x43 x32) top top top top) λ. x22 x22 top top top top top (λx44. x44) top
+                  + x16 x16 top top top (λx33. x33) top
+                  )
+              )
+            λ x45
+            . ( λ _ _ _ _ _ _ _ x54
+                . x54 λ. (λx55. x55 x55 top top (λx56. x56 x45) top top top top) λ. x22 x22 top top top top top (λx57. x57) top
+              + x16 x16 top top top top λx46. x46
+              )
+          ) top top top top top
+      + λ_ _ _ x4 _ _. x4 λ_ _ _ x10 _ _ _ _. x10 λx15. x15
+      )
+  )
+λ mixin_binary_binary_plus
+. ( λ tuple
+    . tuple
+      ( λ x45 _ _ _ _ x50
+        . x50
+        λ x51 _ _ _ _ x56 _ _
+        . x56
+        λ x59
+        . x59 x59 top
+          ( λ x60
+            . x60 (x45 x45 top (λx61. x61) top top top) (λ_. x45 x45 top (λx63. x63) top top top) λx64. (λx65. x65 x65 top top top top (λx66. x66 x64) top top) λ. x51 x51 top top top top top top λx67. x67
+          ) top top top top top
+      + λ x22 _ _ _ x26 _
+        . x26
+        λ x28 _ _ _ _ x33 _ _
+        . x33
+        λ x36
+        . x36 x36 top
+          ( λ x37
+            . x37
+              (x22 x22 top (λx38. x38) top top top)
+              (λx39. (λx40. x40 x40 top top top top (λx41. x41 x39) top top) λ. x28 x28 top top top top top (λx42. x42) top) λ_. x22 x22 top (λx44. x44) top top top
+          ) top top top top top
+      + λ x1 _ _ x4 _ _
+        . x4
+        λ _ _ _ _ _ x12 _ _
+        . x12
+        λ x15
+        . x15 x15 top
+          (λx16. x16 (x1 x1 (λx17. x17) top top top top) (λ_. x1 x1 top (λx19. x19) top top top) λ_. x1 x1 top (λx21. x21) top top top) top top top top top
+      )
+  )
+λ mixin_binary_binary_equality
+. ( λ tuple
+    . tuple
+      ( λ _ _ _ _ _ x45
+        . x45
+        λ x46 _ _ _ x50 _ _ _
+        . x50
+        λ x54
+        . (λx55. x55 x55 top top (λx56. x56 x54) top top top top)
+        λ
+        . ( λ x57
+            . x57 x57 top top
+              (λx58. x58 λ. (λx59. x59 x59 top top top (λx60. x60 x54) top top top) λ. x46 x46 top top top top top top λx61. x61) top top top top
+          ) λ. (λx62. x62 x62 top top top (λx63. x63 x54) top top top) λ. x46 x46 top top top top top top λx64. x64
+      + λ _ _ _ _ x21 _
+        . x21
+        λ x23 _ _ _ x27 _ _ _
+        . x27
+        λ x31
+        . ( λ x32
+            . x32 x32 top top
+              (λx33. x33 λ. (λx34. x34 x34 top top top (λx35. x35 x31) top top top) λ. x23 x23 top top top top top (λx36. x36) top) top top top top
+          ) λ. (λx37. x37 x37 top top top (λx38. x38 x31) top top top) λ. x23 x23 top top top top top (λx39. x39) top
+      + λx1 _ _ x4 _ _. x4 λ_ _ _ _ x11 _ _ _. x11 λ_. x1 x1 top top (λx16. x16) top top
+      )
+  )
+λ mixin_binary_binary_times
+. ( λ tuple
+    . tuple
+      ( mixin_binary_binary_times
+      + mixin_binary_binary_equality
+      + mixin_binary_binary_plus
+      + mixin_binary_binary_visitor
+      + mixin_binary_binary_increment
+      + mixin_binary_boolean_data
+      )
+  )
+λ mixin_binary_library
+. export mixin_binary_boolean_data mixin_binary_binary_increment mixin_binary_binary_visitor mixin_binary_binary_plus mixin_binary_binary_equality mixin_binary_binary_times mixin_binary_library

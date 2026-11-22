@@ -1,0 +1,104 @@
+# building_roads:
+# CSES 1666, Building Roads (https://cses.fi/problemset/task/1666), in our own
+# words: city_count cities and some two-way roads, each between two cities; the
+# fewest new roads that make every city reachable from every other. CSES also
+# prints the new roads; we take their count only, since the count is what the
+# problem's definition fixes. The input is the number of cities, a binary natural
+# (corpora/library/binary/natural), at least 1, and the roads, a Scott list
+# (corpora/library/prelude/list) of pairs `pair a b`
+# (corpora/library/prelude/pair), the cities binary naturals from 1 to the
+# number of cities. The answer is a binary natural. Part of the CSES port's third
+# batch.
+#
+# THE PROGRAM, written by the definition: city b is reachable from city a within
+# steps roads when a = b, or when some road joins a to a city that reaches b within
+# one step fewer (steps 0 allows no road); a city is the first of its
+# component when no smaller city reaches it, within city_count steps, which
+# is enough for any trip that repeats no city; the components are counted by their first cities,
+# and the fewest new roads are the components minus one (each new road joins
+# at most two components, and one road between two components of a chain of them
+# joins them). Under tabling the reading shares the reachability for each steps and pair of
+# cities, about city_count cubed times the roads; the replacement the family asks for is a union-find over the roads,
+# about the roads times the inverse Ackermann function of the cities, on fixed-width integers.
+#
+# DEFINITION 14: the program P, the point's term, is built of λ and application
+# only: its text holds no top, no choice, no parallel and no literal. It β-reduces
+# to V, the canonical binary numeral of the answer: every recursion ends, since
+# reaches consumes steps, a binary numeral that falls by one at each call, the
+# count and the check of the first cities consume the bounded gap city_count - city,
+# and every other recursion consumes a finite list; the branches that a Scott
+# boolean discards are never read. binary_subtract, which writes no top
+# (../common/binary_modular), is asked for steps - 1 only when steps is not zero,
+# and for the components minus one with the components at least 1, since city 1 is the first of its own component (there are
+# city_count >= 1 cities). So ⊢_β P = V, and P ≃_O V by the soundness of the
+# derivable equations for the contextual preorder of Definition 14 (Lean
+# `ContextualPreorder.contextualEquivalenceOfDerivableLatticeEta`): V is an
+# answer, P ⊑_O V. No other closed βη normal form W has P ⊑_O W: then V ⊑_O W,
+# while Böhm's theorem gives a pure context that takes V to λx y. x and W to
+# λx y. y, and applying both to λa. a and Ω makes the first solvable and the
+# second not.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "fixpoint")
+λ fixpoint
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "boolean")
+λ true false _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "natural")
+λ binary_zero _ binary_odd _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "arithmetic")
+λ merge_binary_increment _ _ merge_binary_equality
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "order")
+λ binary_less_than _ _
+. omega (omega (omega (omega (omega gezi "problems") "cses") "common") "binary_modular")
+λ _ binary_subtract _ _
+. (λtuple. tuple (binary_odd binary_zero))
+λ one
+. ( λ tuple
+    . tuple
+    λ roads
+    . fixpoint
+      ( λ self steps from target
+        . merge_binary_equality from target true
+          ( ( λ any
+              . steps false (λ_. any roads) λ_. any roads
+            )
+            ( fixpoint
+              ( λ walk rest
+                . rest false
+                  λ road others
+                  . road
+                    λ left right
+                    . merge_binary_equality from left (self (binary_subtract steps one false) right target) false
+                      true
+                      ( merge_binary_equality from right (self (binary_subtract steps one false) left target) false
+                        true (walk others)
+                      )
+              )
+            )
+          )
+      )
+  )
+λ reaches
+. ( λ tuple
+    . tuple
+    λ city_count roads
+    . fixpoint
+      ( λ self city count
+        . binary_less_than city_count city count
+          ( self (merge_binary_increment city)
+            ( ( fixpoint
+                ( λ walk smaller
+                  . binary_less_than smaller city
+                    (reaches roads city_count smaller city false (walk (merge_binary_increment smaller)))
+                    true
+                ) one
+              ) (merge_binary_increment count) count
+            )
+          )
+      ) one binary_zero
+  )
+λ components
+. (λtuple. tuple λcity_count roads. binary_subtract (components city_count roads) one false)
+λ building_roads
+. export building_roads

@@ -1,0 +1,11 @@
+#   ==== H15. the answer, not the truth ====
+#   BINARY TREES as cyclic values, `branch label left right` or `leaf
+#   label`, and their coinductive equality checked with a SEQUENTIAL
+#   conjunction: `same a b` compares the labels, then the left subtrees,
+#   then the right ones. When the left subtrees are equal forever, the
+#   check never reaches the right ones, so it has no head even
+#   where the right subtrees differ: the program's meaning is `failed`,
+#   whatever the trees' true relation. A runtime must read the program's
+#   answer; one that evaluated the right conjunct first, or both
+#   fairly, would answer false and be wrong.
+λ export. export λx_0 x_1 x_2 x_3 x_4. x_4 x_0 x_1 x_2

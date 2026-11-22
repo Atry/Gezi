@@ -1,0 +1,145 @@
+# Which courses can be completed.
+#
+# THE PROBLEM (LeetCode 207 and 210, "Course Schedule"): n courses, each with
+# a list of prerequisite courses; a course can be completed when all its
+# prerequisites can. Which courses can be completed? A course on a cycle of
+# prerequisites, or depending on one, never can.
+#
+# THE PROGRAM, written by the definition with a step budget, with the
+# prelude's foldr, and, map and true (Hidden37Courses.coursesTerm in
+# gezi/contest-corpora):
+#
+#     done    = Y (\self. \d. \c. d top (\p. foldr and true (map (self p) (prerequisites c))))
+#     program = the choice of done n c c top over the courses c
+#
+# prerequisites c is a nested case on the unary numeral c (the program's own
+# code), the Scott list of the numerals of c's prerequisites; the courses are
+# let bound numerals, course i the successor of course i - 1; top is no answer
+# (corpora/library/top); the budget n is the course count, written once as the
+# successor of the last course. done n c is a Boolean: true when every
+# prerequisite is done; applied to c and top, it yields c. Without the budget a
+# course on a cycle reads ⊥ in DdLP96's reading (a choice is a meet and Y the
+# least fixed point), the whole choice with it, and every closed βη normal
+# form would be an answer. The directions it tests: C (choices on cyclic
+# graphs: a course on a cycle yields nothing), B (merging by value: done c for a
+# shared prerequisite is one value, reached along exponentially many paths in
+# a ladder of diamonds), D (foldr with and partially applied, map with the
+# recursive function passed as an argument), F (the empty set: a subtask whose
+# every course is on or behind a cycle).
+#
+# THE SNAPSHOT. Let C be the least set of courses such that a course belongs
+# to C when all its prerequisites belong to C (the least fixed point of
+# step(S) = {c | prerequisites(c) ⊆ S}, Hidden37Courses.completable). The
+# program's answers (an answer of the program T being a closed βη normal form
+# N with T ⊑_O N, Definition 14; the selection theorem holds of them, since
+# they are the N with ◇(N + T = T)) are the numerals of C. PROOF, under
+# Definition 14 (doc/proofs/reduction_series_answers.md): top ≃_O 0, so the program has
+# the answers of the one with 0 in top's place. done is deterministic and its recursion terminates (the budget falls
+# at every call), so done ⌜d⌝ c reduces to true, or to a term built on 0. By
+# induction on d: done ⌜d⌝ c is true exactly when every chain of
+# prerequisites from c is acyclic and shorter than d; a course on a cycle,
+# or depending on one, has arbitrarily long chains and spends the budget. A
+# course of C has chains of fewer than n courses, so with d = n, done n c is
+# true for c ∈ C and is built on 0 otherwise. The only choice is the outer
+# one over the courses, so by the selection theorem the answers are those of its
+# members: done n c c 0 is the numeral of c when c ∈ C, and
+# is built on 0, with no answer, otherwise.
+# Hidden37CoursesReadingTest checks the untabled weak head against
+# Hidden37Courses.completable on every prerequisite graph of three courses.
+#
+# THE SUBTASKS AND THE TRAPS: course_point/5 below, each with its shape. A
+# trap is a near-miss program whose snapshot excludes an answer a setting may
+# plausibly give: a setting that assumes a course done while it is
+# computing it (the greatest fixed point) answers the courses on cycles, which
+# are outside the snapshot.
+#
+# TARGET ALGORITHM: Kahn's topological sort, the counting of unmet
+# prerequisites (A. B. Kahn, Topological sorting of large networks, CACM 1962,
+# doi:10.1145/368996.369025); tabled evaluation keyed by the course, which
+# completes a cycle with no answer (W. Chen, D. S. Warren, J. ACM 1996,
+# doi:10.1145/227595.227597).
+
+#   THE SUBTASKS: course_point(?Point, ?Shape, ?Count, ?Seed, ?Kind), Kind
+#   subtask or trap. Sized by a probe of 2026-09-30 (CPUs 0-7,
+#   512 MB stack and table, the machine shared): tabling(weak_head) reads
+#   the chain of 60 in 1765 ms, the ladder of 20 diamonds in 1743 ms, the
+#   random 120 courses with cycles (98 completable) in 19856 ms, the trap of
+#   cycles in 1506 ms (5 completable) and the trap ladder in 1497 ms (none
+#   completable), each equal to its snapshot. Its time grows with about the
+#   cube of the number of courses (a chain of 25, 50 and 100 in 169, 856
+#   and 6409 ms): the course is a unary numeral found by a nested case, and
+#   each key holds a numeral. The random 1000 courses (282 completable;
+#   Kahn's reference 9 ms) are left to a setting
+#   that indexes the courses natively and tables done by course.
+#   - chain: course i requires i - 1;
+#   - diamonds: a ladder of diamonds, each level two courses requiring the
+#     level below and one course requiring both, so 2^levels paths reach the
+#     bottom;
+#   - random(Degree, BackEdges): each course requires up to Degree earlier
+#     courses, then BackEdges prerequisites are added from an earlier course
+#     to a later one, making cycles;
+#   - trap_cycles: courses on self loops and short cycles among a chain;
+#   - trap_ladder: a ladder of diamonds whose bottom is on a cycle of two.
+#
+# The shape is a constructor of hidden_37_courses/shape, chain, diamonds,
+# random with its degree and back edges, trap_cycles or trap_ladder.
+# Each other text is from_cbor of a string literal, a Scott list of bytes,
+# imported from corpora/library/text/cbor. Each number is from_cbor of an
+# integer literal, a Scott integer, imported from corpora/library/integer/cbor.
+# FIXME: the imports project "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λx. x)
+λ integer
+. omega (omega (omega (omega gezi "problems") "hidden_37_courses") "shape")
+λ chain diamonds random trap_cycles trap_ladder
+. export
+λ
+. cons
+  ( λ _course_point
+    . _course_point (text "hidden_37_courses_chain") chain (integer 60) (integer 0) λ. text "subtask"
+  )
+λ
+. cons
+  ( λ _course_point
+    . _course_point (text "hidden_37_courses_diamonds") diamonds (integer 61) (integer 0) λ. text "subtask"
+  )
+λ
+. cons
+  ( λ _course_point
+    . _course_point
+      (text "hidden_37_courses_cycles")
+      (random (integer 3) λ. integer 8)
+      (integer 120)
+      (integer 5) λ. text "subtask"
+  )
+λ
+. cons
+  ( λ _course_point
+    . _course_point
+      (text "hidden_37_courses_large")
+      (random (integer 4) λ. integer 6)
+      (integer 1000)
+      (integer 17) λ. text "subtask"
+  )
+λ
+. cons
+  ( λ _course_point
+    . _course_point (text "hidden_37_courses_trap_cycles") trap_cycles (integer 60) (integer 0) λ. text "trap"
+  )
+λ
+. cons
+  ( λ _course_point
+    . _course_point (text "hidden_37_courses_trap_ladder") trap_ladder (integer 61) (integer 0) λ. text "trap"
+  ) nil

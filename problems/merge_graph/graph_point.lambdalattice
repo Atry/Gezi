@@ -1,0 +1,131 @@
+# Graph reachability in lambda plus merge, with no label: scored points of
+# the label-free family.
+#
+# THE PROGRAM. A graph of N nodes, its edges in a fixed order:
+# - node i is the Scott unary numeral i, let bound once as the successor
+#   of node i - 1, so that the surface term grows linearly with N + E (an
+#   N-ary selector per node would make it grow with N^2, and the judge's
+#   translation of a 384-node program took minutes before any reading).
+#   The IR does not grow linearly: flat closure conversion makes every
+#   closure capture all the node variables in scope, and the IR grows by
+#   about 3.3 a doubling (measured);
+# - a table over the nodes is a nested case on the numeral,
+#   v C0 (\p. p C1 (\p. ... )), Ci the case of node i;
+# - reach(v) is the merge [is_target v, successors v], where the case of
+#   node i in successors is the merge of reach applied to each successor
+#   of node i, in the edges' order, and in is_target the Church Boolean,
+#   true at the target;
+# - reach is recursive by self-application, and the test reads the Church
+#   Boolean of reach(start).
+# Only Booleans are merged. The test reads true when some chain of choices
+# reaches the target, which it does at a finite depth. Along every cycle
+# the search goes on without end: a reading must find the yielding branch
+# beside the ones that never stop, the ground of the labeled Datalog ring
+# points, here without labels. The edge back into a cycle comes before the
+# edge that leaves it, so a reading that tries the first operand first,
+# and never gives it up, runs around the cycle forever.
+#
+# THE GRAPHS:
+# - two rings of n nodes each: ring A from the start, ring B holding the
+#   target at its last node; A's last node goes first back to A's first,
+#   then over to B's first;
+# - a ring of n nodes with chords: node i goes first back to node i - 1
+#   (node 0 has no chord), then on to node i + 1, and the last node back
+#   to node 0; the target is the last node.
+# The reference is breadth-first reachability (reference_reachable/4).
+# The sizes are n, 2n and 4n with a frontier beyond: two rings of 12, 24
+# and 48 nodes each, and 64; the ring with chords of 24, 48 and 96 nodes,
+# and 128.
+#
+# READINGS (2026-09-28, CPU 2 under contest_limited.sh, a fresh process per
+# reading, the boolean(true) template, 10 s, 256 MB, 256 MB):
+# - weak_head runs around the first cycle and is stopped on every point.
+# - tabling(weak_head) completes the cycles: two rings of 12, 24 and 48 in
+#   90, 564 and 4909 ms, of 64 stopped at the time limit; the ring with
+#   chords of 24, 48 and 96 in 117, 634 and 4773 ms, of 128 stopped at the
+#   time limit. The 48- and 96-node points are at the edge: in another run
+#   they were stopped near 5 s.
+# - records_routed(record_interned(tabling(weak_head)), weak_head) reads
+#   within a few per cent of tabling(weak_head) and is stopped on the same
+#   two frontier points.
+# MEMORY OUTSIDE THE LIMITS. A tabled reading of this family holds far
+# more memory than its tables and stacks: at 48 nodes of two rings the
+# process's peak resident set was 645 MB while the tables used 17 MB and
+# the stacks 40 MB, at 24 nodes 138 MB, and at 96 nodes the 3 GB
+# cgroup killed the process (exit 137) before the time limit, so the
+# configured limits do not bound it. The cause (measured,
+# on the evaluator of that time, deleted in a3b1c52e9): its
+# hash_consing store, a trie of the process, keyed a closure by its whole
+# code tree, so it grew with the program's size times its lambda nesting
+# depth, 489 MB of the 48-node reading. The frontier is set where the time
+# limit stops the reading first: 64 and 128 nodes, peak 1.3 GB.
+# BEYOND THE FRONTIER (two settings read two rings of 64): one step beyond,
+# two rings of 80. At 96, under weak_head the point was killed by the 3 GB
+# cgroup in about 2 s (exit 137, 2026-09-28), before the time limit, so
+# it would measure the memory outside the limits, not a reading.
+# Two rings of 80: weak_head and tabling(weak_head) stopped at the time
+# limit, in 6450 and 6579 ms, not killed.
+# LIMITS: the family's, 10 s, 256 MB, 256 MB.
+#
+# TARGET ALGORITHMS, the specific known algorithms the problem targets, each
+# with its prior work:
+# - breadth-first or depth-first search with a set of visited nodes: J.
+#   Hopcroft, R. Tarjan, Algorithm 447: Efficient Algorithms for Graph
+#   Manipulation, CACM 1973, doi:10.1145/362248.362272; D. J. King, J.
+#   Launchbury, Structuring Depth-First Search Algorithms in Haskell, POPL
+#   1995, doi:10.1145/199448.199530.
+# - tabled evaluation: W. Chen, D. S. Warren, Tabled Evaluation with
+#   Delaying for General Logic Programs, J. ACM 1996,
+#   doi:10.1145/227595.227597.
+
+#   THE POINTS.
+#
+# The shape is a constructor of schema/graph_shape, two_rings or chord_ring.
+# Each other text is from_cbor of a string literal, a Scott list of bytes,
+# imported from corpora/library/text/cbor. Each number is from_cbor of an
+# integer literal, a Scott integer, imported from corpora/library/integer/cbor.
+# FIXME: the imports project "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λx. x)
+λ integer
+. omega (omega (omega (omega gezi "problems") "schema") "graph_shape")
+λ two_rings chord_ring
+. export
+λ
+. cons (λ_graph_point. _graph_point (text "merge_graph_two_rings_twelve") two_rings λ. integer 12)
+λ
+. cons
+  (λ_graph_point. _graph_point (text "merge_graph_two_rings_twenty_four") two_rings λ. integer 24)
+λ
+. cons
+  (λ_graph_point. _graph_point (text "merge_graph_two_rings_forty_eight") two_rings λ. integer 48)
+λ
+. cons (λ_graph_point. _graph_point (text "merge_graph_two_rings_sixty_four") two_rings λ. integer 64)
+λ
+. cons (λ_graph_point. _graph_point (text "merge_graph_two_rings_eighty") two_rings λ. integer 80)
+λ
+. cons
+  (λ_graph_point. _graph_point (text "merge_graph_chord_ring_twenty_four") chord_ring λ. integer 24)
+λ
+. cons
+  (λ_graph_point. _graph_point (text "merge_graph_chord_ring_forty_eight") chord_ring λ. integer 48)
+λ
+. cons
+  (λ_graph_point. _graph_point (text "merge_graph_chord_ring_ninety_six") chord_ring λ. integer 96)
+λ
+. cons
+  ( λ _graph_point
+    . _graph_point (text "merge_graph_chord_ring_one_hundred_twenty_eight") chord_ring λ. integer 128
+  ) nil

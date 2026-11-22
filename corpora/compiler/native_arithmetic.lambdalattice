@@ -1,0 +1,29 @@
+# Two functions on the naturals of native_types, compiled with it: double and
+# even, whose defines are the lambdalattice files of native_arithmetic/.
+# The Prolog backend runs them by the natives natural_double and
+# natural_even (the knowledge module native_arithmetic_prolog_backend), so
+# that a program computes with naturals far beyond what Scott numerals,
+# read by weak head reduction, reach.
+
+# The schemes, Name = Name + (Name ∥ T), absorption.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "native_arithmetic") "native_arithmetic")
+λ double even
+. omega (omega (omega (omega corpora "library") "native_types") "type_operators")
+λ arrow _ _
+. omega (omega (omega (omega corpora "library") "native_types") "natural")
+λ _ _ _ nat_type
+. omega (omega (omega (omega corpora "library") "native_types") "boolean")
+λ _ _ boolean_type _
+. export
+λ _ rewriting _ _
+. rewriting
+λ _ lemmas _
+. lemmas
+  ( λ s
+    . s (λk. k "even_scheme") even (even ∥ arrow nat_type boolean_type + even) λ_ md _. md λk. k "[absorption](docs/design/gezi-native-route-engine.md)"
+  + λ s
+    . s (λk. k "double_scheme") double (double ∥ arrow nat_type nat_type + double) λ_ md _. md λk. k "[absorption](docs/design/gezi-native-route-engine.md)"
+  )

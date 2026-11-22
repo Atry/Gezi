@@ -1,0 +1,39 @@
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "native_types") "natural")
+λ _ _ nat_fold _
+. omega (omega (omega (omega corpora "library") "fixed_width") "word_representation")
+λ word_end word_cell word_zero _ _ _
+. omega (omega (omega (omega corpora "library") "native_types") "boolean")
+λ _ false _ _
+. omega (omega (omega (omega corpora "library") "fixed_width") "word_arithmetic")
+λ _ word_add _ _ _ _
+# word_shift_carry:
+# The word of width w whose least significant bit is c and whose bits above
+# are the w - 1 low bits of x: x shifted up by one, c shifted in, the top
+# bit dropped. Each bit of x is read once.
+. (λtuple. tuple λw. nat_fold (λc x. word_end) (λrest c x. x λa above. word_cell c λ. rest a above) w)
+λ word_shift_carry
+# word_shift:
+# x doubled, wrapped to w bits: x shifted up by one with false shifted in.
+. (λtuple. tuple λw. word_shift_carry w false)
+λ word_shift
+# word_multiply:
+# The product of two words of width w, wrapped to w bits: at the least
+# significant bit b of y and the bits y' above it, x y = (b ? x : 0) + 2 (x y'),
+# every sum and every doubling wrapped to w bits. The recursion is on the
+# bits of y left, w of them, and each intermediate word is read once, since
+# a reading that does not share computes a word read twice twice. The
+# reference's steps at the widths 4, 8, 16 and 32 (2026-10-31, the operands
+# -2147481450 and -2147483603 masked to the width): 4,469, 16,651, 65,867
+# and 260,801, about four times for each doubling of the width.
+. ( λ tuple
+    . tuple
+    λ w
+    . nat_fold
+      (λx y. word_zero w)
+      (λrest x y. y λb y_above. word_add w (b x λ. word_zero w) λ. word_shift w λ. rest x y_above) w
+  )
+λ word_multiply
+. export word_shift_carry word_shift word_multiply

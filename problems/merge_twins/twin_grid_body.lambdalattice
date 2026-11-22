@@ -1,0 +1,4 @@
+#   twin_grid_body(+Plus, +One, -Body): paths(r, c) casing on c first,
+#   paths(r, c - 1) + paths(r - 1, c).
+λ export
+. export λx_0 x_1 x_2 x_3 x_4. x_4 x_1 λx_5. x_3 x_1 λx_6. x_0 (x_2 x_2 x_3 x_5) λ. x_2 x_2 x_6 x_4

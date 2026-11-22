@@ -1,0 +1,19 @@
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "prelude") "fixpoint")
+λ fixpoint
+. omega (omega (omega (omega corpora "library") "binary") "natural")
+λ binary_zero binary_even binary_odd _ _
+. ( λ tuple
+    . tuple λ. fixpoint λself n. n binary_zero (λeven. binary_even λ. self even) λodd. binary_odd λ. self odd
+  )
+λ binary_tree
+# fold_binary:
+#   The fold with its branches as parameters: zero to Z, even h to
+#   E (fold h), odd h to O (fold h). The branches are parameters of the
+#   generator, passed unchanged to every recursive call, since a define
+#   abstracted over a knot has no normal form.
+. (λtuple. tuple λ. fixpoint λself z e o n. n z (λeven. e λ. self z e o even) λodd. o λ. self z e o odd)
+λ fold_binary
+. export binary_tree fold_binary

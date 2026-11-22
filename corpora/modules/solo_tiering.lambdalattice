@@ -1,0 +1,9 @@
+# The selector of the executor module of the tiered executor
+# (gezi.contest.modules.solo.TieringModule, project
+# contest-modules-solo-tiering): the one field of this file's tuple, a closed
+# term told apart from every other module's selector by its synthetic label,
+# which the host never reads. The module registers
+# this file's path and an entry imports this file, so that the two selectors
+# are one interned instruction.
+λ export
+. export λ. (λ"$tiering". λx. x) "$tiering"

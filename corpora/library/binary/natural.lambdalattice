@@ -1,0 +1,51 @@
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "native_types") "fixpoint")
+λ fixpoint
+. omega (omega (omega corpora "library") "top")
+λ top
+. omega (omega (omega (omega corpora "library") "native_types") "boolean")
+λ true false _ _
+. (λtuple. tuple λz _ _. z)
+λ binary_zero
+. (λtuple. tuple λh _ e _. e h)
+λ binary_even
+. (λtuple. tuple λh _ _ o. o h)
+λ binary_odd
+# binary:
+# The binary naturals: binary_zero, binary_even h for 2h and binary_odd h for
+# 2h + 1, each a term of three cases, the low bit outermost, and the
+# library's binary arithmetic: the lambdalattice files of the directory
+# binary/. binary is the contract of the canonical numerals: the even case
+# excludes zero below it, so a member has no leading zero bit. binary_set P
+# is their type as a set of constructor shapes, P true for the canonical
+# naturals and false for the canonical positive ones, which is what a filter
+# `x ∥ binary_set true` decodes at. The backend's facts are binary_prolog_backend's. A number
+# literal's value is integer/from_cbor's.
+#
+# NOT HERE: the functions a set-free point writes for itself (the rebuild,
+# the complement, the unit law's step; corpora/contest_set_free_premises.pl).
+# A point writes them so that recognising a library function does not answer
+# it, and a file in this directory would give them an address.
+. ( λ tuple
+    . tuple
+    λ
+    . fixpoint
+    λ self n
+    . n binary_zero (λh. self h top (λg. binary_even λ. binary_even g) λk. binary_even λ. binary_odd k) λl. binary_odd λ. self l
+  )
+λ binary
+# binary_set:
+# The canonical binary naturals as a set of constructor shapes, one set per
+# boolean p: at true, zero, 2h for a positive h and 2h + 1 for any h; at
+# false, the positive ones alone, 2h for a positive h and 2h + 1 for any h.
+# So binary_even binary_zero, whose field is read at false, is in neither.
+# The shapes are the constructors' bodies, as nat_type writes them.
+. ( λ tuple
+    . tuple
+    λ
+    . fixpoint λself p. ((λh z e o. o h) λ. self true + (λh z e o. e h) λ. self false + p (λz e o. z) top)
+  )
+λ binary_set
+. export binary_zero binary_even binary_odd binary binary_set

@@ -1,0 +1,34 @@
+#   rebuild_size(?Size, ?Times, ?Digits): Times odd, for the near misses;
+#   sized by weak_head's reading of the direct point (a probe of
+#   2026-09-30, CPU 11, 20 s: medium in 3067 ms, large stopped), so that
+#   weak_head reads medium within the limits and not large, which needs
+#   the rebuild seen as the identity. The laws use the same sizes (a
+#   probe of 2026-09-30, CPUs 0-7, 10 s): weak_head reads the
+#   involution's small point in 10 ms and its medium in 2329 ms and is
+#   stopped at large; it reads the unit law's small point in 10 ms and is
+#   stopped at medium and large, one addition of a 60-digit numeral a round.
+#
+# Each text is from_cbor of a string literal, a Scott list of bytes,
+# imported from corpora/library/text/cbor. Each number is from_cbor of an
+# integer literal, a Scott integer, imported from corpora/library/integer/cbor.
+# FIXME: the imports project "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λx. x)
+λ integer
+. export
+λ
+. cons (λ_rebuild_size. _rebuild_size (text "medium") (integer 101) λ. integer 60)
+λ
+. cons (λ_rebuild_size. _rebuild_size (text "large") (integer 1001) λ. integer 120) nil

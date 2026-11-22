@@ -1,0 +1,34 @@
+# The knowledge CodecLiteralLawTest compiles its library from
+# (gezi.standardlibrary.LibraryFiles.compiled): the standard knowledge
+# files the literals need, native_types, prolog_backend, binary_prolog_backend,
+# fixed_width and fixed_width_prolog_backend, with the natives of the fixture
+# codec_literals, their choice the one field of this file's tuple, a term of
+# this file and not a choice the host assembles from paths.
+# FIXME: the imports project "corpora" and "tests" off the variable gezi, the name https://github.com/Atry/private-overlay/issues/1924
+# of the project root's own directory; they break if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega gezi "corpora") "compiler") "native_types")
+λ native_types
+. omega (omega (omega (omega gezi "corpora") "compiler") "prolog_backend")
+λ prolog_backend
+. omega (omega (omega (omega gezi "corpora") "compiler") "binary_prolog_backend")
+λ binary_prolog_backend
+. omega (omega (omega (omega gezi "corpora") "compiler") "fixed_width")
+λ fixed_width
+. omega (omega (omega (omega gezi "corpora") "compiler") "fixed_width_prolog_backend")
+λ fixed_width_prolog_backend
+. omega
+  ( omega
+    (omega (omega (omega (omega gezi "tests") "standard_library_fixtures") "codec_literals") "compiler") "codec_literal_natives"
+  )
+λ codec_literal_natives
+. export
+  ( codec_literal_natives
+  + fixed_width_prolog_backend
+  + fixed_width
+  + binary_prolog_backend
+  + prolog_backend
+  + native_types
+  )

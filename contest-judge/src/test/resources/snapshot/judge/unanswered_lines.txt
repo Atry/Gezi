@@ -1,0 +1,39 @@
+# sample 0
+exhaust: evaluation evaluation evaluation
+=>
+setup ready
+point_0 stopped
+setup ready
+point_1 stopped
+setup ready
+point_2 stopped
+probe-1.unanswered: Terminating due to java.lang.OutOfMemoryError: Java heap space
+probe-2.unanswered: Terminating due to java.lang.OutOfMemoryError: Java heap space
+probe-3.unanswered: Terminating due to java.lang.OutOfMemoryError: Java heap space
+probe-1.stderr: RoundStarted FamilyStarted PointStarted
+probe-2.stderr: FamilyStarted PointStarted
+probe-3.stderr: FamilyStarted PointStarted
+
+# sample 1
+stray: evaluation evaluation
+=>
+setup ready
+point_0 stopped
+setup ready
+point_1 stopped
+probe-1.unanswered: a stray line
+probe-2.unanswered: a stray line
+probe-1.stderr: RoundStarted FamilyStarted PointStarted
+probe-2.stderr: FamilyStarted PointStarted
+
+# sample 2
+stray: evaluation judgment judgment
+=>
+setup ready
+point_0 stopped
+setup ready
+point_1 unknown
+point_2 unknown
+probe-1.unanswered: a stray line
+probe-1.stderr: RoundStarted FamilyStarted PointStarted
+probe-2.stderr: FamilyStarted PointStarted PointFinished PointStarted PointFinished FamilyFinished RoundFinished

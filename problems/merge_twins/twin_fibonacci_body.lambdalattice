@@ -1,0 +1,2 @@
+#   twin_fibonacci_body(+Plus, +Zero, +One, -Body): fib(n - 2) + fib(n - 1).
+λ export. export λx_0 x_1 x_2 x_3 x_4. x_4 x_1 λx_5. x_5 x_2 λx_6. x_0 (x_3 x_3 x_6) λ. x_3 x_3 x_5

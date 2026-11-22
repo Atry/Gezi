@@ -1,0 +1,93 @@
+# +Point, -Surface
+#   * <module> The set-free series: laws of lists that hold on data
+#
+# A family of the set-free series, for rewrite rules built on typing. A point is a
+# closed pure lambda program, no set in it, whose answer is a Scott Boolean.
+#
+# THE PROGRAM compares two lengths: natural_equal (length (map f D))
+# (length D), where D is the one-element list doubled k times, D = dbl^k [i],
+# dbl xs = append xs xs, so that D has 2^k elements and a program of size
+# linear in k. natural_equal, length, map, append, cons and nil are the
+# attractors of corpora/contest_attractors.pl; f and i are the identity.
+# - LAW points: the answer is true by two laws that hold on data only:
+#   length (map f xs) = length xs for every finite list xs (induction on the
+#   list), and natural_equal m m = true for every unary numeral m (induction
+#   on the numeral). Rewriting by them answers without building D; weak_head
+#   builds and counts D twice and compares two numerals of 2^k, about 2^k
+#   steps each.
+# - NEAR MISS, a proved trap for rewriting by shape: filter p in place of
+#   map f, with p answering false, natural_equal (length (filter p D))
+#   (length D). Its answer is false: filter keeps nothing, and 0 is not 2^k.
+#   A setting that rewrites filter as if it were map answers true, outside
+#   S(P).
+# Each law point has a DIRECT and a RESPELLED twin
+# (contest_attractors:function_surface/3).
+#
+# TARGET ALGORITHMS, the specific known algorithms the problem targets, each
+# with its prior work:
+# - fusion of list producers and consumers by rewrite rules:
+#   P. Wadler, Deforestation: Transforming Programs to Eliminate Trees, TCS
+#   1990, doi:10.1016/0304-3975(90)90147-A; A. Gill, J. Launchbury,
+#   S. Peyton Jones, A Short Cut to Deforestation, FPCA 1993,
+#   doi:10.1145/165180.165214;
+# - discovering and proving the inductive laws used here: K. Claessen,
+#   M. Johansson, D. Rosén, N. Smallbone, Automating Inductive Proofs Using
+#   Theory Exploration, CADE 2013, doi:10.1007/978-3-642-38574-2_27;
+#   E. Singher, S. Itzhaky, Theory Exploration Powered by Deductive
+#   Synthesis, CAV 2021, doi:10.1007/978-3-030-81688-9_6;
+# - rewriting by the laws in an e-graph, where both sides of the comparison
+#   fall into one e-class: R. Tate, M. Stepp, Z. Tatlock, S. Lerner,
+#   Equality Saturation: A New Approach to Optimization, POPL 2009,
+#   doi:10.1145/1480881.1480915.
+#
+# THE SNAPSHOT is the Boolean of the reference: true for a law point, false
+# for a near miss. PROOF. The program is pure, so S(P) = {N} for its normal
+# form N. repeat k dbl [i] reduces to a list of 2^k
+# elements by induction on k (append's definition, by induction on its
+# first list); map f keeps the length and filter p with p false gives nil,
+# by induction on the list; length gives the unary numeral of the length;
+# natural_equal on canonical numerals reduces to the Boolean of their
+# equality. So a law point reduces to the Scott true and a near miss to the
+# Scott false, two distinct normal forms.
+# LIMITS: the reduction family's, 10 s, 256 MB, 256 MB.
+
+#   list_law_point(?Point, ?Transformer, ?Spelling, ?Doublings)
+#
+# The spelling is a constructor of schema/spelling, direct or respelled.
+# Each other text is from_cbor of a string literal, a Scott list of bytes,
+# imported from corpora/library/text/cbor. Each number is from_cbor of an
+# integer literal, a Scott integer, imported from corpora/library/integer/cbor.
+# FIXME: the imports project "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λx. x)
+λ integer
+. omega (omega (omega (omega gezi "problems") "schema") "spelling")
+λ direct respelled
+. export
+λ
+. cons
+  ( λ _list_law_point
+    . _list_law_point (text "set_free_list_law_small_direct") (text "map") direct λ. integer 3
+  )
+λ
+. cons
+  ( λ _list_law_point
+    . _list_law_point (text "set_free_list_law_small_respelled") (text "map") respelled λ. integer 3
+  )
+λ
+. cons
+  ( λ _list_law_point
+    . _list_law_point (text "set_free_list_law_small_near_miss") (text "filter") direct λ. integer 3
+  ) nil

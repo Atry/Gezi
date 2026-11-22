@@ -1,0 +1,17 @@
+# A theorem's proposition (reduction_mixin_theorems/theorem,
+# mixin_traps/theorem_trap): a Scott sum of five constructors, in order:
+# equal, whose two fields are natural expressions (the type
+# natural_expression); periodic, whose two fields are a residue (the type
+# residue) and a parity (the type parity), n's residue modulo 3 and its
+# parity; not_periodic, whose one field is a periodic slot (the type
+# periodic_slot) that does not hold; both, whose two fields are
+# propositions; and stepped, whose two fields are a Scott integer of
+# corpora/library/integer/cbor, the step the search takes, and a
+# proposition. Read by its position
+# (gezi.contest.corpora.reductions.ReductionMixinTheorems).
+λ export
+. export
+  (λleft right equal periodic not_periodic both stepped. equal left right)
+  (λresidue parity equal periodic not_periodic both stepped. periodic residue parity)
+  (λslot equal periodic not_periodic both stepped. not_periodic slot)
+  (λleft right equal periodic not_periodic both stepped. both left right) λstep check equal periodic not_periodic both stepped. stepped step check

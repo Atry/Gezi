@@ -1,0 +1,8 @@
+λ export
+. (λtuple. tuple λl r p. p l r)
+λ pair
+. (λtuple. tuple λp. p λl _. l)
+λ first
+. (λtuple. tuple λp. p λ_ r. r)
+λ second
+. export pair first second

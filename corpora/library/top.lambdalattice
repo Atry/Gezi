@@ -1,0 +1,10 @@
+# top = Y (λz. λx. z ∥ x), Y being Curry's fixed point combinator
+# λf. (λx. f (x x)) (λx. f (x x)): the term that stands for no answer. top is
+# λx. top ∥ x after three beta steps. In the contextual preorder of Definition 14
+# every term M is below top, and top + M is M, top M is top and top ∥ M is top up to
+# contextual equivalence (lean/LambdaJit/ContextualPreorderTop.lean:
+# contextualTop, contextualEquivalenceTopChoice,
+# contextualEquivalenceTopApplication, contextualEquivalenceTopParallel, stated
+# of top, which is this term). It is the term of the front end's
+# constant `Literals.top`, the miss of every partial function of a literal.
+λ export. export λ. (λf. (λx. f λ. x x) λx. f λ. x x) λz x. (z ∥ x)

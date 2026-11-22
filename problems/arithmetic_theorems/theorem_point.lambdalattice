@@ -1,0 +1,164 @@
+# THEOREMS AS CLAIMS, THE LAMBDA FAMILY: linear arithmetic over Scott
+# numerals.
+#
+# A point is a search over n = 0, 1, 2, ... that conjoins P n with the
+# rest of the search:
+#
+#     M = Y (\m. \n. and (P n) (m (successor n))) zero
+#
+# P a predicate of linear arithmetic built from the prelude's numerals
+# (zero, successor), natural_equal, natural_at_least and natural_double,
+# and the addition below; and = \a. \b. a b false, not = \b. b false true.
+#
+# WHEN P FAILS SOMEWHERE (a false proposition, its least counterexample
+# K): M reduces by beta, one lap per n < K (each P n reducing to true by
+# the numerals' definitions), to and false (...) and so to false, a
+# finite head. Its claims are the finite head's: boolean(false) scored,
+# boolean(true) a proved trap. The counterexamples were computed on
+# 2026-09-28 and are written at each point.
+#
+# WHEN P HOLDS AT EVERY n (a theorem): M reduces for ever, one lap per n,
+# and has no head. Both boolean claims are conjectures (class
+# both_booleans of `contest_hard_claims.pl`): a claim holds only with a
+# proof that M = true (or M = false) is consistent
+# with lambda beta. A setting that proves the theorem and connects it to
+# the consistency of M = true, under a written theorem, is what the family
+# tests.
+#
+# TARGET ALGORITHMS, the specific known algorithms the problem targets, each
+# with its prior work:
+# - proving the universally quantified proposition by induction, with the
+#   lemmas found by theory exploration: K. Claessen, M. Johansson, D. Rosén,
+#   N. Smallbone, Automating Inductive Proofs Using Theory Exploration, CADE
+#   2013, doi:10.1007/978-3-642-38574-2_27.
+# - or deciding it, P being linear arithmetic over the naturals: W. Pugh,
+#   The Omega Test: a Fast and Practical Integer Programming Algorithm for
+#   Dependence Analysis, Supercomputing 1991, doi:10.1145/125826.125848.
+# - then connecting the theorem to the consistency of M = true: J. Kuper, On
+#   the Jacopini Technique, Information and Computation 1997,
+#   doi:10.1006/inco.1997.2655.
+
+#   theorem_point(Point, Predicate, Outcome): Outcome is a constructor of
+#   arithmetic_theorems/outcome, theorem, or counterexample K with K the
+#   least n at which the predicate fails.
+#
+# Each other text is from_cbor of a string literal, a Scott list of bytes,
+# imported from corpora/library/text/cbor. Each number is from_cbor of an
+# integer literal, a Scott integer, imported from corpora/library/integer/cbor.
+# FIXME: the imports project "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λx. x)
+λ integer
+# A predicate is a term of this file, spelled as the search applies it: the
+# prelude's pieces imported from problems/prelude_clauses, negation and
+# addition let-bound here, a numeral written out as successors of zero.
+. omega (omega (omega (omega gezi "problems") "prelude_clauses") "true")
+λ true
+. omega (omega (omega (omega gezi "problems") "prelude_clauses") "false")
+λ false
+. omega (omega (omega (omega gezi "problems") "prelude_clauses") "zero")
+λ zero
+. omega (omega (omega (omega gezi "problems") "prelude_clauses") "successor")
+λ successor
+. omega (omega (omega (omega gezi "problems") "prelude_clauses") "fixpoint")
+λ fixpoint
+. omega (omega (omega (omega gezi "problems") "prelude_clauses") "natural_equal")
+λ natural_equal
+. omega (omega (omega (omega gezi "problems") "prelude_clauses") "natural_at_least")
+λ natural_at_least
+. omega (omega (omega (omega gezi "problems") "prelude_clauses") "natural_double")
+λ natural_double
+. (λtuple. tuple λboolean. boolean false true)
+λ negation
+. (λtuple. tuple λ. fixpoint λself m n. m n λm1. successor λ. self m1 n)
+λ addition
+. (λtuple. tuple λn. natural_at_least (natural_double n) n)
+λ double_at_least_itself
+. ( λ tuple
+    . tuple λn. negation λ. natural_equal (addition n λ. successor λ. successor λ. successor zero) n
+  )
+λ plus_three_differs
+. ( λ tuple
+    . tuple
+    λ n
+    . natural_equal (addition n λ. successor λ. successor zero) λ. addition (successor λ. successor zero) n
+  )
+λ plus_two_commutes
+. ( λ tuple
+    . tuple
+    λ n
+    . negation
+    λ
+    . natural_equal (natural_double n) λ. addition n λ. successor λ. successor λ. successor λ. successor λ. successor zero
+  )
+λ double_differs_plus_five
+. ( λ tuple
+    . tuple
+    λ n
+    . natural_at_least
+      ( addition n λ. successor λ. successor λ. successor λ. successor λ. successor λ. successor λ. successor zero
+      ) λ. natural_double n
+  )
+λ plus_seven_at_least_double
+. ( λ tuple
+    . tuple
+    λ n
+    . negation
+    λ
+    . natural_equal (addition (natural_double n) λ. successor zero)
+    λ
+    . addition n
+    λ
+    . successor
+    λ
+    . successor
+    λ
+    . successor
+    λ
+    . successor
+    λ
+    . successor λ. successor λ. successor λ. successor λ. successor λ. successor λ. successor λ. successor zero
+  )
+λ double_plus_one_differs_plus_twelve
+. omega (omega (omega (omega gezi "problems") "arithmetic_theorems") "outcome")
+λ theorem counterexample
+. export
+λ
+. cons
+  ( λ _theorem_point
+    . _theorem_point (text "arithmetic_double_at_least_itself") double_at_least_itself theorem
+  )
+λ
+. cons
+  (λ_theorem_point. _theorem_point (text "arithmetic_plus_three_differs") plus_three_differs theorem)
+λ
+. cons
+  (λ_theorem_point. _theorem_point (text "arithmetic_plus_two_commutes") plus_two_commutes theorem)
+λ
+. cons
+  ( λ _theorem_point
+    . _theorem_point (text "arithmetic_double_differs_plus_five") double_differs_plus_five λ. counterexample λ. integer 5
+  )
+λ
+. cons
+  ( λ _theorem_point
+    . _theorem_point (text "arithmetic_plus_seven_at_least_double") plus_seven_at_least_double λ. counterexample λ. integer 8
+  )
+λ
+. cons
+  ( λ _theorem_point
+    . _theorem_point
+      (text "arithmetic_double_plus_one_differs_plus_twelve") double_plus_one_differs_plus_twelve λ. counterexample λ. integer 11
+  ) nil

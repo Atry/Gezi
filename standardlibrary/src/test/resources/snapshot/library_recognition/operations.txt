@@ -1,0 +1,39 @@
+# sample 0
+numeral of 1
+=>
+87 operations
+
+# sample 1
+numeral of 28
+=>
+1383 operations
+
+# sample 2
+numeral of 51
+=>
+2487 operations
+
+# sample 3
+numeral of 32
+=>
+1575 operations
+
+# sample 4
+numeral of 180
+=>
+8679 operations
+
+# sample 5
+numeral of 198
+=>
+9543 operations
+
+# sample 6
+numeral of 191
+=>
+9207 operations
+
+# sample 7
+numeral of 191
+=>
+9207 operations

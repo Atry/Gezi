@@ -1,0 +1,31 @@
+# A test-only knowledge file: natives the standard set does not have,
+# each taking a value of a data family that has a codec and no constructor
+# native (binary_natural, whose constructors' places depend on the family's
+# parameter, and word, whose constructors depend on the width). The test
+# CodecLiteralLawTest gives their implementations. Its imports reach the
+# library under corpora/ by gezi "corpora". The file is not named
+# codec_literals: its own name would shadow the fixture's directory.
+# FIXME: the imports project "corpora" off the variable gezi, the name https://github.com/Atry/private-overlay/issues/1924
+# of the project root's own directory; they break if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "arithmetic")
+λ merge_binary_increment merge_binary_plus merge_binary_times merge_binary_equality
+. omega (omega (omega (omega (omega gezi "corpora") "library") "fixed_width") "int16_arithmetic")
+λ _ _ _ int16_negate
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "order")
+λ binary_less_than binary_maximum _
+. export
+λ _ _ _ backend
+. backend
+λ _ natives _ _ _ _
+. natives
+  ( λs. s merge_binary_equality λk. k "test_binary_equality"
+  + λs. s binary_less_than λk. k "test_binary_less_than"
+  + λs. s binary_maximum λk. k "test_binary_maximum"
+  + λs. s merge_binary_times λk. k "test_binary_times"
+  + λs. s merge_binary_plus λk. k "test_binary_plus"
+  + λs. s int16_negate λk. k "test_int16_negate"
+  + λs. s merge_binary_increment λk. k "test_binary_increment"
+  )

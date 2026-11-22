@@ -1,0 +1,311 @@
+# Datalog in the mixin encoding of inheritance
+# (corpora/contest_mixin_library.pl): scored points of the hard corpus,
+# ported from the retired labeled points of contest_inheritance_datalog.pl
+# and contest_inheritance_datalog_second.pl, which encoded the MIXINv2
+# paper's appendix "Encoding Datalog in Inheritance-Calculus" with tries
+# walked by label. Each asks whether a tuple is in a relation, boolean(true);
+# a tuple has as many answers as derivations and a tuple outside the
+# relation has none, so these points are asked by membership, as the reachability points of contest_mixin_claims.pl are.
+#
+# THE ENCODING. A program is a module whose slots are its constants'
+# classes and its relations' classes.
+# - The class of constant c implements c's marker is_c alone, the Church
+#   true, so that a union of constant classes answers is_c once for each
+#   c in the union and nothing when c is not in it. It also implements
+#   accept, \relation. relation.c: a constant reads its own row off a
+#   relation, the visitor dispatch of the labeled port's acceptance.
+# - A relation's hierarchy has one slot per constant: R.x is the union of
+#   the classes of the y with R(x, y). A fact R(x, y) is a mixin of R's
+#   class that defines x as y's class, and a rule with head R is a mixin
+#   of R's class that defines every x, so that R's class, the union of
+#   its facts and rules, answers the union of what each derives: the
+#   deep merge is Datalog's union, and a recursive rule reads its own head
+#   relation through the module's self.
+# - the rules, for each constant x:
+#   - join, H(x, z) :- R1(x, y1), R2(y1, y2), ..., Rn(y(n-1), z):
+#     H.x = (... (R1.x.accept R2).accept ... Rn), each step dispatching
+#     from a union of constants to the union of their rows;
+#   - intersection, H(x, y) :- L(x, y), R(x, y): H.x is the union over
+#     the constants c of the guard "c in L.x" of the guard "c in R.x" of
+#     c's class, where the guard "c in S" of T is S.is_c T [];
+#   - constant join, H(x, w) :- R(x, y), R(y, k), R(k, w): H.x is the
+#     guard "k in (R.x.accept R)" of R.k;
+#   - swap, H(x, y) :- B(y, x): H.x is the union over the constants y of
+#     the guard "x in B.y" of y's class.
+# - The test reads R.first.is_second.
+#
+# THE PROGRAMS are the labeled family's, over its constants and facts:
+# composition, the three-way join, the intersection, the constant join,
+# the transitive closure of RelationalCycle over rings, a chain and a
+# line, and the symmetric transitive closure. Each posed tuple is in the
+# least fixed point that reference_holds/4 computes in Prolog by naive
+# iteration, and every point's term checks it.
+#
+# PROOF of each scored claim, a finite head: the tuple's finite derivation
+# (datalog_point/6) is a finite sequence of choices, one element of a
+# union at each rule application and at each dispatch of a join, that
+# reaches second's marker in first's row of the relation, the Church true,
+# whose test yields \a. a; and lambda beta eta with sets is consistent.
+#
+# LIMITS: the family's, 10 s, 256 MB, 256 MB.
+#
+# TARGET ALGORITHMS, the specific known algorithms the problem targets, each
+# with its prior work:
+# - semi-naive evaluation of the program's least fixpoint: F. Bancilhon, R.
+#   Ramakrishnan, An Amateur's Introduction to Recursive Query Processing
+#   Strategies, SIGMOD 1986, doi:10.1145/16856.16859.
+# - tabled evaluation: W. Chen, D. S. Warren, Tabled Evaluation with
+#   Delaying for General Logic Programs, J. ACM 1996,
+#   doi:10.1145/227595.227597.
+
+#   ---- the points ----
+#   datalog_point(?Point, ?Program, ?Relation, ?First, ?Second, ?Derivation)
+#
+# The program is a constructor of mixin_datalog/program, closure and
+# symmetric applied to a constructor of mixin_datalog/shape, ring and line
+# applied to their size. Each other text is from_cbor of a string literal,
+# a Scott list of bytes, imported from corpora/library/text/cbor. Each number is from_cbor of an
+# integer literal, a Scott integer, imported from corpora/library/integer/cbor.
+# FIXME: the imports project "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λx. x)
+λ integer
+. omega (omega (omega (omega gezi "problems") "mixin_datalog") "program")
+λ composition three_way intersection constant_join closure symmetric
+. omega (omega (omega (omega gezi "problems") "mixin_datalog") "shape")
+λ abc_cycle abc_chain ring line
+. export
+λ
+. cons
+  ( λ _datalog_point
+    . _datalog_point
+      (text "mixin_datalog_composed_a_c") composition
+      (text "composed")
+      (text "a")
+      (text "c") λ. text "alpha(a, b) and beta(b, c) join on b, so composed(a, c) is derived by the join rule"
+  )
+λ
+. cons
+  ( λ _datalog_point
+    . _datalog_point
+      (text "mixin_datalog_composed_c_a") composition
+      (text "composed")
+      (text "c")
+      (text "a") λ. text "alpha(c, b) and beta(b, a) join on b, so composed(c, a) is derived by the join rule"
+  )
+λ
+. cons
+  ( λ _datalog_point
+    . _datalog_point
+      (text "mixin_datalog_cycle_path_b_a")
+      (closure abc_cycle)
+      (text "path")
+      (text "b")
+      (text "a")
+    λ
+    . text "path(c, a) by the base rule from edge(c, a), then path(b, a) by the recursive rule from edge(b, c)"
+  )
+λ
+. cons
+  ( λ _datalog_point
+    . _datalog_point
+      (text "mixin_datalog_chain_path_a_c")
+      (closure abc_chain)
+      (text "path")
+      (text "a")
+      (text "c")
+    λ
+    . text "path(b, c) by the base rule from edge(b, c), then path(a, c) by the recursive rule from edge(a, b)"
+  )
+λ
+. cons
+  ( λ _datalog_point
+    . _datalog_point (text "mixin_datalog_three_way_a_a") three_way (text "chain") (text "a") (text "a")
+    λ
+    . text "alpha(a, b), beta(b, c) and gamma(c, a) join on b and c, so chain(a, a) is derived by the three-way rule"
+  )
+λ
+. cons
+  ( λ _datalog_point
+    . _datalog_point (text "mixin_datalog_three_way_c_b") three_way (text "chain") (text "c") (text "b")
+    λ
+    . text "alpha(c, b), beta(b, a) and gamma(a, b) join on b and a, so chain(c, b) is derived by the three-way rule"
+  )
+λ
+. cons
+  ( λ _datalog_point
+    . _datalog_point
+      (text "mixin_datalog_intersection_a_b") intersection
+      (text "multi")
+      (text "a")
+      (text "b")
+    λ
+    . text "r(a, b) and s(a, b) agree on both columns, so multi(a, b) is derived by the intersection rule"
+  )
+λ
+. cons
+  ( λ _datalog_point
+    . _datalog_point
+      (text "mixin_datalog_constant_join_c_c") constant_join
+      (text "constant_join")
+      (text "c")
+      (text "c")
+    λ
+    . text "edge(c, a), edge(a, b) and edge(b, c) match y = a and the constant b, so constant_join(c, c) is derived"
+  )
+λ
+. cons
+  ( λ _datalog_point
+    . _datalog_point
+      (text "mixin_datalog_symmetric_reach_c_a")
+      (symmetric abc_chain)
+      (text "reach")
+      (text "c")
+      (text "a")
+    λ
+    . text "sym(c, b) and sym(b, a) by the swap rule from edge(b, c) and edge(a, b), reach(b, a) by the base rule, then reach(c, a) by the recursive rule"
+  )
+λ
+. cons
+  ( λ _datalog_point
+    . _datalog_point
+      (text "mixin_datalog_symmetric_reach_a_a")
+      (symmetric abc_chain)
+      (text "reach")
+      (text "a")
+      (text "a")
+    λ
+    . text "sym(a, b) by the direct rule and sym(b, a) by the swap rule, reach(b, a) by the base rule, then reach(a, a) by the recursive rule"
+  )
+λ
+. cons
+  ( λ _datalog_point
+    . _datalog_point
+      (text "mixin_datalog_line_eight_reach_back")
+      (symmetric λ. line λ. integer 8)
+      (text "reach")
+      (text "n7")
+      (text "n0")
+    λ
+    . text "sym(n(i + 1), ni) by the swap rule for i = 6 .. 0, reach(n1, n0) by the base rule, then reach(ni, n0) for i = 2 .. 7 by the recursive rule"
+  )
+λ
+. cons
+  ( λ _datalog_point
+    . _datalog_point
+      (text "mixin_datalog_line_twelve_reach_back")
+      (symmetric λ. line λ. integer 12)
+      (text "reach")
+      (text "n11")
+      (text "n0")
+    λ
+    . text "sym(n(i + 1), ni) by the swap rule for i = 10 .. 0, reach(n1, n0) by the base rule, then reach(ni, n0) for i = 2 .. 11 by the recursive rule"
+  )
+λ
+. cons
+  ( λ _datalog_point
+    . _datalog_point
+      (text "mixin_datalog_ring_six_path")
+      (closure λ. ring λ. integer 6)
+      (text "path")
+      (text "n0")
+      (text "n5")
+    λ
+    . text "path(n4, n5) by the base rule, then path(ni, n5) for i = 3 .. 0 by the recursive rule, each from edge(ni, n(i + 1))"
+  )
+λ
+. cons
+  ( λ _datalog_point
+    . _datalog_point
+      (text "mixin_datalog_ring_nine_wrapped_path")
+      (closure λ. ring λ. integer 9)
+      (text "path")
+      (text "n6")
+      (text "n2")
+    λ
+    . text "path(n1, n2) by the base rule from edge(n1, n2), then path(n0, n2), path(n8, n2), path(n7, n2) and path(n6, n2) by the recursive rule, from edge(n0, n1), edge(n8, n0), edge(n7, n8) and edge(n6, n7)"
+  )
+λ
+. cons
+  ( λ _datalog_point
+    . _datalog_point
+      (text "mixin_datalog_ring_twelve_path")
+      (closure λ. ring λ. integer 12)
+      (text "path")
+      (text "n0")
+      (text "n11")
+    λ
+    . text "path(n10, n11) by the base rule, then path(ni, n11) for i = 9 .. 0 by the recursive rule, each from edge(ni, n(i + 1))"
+  )
+λ
+. cons
+  ( λ _datalog_point
+    . _datalog_point
+      (text "mixin_datalog_chain_sixteen_path")
+      (closure λ. line λ. integer 16)
+      (text "path")
+      (text "n0")
+      (text "n15")
+    λ
+    . text "path(n14, n15) by the base rule, then path(ni, n15) for i = 13 .. 0 by the recursive rule, each from edge(ni, n(i + 1))"
+  )
+λ
+. cons
+  ( λ _datalog_point
+    . _datalog_point
+      (text "mixin_datalog_ring_sixteen_path")
+      (closure λ. ring λ. integer 16)
+      (text "path")
+      (text "n0")
+      (text "n15")
+    λ
+    . text "path(n14, n15) by the base rule, then path(ni, n15) for i = 13 .. 0 by the recursive rule, each from edge(ni, n(i + 1))"
+  )
+λ
+. cons
+  ( λ _datalog_point
+    . _datalog_point
+      (text "mixin_datalog_ring_twenty_path")
+      (closure λ. ring λ. integer 20)
+      (text "path")
+      (text "n0")
+      (text "n19")
+    λ
+    . text "path(n18, n19) by the base rule, then path(ni, n19) for i = 17 .. 0 by the recursive rule, each from edge(ni, n(i + 1))"
+  )
+λ
+. cons
+  ( λ _datalog_point
+    . _datalog_point
+      (text "mixin_datalog_ring_thirty_path")
+      (closure λ. ring λ. integer 30)
+      (text "path")
+      (text "n0")
+      (text "n29")
+    λ
+    . text "path(n28, n29) by the base rule, then path(ni, n29) for i = 27 .. 0 by the recursive rule, each from edge(ni, n(i + 1))"
+  )
+λ
+. cons
+  ( λ _datalog_point
+    . _datalog_point
+      (text "mixin_datalog_ring_forty_path")
+      (closure λ. ring λ. integer 40)
+      (text "path")
+      (text "n0")
+      (text "n39")
+    λ
+    . text "path(n38, n39) by the base rule, then path(ni, n39) for i = 37 .. 0 by the recursive rule, each from edge(ni, n(i + 1))"
+  ) nil

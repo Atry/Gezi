@@ -1,0 +1,19 @@
+# The round fixed_width_type_check the strategies' tests saturate with
+# (gezi.strategies.StrategyTesting.round): the fixed-width preset's
+# type-check round, the field prolog_backend_fixed_width_type_check of
+# corpora/compiler/prolog_backend_fixed_width_preset.lambdalattice
+# (FixedWidthTypingLawTest). Native typing is enabled through a preset only
+# (CONTRIBUTING.md, "Efficiency by design, with native structures"); the
+# round's earlier knowledge, native_types, hindley_milner_unions and
+# fixed_width_unions with no backend shapes, was a configuration that item
+# forbids. The one field of its tuple, the round's knowledge, a term of this
+# file and not a choice the host assembles from paths. One round a file, so that a test reads only its
+# round's imports.
+# FIXME: the imports project "corpora" off the variable gezi, the name https://github.com/Atry/private-overlay/issues/1924
+# of the project root's own directory; they break if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega gezi "corpora") "compiler") "prolog_backend_fixed_width_preset")
+λ _ prolog_backend_fixed_width_type_check
+. export prolog_backend_fixed_width_type_check

@@ -1,0 +1,124 @@
+# sample 0
+# A
+=>
+a
+
+# sample 1
+# A
+=>
+a
+
+# sample 2
+# linked
+=>
+linked
+
+# sample 3
+# [linked](elsewhere.md)
+=>
+linked
+
+# sample 4
+# linked
+# [linked](elsewhere.md)
+=>
+linked linked-1
+
+# sample 5
+# linked
+# [linked](elsewhere.md)
+=>
+linked linked-1
+
+# sample 6
+# [linked](elsewhere.md)
+# linked
+=>
+linked linked-1
+
+# sample 7
+# a-1
+# a-1
+=>
+a-1 a-1-1
+
+# sample 8
+# A
+# a-1
+=>
+a a-1
+
+# sample 9
+# B
+## a
+=>
+b a
+
+# sample 10
+# a-1
+# a-1
+# B
+=>
+a-1 a-1-1 b
+
+# sample 11
+# linked
+# [linked](elsewhere.md)
+# A
+=>
+linked linked-1 a
+
+# sample 12
+# linked
+=>
+linked
+
+# sample 13
+# B
+# A
+# a-1
+=>
+b a a-1
+
+# sample 14
+# a-1
+# [linked](elsewhere.md)
+# A
+# a-1
+=>
+a-1 linked a a-1-1
+
+# sample 15
+# [linked](elsewhere.md)
+# A
+=>
+linked a
+
+# sample 16
+# A
+# [linked](elsewhere.md)
+# [linked](elsewhere.md)
+=>
+a linked linked-1
+
+# sample 17
+# a-1
+=>
+a-1
+
+# sample 18
+## a
+# B
+# linked
+=>
+a b linked
+
+# sample 19
+# a-1
+# [linked](elsewhere.md)
+# a-1
+## a
+# B
+## a
+=>
+a-1 linked a-1-1 a b a-2

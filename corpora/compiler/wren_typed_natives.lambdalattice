@@ -1,0 +1,23 @@
+# wren_typed_block's typed versions of the four operations bound to
+# natives (the standard set's BinaryNaturalNatives, in jit): each
+# typed version is λx. arrow S S (op (x ∥ S)), S = binary_set true, which on
+# two canonical binary naturals is op itself (the filters admit them, by δ
+# and β; the paper proof of wren_typed_unfolded), and op's native computes it there. A native is
+# called only on operands in its places' representation, so the binding
+# claims nothing about other operands. Compiled with wren_typed_block and
+# binary_operations_wren_backend.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "wren_typed_block") "wren_typed_block")
+λ _ _ _ _ _ wren_typed_bitwise_or wren_typed_maximum wren_typed_minimum wren_typed_plus
+. export
+λ _ _ _ backend
+. backend
+λ _ natives _ _ _ _
+. natives
+  ( λs. s wren_typed_bitwise_or λk. k "wren_binary_bitwise_or"
+  + λs. s wren_typed_minimum λk. k "wren_binary_minimum"
+  + λs. s wren_typed_maximum λk. k "wren_binary_maximum"
+  + λs. s wren_typed_plus λk. k "wren_binary_plus"
+  )

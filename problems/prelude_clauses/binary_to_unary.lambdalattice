@@ -1,0 +1,18 @@
+#   A BinNat, a Scott list of Scott booleans least significant bit first, as
+#   a unary natural: `bit + 2 * rest`.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega gezi "problems") "prelude_clauses") "fixpoint")
+λ fixpoint
+. omega (omega (omega (omega gezi "problems") "prelude_clauses") "zero")
+λ zero
+. omega (omega (omega (omega gezi "problems") "prelude_clauses") "successor")
+λ successor
+. omega (omega (omega (omega gezi "problems") "prelude_clauses") "natural_double")
+λ natural_double
+. export
+λ
+. fixpoint
+λ self bits
+. bits zero λbit rest. (λtwice. bit (successor twice) twice) λ. natural_double λ. self rest

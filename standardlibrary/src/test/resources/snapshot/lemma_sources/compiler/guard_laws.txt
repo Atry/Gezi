@@ -1,0 +1,4 @@
+compose_associative: λx_0 x_1 x_2. compose x_0 λ. compose x_1 x_2 = λx_0 x_1 x_2. compose (compose x_0 x_1) x_2
+compose_as_post_application: λx_0 x_1. compose x_0 x_1 = λx_0 x_1. flip (compose apply_to x_1) x_0
+post_application_of_composition: λx_0 x_1 x_2. flip (compose x_0 x_1) x_2 = λx_0 x_1 x_2. compose (flip x_0 x_2) x_1
+post_application_of_apply_to: λx_0. flip apply_to x_0 = λx_0. x_0

@@ -1,0 +1,100 @@
+# MIXINv2's Boolean and Nat libraries in the mixin encoding of inheritance
+# (corpora/contest_mixin_library.pl): problems of the reduction series,
+# ported from the retired labeled points of contest_inheritance.pl, each
+# program the labeled one's, read at the same member, its answers asked
+# whole, as the set of their normal forms.
+#
+# THE PROGRAMS, over the library module (true, false, zero and successor
+# the module's classes, a numeral n the object zero or
+# {successor, predecessor : n - 1}):
+# - the Booleans: true.not, true.not.not, true.conjunction(false),
+#   false.conjunction(true), true.equality(false) and
+#   false.equality(false), each read at church;
+# - the sums 2 + 2 and 3 + 2, read at scott, and the equality
+#   3.equality(1 + 2), read at church;
+# - MIXINv2's NatCartesianProductTest, smaller: left and right are each
+#   {zero, successor, predecessor : 0}, the one object that is both
+#   0 and 1 (MIXINv2's [Zero, One], a class union), and their sum
+#   left.plus(right), read at scott, has the answers {0, 1, 2}: plus is
+#   the union of zero's and successor's, chosen at each call; the same sum
+#   compared with itself, sum.equality(sum), the sum read twice, has both
+#   Booleans;
+# - the paper's multiple outers (MIXINv2/paper/inheritance-calculus.tex,
+#   the appendix on Scala 3 and the NixOS module system, both of which
+#   reject it with a static error): an outer class of two slots, name and
+#   inner, whose inner is a class of one slot, outer, the outer's self
+#   (the nested class is built inside the outer's implementation, where
+#   that self is in scope); object_one and object_two extend the outer
+#   with the names true and false, and the union of their inner classes
+#   reads outer.name: both Booleans.
+#
+# THE SNAPSHOTS are the answers above, one each but for the three sets.
+# PROOF, per program: every read of a hierarchy of width W >= 2 spells
+# W - 1 empty sets, which only the reduction of the read discards, so a
+# yield ends every unfolding; the recursions (plus on its receiver's
+# predecessor, equality on both predecessors) descend on the finite
+# numerals under every choice, and every end is the value listed.
+#
+# LIMITS: the family's, 10 s, 256 MB, 256 MB.
+
+#   problem(?Point, ?Type, ?Expected)
+#
+# The type is a constructor of schema/value_type, boolean or unary, read by
+# its position, and each expected value of a boolean row a Church Boolean
+# of corpora/library/prelude/boolean.
+# Each text is from_cbor of a string literal, a Scott list of bytes,
+# imported from corpora/library/text/cbor. Each number is from_cbor of an
+# integer literal, a Scott integer, imported from corpora/library/integer/cbor.
+# FIXME: the imports project "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λx. x)
+λ integer
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "boolean")
+λ true false _ _
+. omega (omega (omega (omega gezi "problems") "schema") "value_type")
+λ boolean unary
+. export
+λ
+. cons (λ_problem. _problem (text "reduction_mixin_true_not") boolean λ. cons false nil)
+λ
+. cons (λ_problem. _problem (text "reduction_mixin_true_not_not") boolean λ. cons true nil)
+λ
+. cons (λ_problem. _problem (text "reduction_mixin_true_and_false") boolean λ. cons false nil)
+λ
+. cons (λ_problem. _problem (text "reduction_mixin_false_and_true") boolean λ. cons false nil)
+λ
+. cons (λ_problem. _problem (text "reduction_mixin_true_equals_false") boolean λ. cons false nil)
+λ
+. cons (λ_problem. _problem (text "reduction_mixin_false_equals_false") boolean λ. cons true nil)
+λ
+. cons (λ_problem. _problem (text "reduction_mixin_two_plus_two") unary λ. cons (integer 4) nil)
+λ
+. cons (λ_problem. _problem (text "reduction_mixin_three_plus_two") unary λ. cons (integer 5) nil)
+λ
+. cons
+  (λ_problem. _problem (text "reduction_mixin_one_plus_two_equals_three") boolean λ. cons true nil)
+λ
+. cons
+  ( λ _problem
+    . _problem (text "reduction_mixin_pairwise_sum") unary λ. cons (integer 0) λ. cons (integer 1) λ. cons (integer 2) nil
+  )
+λ
+. cons
+  ( λ _problem
+    . _problem (text "reduction_mixin_pairwise_sum_self_equal") boolean λ. cons true λ. cons false nil
+  )
+λ
+. cons
+  (λ_problem. _problem (text "reduction_mixin_multiple_outers") boolean λ. cons true λ. cons false nil) nil

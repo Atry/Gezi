@@ -1,0 +1,7 @@
+# The bound of a point of path_lengths_point: a Scott sum of two
+# constructors, in order: times, whose one field is the factor the least
+# length is multiplied by (a decimal text), and one_short, one less than the
+# least length. Read by its position
+# (gezi.contest.corpora.reductions.PathLengths, bound, into
+# PathLengths.Bound).
+λ export. export (λfactor times one_short. times factor) λtimes one_short. one_short

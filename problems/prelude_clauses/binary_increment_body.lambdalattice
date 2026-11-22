@@ -1,0 +1,13 @@
+#   The body `binary_increment` hands its fixpoint.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega gezi "problems") "prelude_clauses") "true")
+λ true
+. omega (omega (omega (omega gezi "problems") "prelude_clauses") "false")
+λ false
+. omega (omega (omega (omega gezi "problems") "prelude_clauses") "nil")
+λ nil
+. omega (omega (omega (omega gezi "problems") "prelude_clauses") "cons")
+λ cons
+. export λself bits. bits (cons true nil) λbit rest. bit (cons false λ. self rest) λ. cons true rest

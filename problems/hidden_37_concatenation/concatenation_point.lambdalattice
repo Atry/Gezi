@@ -1,0 +1,232 @@
+# +String, +Words, -Term
+# +String, +Words, -Starts
+# +String, +Words, -Starts
+# ?Point, ?Width, ?Words, ?Distinct, ?Seed, ?Kind
+#   * <module> The substrings that concatenate all the words
+#
+# THE PROBLEM (LeetCode 30, "Substring with Concatenation of All Words"): a
+# bit string and a list of bit words, all of one width, repeats allowed; the
+# positions at which the string continues with the words, each used once,
+# in some order. S(P) is the set of those positions.
+#
+# The program writes top (corpora/library/top) where the pseudo-code and the
+# argument below write {}, the empty choice of the calculus that still has
+# it; doc/proofs/reduction_series_answers.md carries the argument over to
+# Definition 14, and the generator is the family's Scala object in
+# gezi/contest-corpora.
+#
+# THE PROGRAM, in continuation passing style, with the prelude's bits_prefix,
+# length, concat, natural_at_least and successor (the API of
+# round-37-directions.md):
+#
+#     pick   = Y (\self. \ws. \f. ws {} (\w. \rest.
+#                  { f w rest, self rest (\v. \others. f v (cons w others)) }))
+#     drop   = Y (\self. \n. \s. n s (\m. s nil (\_. \t. self m t)))
+#     fit    = Y (\self. \ws. \s. \i. ws i (\_. \_.
+#                  pick ws (\w. \rest. bits_prefix w s (self rest (drop (length w) s) i) {})))
+#     starts = Y (\self. \s. \i. { at_least (length s) total (fit Words s i) {},
+#                                  s {} (\_. \t. self t (successor i)) })
+#     program = (\total. starts String 0) (length (concat Words))
+#
+# pick w rest takes one word out of the list and keeps the others in their
+# order, so taking either of two equal words leaves the same list, spelled
+# two ways.
+# Directions: E (the words matched against the string bit by bit, at every
+# position); B (merging by value: the orders in which the equal words are
+# taken are exponentially many, the states are a position and the list of
+# the words left); D (length of concat of the words); G (the positions); and
+# the regression direction 2 of that list (the same list
+# of the words left reached through different spellings, cons w others
+# rebuilt by pick's continuation).
+#
+# THE SNAPSHOT. S(P) is the set of the unary numerals of the positions i
+# such that the string from i begins with the words concatenated in some
+# order, each once: concatenation_starts/3 on small instances, and
+# window_starts/3, which cuts the string from each i into as many pieces of
+# the width as there are words and compares them with the words as
+# multisets (the words having one width, the two agree).
+#
+# THE LEMMAS, on the definitions of the library functions (contest_attractors
+# attractor_source/2 and the prelude), not on their native references.
+# ⌜n⌝ is the Scott unary numeral, ⌜0⌝ = λz.λs. z and ⌜n + 1⌝ = λz.λs. s ⌜n⌝,
+# which unary/2 builds exactly, successor n one β step from λz.λs. s n;
+# true = λt.λf. t and false = λt.λf. f; a list is a Scott list, cons h t
+# one β step from λn.λc. c h t; a string or word is a list of Booleans, true
+# for 1 and false for 0. Every word is nonempty.
+# - (Y) fixpoint G =β G (fixpoint G), two β steps.
+# - (Prefix) bits_prefix = Y (λs.λa.λb. a true (λh.λt. b false
+#   (λo.λr. h (o (s t r) false) (o false (s t r))))). By induction on a,
+#   bits_prefix a b =β true when a is a prefix of b and false otherwise.
+# - (Length) length xs =β ⌜|xs|⌝, by induction on xs (length = Y (λs.λxs.
+#   xs ⌜0⌝ (λ_.λt. successor (s t)))).
+# - (Concat) concat = foldr append nil; append a b =β a followed by b, by
+#   induction on a; concat [c1, ..., cj] =β c1 followed by ... cj, by
+#   induction on j.
+# - (AtLeast) at_least ⌜m⌝ ⌜n⌝ =β true when m >= n and false otherwise, by
+#   induction on n (at_least = Y (λs.λm.λn. n true (λn1. m false
+#   (λm1. s m1 n1)))).
+# - (Drop) drop ⌜n⌝ u =β u without its first n elements, for n =< |u|, by
+#   induction on n.
+# - (Pick) pick [w1, ..., wm] f =β {f w1 [w2, ..., wm], {f w2 [w1, w3, ...,
+#   wm], ... {f wm [w1, ..., wm-1], {}}}}: by induction on m, the second
+#   member of each level picks from the rest and puts the word it passed
+#   over back in front.
+# - (Empty) If U →* {} by β and η steps, no pure term is reached from U by
+#   →c steps. Every →c step keeps U →* {}: a β or η step by confluence, {}
+#   being normal; a member replacement of a set s by Lemma 2a of
+#   certificate_meta_lemmas.md, which replays U →* {} to {} with the
+#   descendants of s replaced, and {} is no descendant of s, s having a
+#   member and descendants keeping the number of members. A pure term
+#   reduces only to pure terms, and {} is not pure.
+#
+# So fit ws s i, with ws =β a list of words, s =β a string v and i =β ⌜j⌝,
+# is β-equal to ⌜j⌝ when ws is empty, and otherwise to the nest of Pick
+# whose member for the word w, the rest r, is β-equal to
+# fit r (v without its first |w| elements) ⌜j⌝ when w is a prefix of v and
+# to {} otherwise (Prefix, Length, Drop). And starts s ⌜j⌝, s =β the suffix
+# of the string from j, is β-equal to a set of two members: fit Words s ⌜j⌝
+# when the suffix is at least as long as the words together (Length,
+# Concat, AtLeast) and {} otherwise; and {} when the suffix is empty,
+# starts (the suffix from j + 1) ⌜j + 1⌝ otherwise.
+#
+# PROOF, with ⟦·⟧, D, S and Th and Lemma 2b of
+# gezi/doc/proofs/certificate_meta_lemmas.md.
+# - (⊇) For a position j at which the string continues with the words in
+#   the order w_π1, ..., w_πm: take the second member of starts j times,
+#   then the first; the suffix is long enough. In fit, take at each level
+#   the member of Pick for the next word of that order (Lemma 2b.1 on the
+#   β-equal term); its prefix test holds. When the words are used up the
+#   term is β-equal to ⌜j⌝, pure and normal: it is in that term's meaning
+#   (equal terms, Lemma 2b.2) and so in ⟦P⟧ (Lemma 2b.2).
+# - (⊆) By Lemma 2b.3 every yield equals a pure term P reaches by a finite
+#   sequence σ. Every set of P and of its reducts is one written in starts
+#   or pick, or {}; each chosen branch is the whole term, every call being
+#   in tail position. The terms β-equal to {} (a failed prefix test, the
+#   end of pick's list, the end of the string, a suffix too short) reach no
+#   pure term (Empty). So a pure term is reached only at a position j,
+#   through a sequence of words, each a prefix of what the string has left
+#   after the ones before, until every word is used once: the string from j
+#   begins with the words concatenated in that order, and the term is
+#   β-equal to ⌜j⌝.
+#
+# THE SUBTASKS AND THE TRAPS: concatenation_point/6 below. The string is
+# random bits with some concatenations of the words, in random orders,
+# spliced in, and some near misses (a concatenation with one word replaced
+# by another word of the list, so one word twice and one missing). The trap
+# takes the string of a subtask with the middle bit of each matching window
+# flipped, until no window matches, its snapshot empty.
+#
+# TARGET ALGORITHM: at each position, the pieces of the width counted
+# against the multiset of the words, the counts kept as the window slides
+# by one width (the standard solution of LeetCode 30), the words found by
+# string matching (D. E. Knuth, J. H. Morris, V. R. Pratt, Fast Pattern
+# Matching in Strings, SIAM J. Comput. 1977, doi:10.1137/0206024); tabled
+# evaluation keyed by the value of the position and of the words left (W.
+# Chen, D. S. Warren, J. ACM 1996, doi:10.1145/227595.227597).
+
+#   THE SUBTASKS: concatenation_point(?Point, ?Width, ?Words, ?Distinct,
+#   ?Seed, ?Kind): Words words of Width bits drawn from Distinct distinct
+#   words, so that many are equal; the string is made by point_string/3.
+#   Sized by a probe of 2026-09-30 (CPUs 0-5, 1024 MB stack and
+#   table, the machine shared), each reading equal to its snapshot:
+#   tabling(weak_head) reads six words (91 bits, 5 positions) in 1454 ms
+#   and ten (194 bits, 3 positions) in 6051 ms, and is stopped at 60 s on
+#   sixteen (309 bits), twenty four (450 bits) and forty (972 bits); the
+#   traps read nothing, in 1400 ms (six) and 5538 ms (ten). The native
+#   reference window_starts/3 answers every point in 44 ms or less, and
+#   agrees with the enumeration concatenation_starts/3 on every point of
+#   sixteen words or fewer.
+#
+# The kind is a constructor of hidden_37_concatenation/kind, subtask or trap.
+# Each other text is from_cbor of a string literal, a Scott list of bytes,
+# imported from corpora/library/text/cbor. Each number is from_cbor of an
+# integer literal, a Scott integer, imported from corpora/library/integer/cbor.
+# FIXME: the imports project "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λx. x)
+λ integer
+. omega (omega (omega (omega gezi "problems") "hidden_37_concatenation") "kind")
+λ subtask trap
+. export
+λ
+. cons
+  ( λ _concatenation_point
+    . _concatenation_point
+      (text "hidden_37_concatenation_six")
+      (integer 2)
+      (integer 6)
+      (integer 3)
+      (integer 3) subtask
+  )
+λ
+. cons
+  ( λ _concatenation_point
+    . _concatenation_point
+      (text "hidden_37_concatenation_ten")
+      (integer 3)
+      (integer 10)
+      (integer 4)
+      (integer 7) subtask
+  )
+λ
+. cons
+  ( λ _concatenation_point
+    . _concatenation_point
+      (text "hidden_37_concatenation_sixteen")
+      (integer 3)
+      (integer 16)
+      (integer 4)
+      (integer 11) subtask
+  )
+λ
+. cons
+  ( λ _concatenation_point
+    . _concatenation_point
+      (text "hidden_37_concatenation_twenty_four")
+      (integer 3)
+      (integer 24)
+      (integer 3)
+      (integer 13) subtask
+  )
+λ
+. cons
+  ( λ _concatenation_point
+    . _concatenation_point
+      (text "hidden_37_concatenation_forty")
+      (integer 4)
+      (integer 40)
+      (integer 4)
+      (integer 17) subtask
+  )
+λ
+. cons
+  ( λ _concatenation_point
+    . _concatenation_point
+      (text "hidden_37_concatenation_trap_ten")
+      (integer 3)
+      (integer 10)
+      (integer 4)
+      (integer 7) trap
+  )
+λ
+. cons
+  ( λ _concatenation_point
+    . _concatenation_point
+      (text "hidden_37_concatenation_trap_six")
+      (integer 2)
+      (integer 6)
+      (integer 3)
+      (integer 3) trap
+  ) nil

@@ -1,0 +1,9 @@
+#   `natural_equal @ M @ N`, the equality of Scott naturals.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega gezi "problems") "prelude_clauses") "fixpoint")
+λ fixpoint
+. omega (omega (omega (omega gezi "problems") "prelude_clauses") "natural_equal_body")
+λ natural_equal_body
+. export λ. fixpoint natural_equal_body

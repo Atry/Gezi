@@ -1,0 +1,2 @@
+#   symbols_equal_term(+True, +False, -Term): \x. \y. x (y true false) (y false true).
+λ export. export λx_0 x_1 x_2 x_3. x_2 (x_3 x_0 x_1) λ. x_3 x_1 x_0

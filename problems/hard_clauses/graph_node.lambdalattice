@@ -1,0 +1,10 @@
+#   ==== H4. safety games on cyclic graphs ====
+#   A NODE is Scott data `node bad successors`, a boolean and a list of
+#   nodes. `safe n` answers false when every path from n reaches a bad node
+#   or a node with no successor, trying the successors left to right, and
+#   has no head when some path from n goes on forever through good nodes:
+#   it never answers true. By Koenig's lemma it answers `false`
+#   exactly when all paths are finite, so its absence of a head is the
+#   greatest fixed point, `nu X. not bad and some successor in X`, the
+#   CTL property EG good.
+λ export. export λx_0 x_1 x_2. x_2 x_0 x_1

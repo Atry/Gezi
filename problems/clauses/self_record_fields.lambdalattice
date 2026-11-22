@@ -1,0 +1,32 @@
+#   self_record_fields(?Order, ?Self, ?Natural, ?Fields): each field a plain
+#   pair of its name and the parameter that stands for its value,
+#   `λtuple. tuple Name Parameter`.
+#
+# Each text is from_cbor of a string literal, a Scott list of bytes,
+# imported from corpora/library/text/cbor. FIXME: the imports project "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. export
+λ
+. cons
+  ( λ _self_record_fields
+    . _self_record_fields (text "next_first") (text "Self") (text "Natural")
+    λ
+    . cons (λtuple. tuple (text "next") λ. text "Self") λ. cons (λtuple. tuple (text "value") λ. text "Natural") nil
+  )
+λ
+. cons
+  ( λ _self_record_fields
+    . _self_record_fields (text "value_first") (text "Self") (text "Natural")
+    λ
+    . cons (λtuple. tuple (text "value") λ. text "Natural") λ. cons (λtuple. tuple (text "next") λ. text "Self") nil
+  ) nil

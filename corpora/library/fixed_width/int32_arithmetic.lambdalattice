@@ -1,0 +1,26 @@
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "fixed_width") "word_arithmetic")
+λ _ word_add _ word_subtract word_negate _
+. omega (omega (omega (omega corpora "library") "fixed_width") "int32_representation")
+λ int32_width _ _ _
+. omega (omega (omega (omega corpora "library") "fixed_width") "word_multiplication")
+λ _ _ word_multiply
+# int32_add:
+# word_add at the width 32, a thin define naming the instance.
+. (λtuple. tuple λ. word_add int32_width)
+λ int32_add
+# int32_subtract:
+# word_subtract at the width 32, a thin define naming the instance.
+. (λtuple. tuple λ. word_subtract int32_width)
+λ int32_subtract
+# int32_multiply:
+# word_multiply at the width 32, a thin define naming the instance.
+. (λtuple. tuple λ. word_multiply int32_width)
+λ int32_multiply
+# int32_negate:
+# word_negate at the width 32, a thin define naming the instance.
+. (λtuple. tuple λ. word_negate int32_width)
+λ int32_negate
+. export int32_add int32_subtract int32_multiply int32_negate

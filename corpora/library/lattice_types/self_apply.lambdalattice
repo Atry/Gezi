@@ -1,0 +1,2 @@
+# Self-application: self_apply x is x x.
+λ export. export λx. x x

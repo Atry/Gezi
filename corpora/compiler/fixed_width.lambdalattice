@@ -1,0 +1,105 @@
+# The fixed-width integers: a word of width w is w booleans in nested cells, the least
+# significant first, ending in word_end, so the width is the depth of the
+# value's structure. Every operation takes the width, a natural, as its first
+# argument and recurses on it, and wraps to the width by keeping the length:
+# two's complement overflow is the definition itself. One set of defines and
+# lemmas serves every width; int32_* and int16_* are thin defines naming the
+# instances at 32 and 16. Compiled with native_types. The defines are the
+# lambdalattice files of the directory fixed_width/. Each operation reads
+# every intermediate word once, since a reading that does not share
+# computes a word read twice twice (word_multiply's comment has the
+# measurement).
+#
+# The schemes, Name = Name + (Name ∥ T), absorption, as native_types writes
+# them, each over the operation applied to its width W, a metavariable, so
+# that one lemma serves every width: the term `word_add @ W` is the body of
+# the thin define int32_add at W = int32_width.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "fixed_width") "word_arithmetic")
+λ _ word_add _ word_subtract word_negate word_of_natural
+. omega (omega (omega (omega corpora "library") "native_types") "type_operators")
+λ arrow _ _
+. omega (omega (omega (omega corpora "library") "fixed_width") "word_representation")
+λ _ _ _ _ word_type word_to_natural
+. omega (omega (omega (omega corpora "library") "fixed_width") "word_multiplication")
+λ _ _ word_multiply
+. omega (omega (omega (omega corpora "library") "fixed_width") "word_comparison")
+λ word_equal word_less_than
+. omega (omega (omega (omega corpora "library") "native_types") "boolean")
+λ _ _ boolean_type _
+. omega (omega (omega (omega corpora "library") "native_types") "natural")
+λ _ _ _ nat_type
+. export
+  ( λ _ rewriting _ _
+    . rewriting
+    λ _ _ leaves
+    . leaves
+    λ k
+    . k word_type
+  + λ _ rewriting _ _
+    . rewriting
+    λ _ lemmas _
+    . lemmas
+      ( λ s
+        . s
+          (λk. k "word_of_natural_scheme")
+          (λx_0. word_of_natural x_0)
+          (λx_0. (word_of_natural x_0 ∥ arrow nat_type λ. word_type x_0 + word_of_natural x_0)) λ_ md _. md λk. k "[absorption](docs/design/gezi-native-route-engine.md)"
+      + λ s
+        . s
+          (λk. k "word_to_natural_scheme")
+          (λx_0. word_to_natural x_0)
+          (λx_0. (word_to_natural x_0 ∥ arrow (word_type x_0) nat_type + word_to_natural x_0)) λ_ md _. md λk. k "[absorption](docs/design/gezi-native-route-engine.md)"
+      + λ s
+        . s
+          (λk. k "word_equal_scheme")
+          (λx_0. word_equal x_0)
+          ( λ x_0
+            . (word_equal x_0 ∥ arrow (word_type x_0) λ. arrow (word_type x_0) boolean_type + word_equal x_0)
+          ) λ_ md _. md λk. k "[absorption](docs/design/gezi-native-route-engine.md)"
+      + λ s
+        . s
+          (λk. k "word_less_than_scheme")
+          (λx_0. word_less_than x_0)
+          ( λ x_0
+            . ( word_less_than x_0
+              ∥ arrow (word_type x_0) λ. arrow (word_type x_0) boolean_type
+              + word_less_than x_0
+              )
+          ) λ_ md _. md λk. k "[absorption](docs/design/gezi-native-route-engine.md)"
+      + λ s
+        . s
+          (λk. k "word_negate_scheme")
+          (λx_0. word_negate x_0)
+          (λx_0. (word_negate x_0 ∥ arrow (word_type x_0) λ. word_type x_0 + word_negate x_0)) λ_ md _. md λk. k "[absorption](docs/design/gezi-native-route-engine.md)"
+      + λ s
+        . s
+          (λk. k "word_multiply_scheme")
+          (λx_0. word_multiply x_0)
+          ( λ x_0
+            . ( word_multiply x_0
+              ∥ arrow (word_type x_0) λ. arrow (word_type x_0) λ. word_type x_0
+              + word_multiply x_0
+              )
+          ) λ_ md _. md λk. k "[absorption](docs/design/gezi-native-route-engine.md)"
+      + λ s
+        . s
+          (λk. k "word_subtract_scheme")
+          (λx_0. word_subtract x_0)
+          ( λ x_0
+            . ( word_subtract x_0
+              ∥ arrow (word_type x_0) λ. arrow (word_type x_0) λ. word_type x_0
+              + word_subtract x_0
+              )
+          ) λ_ md _. md λk. k "[absorption](docs/design/gezi-native-route-engine.md)"
+      + λ s
+        . s
+          (λk. k "word_add_scheme")
+          (λx_0. word_add x_0)
+          ( λ x_0
+            . (word_add x_0 ∥ arrow (word_type x_0) λ. arrow (word_type x_0) λ. word_type x_0 + word_add x_0)
+          ) λ_ md _. md λk. k "[absorption](docs/design/gezi-native-route-engine.md)"
+      )
+  )

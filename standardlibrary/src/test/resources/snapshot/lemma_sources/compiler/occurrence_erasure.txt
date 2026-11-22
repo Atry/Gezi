@@ -1,0 +1,2 @@
+occurrence_name_erased: λx_0 x_1. $name x_0 x_1 = λx_0 x_1. x_1
+occurrence_closure_erased: λx_0 x_1. $closure x_0 x_1 = λx_0 x_1. x_1

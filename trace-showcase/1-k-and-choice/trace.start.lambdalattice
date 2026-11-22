@@ -1,0 +1,3 @@
+λ start
+. start (λk. k 1)
+  ((λt. t λa. a) λ$merkle$fc082a46. ((λk l. k) $merkle$fc082a46 λb. b b + $merkle$fc082a46))

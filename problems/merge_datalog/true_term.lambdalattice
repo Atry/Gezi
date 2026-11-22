@@ -1,0 +1,3 @@
+#   The terms are built by recursion, never by findall/3 or a yall lambda,
+#   which copy their variables and would cut a reference from its binder.
+λ export. export λx_0 x_1. x_0

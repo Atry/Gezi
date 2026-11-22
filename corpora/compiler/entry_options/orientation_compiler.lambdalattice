@@ -1,0 +1,6 @@
+# The published list of the compilers of a round's lemma orientations (OrientationCompilerImplementation): standard, every usable direction of each lemma, a second orientation for a matched side the front end spells otherwise, numbered in the standard order of their contents (gezi.orientation.StandardOrientationCompiler).
+# A Scott sum whose constructors are the tuple's fields, in the order of the
+# enum's cases; an entry.lambdalattice imports this file and writes a
+# constructor, and EntryData reads which alternative it takes by structure
+# (gezi.contest.entry.EntryData, THE OPTIONS AS SCOTT CONSTRUCTORS).
+λ export. export λstandard. standard

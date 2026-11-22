@@ -1,0 +1,49 @@
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "native_types") "fixpoint")
+λ fixpoint
+. omega (omega (omega (omega corpora "library") "binary") "natural")
+λ binary_zero binary_even binary_odd _ _
+. omega (omega (omega (omega corpora "library") "native_types") "boolean")
+λ true false _ _
+# merge_binary_increment:
+#   increment: 0 + 1 = 1, 2h + 1 = 2h + 1, (2g + 1) + 1 = 2(g + 1).
+. ( λ tuple
+    . tuple λ. fixpoint λself n. n (binary_odd binary_zero) (λh. binary_odd h) λg. binary_even λ. self g
+  )
+λ merge_binary_increment
+# merge_binary_plus:
+#   2h + 2k = 2(h + k), 2h + 2k + 1 = 2(h + k) + 1, 2h + 1 + 2k + 1 = 2(h + k + 1).
+. ( λ tuple
+    . tuple
+    λ
+    . fixpoint
+    λ self a b
+    . a b (λh1. b a (λk1. binary_even λ. self h1 k1) λk2. binary_odd λ. self h1 k2) λh2. b a (λk3. binary_odd λ. self h2 k3) λk4. binary_even λ. merge_binary_increment λ. self h2 k4
+  )
+λ merge_binary_plus
+# merge_binary_times:
+#   0 b = 0; 2h b = double (h b); (2h + 1) b = b + double (h b), double y
+#   being 0 on 0 and 2y otherwise, so that the result stays canonical.
+. ( λ tuple
+    . tuple
+    λ
+    . fixpoint
+    λ self a b
+    . a binary_zero (λh1. (λy1. y1 binary_zero (λ_. binary_even y1) λ_. binary_even y1) λ. self h1 b)
+    λ h2
+    . merge_binary_plus b λ. (λy2. y2 binary_zero (λ_. binary_even y2) λ_. binary_even y2) λ. self h2 b
+  )
+λ merge_binary_times
+# merge_binary_equality:
+#   The same variant and equal halves.
+. ( λ tuple
+    . tuple
+    λ
+    . fixpoint
+    λ self a b
+    . a (b true (λ_. false) λ_. false) (λh1. b false (λk1. self h1 k1) λ_. false) λh2. b false (λ_. false) λk2. self h2 k2
+  )
+λ merge_binary_equality
+. export merge_binary_increment merge_binary_plus merge_binary_times merge_binary_equality

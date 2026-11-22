@@ -1,0 +1,135 @@
+# +Libraries, +Hierarchies, -Program, -Names, +Body
+# +Hierarchy, +Definitions, -Mixin
+# +Hierarchy, +Slot, -Self, +Body, -Wrapper
+# +Hierarchy, +Slot, +Object, -Read
+# +Hierarchy, +Slot, +Object, +Arguments, -Applied
+# +Names, +Class, -Term
+# +Names, +Library, +Class, -Term
+# +Names, +Count, -Object
+# +Names, +Predecessor, -Class
+# +Names, +Count, -Object
+# THE MIXIN ENCODING of inheritance in lambda plus set, with no label: a
+# coproduct of wrappers, read by self-application, with no helper at run
+# time. A mixin is a list of functions, mutually recursive by currying, and
+# mixins inherit by a plain set {m1, m2, m3}. The object is read by
+# self-application, o o, as MIXINv8 does, not by Y, which cannot late-bind a
+# set; o o is a Cartesian product that lets every method see every method.
+# The mixin is a coproduct, which needs no generator, is short with
+# self-application, and gives every method in one instantiation; its case
+# is inlined as continuation passing, since an encoding with no run-time
+# support decides how far mixins are first-class. Two implementations of
+# one slot give two sets of answers, which is the intended meaning.
+#
+# - A HIERARCHY has a fixed width W, the number of its slots, each slot
+#   with a fixed meaning, its position (`hierarchy/2`, multifile: a family
+#   declares its own).
+# - A WRAPPER is one definition under the this parameter,
+#       \self. \c1. ... \cW. cm b,
+#   slot m defined by b, a term over self: MIXINv8's element
+#   template(Tag, Label : Body), a Scott injection whose position stands
+#   for the label.
+# - A MIXIN, a CLASS and an OBJECT are sets of wrappers, and inheritance is
+#   the set: {Base, Mixin, ...}, a set nested in a set yielding its
+#   elements, so a diamond needs nothing more and a mixin writes only the
+#   slots it defines. An object is its class: nothing is instantiated and
+#   no fixed point is taken, so the union of two objects is an object
+#   whose self is the union (late binding over sets). A value a
+#   construction site gives (a predecessor, a half) is one more wrapper in
+#   the set, which the class's methods read through self.
+# - READING slot m of an object o is the self-application
+#       o o c1 ... cW,
+#   cm the handler of the definition and every other c the empty set [],
+#   which has no element to apply to a definition of another slot: the
+#   first o chooses a wrapper, the second is passed to it as self (so
+#   every method sees every method, as MIXINv8's projection X / L
+#   supplies X as the this argument of X's own templates), and the
+#   wrapper hands its body to its slot's handler. The case is written out
+#   at every read, not let bound, so no helper runs; the W - 1 empty sets
+#   it repeats are the position spelled out, which a calculus with no
+#   label can express only by repeating the others. The handler is the
+#   identity, or, where the read heads an application, \v. v a1 ... ak,
+#   the application itself (continuation passing), which makes the same
+#   choice at the same time. A read is never given a larger continuation:
+#   that would move the choice out of the branch or the argument that
+#   makes it. Inside a body, self.k is self self c1 ... cW, so self is
+#   late bound, and a slot two wrappers define answers both, chosen again
+#   at every read (run-time choice: each occurrence of a set chooses on
+#   its own).
+# - A class nested in another is built inside a body of the outer, so the
+#   outer's self is in scope in its wrappers; self as a value is the
+#   binder itself.
+#
+# The library modules are let bound at the top of a program, (\x. B) V, so
+# that a program grows linearly, and an object that is not a variable is
+# let bound where it is read, (\o. o o c1 ... cW) O, as the surface syntax
+# holds each binder once.
+#
+# A LIBRARY is a MODULE: an object whose slots are the library's classes.
+# Each file of the library is one mixin of the module, a wrapper of each
+# class it contributes to, whose body is the contribution, a class over
+# the module's self. So reading class i from the module answers the union
+# of the contributions, MIXINv2's deep merge of the files, with no rule for it. A
+# method that makes a value makes an object of a class read from the
+# module.
+#
+# THE LIBRARIES, MIXINv2's (MIXINv2/packages/mixinv2-library/src/
+# mixinv2_library/Builtin/ of the MIXINv2 repository), whose labeled ports were the
+# retired contest_inheritance.pl and contest_inheritance_binary.pl:
+# - `natural`: the classes true, false, zero and successor. BooleanData,
+#   BooleanNegation, BooleanAnd and BooleanEquality contribute to true
+#   and false; NatData, NatVisitor, NatPlus and NatEquality to zero and
+#   successor.
+# - `binary`: the classes true, false, zero, even and odd. BooleanData
+#   contributes to true and false; BinNatData, BinNatIncrement,
+#   BinNatVisitor, BinNatPlus and BinNatEquality to zero, even and odd,
+#   and BinNatTimes, which the labeled port wrote and MIXINv2 has not.
+# A Boolean has the slots church (\t. \f. t or \t. \f. f), not,
+# conjunction (a function of the other operand) and equality (likewise).
+# A natural has scott (\z. \s. z, or \z. \s. s p with p the predecessor's
+# scott), accept (a visitor, \on_zero. \on_successor. ..., the successor
+# case given the predecessor object), plus (a function of the addend,
+# giving the sum), equality (a function of the other, giving a Boolean)
+# and predecessor. A binary natural (zero, even 2h carrying its half h,
+# odd 2h + 1 carrying its half_of_predecessor h) has increment, accept
+# (\on_zero. \on_even. \on_odd. ...), plus, times (a function of the
+# multiplicand), equality, half and half_of_predecessor. No library file
+# implements predecessor, half or half_of_predecessor: as in MIXINv2's
+# `[successor, predecessor : P]`, the site that makes the value adds a
+# wrapper that implements it, and the class's methods read it through
+# self.
+#!  hierarchy(?Hierarchy, ?Slots) is nondet.
+#
+#   Hierarchy's slot names, in order; its width is their count. Multifile:
+#   a family declares its own hierarchies.
+#
+# Each row is a file of mixin_library/hierarchies, imported by omega, so
+# that mixin_library/library_module names a hierarchy by the row itself.
+# FIXME: the import projects "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "problems") "mixin_library") "hierarchies") "natural_module")
+λ hierarchy_natural_module
+. omega (omega (omega (omega (omega gezi "problems") "mixin_library") "hierarchies") "binary_module")
+λ hierarchy_binary_module
+. omega (omega (omega (omega (omega gezi "problems") "mixin_library") "hierarchies") "boolean")
+λ hierarchy_boolean
+. omega (omega (omega (omega (omega gezi "problems") "mixin_library") "hierarchies") "natural")
+λ hierarchy_natural
+. omega (omega (omega (omega (omega gezi "problems") "mixin_library") "hierarchies") "binary")
+λ hierarchy_binary
+. export
+λ
+. cons hierarchy_natural_module
+λ
+. cons hierarchy_binary_module
+λ
+. cons hierarchy_boolean
+λ
+. cons hierarchy_natural
+λ
+. cons hierarchy_binary nil

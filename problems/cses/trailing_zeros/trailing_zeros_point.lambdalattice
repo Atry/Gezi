@@ -1,0 +1,57 @@
+# The base problems of the CSES families repeated_cses_trailing_zeros_*: an integer n, the answer the number of zeros that end n! written in decimal.
+#
+# THE ANSWER of each row is the problem's definition computed exhaustively by a
+# brute-force script (2026-11-22), which enumerates every candidate the problem's
+# statement describes. PROOF: the program of the problem's file follows the
+# definition, and its header argues under Definition 14 that its one normal form
+# is that answer; the data are finite and within the family's bottom rungs, which
+# the reference reading answers. The inputs are the author's own, no CSES test
+# data.
+#
+#   trailing_zeros_point(?Point, ?Number, ?Result)
+#
+# Number is an integer (corpora/library/integer/cbor) >= 1; Result is an integer.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λvalue. value)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λvalue. value)
+λ integer
+. export
+λ
+. cons
+  ( λ _trailing_zeros_point
+    . _trailing_zeros_point (text "cses_trailing_zeros_one") (integer 1) λ. (integer 0)
+  )
+λ
+. cons
+  ( λ _trailing_zeros_point
+    . _trailing_zeros_point (text "cses_trailing_zeros_four") (integer 4) λ. (integer 0)
+  )
+λ
+. cons
+  ( λ _trailing_zeros_point
+    . _trailing_zeros_point (text "cses_trailing_zeros_five") (integer 5) λ. (integer 1)
+  )
+λ
+. cons
+  ( λ _trailing_zeros_point
+    . _trailing_zeros_point (text "cses_trailing_zeros_ten") (integer 10) λ. (integer 2)
+  )
+λ
+. cons
+  ( λ _trailing_zeros_point
+    . _trailing_zeros_point (text "cses_trailing_zeros_twelve") (integer 12) λ. (integer 2)
+  )
+λ
+. cons
+  ( λ _trailing_zeros_point
+    . _trailing_zeros_point (text "cses_trailing_zeros_nine") (integer 9) λ. (integer 1)
+  ) nil

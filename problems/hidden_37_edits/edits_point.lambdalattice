@@ -1,0 +1,183 @@
+# +Source, +Target, +Budget, -Term
+# +Source, +Target, -Distance
+# +Source, +Target, +Budget, -Costs
+# ?Point, ?Length, ?Edits, ?Seed, ?Slack
+#   * <module> The edit distance within a budget
+#
+# THE PROBLEM (LeetCode 72, "Edit Distance"), over bit strings: the least
+# number of insertions, deletions and substitutions that turn one string into
+# another, asked as the set of the costs of the edit scripts within a budget
+# T; T is the distance, so the set is that one number.
+#
+# The program writes top (corpora/library/top) where the pseudo-code and the
+# argument below write {}, the empty choice of the calculus that still has
+# it; doc/proofs/reduction_series_answers.md carries the argument over to
+# Definition 14, and the generator is the family's Scala object in
+# gezi/contest-corpora.
+#
+# THE PROGRAM, written by the definition in continuation passing style (the
+# continuation is one term throughout), with the prelude's merge_symbols_equal,
+# length, natural_at_least and natural_difference (the API of
+# round-37-directions.md), the first two wrapped by the program:
+#
+#     same = \x. \y. merge_symbols_equal x y
+#     size = \l. length l
+#     fits r c k = at_least r c (k (difference r c)) {}
+#     ed = Y (\self. \a. \b. \r. \k.
+#             a (fits r (size b) k)
+#               (\x. \xs. b (fits r (size a) k)
+#                  (\y. \ys. { same x y (self xs ys r k) {},
+#                              r {} (\p. { self xs ys p k,
+#                                          self xs b p k,
+#                                          self a ys p k }) })))
+#     program = ed A B T (\r. difference T r)
+#
+# Directions: E (strings compared element by element, the lengths of the
+# rests); B (merging by value: the edit scripts are exponentially many, the
+# states are the two rests and the budget, n m T of them); G (the budget
+# arithmetic); and the regression direction 1 of that
+# list (the prelude's merge_symbols_equal and length are called through eta
+# expanded wrappers of the program, not in the spelling of the library).
+#
+# THE SNAPSHOT. S(P) is the set of the costs at most T of the edit scripts
+# from A to B, each script's cost the number of its insertions, deletions and
+# substitutions (edit_costs/4 on small strings); every script costs at least
+# the distance d (edit_distance/3), so for T = d it is {d}, and for T = d - 1
+# it is empty.
+#
+# THE LEMMAS, on the definitions of the library functions (contest_attractors
+# attractor_source/2 and the prelude), not on their native references.
+# ⌜n⌝ is the Scott unary numeral, ⌜0⌝ = λz.λs. z and ⌜n + 1⌝ = λz.λs. s ⌜n⌝,
+# which unary/2 builds exactly; true = λt.λf. t and false = λt.λf. f; a string is
+# the Scott list cons b1 (cons b2 (... nil)), each bi true for 1 and false for 0,
+# and cons h t is one β step from λn.λc. c h t.
+# - (Y) fixpoint G =β G (fixpoint G), two β steps.
+# - (Same) merge_symbols_equal x y = x (y true false) (y false true), so
+#   for x, y Booleans: true true gives true, true false gives false, false
+#   true gives true false true = false, and false false gives
+#   false false true = true; the wrapper same x y is one β step from it. So same x y =β true
+#   when the bits are equal and false otherwise.
+# - (Size) length = Y (λs.λxs. xs ⌜0⌝ (λ_.λt. successor (s t))), successor
+#   = λn.λz.λs. s n. By induction on the list, length xs =β ⌜|xs|⌝: nil
+#   selects ⌜0⌝, and cons h t selects successor (length t) =β
+#   successor ⌜|t|⌝ →β ⌜|t| + 1⌝. The wrapper size l is one β step from
+#   length l.
+# - (AtLeast) at_least = Y (λs.λm.λn. n true (λn1. m false (λm1. s m1 n1))). By
+#   induction on n, at_least ⌜m⌝ ⌜n⌝ =β true when m ≥ n and false otherwise:
+#   n = 0 selects true; n = k + 1 and m = 0 selects false; n = k + 1 and m = j + 1 give
+#   at_least ⌜j⌝ ⌜k⌝, true exactly when j ≥ k.
+# - (Difference) difference = Y (λs.λm.λn. n m (λn1. m ⌜0⌝ (λm1. s m1 n1))).
+#   By induction on n, difference ⌜m⌝ ⌜n⌝ =β ⌜m - n⌝ when m ≥ n and ⌜0⌝
+#   otherwise, by the same three cases.
+# - (Budget) r {} (λp. M) with r =β ⌜j⌝ is β-equal to {} when j = 0 and to
+#   M[p := ⌜j - 1⌝] when j > 0.
+# - (Fits) fits r c k with r =β ⌜j⌝ and c =β ⌜i⌝ is β-equal to k ⌜j - i⌝
+#   when j ≥ i (AtLeast, Difference) and to {} otherwise (AtLeast).
+# - (Empty) If U →* {} by β and η steps, no pure term is reached from U by
+#   →c steps. Every →c step keeps U →* {}: a β or η step by confluence, {}
+#   being normal; a member replacement of a set s by Lemma 2a of
+#   certificate_meta_lemmas.md, which replays U →* {} to {} with the
+#   descendants of s replaced, and {} is no descendant of s, s having a
+#   member and descendants keeping the number of members. A pure term
+#   reduces only to pure terms, and {} is not pure.
+#
+# PROOF, with ⟦·⟧, D, S and Th and Lemma 2b of
+# gezi/doc/proofs/certificate_meta_lemmas.md.
+# - (⊇) For a script of cost c =< T, choose at each pair of heads the branch
+#   of its next operation, unfolding ed by (Y): the free match when it keeps
+#   equal heads (the first member, where same x y =β true by Same), otherwise
+#   the second member, the budget's successor case (Budget) and the member
+#   of the operation; at the end of either string, fits pays for the rest of
+#   the other (Size, Fits), the budget covering it since c =< T. Finitely
+#   many steps and member replacements reach k ⌜T - c⌝, which is
+#   difference ⌜T⌝ ⌜T - c⌝ =β ⌜c⌝ (Difference), pure and normal: ⌜c⌝ is in
+#   that term's meaning (equal terms, Lemma 2b.2) and so in ⟦P⟧ (Lemma
+#   2b.2).
+# - (⊆) By Lemma 2b.3 every yield equals a pure term P reaches by a finite
+#   sequence σ. P's only sets are the pairs and triples written above and
+#   {}; σ removes them only by members and {} never. Where a Boolean or a
+#   budget selects {} (Same, Budget, Fits), the term, whose chosen branch
+#   is the whole term since every call of ed is in tail position, reduces to
+#   {}, and no pure term is reached from it (Empty). So a
+#   pure term is reached only through a path of members that is an edit
+#   script: a free match of equal heads (Same), or an operation paid from
+#   the budget by its successor case (Budget), and at the end the rest of
+#   the other string paid by fits when the budget covers it (Size, Fits).
+#   The term is then β-equal to difference ⌜T⌝ ⌜r⌝, r the budget left, T
+#   less the script's cost, so to that cost (Difference), which is at most
+#   T.
+#
+# THE SUBTASKS AND THE TRAPS: edits_point/5 below; B is A after a number of
+# random edits. The traps take the budget one short of the distance, so their
+# snapshots are empty: a setting that answers the distance there, or any
+# cost, is wrong.
+#
+# TARGET ALGORITHM: R. A. Wagner, M. J. Fischer, The String-to-String
+# Correction Problem, J. ACM 1974, doi:10.1145/321796.321811 (the table over
+# the pairs of prefixes, the reference edit_distance/3); tabled evaluation
+# keyed by the rests and the budget (W. Chen, D. S. Warren, J. ACM 1996,
+# doi:10.1145/227595.227597).
+
+#   THE SUBTASKS: edits_point(?Point, ?Length, ?Edits, ?Seed, ?Slack): A of
+#   Length random bits, B after Edits random edits of A, the budget the
+#   distance plus Slack. Sized by a probe of 2026-09-30 (CPUs 0-7,
+#   512 MB to 1024 MB stack and table, the machine shared), each reading
+#   equal to its snapshot: tabling(weak_head) reads 24 bits (distance 4) in
+#   456 ms, 60 bits (distance 9) in 3256 ms and 120 bits (distance 24) in
+#   41761 ms; 300 bits (distance 56) are left to a setting that tables by
+#   value natively. The traps, one short, read empty in 243 ms and 2383 ms.
+#   Smaller sizes (48 bits, distance 7, in 1253 ms) were too easy: the
+#   budget prunes the search to a band around the diagonal, so the budget
+#   has to grow with the length. Wagner and Fischer's table,
+#   edit_distance/3, takes 0.2 ms to 31 ms.
+#
+# Each text is from_cbor of a string literal, a Scott list of bytes,
+# imported from corpora/library/text/cbor. Each number is from_cbor of an
+# integer literal, a Scott integer, imported from corpora/library/integer/cbor.
+# FIXME: the imports project "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λx. x)
+λ integer
+. export
+λ
+. cons
+  ( λ _edits_point
+    . _edits_point (text "hidden_37_edits_short") (integer 24) (integer 6) (integer 5) λ. integer 0
+  )
+λ
+. cons
+  ( λ _edits_point
+    . _edits_point (text "hidden_37_edits_medium") (integer 60) (integer 16) (integer 7) λ. integer 0
+  )
+λ
+. cons
+  ( λ _edits_point
+    . _edits_point (text "hidden_37_edits_long") (integer 120) (integer 30) (integer 11) λ. integer 0
+  )
+λ
+. cons
+  ( λ _edits_point
+    . _edits_point (text "hidden_37_edits_longer") (integer 300) (integer 80) (integer 13) λ. integer 0
+  )
+λ
+. cons
+  ( λ _edits_point
+    . _edits_point (text "hidden_37_edits_trap_short") (integer 24) (integer 6) (integer 5) λ. integer -1
+  )
+λ
+. cons
+  ( λ _edits_point
+    . _edits_point (text "hidden_37_edits_trap_medium") (integer 60) (integer 16) (integer 7) λ. integer -1
+  ) nil

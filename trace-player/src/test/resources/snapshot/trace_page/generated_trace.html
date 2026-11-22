@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Generated trace</title>
+<link rel="stylesheet" href="trace-player/lib/bootstrap/dist/css/bootstrap.min.css">
+<link rel="stylesheet" href="trace-player/lib/bootstrap-icons/font/bootstrap-icons.min.css">
+<link rel="stylesheet" href="trace-player/player.css">
+</head>
+<body>
+<main id="trace-player"></main>
+<script type="application/x-lambdalattice" data-role="start">λ start
+. start (λk. k 0)
+  (λx. (λx_2. x_2 x ∥ x) ((x ∥ x) x) λx_2. (λx_3 x_4. (x_2 + x_4 + x_3) ∥ (λx_3. (x_2 + x_2)) λ. x_2 x))</script>
+<script type="application/x-lambdalattice" data-role="trace">λtrace. trace
+  (λn. λc. n)
+  (λn. λc. n)
+  (λn. λc. c (λn. λc. c (λh0. λh1. λh2. λh3. h2 (λh0. h0 (λk. k 0) (λn. λc. n)) (λx_0. ((x_0 ∥ x_0) (x_0 x_0) (x_0 + x_0) ∥ x_0 (x_0 + (x_0 + x_0)))))
+      (λn. λc. c (λh0. λh1. λh2. λh3. h2 (λh0. h0 (λk. k 0) (λn. λc. n)) (λx_0. (x_0 ∥ (x_0 ∥ x_0))))
+      (λn. λc. n)))
+    (λn. λc. n))
+</script>
+<script src="trace-player/main.js"></script>
+</body>
+</html>

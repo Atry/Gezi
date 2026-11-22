@@ -1,0 +1,97 @@
+# The typed branch of a program that uses the binary naturals'
+# constructors and operations: one lemma says that a context C applied to
+# the eight names binary_zero, binary_even, binary_odd, merge_binary_plus,
+# binary_maximum, binary_minimum, binary_bitwise_or and fixpoint equals the
+# choice of itself and the marker wren_typed_branch applied to C applied to
+# their typed versions, the defines of the directory wren_typed_block/: for
+# the seven binary names wren_typed_Name, each Name under the arrow contract
+# of native_types at the filters binary_set true and binary_set false, which
+# binary_prolog_backend specializes natively; for fixpoint
+# wren_fixpoint_by_value, Turing's combinator with its self-application
+# under a λ, equal to fixpoint by η, the form a strict reading ends on. A
+# program T holding all eight names matches the left side by the n-ary
+# reverse beta of the framework's saturator (`ReverseBeta`, run by
+# `HigherOrderSaturator` on the inputs' spelling), C being T with
+# the names abstracted, so T gets one choice whose marked member is T with
+# every occurrence of the eight replaced by its typed version: the choice
+# outermost, and inside the marked member every type fact a filter
+# `x ∥ binary_set p` of a typed version.
+#
+# The marker is β-equal to the identity; it says, in the term, which member
+# of the choice is the typed branch, so a reader may read that member first
+# and fall back to the other when it gives no normal form. Its body is not
+# the identity's, so that no other identity shares its handle.
+#
+# The marker and the typed versions are noinline, so that the e-graph reads
+# each as a leaf and the lemma never matches inside its own right side: the
+# typed member holds none of the eight names outside those leaves.
+#
+# The lemma is a theorem of λ-lattice-η, by the paper proof
+# wren_typed_branch_in_context: each Name ⊑ its typed version, application is monotone in each
+# argument, so C applied to the names ⊑ C applied to the typed versions, and
+# the marker is the identity by β. Dropping the untyped member loses answers
+# only, never adds one (CONTRIBUTING.md, "Terms", specialization).
+#
+# Termination of this module's saturation, derived and not proved: the
+# lemma's left side is a class applied to the eight names in order. Such
+# nodes are the reverse beta redexes made over the inputs' spelling, one per
+# subterm of an input that holds all eight names, which is a set fixed by
+# the input, plus any already written in the input. The right side holds the
+# marker and the typed versions, noinline leaves, and none of the eight names
+# outside C, so an instance makes no new match. The instances are at most
+# those nodes.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "binary") "natural")
+λ binary_zero binary_even binary_odd _ _
+. omega (omega (omega (omega corpora "library") "binary") "arithmetic")
+λ _ merge_binary_plus _ _
+. omega (omega (omega (omega corpora "library") "binary") "order")
+λ _ binary_maximum binary_minimum
+. omega (omega (omega (omega corpora "library") "binary") "binary_bitwise_or")
+λ binary_bitwise_or
+. omega (omega (omega (omega corpora "library") "native_types") "fixpoint")
+λ fixpoint
+. omega (omega (omega (omega corpora "library") "wren_typed_block") "wren_typed_block")
+λ wren_fixpoint_by_value wren_typed_branch wren_typed_zero wren_typed_even wren_typed_odd wren_typed_bitwise_or wren_typed_maximum wren_typed_minimum wren_typed_plus
+. export
+  ( λ _ _ properties _
+    . properties
+    λ _ _ _ typed_branch _ _ _ _
+    . typed_branch
+    λ k
+    . k wren_typed_branch
+  + λ _ rewriting _ _
+    . rewriting
+    λ _ _ leaves
+    . leaves
+      ( λk. k wren_fixpoint_by_value
+      + λk. k wren_typed_bitwise_or
+      + λk. k wren_typed_minimum
+      + λk. k wren_typed_maximum
+      + λk. k wren_typed_plus
+      + λk. k wren_typed_odd
+      + λk. k wren_typed_even
+      + λk. k wren_typed_zero
+      + λk. k wren_typed_branch
+      )
+  + λ _ rewriting _ _
+    . rewriting
+    λ _ lemmas _
+    . lemmas
+    λ s
+    . s
+      (λk. k "wren_typed_bindings")
+      ( λ x_0
+        . x_0 binary_zero binary_even binary_odd merge_binary_plus binary_maximum binary_minimum binary_bitwise_or fixpoint
+      )
+      ( λ x_0
+        . ( λ
+            . wren_typed_branch
+            λ
+            . x_0 wren_typed_zero wren_typed_even wren_typed_odd wren_typed_plus wren_typed_maximum wren_typed_minimum wren_typed_bitwise_or wren_fixpoint_by_value
+          + x_0 binary_zero binary_even binary_odd merge_binary_plus binary_maximum binary_minimum binary_bitwise_or fixpoint
+          )
+      ) λ_ md _. md λk. k "[wren_typed_branch_in_context](docs/design/gezi-set-equations-proofs.md)"
+  )

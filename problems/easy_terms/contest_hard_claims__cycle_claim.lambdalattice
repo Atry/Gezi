@@ -1,0 +1,81 @@
+# TESTS WITH NO HEAD: WHICH ARE EASY.
+#
+# Every point is M = \p. \q. C[Omega, p, q], Omega = (\x. x x) (\x. x x),
+# and a claim's test (`claim_test/3`: boolean(true) poses \a. M a y,
+# boolean(false) poses \a. M y a) has no head. Its consistency is decided
+# by Jacopini's theorem, addendum B of
+# `doc/proofs/kestrel_family_addendum.md` (2026-09-28): for every closed
+# N, lambda beta plus Omega = N is consistent. The judgment is over lambda
+# beta eta with merges, and the theorem holds there too:
+# `doc/proofs/omega_easy_beta_eta.md` (2026-09-29) shows beta, eta and
+# Omega -> N confluent.
+#
+# SCORED, PROVED (class easy): a claim whose test becomes \a. a when every
+# Omega is replaced by one closed N. The test then equals \a. a in lambda
+# beta plus Omega = N, a consistent theory, so its equation with \x. x is
+# consistent. The N of each claim is written at the point (checked by
+# reduction, 2026-09-28).
+#
+# TRAP, PROVED (class constant_body): a claim whose
+# test is \a. B with a not free in B up to beta. If \a. B = \a. a then
+# B = a, and substituting K and K I for a gives K = K I, refuted by
+# Boehm's theorem.
+#
+# TARGET ALGORITHMS, the specific known algorithms the problem targets, each
+# with its prior work:
+# - Jacopini's theorem and the technique that proves such terms easy: J.
+#   Kuper, On the Jacopini Technique, Information and Computation 1997,
+#   doi:10.1006/inco.1997.2655.
+# - refuting the traps by Böhm's theorem: H. P. Barendregt, The Lambda
+#   Calculus: Its Syntax and Semantics, North-Holland 1984 (Böhm's theorem).
+
+#
+# The template is a constructor of schema/template, a Boolean a Church
+# Boolean of corpora/library/prelude/boolean, and the proof a constructor
+# of schema/proof. Each other text is from_cbor
+# of a string literal, a Scott list of bytes, imported from
+# corpora/library/text/cbor. FIXME: the imports project "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "boolean")
+λ true false _ _
+. omega (omega (omega (omega gezi "problems") "schema") "template")
+λ boolean _ _
+. omega (omega (omega (omega gezi "problems") "schema") "proof")
+λ proved _
+. export
+λ
+. cons
+  (λ_cycle_claim. _cycle_claim (text "easy") (text "scored") (boolean true) λ. proved λ. text "easy")
+λ
+. cons
+  (λ_cycle_claim. _cycle_claim (text "easy") (text "scored") (boolean false) λ. proved λ. text "easy")
+λ
+. cons
+  ( λ _cycle_claim
+    . _cycle_claim (text "easy_then_constant") (text "scored") (boolean true) λ. proved λ. text "easy"
+  )
+λ
+. cons
+  ( λ _cycle_claim
+    . _cycle_claim (text "easy_then_constant") (text "trap") (boolean false) λ. proved λ. text "constant_body"
+  )
+λ
+. cons
+  ( λ _cycle_claim
+    . _cycle_claim (text "constant_body") (text "trap") (boolean true) λ. proved λ. text "constant_body"
+  )
+λ
+. cons
+  ( λ _cycle_claim
+    . _cycle_claim (text "constant_body") (text "trap") (boolean false) λ. proved λ. text "constant_body"
+  ) nil

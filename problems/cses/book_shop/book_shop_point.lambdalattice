@@ -1,0 +1,64 @@
+# The base problems of the CSES families repeated_cses_book_shop_*: a few books, each a price and a number of pages, and a
+# budget x, the answer the most pages of books, each bought at most once, that together cost at most x. Rows include
+# one where no book is affordable (zero), one where the budget is spent exactly, and one where two cheap books beat
+# the single dearer book that also fits.
+#
+# THE ANSWER of each row is the problem's definition computed exhaustively by a
+# brute-force script (2026-11-21), which enumerates every candidate the problem's
+# statement describes. PROOF: the program of the problem's file follows the
+# definition, and its header argues under Definition 14 that its one normal form
+# is that answer; the data are finite and within the family's bottom rungs, which
+# the reference reading answers. The inputs are the author's own, no CSES test
+# data.
+#
+#   book_shop_point(?Point, ?Books, ?Budget, ?Result)
+#
+# Books is a Scott list (corpora/library/prelude/list) of pairs (corpora/library/prelude/pair) of a price and a
+# number of pages, and Budget and Result are integers, each from_cbor of an integer literal
+# (corpora/library/integer/cbor).
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λvalue. value)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λvalue. value)
+λ integer
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "pair")
+λ pair _ _
+. export
+λ
+. cons
+  ( λ _book_shop_point
+    . _book_shop_point (text "cses_book_shop_two_small_beat_one_large") (cons (pair (integer 3) (integer 4)) λ. cons (pair (integer 2) (integer 3)) λ. cons (pair (integer 4) (integer 5)) λ. nil) (integer 5) λ. integer 7
+  )
+λ
+. cons
+  ( λ _book_shop_point
+    . _book_shop_point (text "cses_book_shop_nothing_affordable") (cons (pair (integer 5) (integer 10)) λ. nil) (integer 4) λ. integer 0
+  )
+λ
+. cons
+  ( λ _book_shop_point
+    . _book_shop_point (text "cses_book_shop_equal_books_both_bought") (cons (pair (integer 2) (integer 3)) λ. cons (pair (integer 2) (integer 3)) λ. nil) (integer 4) λ. integer 6
+  )
+λ
+. cons
+  ( λ _book_shop_point
+    . _book_shop_point (text "cses_book_shop_cheaper_pair_beats_dearer_single") (cons (pair (integer 4) (integer 5)) λ. cons (pair (integer 3) (integer 3)) λ. cons (pair (integer 3) (integer 3)) λ. nil) (integer 6) λ. integer 6
+  )
+λ
+. cons
+  ( λ _book_shop_point
+    . _book_shop_point (text "cses_book_shop_budget_exactly_spent") (cons (pair (integer 1) (integer 2)) λ. nil) (integer 1) λ. integer 2
+  )
+λ
+. cons
+  ( λ _book_shop_point
+    . _book_shop_point (text "cses_book_shop_skip_the_middle_book") (cons (pair (integer 1) (integer 1)) λ. cons (pair (integer 2) (integer 3)) λ. cons (pair (integer 3) (integer 4)) λ. nil) (integer 4) λ. integer 5
+  ) nil

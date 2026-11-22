@@ -1,0 +1,106 @@
+# +Point, -Surface
+# +Left, +Right, -Length
+#   * <module> The set-free series: the longest common subsequence, written by its definition
+#
+# A family of the set-free series, whose goal is that a typical problem of
+# informatics contests, written by its definition, runs as fast as native
+# code through a common standard library. A point is a closed pure lambda program, no set in
+# it, whose answer is one unary numeral: the length of the longest common
+# subsequence of two strings, Scott lists of Booleans.
+#
+# THE PROGRAM is the definition, recursion on the two lists:
+#
+#     lcs xs ys = xs 0 (\x. \xt. ys 0 (\y. \yt.
+#                   equal x y (successor (lcs xt yt))
+#                             (max (lcs xt ys) (lcs xs yt))))
+#
+# with equal the attractor merge_symbols_equal, successor and zero the unary
+# constructors, and max a b = at_least a b a b, at_least the attractor
+# natural_at_least of corpora/contest_attractors.pl. Written this way the
+# recursion recomputes the same suffix pairs exponentially often; a setting
+# that recognises the pair of suffixes by value gets the dynamic programme
+# over the (n + 1)(m + 1) pairs, which is the textbook algorithm; native
+# Prolog runs that programme on integers.
+#
+# THE POINTS: a DIRECT and a RESPELLED twin of each size, and a NEAR MISS, a
+# proved trap for replacing the recursion by a native longest common
+# subsequence: the same recursion without the successor on a match, whose
+# answer is 0 for every pair of strings (by induction: every branch returns
+# 0 or the max of two zeros), while the strings share a nonempty subsequence.
+#
+# TARGET ALGORITHMS, the specific known algorithms the problem targets, each
+# with its prior work:
+# - dynamic programming over the pairs of prefixes: R. A. Wagner, M. J.
+#   Fischer, The String-to-String Correction Problem, J. ACM 1974,
+#   doi:10.1145/321796.321811, which solves the longest common subsequence
+#   in time proportional to the product of the lengths;
+# - the same in linear space: D. S. Hirschberg, A Linear Space Algorithm for
+#   Computing Maximal Common Subsequences, Commun. ACM 1975,
+#   doi:10.1145/360825.360861;
+# - recognising the subproblems by value, tabled evaluation: W. Chen,
+#   D. S. Warren, Tabled Evaluation with Delaying for General Logic
+#   Programs, J. ACM 1996, doi:10.1145/227595.227597.
+#
+# THE SNAPSHOT is the unary numeral of longest_common_subsequence/3 for a
+# point and zero for a near miss. PROOF. The program is pure, so S(P) = {N}
+# for its normal form N. By induction on the sum of the
+# lengths, lcs xs ys reduces to the unary numeral of the length of a longest
+# common subsequence: the empty cases give 0; on a match the length is one
+# more than for the tails (an optimal subsequence can be taken to use the
+# matching heads); otherwise it is the larger of dropping either head.
+# merge_symbols_equal on Booleans gives the Boolean of equality, and
+# natural_at_least on canonical unary numerals the Boolean of a >= b (the
+# prelude's definitions). The near miss reduces to 0 by the same induction,
+# and 0 differs from the positive length of the strings chosen.
+# LIMITS: the reduction family's, 10 s, 256 MB, 256 MB.
+
+#   common_subsequence_point(?Point, ?Recursion, ?Spelling, ?Left, ?Right)
+#
+# The recursion is a constructor of set_free_dynamic/recursion,
+# longest_common_subsequence or near; the spelling is a constructor of
+# schema/spelling, direct or respelled.
+# Each other text is from_cbor of a string literal, a Scott list of bytes,
+# imported from corpora/library/text/cbor. Each number is from_cbor of an
+# integer literal, a Scott integer, imported from corpora/library/integer/cbor.
+# FIXME: the imports project "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λx. x)
+λ integer
+. omega (omega (omega (omega gezi "problems") "schema") "spelling")
+λ direct respelled
+. omega (omega (omega (omega gezi "problems") "set_free_dynamic") "recursion")
+λ longest_common_subsequence near
+. export
+λ
+. cons
+  ( λ _common_subsequence_point
+    . _common_subsequence_point
+      (text "set_free_common_subsequence_small_direct") longest_common_subsequence direct
+      (cons (integer 1) λ. cons (integer 0) λ. cons (integer 1) λ. cons (integer 1) nil) λ. cons (integer 0) λ. cons (integer 1) λ. cons (integer 1) λ. cons (integer 0) nil
+  )
+λ
+. cons
+  ( λ _common_subsequence_point
+    . _common_subsequence_point
+      (text "set_free_common_subsequence_small_respelled") longest_common_subsequence respelled
+      (cons (integer 1) λ. cons (integer 0) λ. cons (integer 1) λ. cons (integer 1) nil) λ. cons (integer 0) λ. cons (integer 1) λ. cons (integer 1) λ. cons (integer 0) nil
+  )
+λ
+. cons
+  ( λ _common_subsequence_point
+    . _common_subsequence_point
+      (text "set_free_common_subsequence_small_near_miss") near direct
+      (cons (integer 1) λ. cons (integer 0) λ. cons (integer 1) λ. cons (integer 1) nil) λ. cons (integer 0) λ. cons (integer 1) λ. cons (integer 1) λ. cons (integer 0) nil
+  ) nil

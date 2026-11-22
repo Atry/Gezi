@@ -1,0 +1,374 @@
+# sample 0
+λx_0.
+
+  x_0
+=>
+λ x_0
+
+. x_0
+
+
+# sample 1
+λ[1,"a"]
+
+  . (λx_0.  (x_0
+# a remark
+  +  x_0)) # a remark
+h'00ff'
+=>
+λ [1,"a"]
+
+. ( λ x_0
+    . ( x_0
+      # a remark
+      + x_0
+      )
+  )
+  # a remark
+  h'00ff'
+
+
+# sample 2
+λx_0.
+
+  (x_0
+# a remark
+  x_0 # a remark
++
+# a remark
+  x_0
+# a remark
+  x_0)
+=>
+λ x_0
+
+. ( x_0
+    # a remark
+    x_0
+  # a remark
+  # a remark
+  + x_0
+    # a remark
+    x_0
+  )
+
+
+# sample 3
+λx_0.
+
+  (λx_1.  x_1)  (λx_1.  x_1)
+
+  (λx_1. x_0
+# a remark
+  +  (x_0
+# a remark
+  ∥
+x_0))
+=>
+λ x_0
+
+. (λx_1. x_1)
+  (λx_1. x_1)
+
+  ( λx_1. x_0
+  # a remark
+  + ( x_0
+    # a remark
+    ∥ x_0
+    )
+  )
+
+
+# sample 4
+λx_0. ((x_0 ∥
+# a remark
+  x_0) # a remark
+(x_0 # a remark
+x_0) ∥
+(x_0
+
+  x_0
+# a remark
+  +
+
+  x_0  x_0))
+=>
+λ x_0
+. ( λ
+    . ( x_0
+      # a remark
+      ∥ x_0
+      )
+    # a remark
+    λ
+    . x_0
+      # a remark
+      x_0
+  ∥ ( x_0 x_0
+    # a remark
+
+    + x_0 x_0
+    )
+  )
+
+
+# sample 5
+λx_0.
+
+  x_0
+=>
+λ x_0
+
+. x_0
+
+
+# sample 6
+λx_0.  ((λx_1.
+# a remark
+  x_1) (x_0
+
+  + # a remark
+x_0)
+# a remark
+  +
+(x_0
+# a remark
+  ∥  x_0)  (x_0
+∥
+# a remark
+  x_0)
++
+
+  ((λx_1.
+# a remark
+  x_1)  (x_0 + # a remark
+x_0)
+
+  +
+(x_0
+∥
+# a remark
+  x_0)  (x_0 # a remark
+∥
+
+  x_0)))
+=>
+λ x_0
+. ( ( λ x_1
+      # a remark
+      . x_1
+    )
+    ( x_0
+
+    # a remark
+    + x_0
+    )
+  # a remark
+  + ( x_0
+    # a remark
+    ∥ x_0
+    )
+    ( x_0
+    # a remark
+    ∥ x_0
+    )
+
+  + ( ( λ x_1
+        # a remark
+        . x_1
+      )
+      ( x_0
+      # a remark
+      + x_0
+      )
+
+    + ( x_0
+      # a remark
+      ∥ x_0
+      )
+      ( x_0
+      # a remark
+
+      ∥ x_0
+      )
+    )
+  )
+
+
+# sample 7
+λx_0.
+# a remark
+  λx_1.  λx_2.
+# a remark
+  λx_3.
+# a remark
+  (x_1 x_1
+# a remark
+  + (x_3 # a remark
+∥ x_3)
++
+# a remark
+  x_2) # a remark
+(x_1  x_1 +  (x_3 ∥
+x_3)
+# a remark
+  + # a remark
+x_2)
+=>
+λ x_0
+  # a remark
+  x_1 x_2
+  # a remark
+  x_3
+# a remark
+. ( x_1 x_1
+  # a remark
+  + ( x_3
+    # a remark
+    ∥ x_3
+    )
+  # a remark
+  + x_2
+  )
+  # a remark
+  ( x_1 x_1
+  + ( x_3
+    ∥ x_3
+    )
+  # a remark
+  # a remark
+  + x_2
+  )
+
+
+# sample 8
+λx_0.  x_0
+=>
+λ x_0. x_0
+
+
+# sample 9
+λ30([1])
+.
+
+  (λx_0. # a remark
+λx_1.
+# a remark
+  (λx_2.
+
+  x_0) # a remark
+(λx_2. (x_1
++
+x_2
+# a remark
+  + # a remark
+x_0)  (x_1
+# a remark
+  ∥
+# a remark
+  x_1)  ∥  x_0))
+# a remark
+  (30([1]))
+"k"
+=>
+λ 30([1])
+
+. ( λ x_0
+      # a remark
+      x_1
+    # a remark
+    . ( λ x_2
+
+        . x_0
+      )
+      # a remark
+      ( λ x_2
+        . ( x_1
+          + x_2
+          # a remark
+          # a remark
+          + x_0
+          )
+          ( x_1
+          # a remark
+          # a remark
+          ∥ x_1
+          )
+      ∥ x_0
+      )
+  )
+  # a remark
+  (30([1])) "k"
+
+
+# sample 10
+λx_0.
+# a remark
+  x_0
+=>
+λ x_0
+# a remark
+. x_0
+
+
+# sample 11
+λx_0.
+
+  (x_0
+# a remark
+  ∥  λx_1.
+# a remark
+  (λx_2.
+(λx_3.  x_3)
+(x_1  ∥
+x_1))
+(λx_2. (λx_3. # a remark
+(x_1  +
+# a remark
+  x_1
+
+  +
+x_1
+
+  + # a remark
+x_0))
+# a remark
+  (x_1
+
+  ∥
+# a remark
+  x_2)))
+=>
+λ x_0
+
+. ( x_0
+  # a remark
+  ∥ λ x_1
+    # a remark
+    . ( λ x_2
+        . (λx_3. x_3)
+          ( x_1
+          ∥ x_1
+          )
+      )
+    λ x_2
+    . ( λ x_3
+        # a remark
+        . ( x_1
+          # a remark
+          + x_1
+
+          + x_1
+
+          # a remark
+          + x_0
+          )
+      )
+      # a remark
+      ( x_1
+
+      # a remark
+      ∥ x_2
+      )
+  )
+

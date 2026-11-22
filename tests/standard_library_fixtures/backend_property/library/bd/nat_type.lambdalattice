@@ -1,0 +1,10 @@
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega backend_property "library") "bd") "fixpoint")
+λ fixpoint
+. omega (omega (omega (omega backend_property "library") "bd") "zero")
+λ zero
+. omega (omega (omega (omega backend_property "library") "bd") "successor")
+λ successor
+. export λ. fixpoint λn. (successor n + zero)

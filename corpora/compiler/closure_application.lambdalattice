@@ -1,0 +1,32 @@
+# The beta rule on the closures of a program: $closure t c applied to a is c a, by $closure's definition,
+# and the instance reads c's body with a in place of its parameter, the
+# function metavariable's application filling the closure's last hole
+# (lambda_jit_baseline_fixpoint_egraph, THE β RULE).
+# In a round of its own under a budget, before the type check of
+# hindley_milner_unions reads the reduct
+# (lambda_jit_baseline_native_route_compilation:beyond_hindley_milner_schedule/3),
+# it types a program by its beta-reduct, each application
+# of a closure reduced on its own: a closure passed as an argument and
+# applied at two types is reduced at each application, where HM gives the
+# parameter it is bound to one monotype. Two cases it does not type
+# (2026-10-28): a closure of several parameters
+# applied to all of them, one thunk with several holes, of which the
+# instance fills one, so that no body is read and the next application has
+# no $closure around it; and a library name passed as the argument and
+# used at two types, whose copies in the reduct are one class with one
+# occurrence tag, so that its scheme is instantiated once.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "native_types") "markers")
+λ _ _ _ $closure
+. export
+λ _ rewriting _ _
+. rewriting
+λ _ lemmas _
+. lemmas
+λ s
+. s
+  (λk. k "closure_applied")
+  (λx_0 x_1 x_2. $closure x_0 (λx_3. x_1 x_3) x_2)
+  (λx_0 x_1 x_2. x_1 x_2) λ_ md _. md λk. k "[closure_applied](docs/design/gezi-native-route-engine.md)"

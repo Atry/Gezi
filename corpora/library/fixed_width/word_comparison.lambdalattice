@@ -1,0 +1,32 @@
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "native_types") "natural")
+λ _ _ nat_fold _
+. omega (omega (omega (omega corpora "library") "native_types") "boolean")
+λ true false _ _
+# word_equal:
+# Whether two words of width w have the same bits.
+. ( λ tuple
+    . tuple
+    λ w
+    . nat_fold
+      (λx y. true)
+      (λrest x y. x λa x_above. y λb y_above. a b (b false true) (rest x_above y_above) false) w
+  )
+λ word_equal
+# word_less_than:
+# Whether x < y as signed two's complement words of width w: the unsigned
+# comparison below of the bits read so far, from the least significant up, and
+# at the top the signs a and b decide when they differ.
+. ( λ tuple
+    . tuple
+    λ w x y
+    . nat_fold
+      (λbelow a b x y. a (b below true) λ. b false below)
+      ( λ rest below a b x y
+        . x λc x_above. y λd y_above. rest (c (d below false) λ. d true below) c d x_above y_above
+      ) w false false false x y
+  )
+λ word_less_than
+. export word_equal word_less_than

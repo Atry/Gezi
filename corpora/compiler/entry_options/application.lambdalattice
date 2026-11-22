@@ -1,0 +1,13 @@
+# The published list of the ways the weak-head machines take an application apart (ApplicationOption): by_layer, one application at a time; by_spine, a whole spine at once; by_shared_prefix, a whole spine from its longest prefix that holds a table or where spines part.
+# A Scott sum whose constructors are the tuple's fields, in the order of the
+# enum's cases; an entry.lambdalattice imports this file and writes a
+# constructor, and EntryData reads which alternative it takes by structure
+# (gezi.contest.entry.EntryData, THE OPTIONS AS SCOTT CONSTRUCTORS).
+λ export
+. (λtuple. tuple λby_layer by_spine by_shared_prefix. by_layer)
+λ by_layer
+. (λtuple. tuple λby_layer by_spine by_shared_prefix. by_spine)
+λ by_spine
+. (λtuple. tuple λby_layer by_spine by_shared_prefix. by_shared_prefix)
+λ by_shared_prefix
+. export by_layer by_spine by_shared_prefix

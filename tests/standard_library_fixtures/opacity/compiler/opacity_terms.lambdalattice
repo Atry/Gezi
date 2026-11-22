@@ -1,0 +1,16 @@
+# identity and boxed applied are their arguments.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega opacity "library") "opacity_terms") "identity")
+λ identity
+. omega (omega (omega (omega opacity "library") "opacity_terms") "boxed")
+λ boxed
+. export
+λ _ rewriting _ _
+. rewriting
+λ _ lemmas _
+. lemmas
+  ( λs. s (λk. k "boxed_applied") (λx. boxed x) (λx. x) λ_ _ tex. tex λk. k "\\cite{paper}"
+  + λs. s (λk. k "identity_applied") (λx. identity x) (λx. x) λ_ _ tex. tex λk. k "\\cite{paper}"
+  )

@@ -1,0 +1,9 @@
+#   `natural_difference @ M @ N`, M - N when M >= N.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega gezi "problems") "prelude_clauses") "fixpoint")
+λ fixpoint
+. omega (omega (omega (omega gezi "problems") "prelude_clauses") "natural_difference_body")
+λ natural_difference_body
+. export λ. fixpoint natural_difference_body

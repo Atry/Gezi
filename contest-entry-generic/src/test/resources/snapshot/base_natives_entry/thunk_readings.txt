@@ -1,0 +1,20 @@
+# sample 0
+(λx_0. (λx_1. (λx_2. (λx_3. (λx_4. (λx_5. (λx_6. (λx_7. x_7 x_0 (λx_8. x_3 x_8 x_8) x_0) (fixpoint (λx_7. λx_8. λx_9. λx_10. x_8 x_10 (λx_11. x_7 x_11 x_9 (x_7 x_11 x_9 x_10)) (λx_11. x_9 (x_7 x_11 x_9 (x_7 x_11 x_9 x_10)))))) binary_bitwise_or) binary_minimum) binary_maximum) merge_binary_plus) binary_odd) binary_even) binary_zero
+=>
+thunk 0: recursion an operand is the slot 7, a Native(Function(binary_even),1,0); closure an operand is the slot 7, a Native(Function(binary_even),1,0)
+thunk 1: recursion the head of an application of 1 is the slot 0, a parameter 1; closure the head of an application of 1 is the slot 0, a parameter 1
+thunk 2: recursion the head of an application of 3 is the slot 0, a parameter 1; closure the head of an application of 3 is the slot 0, a parameter 1
+
+# sample 1
+(λx_0. (λx_1. (λx_2. (λx_3. (λx_4. (λx_5. (λx_6. (λx_7. x_7 x_0 (λx_8. x_3 x_8 (x_2 (x_1 (x_2 x_0)))) (x_2 (x_2 x_0))) (fixpoint (λx_7. λx_8. λx_9. λx_10. x_8 x_10 (λx_11. x_7 x_11 x_9 (x_7 x_11 x_9 x_10)) (λx_11. x_9 (x_7 x_11 x_9 (x_7 x_11 x_9 x_10)))))) binary_bitwise_or) binary_minimum) binary_maximum) merge_binary_plus) binary_odd) binary_even) binary_zero
+=>
+thunk 0: recursion an operand is the slot 7, a Native(Function(binary_even),1,0); closure an operand is the slot 7, a Native(Function(binary_even),1,0)
+thunk 1: recursion the head of an application of 1 is the slot 0, a parameter 1; closure the head of an application of 1 is the slot 0, a parameter 1
+thunk 2: recursion the head of an application of 3 is the slot 0, a parameter 1; closure the head of an application of 3 is the slot 0, a parameter 1
+
+# sample 2
+(λx_0. (λx_1. (λx_2. (λx_3. (λx_4. (λx_5. (λx_6. (λx_7. x_7 (x_1 (x_2 x_0)) (λx_8. x_6 x_8 (x_2 (x_1 (x_2 (x_2 x_0))))) (x_2 (x_1 (x_1 (x_2 x_0))))) (fixpoint (λx_7. λx_8. λx_9. λx_10. x_8 x_10 (λx_11. x_7 x_11 x_9 (x_7 x_11 x_9 x_10)) (λx_11. x_9 (x_7 x_11 x_9 (x_7 x_11 x_9 x_10)))))) binary_bitwise_or) binary_minimum) binary_maximum) merge_binary_plus) binary_odd) binary_even) binary_zero
+=>
+thunk 0: recursion an operand is the slot 7, a Native(Function(binary_even),1,0); closure an operand is the slot 7, a Native(Function(binary_even),1,0)
+thunk 1: recursion the head of an application of 1 is the slot 0, a parameter 1; closure the head of an application of 1 is the slot 0, a parameter 1
+thunk 2: recursion the head of an application of 3 is the slot 0, a parameter 1; closure the head of an application of 3 is the slot 0, a parameter 1

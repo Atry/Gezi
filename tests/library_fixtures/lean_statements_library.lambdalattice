@@ -1,0 +1,24 @@
+# The knowledge of LeanStatementsTest's first unit, whose lemma statements it
+# exports to Lean (gezi.standardlibrary.LibraryFiles.compiled): prelude,
+# guard_laws, parallel_types, filtered_recursion_naturals, lattice_types and
+# contracts, their choice the one field of this file's tuple, a term of this
+# file and not a choice the host assembles from paths.
+# FIXME: the imports project "corpora" off the variable gezi, the name https://github.com/Atry/private-overlay/issues/1924
+# of the project root's own directory; they break if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega gezi "corpora") "compiler") "prelude")
+λ prelude
+. omega (omega (omega (omega gezi "corpora") "compiler") "guard_laws")
+λ guard_laws
+. omega (omega (omega (omega gezi "corpora") "compiler") "parallel_types")
+λ parallel_types
+. omega (omega (omega (omega gezi "corpora") "compiler") "filtered_recursion_naturals")
+λ filtered_recursion_naturals
+. omega (omega (omega (omega gezi "corpora") "compiler") "lattice_types")
+λ lattice_types
+. omega (omega (omega (omega gezi "corpora") "compiler") "contracts")
+λ contracts
+. export
+  (contracts + lattice_types + filtered_recursion_naturals + parallel_types + guard_laws + prelude)

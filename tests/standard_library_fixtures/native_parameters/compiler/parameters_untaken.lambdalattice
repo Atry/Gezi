@@ -1,0 +1,14 @@
+# A native whose term takes no parameter: a parallel of two abstractions.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega
+  (omega (omega (omega native_parameters "library") "parameters_untaken") "parallel_of_abstractions")
+λ parallel_of_abstractions
+. export
+λ _ _ _ backend
+. backend
+λ _ natives _ _ _ _
+. natives
+λ s
+. s parallel_of_abstractions λk. k "natural_double"

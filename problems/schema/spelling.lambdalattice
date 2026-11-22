@@ -1,0 +1,8 @@
+# The spelling of a set-free point or twin (the tables of set_free_arithmetic,
+# set_free_dynamic, set_free_empty_search, set_free_list_laws,
+# set_free_premises, set_free_scope and set_free_search): a Scott sum of two
+# constructors, in order: direct, the attractors as they are, and respelled,
+# every application whose head is a variable written with the head wrapped.
+# Read by its position (gezi.contest.corpora.reductions.SetFree,
+# spelling, into gezi.contest.corpora.claims.Spelling).
+λ export. export (λdirect respelled. direct) λdirect respelled. respelled

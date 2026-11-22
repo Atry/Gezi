@@ -1,0 +1,2 @@
+#   Scott booleans.
+λ export. export λx_0 x_1. x_0

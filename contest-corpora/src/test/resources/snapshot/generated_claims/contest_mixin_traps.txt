@@ -1,0 +1,64 @@
+hard_intended(mixin_chord_ring_misses)	failed	none
+hard_intended(mixin_diamond_two_hop_self)	failed	none
+hard_intended(mixin_double_successor_ring_misses)	failed	none
+hard_intended(mixin_four_times_is_even)	failed	none
+hard_intended(mixin_lasso_misses)	failed	none
+hard_intended(mixin_ring_forty_misses)	failed	none
+hard_intended(mixin_ring_three_misses)	failed	none
+hard_intended(mixin_ring_twenty_misses)	failed	none
+hard_intended(mixin_six_times_is_divisible)	failed	none
+hard_intended(mixin_successor_never_zero)	failed	none
+hard_intended(mixin_successor_then_zero_not_both_zero)	failed	none
+hard_intended(mixin_three_times_is_divisible)	failed	none
+hard_intended(mixin_twice_is_even)	failed	none
+hard_intended(mixin_two_rings_misses)	failed	none
+hard_intended(mixin_zero_never_successor)	failed	none
+hard_intended(mixin_zero_then_successor_not_both_zero)	failed	none
+hard_raised_limits(mixin_chord_ring_misses)	limits(10,256,256)
+hard_raised_limits(mixin_diamond_two_hop_self)	limits(10,256,256)
+hard_raised_limits(mixin_double_successor_ring_misses)	limits(10,256,256)
+hard_raised_limits(mixin_four_times_is_even)	limits(10,256,256)
+hard_raised_limits(mixin_lasso_misses)	limits(10,256,256)
+hard_raised_limits(mixin_ring_forty_misses)	limits(10,256,256)
+hard_raised_limits(mixin_ring_three_misses)	limits(10,256,256)
+hard_raised_limits(mixin_ring_twenty_misses)	limits(10,256,256)
+hard_raised_limits(mixin_six_times_is_divisible)	limits(10,256,256)
+hard_raised_limits(mixin_successor_never_zero)	limits(10,256,256)
+hard_raised_limits(mixin_successor_then_zero_not_both_zero)	limits(10,256,256)
+hard_raised_limits(mixin_three_times_is_divisible)	limits(10,256,256)
+hard_raised_limits(mixin_twice_is_even)	limits(10,256,256)
+hard_raised_limits(mixin_two_rings_misses)	limits(10,256,256)
+hard_raised_limits(mixin_zero_never_successor)	limits(10,256,256)
+hard_raised_limits(mixin_zero_then_successor_not_both_zero)	limits(10,256,256)
+no_yield_trap(mixin_chord_ring_misses)	[boolean(true),boolean(false)]	the source does not reach z, which no edge enters: reachable spends a step budget of the node count, so with top replaced by 0 the program terminates, and by the selection theorem (the proofs file's section 20.6) a selection either chooses the class of a node the source reaches, whose wrappers define another slot than is_z and put 0 at the head of the final read, or spends the budget and meets 0; none is a pure term, so neither Boolean is a consistent normal form (Definition 14)
+no_yield_trap(mixin_diamond_two_hop_self)	[boolean(true),boolean(false)]	a does not reach itself in two hops: at every read a sequence reaching a pure term chooses a wrapper defining the slot read, since another slot's wrapper puts the empty set at the head; a.two_hop is self.next.next, a's next is the union of b's and c's classes and theirs is d's class, whose wrappers define is_d, reachable, next and two_hop, none of them is_a, so all of the finitely many sequences end in the empty set at the head and the test yields nothing (contest_mixin_traps.pl, DIAMOND)
+no_yield_trap(mixin_double_successor_ring_misses)	[boolean(true),boolean(false)]	the source does not reach z, which no edge enters: reachable spends a step budget of the node count, so with top replaced by 0 the program terminates, and by the selection theorem (the proofs file's section 20.6) a selection either chooses the class of a node the source reaches, whose wrappers define another slot than is_z and put 0 at the head of the final read, or spends the budget and meets 0; none is a pure term, so neither Boolean is a consistent normal form (Definition 14)
+no_yield_trap(mixin_four_times_is_even)	[boolean(true),boolean(false)]	the counterexample check stepped(4,not_periodic(even)) is false at every n, so each round's check computes the Church false and the search spends its step budget of 101 and reaches top; with top replaced by 0 the program terminates, and by the selection theorem (the proofs file's section 20.6) every selection meets 0 and none is a pure term, so neither Boolean is a consistent normal form (Definition 14)
+no_yield_trap(mixin_lasso_misses)	[boolean(true),boolean(false)]	the source does not reach z, which no edge enters: reachable spends a step budget of the node count, so with top replaced by 0 the program terminates, and by the selection theorem (the proofs file's section 20.6) a selection either chooses the class of a node the source reaches, whose wrappers define another slot than is_z and put 0 at the head of the final read, or spends the budget and meets 0; none is a pure term, so neither Boolean is a consistent normal form (Definition 14)
+no_yield_trap(mixin_ring_forty_misses)	[boolean(true),boolean(false)]	the source does not reach z, which no edge enters: reachable spends a step budget of the node count, so with top replaced by 0 the program terminates, and by the selection theorem (the proofs file's section 20.6) a selection either chooses the class of a node the source reaches, whose wrappers define another slot than is_z and put 0 at the head of the final read, or spends the budget and meets 0; none is a pure term, so neither Boolean is a consistent normal form (Definition 14)
+no_yield_trap(mixin_ring_three_misses)	[boolean(true),boolean(false)]	the source does not reach z, which no edge enters: reachable spends a step budget of the node count, so with top replaced by 0 the program terminates, and by the selection theorem (the proofs file's section 20.6) a selection either chooses the class of a node the source reaches, whose wrappers define another slot than is_z and put 0 at the head of the final read, or spends the budget and meets 0; none is a pure term, so neither Boolean is a consistent normal form (Definition 14)
+no_yield_trap(mixin_ring_twenty_misses)	[boolean(true),boolean(false)]	the source does not reach z, which no edge enters: reachable spends a step budget of the node count, so with top replaced by 0 the program terminates, and by the selection theorem (the proofs file's section 20.6) a selection either chooses the class of a node the source reaches, whose wrappers define another slot than is_z and put 0 at the head of the final read, or spends the budget and meets 0; none is a pure term, so neither Boolean is a consistent normal form (Definition 14)
+no_yield_trap(mixin_six_times_is_divisible)	[boolean(true),boolean(false)]	the counterexample check stepped(6,not_periodic(residue_zero)) is false at every n, so each round's check computes the Church false and the search spends its step budget of 101 and reaches top; with top replaced by 0 the program terminates, and by the selection theorem (the proofs file's section 20.6) every selection meets 0 and none is a pure term, so neither Boolean is a consistent normal form (Definition 14)
+no_yield_trap(mixin_successor_never_zero)	[boolean(true),boolean(false)]	the counterexample check equal(successor(n),0) is false at every n, so each round's check computes the Church false and the search spends its step budget of 101 and reaches top; with top replaced by 0 the program terminates, and by the selection theorem (the proofs file's section 20.6) every selection meets 0 and none is a pure term, so neither Boolean is a consistent normal form (Definition 14)
+no_yield_trap(mixin_successor_then_zero_not_both_zero)	[boolean(true),boolean(false)]	the counterexample check both(equal(successor(n),0),equal(n,0)) is false at every n, so each round's check computes the Church false and the search spends its step budget of 101 and reaches top; with top replaced by 0 the program terminates, and by the selection theorem (the proofs file's section 20.6) every selection meets 0 and none is a pure term, so neither Boolean is a consistent normal form (Definition 14)
+no_yield_trap(mixin_three_times_is_divisible)	[boolean(true),boolean(false)]	the counterexample check stepped(3,not_periodic(residue_zero)) is false at every n, so each round's check computes the Church false and the search spends its step budget of 101 and reaches top; with top replaced by 0 the program terminates, and by the selection theorem (the proofs file's section 20.6) every selection meets 0 and none is a pure term, so neither Boolean is a consistent normal form (Definition 14)
+no_yield_trap(mixin_twice_is_even)	[boolean(true),boolean(false)]	the counterexample check stepped(2,not_periodic(even)) is false at every n, so each round's check computes the Church false and the search spends its step budget of 101 and reaches top; with top replaced by 0 the program terminates, and by the selection theorem (the proofs file's section 20.6) every selection meets 0 and none is a pure term, so neither Boolean is a consistent normal form (Definition 14)
+no_yield_trap(mixin_two_rings_misses)	[boolean(true),boolean(false)]	the source does not reach z, which no edge enters: reachable spends a step budget of the node count, so with top replaced by 0 the program terminates, and by the selection theorem (the proofs file's section 20.6) a selection either chooses the class of a node the source reaches, whose wrappers define another slot than is_z and put 0 at the head of the final read, or spends the budget and meets 0; none is a pure term, so neither Boolean is a consistent normal form (Definition 14)
+no_yield_trap(mixin_zero_never_successor)	[boolean(true),boolean(false)]	the counterexample check equal(0,successor(n)) is false at every n, so each round's check computes the Church false and the search spends its step budget of 101 and reaches top; with top replaced by 0 the program terminates, and by the selection theorem (the proofs file's section 20.6) every selection meets 0 and none is a pure term, so neither Boolean is a consistent normal form (Definition 14)
+no_yield_trap(mixin_zero_then_successor_not_both_zero)	[boolean(true),boolean(false)]	the counterexample check both(equal(n,0),equal(successor(n),0)) is false at every n, so each round's check computes the Church false and the search spends its step budget of 101 and reaches top; with top replaced by 0 the program terminates, and by the selection theorem (the proofs file's section 20.6) every selection meets 0 and none is a pure term, so neither Boolean is a consistent normal form (Definition 14)
+point_purpose(mixin_chord_ring_misses)	inheritance
+point_purpose(mixin_diamond_two_hop_self)	inheritance
+point_purpose(mixin_double_successor_ring_misses)	inheritance
+point_purpose(mixin_four_times_is_even)	inheritance
+point_purpose(mixin_lasso_misses)	inheritance
+point_purpose(mixin_ring_forty_misses)	inheritance
+point_purpose(mixin_ring_three_misses)	inheritance
+point_purpose(mixin_ring_twenty_misses)	inheritance
+point_purpose(mixin_six_times_is_divisible)	inheritance
+point_purpose(mixin_successor_never_zero)	inheritance
+point_purpose(mixin_successor_then_zero_not_both_zero)	inheritance
+point_purpose(mixin_three_times_is_divisible)	inheritance
+point_purpose(mixin_twice_is_even)	inheritance
+point_purpose(mixin_two_rings_misses)	inheritance
+point_purpose(mixin_zero_never_successor)	inheritance
+point_purpose(mixin_zero_then_successor_not_both_zero)	inheritance

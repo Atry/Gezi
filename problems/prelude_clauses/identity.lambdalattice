@@ -1,0 +1,3 @@
+#   The identity and the constant function, used as list elements so that the
+#   elements of two corpora entries are comparable without any data type.
+λ export. export λx_0. x_0

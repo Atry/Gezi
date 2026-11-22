@@ -1,0 +1,10 @@
+#   The body `natural_equal` hands its fixpoint, the source of the attractor of
+#   the same name (problems/attractors).
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega gezi "problems") "prelude_clauses") "true")
+λ true
+. omega (omega (omega (omega gezi "problems") "prelude_clauses") "false")
+λ false
+. export λself m n. m (n true λ_. false) λm1. n false λn1. self m1 n1

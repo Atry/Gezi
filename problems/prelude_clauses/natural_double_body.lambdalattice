@@ -1,0 +1,9 @@
+#   The body `natural_double` hands its fixpoint.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega gezi "problems") "prelude_clauses") "zero")
+λ zero
+. omega (omega (omega (omega gezi "problems") "prelude_clauses") "successor")
+λ successor
+. export λself n. n zero λn1. successor λ. successor λ. self n1

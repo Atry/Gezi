@@ -1,0 +1,257 @@
+#   attractor_source(+Name, -Surface): a closed surface term whose beta eta
+#   normal form is the attractor's Function. A prelude function that does
+#   not recur is the prelude's term; a `fixpoint` one is the body the
+#   prelude hands its fixpoint, with its dependencies as leading
+#   parameters.
+#
+# Each text is from_cbor of a string literal, a Scott list of bytes,
+# imported from corpora/library/text/cbor. FIXME: the import projects "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+#
+# Every source is a term of this file: the prelude's pieces are imported from
+# problems/prelude_clauses, the sources other sources use are let-bound first,
+# and the table lists each by name. A source is spelled as written here, the
+# names it uses substituted and nothing evaluated, so `not b` stays an
+# application of the source of not.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil_list cons_list _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. omega (omega (omega (omega gezi "problems") "prelude_clauses") "or")
+λ or
+. omega (omega (omega (omega gezi "problems") "prelude_clauses") "pair")
+λ pair
+. omega (omega (omega (omega gezi "problems") "prelude_clauses") "first")
+λ first
+. omega (omega (omega (omega gezi "problems") "prelude_clauses") "second")
+λ second
+. omega (omega (omega (omega gezi "problems") "prelude_clauses") "natural_equal_body")
+λ natural_equal_body
+. omega (omega (omega (omega gezi "problems") "prelude_clauses") "natural_at_least_body")
+λ natural_at_least_body
+. omega (omega (omega (omega gezi "problems") "prelude_clauses") "natural_difference_body")
+λ natural_difference_body
+. omega (omega (omega (omega gezi "problems") "prelude_clauses") "natural_double_body")
+λ natural_double_body
+. omega (omega (omega (omega gezi "problems") "prelude_clauses") "append_body")
+λ append_body
+. omega (omega (omega (omega gezi "problems") "prelude_clauses") "map_body")
+λ map_body
+. omega (omega (omega (omega gezi "problems") "prelude_clauses") "length_body")
+λ length_body
+. omega (omega (omega (omega gezi "problems") "prelude_clauses") "binary_increment_body")
+λ binary_increment_body
+. omega (omega (omega (omega gezi "problems") "prelude_clauses") "absorbing_body")
+λ absorbing_body
+. (λtuple. tuple λx_0. x_0)
+λ identity
+. (λtuple. tuple λx_0 x_1. x_0)
+λ konstant
+. (λtuple. tuple λx_0 x_1. x_0)
+λ true
+. (λtuple. tuple λx_0 x_1. x_1)
+λ false
+. (λtuple. tuple λx_0 x_1. x_0)
+λ zero
+. (λtuple. tuple λx_0 x_1 x_2. x_2 x_0)
+λ successor
+. (λtuple. tuple λx_0 x_1. x_0)
+λ nil
+. (λtuple. tuple λx_0 x_1 x_2 x_3. x_3 x_0 x_1)
+λ cons
+. (λtuple. tuple λx_0 x_1 x_2. x_0)
+λ binary_zero
+. (λtuple. tuple λx_0 x_1 x_2 x_3. x_2 x_0)
+λ binary_even
+. (λtuple. tuple λx_0 x_1 x_2 x_3. x_3 x_0)
+λ binary_odd
+. (λtuple. tuple λx_0 x_1. x_0)
+λ none
+. (λtuple. tuple λx_0 x_1 x_2. x_2 x_0)
+λ some
+#   foldr f z xs = xs z (\h. \t. f h (foldr f z t)).
+. (λtuple. tuple λx_0 x_1 x_2 x_3. x_3 x_2 λx_4 x_5. x_1 x_4 λ. x_0 x_1 x_2 x_5)
+λ foldr
+#   foldl f z xs = xs z (\h. \t. foldl f (f z h) t).
+. (λtuple. tuple λx_0 x_1 x_2 x_3. x_3 x_2 λx_4 x_5. x_0 x_1 (x_1 x_2 x_4) x_5)
+λ foldl
+#   flat_map f xs = concat (map f xs).
+. (λtuple. tuple λx_0 x_1 x_2 x_3. x_0 λ. x_1 x_2 x_3)
+λ flat_map
+. (λtuple. tuple λb. b false true)
+λ not
+. (λtuple. tuple λa b. a b false)
+λ and
+. export
+λ
+. cons_list (λ_attractor_source. _attractor_source (text "identity") identity)
+λ
+. cons_list (λ_attractor_source. _attractor_source (text "konstant") konstant)
+λ
+. cons_list (λ_attractor_source. _attractor_source (text "true") true)
+λ
+. cons_list (λ_attractor_source. _attractor_source (text "false") false)
+λ
+. cons_list (λ_attractor_source. _attractor_source (text "zero") zero)
+λ
+. cons_list (λ_attractor_source. _attractor_source (text "successor") successor)
+λ
+. cons_list (λ_attractor_source. _attractor_source (text "nil") nil)
+λ
+. cons_list (λ_attractor_source. _attractor_source (text "cons") cons)
+λ
+. cons_list (λ_attractor_source. _attractor_source (text "binary_zero") binary_zero)
+λ
+. cons_list (λ_attractor_source. _attractor_source (text "binary_even") binary_even)
+λ
+. cons_list (λ_attractor_source. _attractor_source (text "binary_odd") binary_odd)
+λ
+. cons_list (λ_attractor_source. _attractor_source (text "none") none)
+λ
+. cons_list (λ_attractor_source. _attractor_source (text "some") some)
+λ
+. cons_list (λ_attractor_source. _attractor_source (text "foldr") foldr)
+λ
+. cons_list (λ_attractor_source. _attractor_source (text "foldl") foldl)
+λ
+. cons_list (λ_attractor_source. _attractor_source (text "flat_map") flat_map)
+λ
+. cons_list (λ_attractor_source. _attractor_source (text "not") not)
+λ
+. cons_list (λ_attractor_source. _attractor_source (text "and") and)
+λ
+. cons_list (λ_attractor_source. _attractor_source (text "or") or)
+λ
+. cons_list (λ_attractor_source. _attractor_source (text "pair") pair)
+λ
+. cons_list (λ_attractor_source. _attractor_source (text "first") first)
+λ
+. cons_list (λ_attractor_source. _attractor_source (text "second") second)
+λ
+. cons_list (λ_attractor_source. _attractor_source (text "natural_equal") natural_equal_body)
+λ
+. cons_list (λ_attractor_source. _attractor_source (text "natural_at_least") natural_at_least_body)
+λ
+. cons_list
+  (λ_attractor_source. _attractor_source (text "natural_difference") natural_difference_body)
+λ
+. cons_list (λ_attractor_source. _attractor_source (text "natural_double") natural_double_body)
+λ
+. cons_list (λ_attractor_source. _attractor_source (text "append") append_body)
+λ
+. cons_list (λ_attractor_source. _attractor_source (text "map") map_body)
+λ
+. cons_list (λ_attractor_source. _attractor_source (text "length") length_body)
+λ
+. cons_list
+  ( λ _attractor_source
+    . _attractor_source (text "filter") λself p xs. xs nil λh t. p h (cons h λ. self p t) λ. self p t
+  )
+λ
+. cons_list
+  ( λ _attractor_source
+    . _attractor_source (text "depth_first")
+    λ append self successors goal stack
+    . stack false λn rest. goal n true λ. self successors goal λ. append (successors n) rest
+  )
+λ
+. cons_list
+  ( λ _attractor_source
+    . _attractor_source (text "binary_to_unary") λdouble self bits. bits zero λbit rest. (λtwice. bit (successor twice) twice) λ. double λ. self rest
+  )
+λ
+. cons_list (λ_attractor_source. _attractor_source (text "binary_increment") binary_increment_body)
+λ
+. cons_list
+  ( λ _attractor_source
+    . _attractor_source (text "unary_to_binary") λincrement self natural. natural nil λpredecessor. increment λ. self predecessor
+  )
+λ
+. cons_list (λ_attractor_source. _attractor_source (text "absorbing") absorbing_body)
+λ
+. cons_list
+  ( λ _attractor_source
+    . _attractor_source (text "merge_binary_increment") λself n. n (binary_odd binary_zero) (λh. binary_odd h) λg. binary_even λ. self self g
+  )
+λ
+. cons_list
+  ( λ _attractor_source
+    . _attractor_source (text "merge_binary_plus")
+    λ increment self a b
+    . a b (λh1. b a (λk1. binary_even λ. self self h1 k1) λk2. binary_odd λ. self self h1 k2) λh2. b a (λk3. binary_odd λ. self self h2 k3) λk4. binary_even λ. increment λ. self self h2 k4
+  )
+λ
+. cons_list
+  ( λ _attractor_source
+    . _attractor_source (text "merge_binary_times")
+    λ plus self a b
+    . a binary_zero (λh1. (λy. y binary_zero (λ_. binary_even y) λ_. binary_even y) λ. self self h1 b) λh2. plus b λ. (λy. y binary_zero (λ_. binary_even y) λ_. binary_even y) λ. self self h2 b
+  )
+λ
+. cons_list
+  ( λ _attractor_source
+    . _attractor_source (text "merge_binary_equality")
+    λ self a b
+    . a (b true (λ_. false) λ_. false) (λh1. b false (λk1. self self h1 k1) λ_. false) λh2. b false (λ_. false) λk2. self self h2 k2
+  )
+λ
+. cons_list
+  ( λ _attractor_source
+    . _attractor_source (text "merge_symbols_equal") λx y. x (y true false) λ. y false true
+  )
+λ
+. cons_list (λ_attractor_source. _attractor_source (text "exclusive") λa b. a (not b) b)
+λ
+. cons_list
+  (λ_attractor_source. _attractor_source (text "every_assignment") λf. and (f true) λ. f false)
+λ
+. cons_list
+  ( λ _attractor_source
+    . _attractor_source (text "reverse") λfoldl. foldl (λaccumulated x. cons x accumulated) nil
+  )
+λ
+. cons_list (λ_attractor_source. _attractor_source (text "concat") λfoldr append. foldr append nil)
+λ
+. cons_list
+  ( λ _attractor_source
+    . _attractor_source (text "zip") λself xs ys. xs nil λx rest1. ys nil λy rest2. cons (pair x y) λ. self rest1 rest2
+  )
+λ
+. cons_list
+  ( λ _attractor_source
+    . _attractor_source (text "bit_set_member") λself set index. set false λbit rest. index bit λpredecessor. self rest predecessor
+  )
+λ
+. cons_list
+  ( λ _attractor_source
+    . _attractor_source (text "bit_set_insert")
+    λ self set index
+    . set nil λbit rest. index (cons true rest) λpredecessor. cons bit λ. self rest predecessor
+  )
+λ
+. cons_list
+  ( λ _attractor_source
+    . _attractor_source (text "bit_set_full") λself set. set true λbit rest. bit (self rest) false
+  )
+λ
+. cons_list
+  ( λ _attractor_source
+    . _attractor_source (text "bit_set_union")
+    λ self left right
+    . left right λbit rest. right left λother others. cons (bit true other) λ. self rest others
+  )
+λ
+. cons_list
+  ( λ _attractor_source
+    . _attractor_source (text "bits_prefix")
+    λ self left right
+    . left true
+    λ head tail
+    . right false λother rest. head (other (self tail rest) false) λ. other false λ. self tail rest
+  ) nil_list

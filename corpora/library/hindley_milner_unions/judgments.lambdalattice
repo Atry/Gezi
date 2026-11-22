@@ -1,0 +1,23 @@
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega corpora "library") "top")
+λ top
+# type_of:
+# The type of the program node x in the zero universe of the module
+# hindley_milner_unions: top up to contextual equivalence, as every term built
+# of that module's type combinators is, so that any two of them are equal;
+# noinline.
+. (λtuple. tuple λx. top)
+λ type_of
+# candidate_of:
+# The subject of the candidate types of the occurrence x, x itself;
+# noinline, written in a form programs do not write.
+. (λtuple. tuple λt. (t ∥ t ∥ (t ∥ t) ∥ t))
+λ candidate_of
+# unify:
+# The point where the types a and b are made one, in the zero universe:
+# top up to contextual equivalence, equal to each of them; noinline.
+. (λtuple. tuple λa b. (top ∥ top ∥ top))
+λ unify
+. export type_of candidate_of unify

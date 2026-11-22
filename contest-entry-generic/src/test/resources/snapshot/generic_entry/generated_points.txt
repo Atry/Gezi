@@ -1,0 +1,119 @@
+# sample 0
+successor
+=>
+display: λx_0. λx_1. λx_2. x_2 x_0
+counts: lemma_saturation_instances=0 lemma_saturation_capped=0 reading_steps=15
+
+# sample 1
+zero ∥ zero
+=>
+display: true ∥ true
+counts: reading_steps=9
+
+# sample 2
+λx_0. zero
+=>
+display: λx_0. λx_1. λx_2. x_1
+counts: lemma_saturation_instances=0 lemma_saturation_capped=0 reading_steps=12
+
+# sample 3
+λx_0. x_0 zero
+=>
+display: λx_0. x_0 (λx_1. λx_2. x_1)
+counts: lemma_saturation_instances=0 lemma_saturation_capped=0 reading_steps=17
+
+# sample 4
+successor zero ∥ (λx_0. successor)
+=>
+display: successor true ∥ (λx_0. successor)
+counts: reading_steps=18
+
+# sample 5
+λx_0. (λx_1. successor) (λx_1. successor) ∥ (λx_1. λx_2. λx_3. zero ∥ successor)
+=>
+display: {}
+counts: lemma_saturation_instances=0 lemma_saturation_capped=0 reading_steps=59
+
+# sample 6
+λx_0. x_0 ∥ (x_0 ∥ x_0) (successor {})
+=>
+display: {}
+counts: lemma_saturation_instances=0 lemma_saturation_capped=0 reading_steps=29
+
+# sample 7
+{} successor (zero successor) ∥ zero
+=>
+display: {} successor (true successor) ∥ true
+counts: reading_steps=9
+
+# sample 8
+(zero + zero) (λx_0. {} {}) + (λx_0. x_0 x_0) (successor zero)
+=>
+display: λx_0. x_0 (λx_1. λx_2. x_1)
+counts: lemma_saturation_instances=0 lemma_saturation_capped=0 reading_steps=54
+
+# sample 9
+((λx_0. λx_1. x_0 ∥ successor) + zero successor (zero successor)) ∥ ((λx_0. λx_1. x_0 ∥ successor) + zero successor (zero successor))
+=>
+display: ((λx_0. λx_1. x_0 ∥ successor) + true successor (true successor)) ∥ ((λx_0. λx_1. x_0 ∥ successor) + true successor (true successor))
+counts: reading_steps=48
+
+# sample 10
+{}
+=>
+display: {}
+counts: lemma_saturation_instances=0 lemma_saturation_capped=0 reading_steps=1
+
+# sample 11
+successor
+=>
+display: λx_0. λx_1. λx_2. x_2 x_0
+counts: lemma_saturation_instances=0 lemma_saturation_capped=0 reading_steps=15
+
+# sample 12
+successor successor (successor ∥ zero) + successor ({} zero) + successor
+=>
+display: (λx_0. x_0 (λx_1. λx_2. λx_3. x_3 x_1)) + (λx_0. λx_1. λx_2. x_2 x_0)
+counts: lemma_saturation_instances=0 lemma_saturation_capped=0 reading_steps=59
+
+# sample 13
+zero
+=>
+display: λx_0. λx_1. x_0
+counts: lemma_saturation_instances=0 lemma_saturation_capped=0 reading_steps=9
+
+# sample 14
+λx_0. λx_1. ((λx_2. (x_0 ∥ x_0) (λx_3. x_2)) + x_0 successor ∥ (x_0 + x_0 + {})) ∥ x_1 (successor x_1 (λx_2. λx_3. x_0))
+=>
+display: {}
+counts: lemma_saturation_instances=0 lemma_saturation_capped=0 reading_steps=80
+
+# sample 15
+λx_0. λx_1. {} zero ((λx_2. λx_3. x_0) (λx_2. λx_3. x_0)) (x_1 ∥ x_0 + (x_0 ∥ x_1) {})
+=>
+display: {}
+counts: lemma_saturation_instances=0 lemma_saturation_capped=0 reading_steps=13
+
+# sample 16
+{}
+=>
+display: {}
+counts: lemma_saturation_instances=0 lemma_saturation_capped=0 reading_steps=1
+
+# sample 17
+{} (zero (zero + (λx_0. x_0 successor)))
+=>
+display: {}
+counts: lemma_saturation_instances=0 lemma_saturation_capped=0 reading_steps=2
+
+# sample 18
+λx_0. λx_1. x_1
+=>
+display: λx_0. λx_1. x_1
+counts: lemma_saturation_instances=0 lemma_saturation_capped=0 reading_steps=9
+
+# sample 19
+(λx_0. λx_1. λx_2. λx_3. λx_4. successor successor successor + (λx_5. {})) (λx_0. x_0)
+=>
+display: λx_0. λx_1. λx_2. λx_3. λx_4. x_4 (λx_5. λx_6. λx_7. x_7 x_5)
+counts: lemma_saturation_instances=0 lemma_saturation_capped=0 reading_steps=50

@@ -1,0 +1,4 @@
+# A parallel of two distinct abstractions, whose value is one parallel set
+# of two heads and so no single lambda. Two identities would not do: they
+# are one term, and their parallel has the one head.
+λ export. export (λx. x ∥ λx y. x)

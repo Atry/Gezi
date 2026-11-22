@@ -1,0 +1,50 @@
+#   ---- H22 and H24. coinductive typing: the ghost certificate ----
+#
+#   Ported from MIXINv8's typed natural (`MIXINv8/prolog/mixinv8/types/
+#   builtin/natural.pl`) without its premise, and in its idiom: the
+#   judgment answers a CERTIFICATE, a package whose `identity` member is
+#   the identity function, and a method uses the judgment as a CHANNEL,
+#   passing its payload through the certificate's identity, so that an
+#   argument that fails the judgment leaves the method's answer with no
+#   head at all ("THE GATE IS A CHANNEL, NOT A MARK", natural.pl). For a
+#   subject whose tag is false the else branch equates `J x` with `(J x)
+#   (\i. \w. w)`: an equation other values satisfy, but no certificate,
+#   since a certificate is not its own second member.
+#
+#   An object is a Scott triple (tag, method, base): `tag` a Scott
+#   boolean, the object's claim to be a natural; `method` its `add`,
+#   taking an object and answering one; `base` a Scott boolean, true for an
+#   object the judgment certifies without looking further (none is built
+#   in these points). The judgment and the members:
+#
+#       certificate = \sel. sel (\x. x) (\a. \b. \c. c)
+#       identity_of = \package. package (\i. \w. i)
+#       J x         = (tag x) ((base x) certificate (J (method x member))) ((J x) (\i. \w. w))
+#       symbol      = (true, \that. (identity_of (J that)) symbol, false)
+#
+#   `J symbol` needs `J (method symbol symbol)`, and `method symbol
+#   symbol` is `(identity_of (J symbol)) symbol`, which applies the value
+#   of `J symbol`. Its least solution gives no head
+#   (a tabled reading `failed`). The certificate is a solution: assumed
+#   for `J symbol`, `identity_of certificate` is the identity, the method
+#   answers `symbol`, and the judgment comes back to `J` of a term whose
+#   value is `symbol`'s, every judgment on the chain answering the
+#   assumed certificate. The claim is that the certificate is
+#   in the answer set, `some_solution(certificate(natural))`,
+#   compared as a term: MIXINv8 asks whether that very
+#   certificate is obtained, not whether the answer set is non-empty,
+#   and other ghost solutions of the cycle are irrelevant to it. The
+#   certificate's code occurs in the program only as the certificate
+#   itself (`\sel. sel (\x. x) (\a. \b. \c. c)`); a closure of the same
+#   code elsewhere would be the same certificate, since codes are content
+#   addressed where MIXINv8's anchors are nominal.
+#
+#   ONE STATE FOR THE MEMBER. The derivation needs the member the root
+#   judges and the member the judgment's body passes to the method to be
+#   one term, and the judgment the member's method calls to be the
+#   judgment being computed. Both recursions are therefore tied as a
+#   self-application `W W` with `W = \p. G (p p)`, never as `fixpoint G`,
+#   and the root binds J once, `(\judge. judge (member over judge)) J`.
+#   Each W is built by its own call, so the two copies are alpha
+#   equivalent and share no binder.
+λ export. export λx_0 x_1 x_2 x_3. x_3 x_0 x_1 x_2

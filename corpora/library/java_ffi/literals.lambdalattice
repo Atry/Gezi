@@ -1,0 +1,141 @@
+# The arguments of the Java FFI's literal constructs: a java.lang.String and a byte[] are ordinary references, and each
+# has a construct of its own that makes one from a list. The
+# byte array literal construct takes a Scott list (prelude/list) of 8-bit tuples (java_ffi/bits), the bytes of the
+# array; the string literal construct takes a Scott list of 16-bit tuples, the string's UTF-16 code units. The functions
+# here make those lists from a CBOR literal, in the term: the host reads no bit of a literal.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega corpora "library") "top")
+λ top
+. omega (omega (omega (omega corpora "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega corpora "library") "prelude") "fixpoint")
+λ fixpoint
+. omega (omega (omega (omega corpora "library") "java_ffi") "bits")
+λ _ bits_8_type bits_16 bits_16_type _ _ _ _
+. omega (omega (omega (omega corpora "library") "parallel_lists") "parallel_lists")
+λ list_type _ _ _
+. omega (omega (omega (omega corpora "library") "bytes") "cbor")
+λ bytes_from_cbor _
+. omega (omega (omega (omega corpora "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λt e. t)
+λ one_bit
+. (λtuple. tuple λt e. e)
+λ zero_bit
+# bits_8_list_type:
+# The lists of 8-bit tuples, the argument of the byte array literal construct: parallel_lists' list_type of
+# java_ffi/bits' bits_8_type, η-expanded so that the criterion is an abstraction.
+. (λtuple. tuple λn c. list_type bits_8_type n c)
+λ bits_8_list_type
+# bits_16_list_type:
+# The lists of 16-bit tuples, the argument of the string literal construct, written as bits_8_list_type is.
+. (λtuple. tuple λn c. list_type bits_16_type n c)
+λ bits_16_list_type
+# not, exclusive_or: of Scott booleans.
+. (λtuple. tuple λb. b zero_bit one_bit)
+λ not
+. (λtuple. tuple λa b. a (not b) b)
+λ exclusive_or
+# continued k byte: the six low bits of a continuation byte, 10xxxxxx, handed to k; top for any other byte.
+. (λtuple. tuple λk byte. byte λc7 c6 c5 c4 c3 c2 c1 c0. c7 (c6 top λ. k c5 c4 c3 c2 c1 c0) top)
+λ continued
+# decremented k u3 u2 u1 u0: the four low bits of the five-bit number u4 u3 u2 u1 u0 less one, handed to k, u4 not
+# being needed for them; the high surrogate's bits wwww of a code point whose five high bits are uuuuu, wwww being
+# uuuuu - 1 (The Unicode Standard, section 3.9, table 3-5).
+. ( λ tuple
+    . tuple
+    λ k u3 u2 u1 u0
+    . ( λ borrow_0 borrow_1 borrow_2
+        . k (exclusive_or u3 borrow_2) (exclusive_or u2 borrow_1) (exclusive_or u1 borrow_0) λ. not u0
+      )
+      (not u0)
+      (not u0 (not u1) zero_bit)
+    λ
+    . not u0 (not u1 (not u2) zero_bit) zero_bit
+  )
+λ decremented
+# utf16_of_utf8 bytes: the UTF-16 code units, as 16-bit tuples, of the code points a list of UTF-8 bytes encodes, a
+# code point above U+FFFF as its two surrogates (The Unicode Standard, section 3.9, tables 3-5 and 3-6). A lead byte
+# that starts no sequence (10xxxxxx, 11111xxx) and a continuation byte that is not 10xxxxxx give top; an overlong
+# sequence and the encoding of a surrogate are not refused, and give the unit their bits spell.
+. ( λ tuple
+    . tuple
+    λ
+    . fixpoint
+    λ self bytes
+    . bytes nil
+    λ byte rest
+    . byte
+    λ b7 b6 b5 b4 b3 b2 b1 b0
+    . b7
+      ( b6
+        ( λ
+          . b5
+            ( λ
+              . b4
+                ( λ
+                  . b3 top
+                  λ
+                  . rest top
+                  λ c tail
+                  . tail top
+                  λ d tail
+                  . tail top
+                  λ e tail
+                  . continued
+                    ( λ c5 c4 c3 c2 c1 c0
+                      . continued
+                        ( λ d5 d4 d3 d2 d1 d0
+                          . continued
+                            ( λ e5 e4 e3 e2 e1 e0
+                              . decremented
+                                ( λ w3 w2 w1 w0
+                                  . cons (bits_16 one_bit one_bit zero_bit one_bit one_bit zero_bit w3 w2 w1 w0 c3 c2 c1 c0 d5 d4)
+                                  λ
+                                  . cons (bits_16 one_bit one_bit zero_bit one_bit one_bit one_bit d3 d2 d1 d0 e5 e4 e3 e2 e1 e0)
+                                  λ
+                                  . self tail
+                                ) b1 b0 c5 c4
+                            ) e
+                        ) d
+                    ) c
+                )
+              λ
+              . rest top
+              λ c tail
+              . tail top
+              λ d tail
+              . continued
+                ( λ c5 c4 c3 c2 c1 c0
+                  . continued
+                    (λd5 d4 d3 d2 d1 d0. cons (bits_16 b3 b2 b1 b0 c5 c4 c3 c2 c1 c0 d5 d4 d3 d2 d1 d0) λ. self tail) d
+                ) c
+            )
+          λ
+          . rest top
+          λ c tail
+          . continued
+            ( λ c5 c4 c3 c2 c1 c0
+              . cons (bits_16 zero_bit zero_bit zero_bit zero_bit zero_bit b4 b3 b2 b1 b0 c5 c4 c3 c2 c1 c0) λ. self tail
+            ) c
+        ) top
+      )
+    λ
+    . cons
+      ( bits_16 zero_bit zero_bit zero_bit zero_bit zero_bit zero_bit zero_bit zero_bit zero_bit b6 b5 b4 b3 b2 b1 b0
+      )
+    λ
+    . self rest
+  )
+λ utf16_of_utf8
+# bytes_of_cbor: a CBOR byte string literal, h'…', read as the list of its bytes (bytes/cbor), the argument of the
+# byte array literal construct.
+. (λtuple. tuple λ. bytes_from_cbor λx. x)
+λ bytes_of_cbor
+# utf16_of_cbor: a CBOR text string literal, "…", read as the list of its UTF-16 code units, the argument of the
+# string literal construct.
+. (λtuple. tuple λ. text_from_cbor utf16_of_utf8)
+λ utf16_of_cbor
+. export bits_8_list_type bits_16_list_type utf16_of_utf8 bytes_of_cbor utf16_of_cbor

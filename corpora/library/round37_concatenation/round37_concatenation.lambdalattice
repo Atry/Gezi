@@ -1,0 +1,44 @@
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "prelude") "fixpoint")
+λ fixpoint
+. omega (omega (omega (omega corpora "library") "prelude") "list")
+λ nil cons _ _ length
+. omega (omega (omega (omega corpora "library") "prelude") "boolean")
+λ true false boolean _
+. omega (omega (omega corpora "library") "top")
+λ top
+# bits:
+#   A finite list of Booleans, and a finite list of those.
+. (λtuple. tuple λ. fixpoint λself l. l nil λh t. cons (boolean h) λ. self t)
+λ bits
+. (λtuple. tuple λ. fixpoint λself l. l nil λh t. cons (bits h) λ. self t)
+λ bits_list
+. ( λ tuple
+    . tuple
+    λ
+    . fixpoint
+    λ self left right
+    . left true
+    λ head tail
+    . right false λother rest. head (other (self tail rest) false) λ. other false λ. self tail rest
+  )
+λ bits_prefix
+. (λtuple. tuple λ. fixpoint λself n s. n s λm. s nil λ_ t. self m t)
+λ concatenation_drop
+. ( λ tuple
+    . tuple λ. fixpoint λself words f. words top λw rest. (self rest λv others. f v λ. cons w others + f w rest)
+  )
+λ concatenation_pick
+. ( λ tuple
+    . tuple
+    λ
+    . fixpoint
+    λ self words s i
+    . words i
+    λ _ _
+    . concatenation_pick words λw rest. bits_prefix w s (self rest (concatenation_drop (length w) s) i) top
+  )
+λ concatenation_fit
+. export bits bits_list bits_prefix concatenation_drop concatenation_pick concatenation_fit

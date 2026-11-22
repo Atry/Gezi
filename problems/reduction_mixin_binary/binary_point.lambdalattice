@@ -1,0 +1,173 @@
+# MIXINv2's BinNat library in the mixin encoding of inheritance
+# (corpora/contest_mixin_library.pl, the library `binary`): problems of
+# the reduction series, ported from the retired labeled points of
+# contest_inheritance_binary.pl. Each program is the labeled one's, read
+# at the same member: C.equality(A.plus(B)) or C.equality(A.times(B)),
+# read at church, whose answer is one Boolean.
+#
+# THE LIBRARY. A binary natural is zero, even 2h carrying its half h, or
+# odd 2h + 1 carrying its half_of_predecessor h, least significant bit
+# outermost, so a numeral of n bits nests n instances; plus recurses on
+# the receiver's halves with increment for the carry of odd + odd, times
+# on the receiver's halves, 2h m = h m + h m and (2h + 1) m = (h m + h m)
+# + m, h m read twice as the labeled port read it, and equality compares
+# bit by bit through the visitor.
+#
+# THE EQUATIONS, the labeled family's, every sum and product checked with
+# Prolog's integers:
+# - sums that hold: 13 + 29 = 42, 12345 + 54321 = 66666, 123456789 +
+#   987654321 = 1111111110;
+# - sums that do not, the right-hand side off by one high bit, so that
+#   the comparison must reach it: 13 + 29 = 74, 1000 + 2000 = 5048,
+#   123456789 + 987654321 = 2184852934;
+# - products: 7 * 6 = 42; 12345678 * 87654321; 123456789012 *
+#   210987654321; 12345678901234 * 43210987654321
+#   (contest_inheritance_middle_sizes.pl); 1234567890123456 *
+#   6543210987654321;
+# - and two products smaller than the labeled family's, 2 * 3 = 6 and
+#   3 * 3 = 9, so that the family has points weak_head reads: times reads
+#   h m twice at every level, which doubles its work at every bit of the
+#   receiver when nothing is shared.
+#
+# THE SNAPSHOT of each is the Boolean of the equation. PROOF:
+# plus, times and equality descend on the finite halves under every
+# choice, and every class has one implementation of each slot it is read
+# at, so every end is the Boolean of the equation.
+#
+# LIMITS: the family's, 10 s, 256 MB, 256 MB.
+
+#   binary_point(?Point, ?Operation, ?Left, ?Right, ?Result)
+#
+# Each text is from_cbor of a string literal, a Scott list of bytes,
+# imported from corpora/library/text/cbor. Each number is from_cbor of an
+# integer literal, a Scott integer, imported from corpora/library/integer/cbor.
+# FIXME: the imports project "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λx. x)
+λ integer
+. export
+λ
+. cons
+  ( λ _binary_point
+    . _binary_point
+      (text "reduction_mixin_binary_sum_small_holds")
+      (text "plus")
+      (integer 13)
+      (integer 29) λ. integer 42
+  )
+λ
+. cons
+  ( λ _binary_point
+    . _binary_point
+      (text "reduction_mixin_binary_sum_small_fails")
+      (text "plus")
+      (integer 13)
+      (integer 29) λ. integer 74
+  )
+λ
+. cons
+  ( λ _binary_point
+    . _binary_point
+      (text "reduction_mixin_binary_sum_medium_holds")
+      (text "plus")
+      (integer 12345)
+      (integer 54321) λ. integer 66666
+  )
+λ
+. cons
+  ( λ _binary_point
+    . _binary_point
+      (text "reduction_mixin_binary_sum_medium_fails")
+      (text "plus")
+      (integer 1000)
+      (integer 2000) λ. integer 5048
+  )
+λ
+. cons
+  ( λ _binary_point
+    . _binary_point
+      (text "reduction_mixin_binary_sum_large_holds")
+      (text "plus")
+      (integer 123456789)
+      (integer 987654321) λ. integer 1111111110
+  )
+λ
+. cons
+  ( λ _binary_point
+    . _binary_point
+      (text "reduction_mixin_binary_sum_large_fails")
+      (text "plus")
+      (integer 123456789)
+      (integer 987654321) λ. integer 2184852934
+  )
+λ
+. cons
+  ( λ _binary_point
+    . _binary_point
+      (text "reduction_mixin_binary_product_two_three")
+      (text "times")
+      (integer 2)
+      (integer 3) λ. integer 6
+  )
+λ
+. cons
+  ( λ _binary_point
+    . _binary_point
+      (text "reduction_mixin_binary_product_three_three")
+      (text "times")
+      (integer 3)
+      (integer 3) λ. integer 9
+  )
+λ
+. cons
+  ( λ _binary_point
+    . _binary_point (text "reduction_mixin_binary_product_small") (text "times") (integer 7) (integer 6) λ. integer 42
+  )
+λ
+. cons
+  ( λ _binary_point
+    . _binary_point
+      (text "reduction_mixin_binary_product_eight_digits")
+      (text "times")
+      (integer 12345678)
+      (integer 87654321) λ. integer 1082152022374638
+  )
+λ
+. cons
+  ( λ _binary_point
+    . _binary_point
+      (text "reduction_mixin_binary_product_twelve_digits")
+      (text "times")
+      (integer 123456789012)
+      (integer 210987654321) λ. integer 26047858323644487120852
+  )
+λ
+. cons
+  ( λ _binary_point
+    . _binary_point
+      (text "reduction_mixin_binary_product_fourteen_digits")
+      (text "times")
+      (integer 12345678901234)
+      (integer 43210987654321) λ. integer 533468978585433622292332114
+  )
+λ
+. cons
+  ( λ _binary_point
+    . _binary_point
+      (text "reduction_mixin_binary_product_sixteen_digits")
+      (text "times")
+      (integer 1234567890123456)
+      (integer 6543210987654321) λ. integer 8078038183661009782044541853376
+  ) nil

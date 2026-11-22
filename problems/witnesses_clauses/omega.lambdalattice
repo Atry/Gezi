@@ -1,0 +1,21 @@
+# THE SEPARATION WITNESSES: one pair of points per pair of settings.
+#
+# A POINT IS AN EXPORTED UNARY PREDICATE of the module that includes this
+# file, and a piece defined elsewhere is pulled in by a plain call, which
+# yields a fresh copy of that clause's variables; the prelude's pieces reach
+# this file through the module's `use_module` of it.
+#
+# Two settings separate what these points read.
+#
+# Untabled `weak_head` against `tabling(weak_head)`: `omega` diverges under
+# plain weak head reduction, and is decided to have no answer in finite
+# time once the reduction is tabled, because its reduct is itself and the
+# tabled call re-enters its own variant.
+#
+# `speculative(Budget, Exhausted, Nesting)` against plain `weak_head`, both
+# tabled, witnessed by `growing_argument` below. The speculation runs on
+# the argument of each beta reduction before it is substituted; what this
+# term needs is that its growing argument be normalised rather than
+# substituted as it stands.
+
+λ export. export λ. (λx_0. x_0 x_0) λx_0. x_0 x_0

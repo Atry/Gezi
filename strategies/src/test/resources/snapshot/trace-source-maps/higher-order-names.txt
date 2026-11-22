@@ -1,0 +1,47 @@
+# sample 0
+(λx. λz. x (λx_0. x_0)) (λx_0. x_0)
+=>
+start
+  (λt. t λx_0. x_0) λ$merkle$fc082a46. (λx z. x $merkle$fc082a46) $merkle$fc082a46
+β conversion of lemma 1: λx_0 x_1. (λx_2 x_3. x_0 x_2) x_1 = λx_0 x_1 x_2. x_0 x_1, backward, at function
+  (λt. t λx_0. x_0) λ$merkle$fc082a46. (λabstracted z. (λabstracted_2. abstracted_2 $merkle$fc082a46) abstracted) $merkle$fc082a46
+lemma 1: λx_0 x_1. (λx_2 x_3. x_0 x_2) x_1 = λx_0 x_1 x_2. x_0 x_1, forward, at the root
+  (λt. t λx_0. x_0) λ$merkle$fc082a46 z. (λabstracted. abstracted $merkle$fc082a46) $merkle$fc082a46
+β conversion of lemma 1: λx_0 x_1. (λx_2 x_3. x_0 x_2) x_1 = λx_0 x_1 x_2. x_0 x_1, forward, at the root
+  (λt. t λx_0. x_0) λ$merkle$fc082a46 z. $merkle$fc082a46 $merkle$fc082a46
+
+# sample 1
+(λx. λz. x) (λw. λx_0. λx_1. λx_2. (λx_3. x_2) (λx_3. x_3))
+=>
+start
+  (λx z. x) λw x_0 x_1 x_2. (λx_3. x_2) λx_3. x_3
+β conversion of lemma 1: λx_0 x_1. (λx_2 x_3. x_0 x_2) x_1 = λx_0 x_1 x_2. x_0 x_1, backward, at function
+  (λt. t λx_3. x_3) λ$merkle$fc082a46. (λabstracted abstracted_2. $merkle$fc082a46 abstracted) λw x_0 x_1 x_2. (λx_3. x_2) $merkle$fc082a46
+lemma 1: λx_0 x_1. (λx_2 x_3. x_0 x_2) x_1 = λx_0 x_1 x_2. x_0 x_1, forward, at the root
+  (λt. t λx_3. x_3) λ$merkle$fc082a46 lemma. $merkle$fc082a46 λw x_0 x_1 x_2. (λx_3. x_2) $merkle$fc082a46
+β conversion of lemma 1: λx_0 x_1. (λx_2 x_3. x_0 x_2) x_1 = λx_0 x_1 x_2. x_0 x_1, forward, at the root
+  λbeta w x_0 x_1 x_2. (λx_3. x_2) λx_3. x_3
+
+# sample 2
+(λx. λz. x) (λw. λx_0. (λx_1. ((λx_2. x_2) (x_0 x_0) ∥ (λx_2. x_2) (x_0 x_0)) ∥ (x_0 ∥ x_0 + x_0 x_0 + x_0 x_0)))
+=>
+start
+  (λt. t λx_2. x_2) λ$merkle$fc082a46. (λx z. x) λw x_0. (λx_1. ($merkle$fc082a46 λ. x_0 x_0 ∥ $merkle$fc082a46 λ. x_0 x_0) ∥ (x_0 ∥ x_0 + x_0 x_0 + x_0 x_0))
+β conversion of lemma 1: λx_0 x_1. (λx_2 x_3. x_0 x_2) x_1 = λx_0 x_1 x_2. x_0 x_1, backward, at function
+  (λt. t λx_2. x_2) λ$merkle$fc082a46. (λabstracted abstracted_2. $merkle$fc082a46 abstracted) λw x_0. (λx_1. ($merkle$fc082a46 λ. x_0 x_0 ∥ $merkle$fc082a46 λ. x_0 x_0) ∥ (x_0 ∥ x_0 + x_0 x_0 + x_0 x_0))
+lemma 1: λx_0 x_1. (λx_2 x_3. x_0 x_2) x_1 = λx_0 x_1 x_2. x_0 x_1, forward, at the root
+  (λt. t λx_2. x_2) λ$merkle$fc082a46 lemma. $merkle$fc082a46 λw x_0. (λx_1. ($merkle$fc082a46 λ. x_0 x_0 ∥ $merkle$fc082a46 λ. x_0 x_0) ∥ (x_0 ∥ x_0 + x_0 x_0 + x_0 x_0))
+β conversion of lemma 1: λx_0 x_1. (λx_2 x_3. x_0 x_2) x_1 = λx_0 x_1 x_2. x_0 x_1, forward, at the root
+  (λt. t λx_2. x_2) λ$merkle$fc082a46 beta w x_0. (λx_1. ($merkle$fc082a46 λ. x_0 x_0 ∥ $merkle$fc082a46 λ. x_0 x_0) ∥ (x_0 ∥ x_0 + x_0 x_0 + x_0 x_0))
+
+# sample 3
+(λx. λz. z (x (λx_0. (x_0 + x_0 + x_0 + x_0 + (x_0 x_0 ∥ x_0 x_0) + λx_1. (x_0 + x_0 + x_0 x_1)) (λx_1. λx_2. (x_0 ∥ x_0) (λx_3. (x_3 + x_3) + λx_3. (x_3 + x_3)))))) (λx_0. (λx_1. λx_2. (x_1 x_0 + λx_3. x_2 + (x_0 ∥ x_0))) (λx_1. λx_2. (x_1 x_0 + λx_3. x_2 + (x_0 ∥ x_0))) (x_0 (λx_1. (x_0 + x_0 ∥ λx_2. x_0 x_2))))
+=>
+start
+  (λt. t λx_3. (x_3 + x_3)) λ$merkle$f5abac8a. (λx z. z λ. x λx_0. (x_0 + x_0 + x_0 + x_0 + (x_0 x_0 ∥ x_0 x_0) + λx_1. (x_0 + x_0 + x_0 x_1)) λx_1 x_2. (x_0 ∥ x_0) ($merkle$f5abac8a + $merkle$f5abac8a)) λx_0. (λx_1 x_2. (x_1 x_0 + λx_3. x_2 + (x_0 ∥ x_0))) (λx_1 x_2. (x_1 x_0 + λx_3. x_2 + (x_0 ∥ x_0))) λ. x_0 λx_1. (x_0 + x_0 ∥ λx_2. x_0 x_2)
+β conversion of lemma 1: λx_0 x_1. (λx_2 x_3. x_3 λ. x_0 x_2) x_1 = λx_0 x_1 x_2. x_2 λ. x_0 x_1, backward, at function
+  (λt. t λx_3. (x_3 + x_3)) λ$merkle$f5abac8a. (λabstracted z. z λ. (λabstracted_2. abstracted_2 λx_0. (x_0 + x_0 + x_0 + x_0 + (x_0 x_0 ∥ x_0 x_0) + λx_1. (x_0 + x_0 + x_0 x_1)) λx_1 x_2. (x_0 ∥ x_0) ($merkle$f5abac8a + $merkle$f5abac8a)) abstracted) λx_0. (λx_1 x_2. (x_1 x_0 + λx_3. x_2 + (x_0 ∥ x_0))) (λx_1 x_2. (x_1 x_0 + λx_3. x_2 + (x_0 ∥ x_0))) λ. x_0 λx_1. (x_0 + x_0 ∥ λx_2. x_0 x_2)
+lemma 1: λx_0 x_1. (λx_2 x_3. x_3 λ. x_0 x_2) x_1 = λx_0 x_1 x_2. x_2 λ. x_0 x_1, forward, at the root
+  (λt. t λx_3. (x_3 + x_3)) λ$merkle$f5abac8a z. z λ. (λabstracted. abstracted λx_0. (x_0 + x_0 + x_0 + x_0 + (x_0 x_0 ∥ x_0 x_0) + λx_1. (x_0 + x_0 + x_0 x_1)) λx_1 x_2. (x_0 ∥ x_0) ($merkle$f5abac8a + $merkle$f5abac8a)) λx_0. (λx_1 x_2. (x_1 x_0 + λx_3. x_2 + (x_0 ∥ x_0))) (λx_1 x_2. (x_1 x_0 + λx_3. x_2 + (x_0 ∥ x_0))) λ. x_0 λx_1. (x_0 + x_0 ∥ λx_2. x_0 x_2)
+β conversion of lemma 1: λx_0 x_1. (λx_2 x_3. x_3 λ. x_0 x_2) x_1 = λx_0 x_1 x_2. x_2 λ. x_0 x_1, forward, at the root
+  (λt. t λx_3. (x_3 + x_3)) λ$merkle$f5abac8a z. z λ. (λx_0. (λx_1 x_2. (x_1 x_0 + λx_3. x_2 + (x_0 ∥ x_0))) (λx_1 x_2. (x_1 x_0 + λx_3. x_2 + (x_0 ∥ x_0))) λ. x_0 λx_1. (x_0 + x_0 ∥ λx_2. x_0 x_2)) λx_0. (x_0 + x_0 + x_0 + x_0 + (x_0 x_0 ∥ x_0 x_0) + λx_1. (x_0 + x_0 + x_0 x_1)) λx_1 x_2. (x_0 ∥ x_0) ($merkle$f5abac8a + $merkle$f5abac8a)

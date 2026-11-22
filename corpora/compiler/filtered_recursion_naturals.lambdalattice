@@ -1,0 +1,61 @@
+# The contracts and the typed branches of the filtered structural recursion
+# nat_fold_filtered of parallel_types. Each lemma holds for every base and
+# every step: nat_fold_filtered filters the base, the recursive result
+# handed to the step and the step's output by nat_type, so no lemma here
+# asks anything of the step. A fold whose step HM rejects gets the output
+# type all the same, as nat_fold_filtered (successor zero) true does. The
+# lemmas are sound, and they are kept out of the lemma set of HM. The lemmas
+# on list_fold_filtered are in filtered_recursion_lists and
+# filtered_recursion_applied, so that every lemma set is a union of whole
+# modules: a configuration enables these four without them.
+#
+# A typed branch adds to a term a smaller alternative, A = A + B with B ≤ A,
+# an equation that holds up to ≃_O, so adding B changes the meaning of no
+# term in any context, and dropping A at
+# compile time only loses answers.
+#
+# Every lemma here is a theorem of λ-lattice-unit-η (CONTRIBUTING.md,
+# "Terms"); each declaration cites its paper proof. The
+# Lean module ParallelTypesTheorems (gezi/lean) derives them. None uses
+# induction. This module declares no define: it uses compose (prelude),
+# filter_nat, nat_fold and nat_fold_filtered (parallel_types), with which it
+# is compiled.
+
+# The contracts of structural recursion with filters, for every base and
+# every step: every output path of nat_fold_filtered ends with filter_nat.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "prelude") "combinators")
+λ _ _ compose _ _ _ _
+. omega (omega (omega (omega corpora "library") "parallel_types") "natural")
+λ _ nat_fold filter_nat nat_fold_filtered
+. export
+λ _ rewriting _ _
+. rewriting
+λ _ lemmas _
+. lemmas
+  ( λ s
+    . s
+      (λk. k "nat_fold_filtered_branch_in_context")
+      (λx_0 x_1 x_2. x_0 λ. nat_fold x_1 x_2)
+      (λx_0 x_1 x_2. (x_0 λ. nat_fold_filtered x_1 x_2 + x_0 λ. nat_fold x_1 x_2)) λ_ md _. md λk. k "[nat_fold_filtered_branch_in_context](docs/design/gezi-set-equations-proofs.md)"
+  # The typed branch of a structural recursion: the filtered recursion is
+  # smaller than the unfiltered one, by monotonicity (10), so it can stand
+  # beside it, alone or in any context.
+  + λ s
+    . s
+      (λk. k "nat_fold_filtered_branch")
+      (λx_0 x_1. nat_fold x_0 x_1)
+      (λx_0 x_1. (nat_fold_filtered x_0 x_1 + nat_fold x_0 x_1)) λ_ md _. md λk. k "[nat_fold_filtered_branch](docs/design/gezi-set-equations-proofs.md)"
+  + λ s
+    . s
+      (λk. k "nat_fold_filtered_contract_chained")
+      (λx_0 x_1 x_2. compose filter_nat λ. compose (nat_fold_filtered x_0 x_1) λ. compose filter_nat x_2)
+      (λx_0 x_1 x_2. compose (nat_fold_filtered x_0 x_1) λ. compose filter_nat x_2) λ_ md _. md λk. k "[nat_fold_filtered_contract_chained](docs/design/gezi-set-equations-proofs.md)"
+  + λ s
+    . s
+      (λk. k "nat_fold_filtered_contract")
+      (λx_0 x_1. compose filter_nat λ. compose (nat_fold_filtered x_0 x_1) filter_nat)
+      (λx_0 x_1. compose (nat_fold_filtered x_0 x_1) filter_nat) λ_ md _. md λk. k "[nat_fold_filtered_contract](docs/design/gezi-set-equations-proofs.md)"
+  )

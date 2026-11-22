@@ -1,0 +1,31 @@
+# The Prolog backend's facts for native_arithmetic, a knowledge module of
+# their own (one set of backend facts per backend; prolog_backend.pl has
+# the constructors'): double and even run as the operations natural_double
+# and natural_even of lambda_jit_prolog_backend_natives. Trusted, as every
+# native is, and vouched for by the comparison of
+# tests/native_route_compilation.plt, the_natives_agree_with_their_defines:
+# on small naturals the compiled run, which calls the native, reads the
+# normal forms the reference reads of the define. The terms bound to natives
+# are leaves, so that no round unfolds them and the refinement keeps them as
+# written: the JIT calls a native only where the term bound to it stands.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "native_arithmetic") "native_arithmetic")
+λ double even
+. export
+  ( λ _ rewriting _ _
+    . rewriting
+    λ _ _ leaves
+    . leaves
+      ( λk. k even
+      + λk. k double
+      )
+  + λ _ _ _ backend
+    . backend
+    λ _ natives _ _ _ _
+    . natives
+      ( λs. s even λk. k "natural_even"
+      + λs. s double λk. k "natural_double"
+      )
+  )

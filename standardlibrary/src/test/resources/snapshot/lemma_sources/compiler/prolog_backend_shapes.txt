@@ -1,0 +1,85 @@
+shapes_natural_candidate: λx_0 x_1. structure λ. alternative x_0 λ. alternative (field x_1 no_field) no_alternative = λ x_0 x_1
+            . candidate nat_type λ. structure λ. alternative x_0 λ. alternative (field x_1 no_field) no_alternative
+shapes_natural_item_candidate: λx_0 x_1. structure λ. alternative x_0 λ. alternative (field x_1 no_field) no_alternative = λ x_0 x_1
+            . item_candidate nat_type λ. structure λ. alternative x_0 λ. alternative (field x_1 no_field) no_alternative
+shapes_boolean_candidate: λx_0. structure λ. alternative x_0 λ. alternative no_field no_alternative = λx_0. candidate boolean_type λ. structure λ. alternative x_0 λ. alternative no_field no_alternative
+shapes_boolean_item_candidate: λx_0. structure λ. alternative x_0 λ. alternative no_field no_alternative = λ x_0
+            . item_candidate boolean_type λ. structure λ. alternative x_0 λ. alternative no_field no_alternative
+shapes_natural_field_candidate: λ x_0 x_1
+            . candidate nat_type λ. structure λ. alternative x_0 λ. alternative (field x_1 no_field) no_alternative = λ x_0 x_1
+            . ( unify x_1 λ. item_candidate nat_type x_1
+              + unify x_1 λ. candidate nat_type x_1
+              + candidate nat_type λ. structure λ. alternative x_0 λ. alternative (field x_1 no_field) no_alternative
+              )
+shapes_list_candidate: λ x_0 x_1 x_2 x_3
+            . structure
+            λ
+            . alternative x_0 λ. alternative (field (item_candidate x_1 x_2) λ. field x_3 no_field) no_alternative = λ x_0 x_1 x_2 x_3
+            . candidate (list_type x_1)
+            λ
+            . structure
+            λ
+            . alternative x_0 λ. alternative (field (item_candidate x_1 x_2) λ. field x_3 no_field) no_alternative
+shapes_list_cell_candidate: λ x_0 x_1 x_2 x_3
+            . structure
+            λ
+            . alternative x_0 λ. alternative (field x_2 λ. field (candidate (list_type x_1) x_3) no_field) no_alternative = λ x_0 x_1 x_2 x_3
+            . candidate (list_type x_1)
+            λ
+            . structure
+            λ
+            . alternative x_0 λ. alternative (field x_2 λ. field (candidate (list_type x_1) x_3) no_field) no_alternative
+shapes_list_item_candidate: λ x_0 x_1 x_2 x_3
+            . structure
+            λ
+            . alternative x_0 λ. alternative (field (item_candidate x_1 x_2) λ. field x_3 no_field) no_alternative = λ x_0 x_1 x_2 x_3
+            . list_item_candidate x_1
+            λ
+            . structure
+            λ
+            . alternative x_0 λ. alternative (field (item_candidate x_1 x_2) λ. field x_3 no_field) no_alternative
+shapes_list_tail_item_candidate: λ x_0 x_1 x_2 x_3
+            . structure
+            λ
+            . alternative x_0 λ. alternative (field x_2 λ. field (list_item_candidate x_1 x_3) no_field) no_alternative = λ x_0 x_1 x_2 x_3
+            . list_item_candidate x_1
+            λ
+            . structure
+            λ
+            . alternative x_0 λ. alternative (field x_2 λ. field (list_item_candidate x_1 x_3) no_field) no_alternative
+shapes_nested_list_candidate: λ x_0 x_1 x_2 x_3
+            . structure
+            λ
+            . alternative x_0 λ. alternative (field (list_item_candidate x_1 x_2) λ. field x_3 no_field) no_alternative = λ x_0 x_1 x_2 x_3
+            . candidate (list_type λ. list_type x_1)
+            λ
+            . structure
+            λ
+            . alternative x_0 λ. alternative (field (list_item_candidate x_1 x_2) λ. field x_3 no_field) no_alternative
+shapes_list_fields_candidate: λ x_0 x_1 x_2 x_3
+            . candidate (list_type x_1) λ. structure λ. alternative x_0 λ. alternative (field x_2 λ. field x_3 no_field) no_alternative = λ x_0 x_1 x_2 x_3
+            . ( unify x_3 λ. candidate (list_type x_1) x_3
+              + unify x_2 λ. candidate x_1 x_2
+              + candidate (list_type x_1) λ. structure λ. alternative x_0 λ. alternative (field x_2 λ. field x_3 no_field) no_alternative
+              )
+shapes_unify_candidate_left: λx_0 x_1 x_2. unify (candidate x_0 x_1) x_2 = λx_0 x_1 x_2. candidate x_0 x_1
+shapes_unify_candidate_right: λx_0 x_1 x_2. unify x_1 λ. candidate x_0 x_2 = λx_0 x_1 x_2. candidate x_0 x_2
+shapes_unify_item_candidate_left: λx_0 x_1 x_2. unify (item_candidate x_0 x_1) x_2 = λx_0 x_1 x_2. item_candidate x_0 x_1
+shapes_unify_item_candidate_right: λx_0 x_1 x_2. unify x_1 λ. item_candidate x_0 x_2 = λx_0 x_1 x_2. item_candidate x_0 x_2
+shapes_domain_candidate: λx_0 x_1 x_2. function_type (candidate x_0 x_1) x_2 = λx_0 x_1 x_2. domain_candidate x_0 λ. function_type (candidate x_0 x_1) x_2
+shapes_function_candidate: λx_0 x_1 x_2 x_3. function_type (candidate x_0 x_2) λ. candidate x_1 x_3 = λ x_0 x_1 x_2 x_3
+            . function_candidate x_0 x_1 λ. function_type (candidate x_0 x_2) λ. candidate x_1 x_3
+shapes_typed_version_domain: λx_0 x_1 x_2 x_3 x_4. (x_0 ∥ domain_candidate x_2 x_3 + x_0) (x_1 ∥ x_4 + x_1) = λx_0 x_1 x_2 x_3 x_4. (x_0 (x_1 ∥ x_2) + (x_0 ∥ domain_candidate x_2 x_3 + x_0) (x_1 ∥ x_4 + x_1))
+shapes_typed_version_function: λx_0 x_1 x_2 x_3 x_4 x_5. (x_0 ∥ function_candidate x_2 x_3 x_4 + x_0) (x_1 ∥ x_5 + x_1) = λ x_0 x_1 x_2 x_3 x_4 x_5
+            . (x_0 (x_1 ∥ x_2) ∥ x_3 + (x_0 ∥ function_candidate x_2 x_3 x_4 + x_0) (x_1 ∥ x_5 + x_1))
+shapes_contract: λx_0 x_1 x_2 x_3. (x_0 ∥ function_candidate x_1 x_2 x_3 + x_0) = λx_0 x_1 x_2 x_3 x_4. (x_0 (x_4 ∥ x_1) ∥ x_2 + x_0 x_4)
+shapes_curried_contract: λ x_0 x_1 x_2 x_3 x_4 x_5
+            . ( x_0
+              ∥ domain_candidate x_1 λ. function_type (candidate x_1 x_2) λ. function_type (candidate x_3 x_4) x_5
+              + x_0
+              ) = λ x_0 x_1 x_2 x_3 x_4 x_5
+            . (λx_6 x_7. (x_6 λ. x_0 (x_7 ∥ x_1) + x_0 x_7)) λ. contract_at λ. function_type (candidate x_3 x_4) x_5
+shapes_contract_at_range: λx_0 x_1 x_2. contract_at λ. function_candidate x_0 x_1 x_2 = λx_0 x_1 x_2 x_3 x_4. (x_3 (x_4 ∥ x_0) ∥ x_1 + x_3 x_4)
+shapes_contract_at_curried: λ x_0 x_1 x_2 x_3 x_4
+            . contract_at λ. function_type (candidate x_0 x_1) λ. function_type (candidate x_2 x_3) x_4 = λ x_0 x_1 x_2 x_3 x_4
+            . (λx_5 x_6 x_7. (x_5 λ. x_6 (x_7 ∥ x_0) + x_6 x_7)) λ. contract_at λ. function_type (candidate x_2 x_3) x_4

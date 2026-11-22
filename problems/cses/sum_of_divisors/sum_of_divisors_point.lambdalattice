@@ -1,0 +1,57 @@
+# The base problems of the CSES families repeated_cses_sum_of_divisors_*: an integer n, the answer the sum over i from 1 to n of the sum of the divisors of i, modulo 10^9 + 7.
+#
+# THE ANSWER of each row is the problem's definition computed exhaustively by a
+# brute-force script (2026-11-22), which enumerates every candidate the problem's
+# statement describes. PROOF: the program of the problem's file follows the
+# definition, and its header argues under Definition 14 that its one normal form
+# is that answer; the data are finite and within the family's bottom rungs, which
+# the reference reading answers. The inputs are the author's own, no CSES test
+# data.
+#
+#   sum_of_divisors_point(?Point, ?Limit, ?Result)
+#
+# Limit is an integer (corpora/library/integer/cbor) >= 1; Result is an integer.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λvalue. value)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λvalue. value)
+λ integer
+. export
+λ
+. cons
+  ( λ _sum_of_divisors_point
+    . _sum_of_divisors_point (text "cses_sum_of_divisors_one") (integer 1) λ. (integer 1)
+  )
+λ
+. cons
+  ( λ _sum_of_divisors_point
+    . _sum_of_divisors_point (text "cses_sum_of_divisors_two") (integer 2) λ. (integer 4)
+  )
+λ
+. cons
+  ( λ _sum_of_divisors_point
+    . _sum_of_divisors_point (text "cses_sum_of_divisors_five") (integer 5) λ. (integer 21)
+  )
+λ
+. cons
+  ( λ _sum_of_divisors_point
+    . _sum_of_divisors_point (text "cses_sum_of_divisors_ten") (integer 10) λ. (integer 87)
+  )
+λ
+. cons
+  ( λ _sum_of_divisors_point
+    . _sum_of_divisors_point (text "cses_sum_of_divisors_twelve") (integer 12) λ. (integer 127)
+  )
+λ
+. cons
+  ( λ _sum_of_divisors_point
+    . _sum_of_divisors_point (text "cses_sum_of_divisors_seven") (integer 7) λ. (integer 41)
+  ) nil

@@ -1,0 +1,130 @@
+#!  conjecture_proved(?Point, ?Template, ?Argument)
+#
+#   The conjectures proved on 2026-09-28, each by at least one proof
+#   reviewed step by step, a paper proof not in this repository; they are
+#   proved claims. The
+#   proofs are of consistency with lambda beta eta, which
+#   implies consistency with lambda beta (every equation lambda beta proves,
+#   lambda beta eta proves), so they stand under a judgment over lambda
+#   beta and under a judgment over lambda beta eta.
+#   Reviewed class by class for lambda beta eta, 2026-09-29; each class has at least one accepted proof
+#   whose collapsing rule is shown to commute with eta:
+#   - fixpoint_collapse: eta in the decreasing diagram, by Hindley-Rosen,
+#     or commuting with the collapse;
+#   - safety_collapse and comparison_collapse: a theorem whose set is
+#     closed under eta, and a collapse lemma with eta by Hindley's lemma;
+#     safety_escape_behind_traps also by two proofs over lambda beta eta;
+#   - subtype_collapse: the same theorem, whose set is closed under eta;
+#   - certificate_collapse, the cycles of any Count included: the
+#     certificate proofs state lambda beta eta plus the collapse;
+#   - respelled_collapse: two of its proofs are over lambda beta eta (a
+#     third is over lambda beta alone and is not needed).
+#   The class easy (`contest_easy_terms.pl`) rests on
+#   `doc/proofs/omega_easy_beta_eta.md`. Every proof
+#   adds, to beta and eta, a rule collapsing a set of
+#   closed terms that contains the point's term (or a reduct of it) onto the
+#   value, and shows the extended reduction confluent with true and false
+#   distinct normal forms:
+#
+#   - fixpoint_collapse: M = Y G with G = \x. x B1 ... Bk, and false
+#     B1[false] ... Bk[false] reduces to false (H29, H30);
+#   - comparison_collapse: the left-first comparison of two left spines
+#     (H15), false carried by the conjunction with the right subtrees'
+#     comparison;
+#   - safety_collapse: safe on an infinite good path, either boolean
+#     carried by the or over the successors (H4, H5, H14), the traps of
+#     safety_escape_behind_traps refuted by beta;
+#   - subtype_collapse: the recursive subtype check, either boolean carried
+#     by the conjunction over the supertype's fields (H2, H19).
+#
+#   The certificate points H22 and H24 are proved by
+#   certificate_collapse, at the class (`cycle_claim/4`); the twin's traps
+#   stay conjectures.
+#
+#   Proved later, and proved claims:
+#
+#   - respelled_collapse: boolean(false) of the three respelled cycles
+#     (`contest_respelled_cycles.pl`; `doc/proofs/kestrel_respelled_cycles_family.md`,
+#     `heron_respelled_family.md`, `individual_respelled_cycles_consistency.md`);
+#   - certificate_collapse extended to a cycle of any Count >= 1 members, at
+#     the class certificate_cycle (`contest_certificate_cycles.pl`;
+#     `doc/proofs/certificate_cycles.md`, `osprey_certificate_cycle_collapse.md`,
+#     `individual_certificate_cycles_consistency.md`).
+#
+#   Proved later still, and proved claims:
+#
+#   - arithmetic_search: both booleans of the three arithmetic theorems
+#     (`contest_arithmetic_theorems.pl`;
+#     `doc/proofs/arithmetic_search_consistency.md`, for the linear
+#     fragment the three theorems belong to);
+#   - continuation_eta_omega: both booleans of continuation_true_eta
+#     (`contest_continuation_cycles.pl`;
+#     `doc/proofs/continuation_true_eta_is_omega.md`);
+#   - continuation_projection_collapse: the scored claims of the other five
+#     continuation points (`doc/proofs/continuation_projection_collapse.md`).
+#
+# The template is a constructor of schema/template, a Boolean a Church
+# Boolean of corpora/library/prelude/boolean. Each other text is from_cbor
+# of a string literal, a Scott list of bytes, imported from
+# corpora/library/text/cbor. FIXME: the imports project "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "boolean")
+λ true false _ _
+. omega (omega (omega (omega gezi "problems") "schema") "template")
+λ boolean _ _
+. export
+λ
+. cons
+  ( λ _conjecture_proved
+    . _conjecture_proved (text "probe_cycle_and_false") (boolean false) λ. text "fixpoint_collapse"
+  )
+λ
+. cons
+  ( λ _conjecture_proved
+    . _conjecture_proved (text "probe_cycle_if_false") (boolean false) λ. text "fixpoint_collapse"
+  )
+λ
+. cons
+  ( λ _conjecture_proved
+    . _conjecture_proved (text "probe_cycle_and_or") (boolean false) λ. text "fixpoint_collapse"
+  )
+λ
+. cons
+  ( λ _conjecture_proved
+    . _conjecture_proved (text "value_map_two_cycle") (boolean false) λ. text "fixpoint_collapse"
+  )
+λ
+. cons
+  ( λ _conjecture_proved
+    . _conjecture_proved (text "value_map_three_cycle") (boolean false) λ. text "fixpoint_collapse"
+  )
+λ
+. cons
+  ( λ _conjecture_proved
+    . _conjecture_proved (text "tree_same_left_first_differ_right") (boolean false) λ. text "comparison_collapse"
+  )
+λ
+. cons
+  ( λ _conjecture_proved
+    . _conjecture_proved (text "continuation_true_constant") (boolean false) λ. text "continuation_projection_collapse"
+  )
+λ
+. cons
+  ( λ _conjecture_proved
+    . _conjecture_proved (text "continuation_true_pair") (boolean false) λ. text "continuation_projection_collapse"
+  )
+λ
+. cons
+  ( λ _conjecture_proved
+    . _conjecture_proved (text "continuation_false_constant") (boolean true) λ. text "continuation_projection_collapse"
+  ) nil

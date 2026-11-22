@@ -1,0 +1,9 @@
+# sample 0
+die: evaluation judgment
+=>
+setup ready false none -
+point_0 stopped false died:137 -
+setup ready false none -
+point_1 stopped false died:137 -
+probe-1.stderr: RoundStarted FamilyStarted PointStarted
+probe-2.stderr: FamilyStarted PointStarted

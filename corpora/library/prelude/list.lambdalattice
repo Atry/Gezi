@@ -1,0 +1,18 @@
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "prelude") "fixpoint")
+λ fixpoint
+. omega (omega (omega (omega corpora "library") "prelude") "natural")
+λ zero successor _ _ _ _ _
+. (λtuple. tuple λn _. n)
+λ nil
+. (λtuple. tuple λh t _ c. c h t)
+λ cons
+. (λtuple. tuple λ. fixpoint λself xs ys. xs ys λh t. cons h λ. self t ys)
+λ append
+. (λtuple. tuple λ. fixpoint λself f xs. xs nil λh t. cons (f h) λ. self f t)
+λ map
+. (λtuple. tuple λ. fixpoint λself xs. xs zero λ_ t. successor λ. self t)
+λ length
+. export nil cons append map length

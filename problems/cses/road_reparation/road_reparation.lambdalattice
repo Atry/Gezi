@@ -1,0 +1,144 @@
+# road_reparation:
+# CSES 1675, Road Reparation (https://cses.fi/problemset/task/1675), in our own
+# words: city_count cities and some two-way roads, each between two cities with a
+# repair cost; some of the roads are repaired so that every city is reachable
+# from every other over repaired roads; the least total cost of the repaired roads.
+# CSES also answers that it cannot be done when the roads leave the cities
+# disconnected; this program assumes the roads connect them, as the generator
+# draws (the answer for a disconnected graph is the total cost of all roads, which
+# is no repair). The input is the number of cities, a binary natural
+# (corpora/library/binary/natural), at least 1, and the roads, a Scott list
+# (corpora/library/prelude/list) of triples `pair a (pair b cost)`
+# (corpora/library/prelude/pair), each a binary natural, the cities from 1 to the
+# number of cities. The answer is a binary natural. Part of the CSES port's third
+# batch.
+#
+# THE PROGRAM, written by the definition: the list of the (total cost, roads) of
+# every subset of the roads is built (the subsets of a road followed by the
+# others are the subsets of the others, and the same with the road added and its
+# cost summed), and the least total cost among the subsets that connect all
+# cities is taken, a subset connecting them when every city is reachable from city 1
+# within city_count steps over its roads. The total cost of all roads starts the
+# least: it is a subset that connects, by the assumption. Its reading is exponential in the number
+# of roads even under tabling, since the 2^m subsets are built and checked; the
+# replacement the family asks for is Kruskal's algorithm, the roads sorted by cost and
+# taken when they join two components of a union-find, about m log m steps, on fixed-width
+# integers.
+#
+# DEFINITION 14: the program P, the point's term, is built of λ and application
+# only: its text holds no top, no choice, no parallel and no literal. It β-reduces
+# to V, the canonical binary numeral of the answer: every recursion ends, since
+# subset_totals consumes the finite list of roads, reaches consumes steps, a
+# binary numeral that falls by one at each call, the walk over the cities consumes
+# the bounded gap city_count - city, and every other recursion consumes a finite
+# list; the branches that a Scott boolean discards are never read.
+# binary_subtract, which writes no top (../common/binary_modular), is asked for
+# steps - 1 only when steps is not zero. So ⊢_β P = V, and P ≃_O V by the soundness of the derivable
+# equations for the contextual preorder of Definition 14 (Lean
+# `ContextualPreorder.contextualEquivalenceOfDerivableLatticeEta`): V is an
+# answer, P ⊑_O V. No other closed βη normal form W has P ⊑_O W: then V ⊑_O W,
+# while Böhm's theorem gives a pure context that takes V to λx y. x and W to
+# λx y. y, and applying both to λa. a and Ω makes the first solvable and the
+# second not.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "fixpoint")
+λ fixpoint
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "boolean")
+λ true false _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons append map _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "pair")
+λ pair _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "natural")
+λ binary_zero _ binary_odd _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "arithmetic")
+λ merge_binary_increment merge_binary_plus _ merge_binary_equality
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "order")
+λ binary_less_than _ _
+. omega (omega (omega (omega (omega gezi "problems") "cses") "common") "binary_modular")
+λ _ binary_subtract _ _
+. (λtuple. tuple (binary_odd binary_zero))
+λ one
+. ( λ tuple
+    . tuple
+    λ. fixpoint
+    λ self sum roads
+    . roads sum λ road others. road λ _ rest. rest λ _ cost. self (merge_binary_plus sum cost) others
+  )
+λ total_cost
+. ( λ tuple
+    . tuple
+    λ. fixpoint
+    λ self roads
+    . roads (cons (pair binary_zero nil) nil)
+      λ road others
+      . ( λ without
+          . append without
+            λ. map
+            ( λ entry
+              . entry
+                λ total chosen
+                . road
+                  λ _ rest
+                  . rest
+                    λ _ cost
+                    . pair (merge_binary_plus total cost) λ. cons road chosen
+            ) without
+        ) λ. self others
+  )
+λ subset_totals
+. ( λ tuple
+    . tuple
+    λ roads
+    . fixpoint
+      ( λ self steps from target
+        . merge_binary_equality from target true
+          ( ( λ any
+              . steps false (λ_. any roads) λ_. any roads
+            )
+            ( fixpoint
+              ( λ walk rest
+                . rest false
+                  λ road others
+                  . road
+                    λ left rest_of_road
+                    . rest_of_road
+                      λ right _
+                      . merge_binary_equality from left (self (binary_subtract steps one false) right target) false
+                        true
+                        ( merge_binary_equality from right (self (binary_subtract steps one false) left target) false
+                          true (walk others)
+                        )
+              )
+            )
+          )
+      )
+  )
+λ reaches
+. ( λ tuple
+    . tuple
+    λ city_count roads
+    . fixpoint
+      ( λ walk city
+        . binary_less_than city_count city true (reaches roads city_count one city (walk (merge_binary_increment city)) false)
+      ) one
+  )
+λ connected
+. ( λ tuple
+    . tuple
+    λ. fixpoint
+    λ self city_count best entries
+    . entries best
+      λ entry rest
+      . self city_count
+        ( entry
+          λ total chosen
+          . binary_less_than total best (connected city_count chosen total best) best
+        ) rest
+  )
+λ least_connecting
+. (λtuple. tuple λcity_count roads. least_connecting city_count (total_cost binary_zero roads) (subset_totals roads))
+λ road_reparation
+. export road_reparation

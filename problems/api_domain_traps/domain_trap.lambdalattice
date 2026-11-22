@@ -1,0 +1,104 @@
+# POINTS: arguments outside an API's domain: even where a knowledge base
+# determines an API's address, a replacement by a faster implementation must
+# verify the argument, and these traps pass unexpected arguments. Each point applies a catalogued API to an argument that a
+# replacement which does not verify its arguments would read as a value
+# of the domain, and on which the definitional code answers otherwise.
+# Each is a finite head whose value is the Church false: the scored claim
+# is boolean(false), the trap boolean(true), the proof the finite head
+# class of contest_hard_claims.pl with the derivation at the fact.
+#
+# - hidden_api_natural_equal_impostor: the prelude's natural_equal applied
+#   to successor G and successor zero, G = \z. \s. s z, a closure shaped
+#   like a successor that is no Scott natural (its "predecessor" is the
+#   zero branch's argument). natural_equal (successor G) (successor zero)
+#   reduces to natural_equal G zero = G true (\m. false) = (\m. false)
+#   true = false. A replacement that took G for a numeral, or an unread
+#   argument for zero, answers true.
+# - hidden_api_natural_at_least_impostor: the prelude's natural_at_least
+#   applied to successor zero and successor G, G as above.
+#   natural_at_least (successor zero) (successor G) reduces to
+#   natural_at_least zero G = G true (\n. zero false (...)) = zero false
+#   (...) = false. A replacement that took G for zero answers true.
+# - hidden_api_binary_equality_non_canonical: the label-free binary
+#   equality of contest_merge_dynamic.pl applied to even zero, which is 0
+#   written non-canonically (an even's half must not be zero), and zero.
+#   The equality compares the variants first: zero against even is false.
+#   A replacement that read both as the integer 0 answers true.
+# - hidden_api_binary_plus_non_canonical: the equality of plus (even zero)
+#   zero with zero. The definitional plus on an even left operand and a
+#   zero right operand returns the left operand as it is, even zero; the
+#   equality is then false as above. A replacement that returned the
+#   canonical 0 for the sum makes the equality true.
+#
+# Readings at main ef2c58cbb (b01fc48fe for the at_least impostor),
+# 2026-09-28: under weak_head,
+# tabling(weak_head),
+# records_routed(record_interned(tabling(weak_head)), weak_head) and
+# the setting
+# native_replacements(native_solved(lazily_specialised([extent(8),
+# key(shape), entry(native)], weak_head))) with natural_replacement.pl
+# loaded, every scored claim is answered within 5 ms and every trap
+# fails. With that setting's natural_equal clause swapped for a careless one that
+# takes any closure without captures for zero and any closure with one
+# capture for a successor, the trap of
+# hidden_api_natural_equal_impostor succeeds (a false positive) and its
+# scored claim fails.
+#
+# TARGET ALGORITHMS, the specific known algorithms the problem targets, each
+# with its prior work:
+# - recognising catalogued code by the content address of its normal form,
+#   as hash-consing shares equal terms: J.-C. Filliâtre, S. Conchon,
+#   Type-Safe Modular Hash-Consing, ML Workshop 2006,
+#   doi:10.1145/1159876.1159880.
+# - a closure is its code and its captures, the representation a replacement
+#   must inspect before it trusts the code's address: J. C. Reynolds,
+#   Definitional Interpreters for Higher-Order Programming Languages,
+#   Higher-Order and Symbolic Computation 1998, doi:10.1023/A:1010027404223.
+# - replacing recognised code by a native implementation is a rewrite by a
+#   library law, applied only where its side condition (the domain check)
+#   holds: R. Tate, M. Stepp, Z. Tatlock, S. Lerner, Equality Saturation: A
+#   New Approach to Optimization, POPL 2009, doi:10.1145/1480881.1480915.
+
+#
+# Each text is from_cbor of a string literal, a Scott list of bytes,
+# imported from corpora/library/text/cbor. FIXME: the import projects "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. export
+λ
+. cons
+  ( λ _domain_trap
+    . _domain_trap (text "hidden_api_natural_equal_impostor")
+    λ
+    . text "natural_equal (successor G) (successor zero), G = \\z. \\s. s z, reduces by beta to natural_equal G zero = G true (\\m. false), then to (\\m. false) true and to false"
+  )
+λ
+. cons
+  ( λ _domain_trap
+    . _domain_trap (text "hidden_api_natural_at_least_impostor")
+    λ
+    . text "natural_at_least (successor zero) (successor G), G = \\z. \\s. s z, reduces by beta to natural_at_least zero G = G true (\\n. zero false (...)), then to zero false (...) and to false"
+  )
+λ
+. cons
+  ( λ _domain_trap
+    . _domain_trap (text "hidden_api_binary_equality_non_canonical")
+    λ
+    . text "the binary equality of even zero and zero takes even's branch of its first argument and then zero's branch of the second, which is false"
+  )
+λ
+. cons
+  ( λ _domain_trap
+    . _domain_trap (text "hidden_api_binary_plus_non_canonical")
+    λ
+    . text "plus (even zero) zero takes even's branch of its left operand and zero's branch of its right, which returns the left operand even zero; its equality with zero is then false as for even zero and zero"
+  ) nil

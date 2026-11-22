@@ -1,0 +1,15 @@
+# The published list of where a reading keeps the complete tables of the tabled weak head (TableSharingOption): local, in the reading's state alone; strong, soft_values and weak_keys, in the cache service, its references to them as strong as the name says.
+# A Scott sum whose constructors are the tuple's fields, in the order of the
+# enum's cases; an entry.lambdalattice imports this file and writes a
+# constructor, and EntryData reads which alternative it takes by structure
+# (gezi.contest.entry.EntryData, THE OPTIONS AS SCOTT CONSTRUCTORS).
+λ export
+. (λtuple. tuple λlocal strong soft_values weak_keys. local)
+λ local
+. (λtuple. tuple λlocal strong soft_values weak_keys. strong)
+λ strong
+. (λtuple. tuple λlocal strong soft_values weak_keys. soft_values)
+λ soft_values
+. (λtuple. tuple λlocal strong soft_values weak_keys. weak_keys)
+λ weak_keys
+. export local strong soft_values weak_keys

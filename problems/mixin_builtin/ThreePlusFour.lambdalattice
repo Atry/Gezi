@@ -1,0 +1,33 @@
+# An example program of the family's shape, MIXINv2's threePlusFour of
+# MIXINv2/packages/mixinv2-library/tests/BinNatArithmeticTest.mixin.yaml
+# with its numbers built the same way, and the check Seven.Equal(Three.Plus(Four))
+# that the family's points read at church (`_check equal church`): a class
+# inheriting Builtin's BinNatEquality and BinNatPlus and the observer
+# BooleanChurch. Read through the directory tree, `omega (_check equal church)`
+# is λt f. t (read in the Jupyter kernel, 2026-11-21).
+(λo. o o "BinNatEquality") (mixin_builtin mixin_builtin "Builtin") ThreePlusFour
++ (λo. o o "BinNatPlus") (mixin_builtin mixin_builtin "Builtin") ThreePlusFour
++ mixin_builtin mixin_builtin "BooleanChurch" ThreePlusFour
++ (λ"A" A. ( (λo. o o "Odd") (ThreePlusFour ThreePlusFour "BinNatFactory") A
++ (λ"halfOfPredecessor" halfOfPredecessor. ThreePlusFour ThreePlusFour "A_h" halfOfPredecessor)))
++ (λ"A_h" A_h. ( (λo. o o "Odd") (ThreePlusFour ThreePlusFour "BinNatFactory") A_h
++ (λ"halfOfPredecessor" halfOfPredecessor. ThreePlusFour ThreePlusFour "A_h_h" halfOfPredecessor)))
++ (λ"A_h_h" A_h_h. (λo. o o "Zero") (ThreePlusFour ThreePlusFour "BinNatFactory") A_h_h)
++ (λ"B" B. ( (λo. o o "Even") (ThreePlusFour ThreePlusFour "BinNatFactory") B
++ (λ"half" half. ThreePlusFour ThreePlusFour "B_h" half)))
++ (λ"B_h" B_h. ( (λo. o o "Even") (ThreePlusFour ThreePlusFour "BinNatFactory") B_h
++ (λ"half" half. ThreePlusFour ThreePlusFour "B_h_h" half)))
++ (λ"B_h_h" B_h_h. ( (λo. o o "Odd") (ThreePlusFour ThreePlusFour "BinNatFactory") B_h_h
++ (λ"halfOfPredecessor" halfOfPredecessor. ThreePlusFour ThreePlusFour "B_h_h_h" halfOfPredecessor)))
++ (λ"B_h_h_h" B_h_h_h. (λo. o o "Zero") (ThreePlusFour ThreePlusFour "BinNatFactory") B_h_h_h)
++ (λ"C" C. ( (λo. o o "Odd") (ThreePlusFour ThreePlusFour "BinNatFactory") C
++ (λ"halfOfPredecessor" halfOfPredecessor. ThreePlusFour ThreePlusFour "C_h" halfOfPredecessor)))
++ (λ"C_h" C_h. ( (λo. o o "Odd") (ThreePlusFour ThreePlusFour "BinNatFactory") C_h
++ (λ"halfOfPredecessor" halfOfPredecessor. ThreePlusFour ThreePlusFour "C_h_h" halfOfPredecessor)))
++ (λ"C_h_h" C_h_h. ( (λo. o o "Odd") (ThreePlusFour ThreePlusFour "BinNatFactory") C_h_h
++ (λ"halfOfPredecessor" halfOfPredecessor. ThreePlusFour ThreePlusFour "C_h_h_h" halfOfPredecessor)))
++ (λ"C_h_h_h" C_h_h_h. (λo. o o "Zero") (ThreePlusFour ThreePlusFour "BinNatFactory") C_h_h_h)
++ (λ"_sum" _sum. ( (λo. o o "Plus") (ThreePlusFour ThreePlusFour "A") _sum
++ (λ"addend" addend. ThreePlusFour ThreePlusFour "B" addend)))
++ (λ"_check" _check. ( (λo. o o "Equal") (ThreePlusFour ThreePlusFour "C") _check
++ (λ"other" other. (λo. o o "sum") (ThreePlusFour ThreePlusFour "_sum") other)))

@@ -1,0 +1,20 @@
+# The knowledge BuiltInRuleLawTest compiles its library of the β rule on a
+# program's closures from (gezi.standardlibrary.LibraryFiles.compiled):
+# the Prolog backend's preset (its first field) with closure_application and
+# occurrence_erasure, the erasure lemma of the occurrence markers the preset
+# declares, without which reading them throws
+# (StandardLibraryIndex.occurrenceMarkers); their
+# choice the one field of this file's tuple, a term of this file and not a
+# choice the host assembles from paths.
+# FIXME: the imports project "corpora" off the variable gezi, the name https://github.com/Atry/private-overlay/issues/1924
+# of the project root's own directory; they break if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega gezi "corpora") "compiler") "prolog_backend_preset")
+λ prolog_backend_preset _
+. omega (omega (omega (omega gezi "corpora") "compiler") "closure_application")
+λ closure_application
+. omega (omega (omega (omega gezi "corpora") "compiler") "occurrence_erasure")
+λ occurrence_erasure
+. export (occurrence_erasure + closure_application + prolog_backend_preset)

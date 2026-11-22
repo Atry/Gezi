@@ -1,0 +1,14 @@
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "prelude") "boolean")
+λ true false _ _
+. (λtuple. tuple λb. b false true)
+λ not
+. (λtuple. tuple λl r. l r false)
+λ and
+. (λtuple. tuple λl r. l (not r) r)
+λ exclusive
+. (λtuple. tuple λf. and (f true) λ. f false)
+λ every_assignment
+. export not and exclusive every_assignment

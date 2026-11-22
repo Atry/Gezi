@@ -1,0 +1,54 @@
+# binary_double, binary_subtract, binary_reduce, binary_modulo:
+# Helpers of the CSES port
+# on the library's canonical binary naturals (corpora/library/binary/natural:
+# binary_zero, binary_even half for 2 half with half nonzero, binary_odd half for 2 half + 1,
+# the low bit outermost), written in the problems' tree, not the library, so
+# that they are problem text and no knowledge any entry relies on.
+#
+# binary_double natural: 2 natural, canonical (zero on zero).
+# binary_subtract minuend subtrahend borrow: minuend - subtrahend - borrow of a borrow, a boolean, when minuend >= subtrahend + borrow,
+#   and some canonical natural otherwise (the recursion ends at minuend = 0 with 0
+#   whatever subtrahend and borrow are), so that the helpers are pure λ terms: every program
+#   of the port subtracts only what is no larger, so that branch is never
+#   taken, and a program built of them has its answer as its one normal form
+#   with no top in it, which the judge's traps need (ProgramPurity); the
+#   recursion reads the low bits minuend_bit of minuend and subtrahend_bit of subtrahend and writes the result bit
+#   minuend_bit xor subtrahend_bit xor borrow with the borrow (not minuend_bit and (subtrahend_bit or borrow)) or (minuend_bit and subtrahend_bit and borrow).
+# binary_reduce dividend modulus: dividend mod modulus when dividend < 2 modulus: dividend if dividend < modulus, dividend - modulus otherwise.
+# binary_modulo number modulus: number mod modulus for modulus > 0, from the low bit up: for number = 2 half + bit,
+#   number mod modulus = (2 (half mod modulus) + bit) mod modulus, and 2 (half mod modulus) + bit < 2 modulus, so one
+#   reduction a bit.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "fixpoint")
+λ fixpoint
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "boolean")
+λ true false _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "natural")
+λ binary_zero binary_even binary_odd _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "order")
+λ binary_less_than _ _
+. (λtuple. tuple λnatural. natural binary_zero (λ_. binary_even natural) λ_. binary_even natural)
+λ binary_double
+. ( λ tuple
+    . tuple
+    λ
+    . fixpoint
+    λ self minuend subtrahend borrow
+    . (λstep. minuend binary_zero (step false) (step true))
+    λ minuend_bit minuend_tail
+    . (λsubtrahend_bit subtrahend_tail. minuend_bit (subtrahend_bit (borrow (binary_odd (self minuend_tail subtrahend_tail true)) (binary_double (self minuend_tail subtrahend_tail false))) (borrow (binary_double (self minuend_tail subtrahend_tail false)) (binary_odd (self minuend_tail subtrahend_tail false)))) (subtrahend_bit (borrow (binary_double (self minuend_tail subtrahend_tail true)) (binary_odd (self minuend_tail subtrahend_tail true))) (borrow (binary_odd (self minuend_tail subtrahend_tail true)) (binary_double (self minuend_tail subtrahend_tail false))))) (subtrahend false (λ_. false) λ_. true) (subtrahend binary_zero (λtail. tail) λtail. tail)
+  )
+λ binary_subtract
+. (λtuple. tuple λdividend modulus. binary_less_than dividend modulus dividend (binary_subtract dividend modulus false))
+λ binary_reduce
+. ( λ tuple
+    . tuple
+    λ
+    . fixpoint
+    λ self number modulus
+    . number binary_zero (λhalf. binary_reduce (binary_double (self half modulus)) modulus) λhalf. binary_reduce (binary_odd (self half modulus)) modulus
+  )
+λ binary_modulo
+. export binary_double binary_subtract binary_reduce binary_modulo

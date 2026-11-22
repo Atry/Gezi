@@ -1,0 +1,79 @@
+# game_routes:
+# CSES 1681, Game Routes (https://cses.fi/problemset/task/1681), in our own words:
+# a game has city_count levels and one-way flights between them, no sequence of flights
+# leading back to the level it started from; the number of different routes from
+# level 1 to level city_count (two routes differ when they use different flights), modulo
+# 10^9 + 7. The input is the number of levels, a binary natural
+# (corpora/library/binary/natural), and the flights, a Scott list
+# (corpora/library/prelude/list) of pairs `pair a b` (corpora/library/prelude/pair), each
+# end a binary natural from 1 to the number of levels. The flights have no cycle, as CSES
+# promises; the program does not end on a graph that has one. The answer is a
+# binary natural. Part of the CSES port's third batch.
+#
+# THE PROGRAM, written by the definition: the list of all routes from a level to
+# level city_count is built (the one empty route from level city_count itself, otherwise,
+# for each flight that leaves the level, the routes from its end with that end put in
+# front), the routes from level 1 are counted in binary and the count is reduced modulo
+# 10^9 + 7. Its reading is exponential in the length of the longest chain of flights
+# even under tabling, since the routes themselves are built and counted; the replacement the family asks for is the
+# dynamic program in topological order, routes(level) = sum of routes(end) over the flights of the level, with
+# routes(city_count) = 1, about the levels plus the flights steps, on fixed-width integers modulo
+# 10^9 + 7.
+#
+# DEFINITION 14: the program P, the point's term, is built of λ and application
+# only: its text holds no top, no choice, no parallel and no literal (the modulus
+# and the numerals are written with binary_zero, binary_even and binary_odd). It
+# β-reduces to V, the canonical binary numeral of the answer: every recursion
+# ends, since the flights have no cycle, so that a route from a level follows each flight
+# at most once and has finitely many extensions, and every other recursion
+# consumes a finite list or a binary numeral; the branches that a Scott boolean
+# discards are never read. ../common/binary_modular's binary_modulo, which writes
+# no top, is called with the positive modulus only. So ⊢_β P = V, and P ≃_O V by the soundness of the derivable
+# equations for the contextual preorder of Definition 14 (Lean
+# `ContextualPreorder.contextualEquivalenceOfDerivableLatticeEta`): V is an
+# answer, P ⊑_O V. No other closed βη normal form W has P ⊑_O W: then V ⊑_O W,
+# while Böhm's theorem gives a pure context that takes V to λx y. x and W to
+# λx y. y, and applying both to λa. a and Ω makes the first solvable and the
+# second not.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "fixpoint")
+λ fixpoint
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons append map _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "natural")
+λ binary_zero binary_even binary_odd _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "arithmetic")
+λ merge_binary_increment _ _ merge_binary_equality
+. omega (omega (omega (omega (omega gezi "problems") "cses") "common") "binary_modular")
+λ _ _ _ binary_modulo
+. (λtuple. tuple λ. binary_odd λ. binary_odd λ. binary_odd λ. binary_even λ. binary_even λ. binary_even λ. binary_even λ. binary_even λ. binary_even λ. binary_odd λ. binary_even λ. binary_odd λ. binary_even λ. binary_even λ. binary_odd λ. binary_odd λ. binary_even λ. binary_odd λ. binary_even λ. binary_odd λ. binary_odd λ. binary_even λ. binary_even λ. binary_odd λ. binary_odd λ. binary_odd λ. binary_even λ. binary_odd λ. binary_odd λ. binary_odd binary_zero)
+λ modulus
+. (λtuple. tuple (binary_odd binary_zero))
+λ one
+. ( λ tuple
+    . tuple λ. fixpoint λself count items. items count λ_ tail. self (merge_binary_increment count) tail
+  )
+λ count_from
+. ( λ tuple
+    . tuple
+    λ city_count flights
+    . fixpoint
+      ( λ self level
+        . merge_binary_equality level city_count (cons nil nil)
+          ( fixpoint
+            ( λ walk rest
+              . rest nil
+                λ flight others
+                . flight
+                  λ origin destination
+                  . merge_binary_equality origin level (append (map (cons destination) (self destination)) λ. walk others) (walk others)
+            ) flights
+          )
+      )
+  )
+λ routes
+. (λtuple. tuple λcity_count flights. binary_modulo (count_from binary_zero (routes city_count flights one)) modulus)
+λ game_routes
+. export game_routes

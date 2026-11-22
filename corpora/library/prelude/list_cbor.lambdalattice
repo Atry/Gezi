@@ -1,0 +1,76 @@
+# Scott lists read from and written to CBOR arrays (major type 4), each
+# element by the from_cbor or to_cbor its caller passes, as a dictionary:
+# every Scott module has its own from_cbor and to_cbor, and there is no cbor
+# module of its own.
+# items_read and items_written read and write a count of items by any
+# reader or writer; text and bytes use them for their bytes.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "prelude") "fixpoint")
+λ fixpoint
+. omega (omega (omega corpora "library") "top")
+λ top
+. omega (omega (omega (omega corpora "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega corpora "library") "binary") "natural")
+λ binary_zero _ _ _ _
+. omega (omega (omega (omega corpora "library") "binary") "arithmetic")
+λ binary_increment _ _ _
+. omega (omega (omega (omega corpora "library") "binary") "cbor")
+λ _ _ argument_read _ argument_written _
+. (λtuple. tuple λt e. t)
+λ one_bit
+. (λtuple. tuple λt e. e)
+λ zero_bit
+# items_read item_read count prefix k: count items more, each read by
+# item_read, appended to the difference list prefix (λtail. …), by halves.
+. ( λ tuple
+    . tuple
+    λ
+    . fixpoint
+    λ items_read item_read count prefix k
+    . count
+      (k prefix)
+      (λhalf. items_read item_read half prefix λread. items_read item_read half read k)
+    λ half
+    . items_read item_read half prefix
+    λ read
+    . items_read item_read half read
+    λ even
+    . item_read
+    λ item
+    . k λtail. even λ. cons item tail
+  )
+λ items_read
+# items_written f item_written z l k: the items of l, each written by
+# item_written, folded over z, and their count.
+. ( λ tuple
+    . tuple
+    λ f item_written z
+    . fixpoint
+    λ written l k
+    . l (k binary_zero z) λhead tail. written tail λcount inner. k (binary_increment count) λ. item_written head f inner
+  )
+λ items_written
+# from_cbor element_from_cbor k: an array, its elements read by
+# element_from_cbor, as a Scott list.
+. ( λ tuple
+    . tuple
+    λ element_from_cbor k m2 m1 m0
+    . m2
+      ( λ
+        . m1 top
+        λ
+        . m0 top λ. argument_read λcount. items_read element_from_cbor count (λtail. tail) λprefix. k λ. prefix nil
+      ) top
+  )
+λ from_cbor
+# to_cbor element_to_cbor l f z: the array of l's elements.
+. ( λ tuple
+    . tuple
+    λ element_to_cbor l f z
+    . items_written f element_to_cbor z l λcount payload. argument_written f one_bit zero_bit zero_bit count payload
+  )
+λ to_cbor
+. export from_cbor to_cbor items_read items_written

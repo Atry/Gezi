@@ -1,0 +1,109 @@
+# sample 0
+(λx_0. x_0) (λx_0. x_0)
+=>
+node 0 thunk: #char=1,10 ; #char=13,22
+node 1 apply: #char=0,23
+node 2 choice: by lemma 0 from #char=0,23
+
+# sample 1
+(λx_0. (x_0 + x_0 ∥ (x_0 + x_0))) (λx_0. (x_0 ∥ x_0 + (x_0 ∥ x_0)))
+=>
+node 0 thunk: #char=1,32
+node 1 thunk: #char=35,66
+node 2 apply: #char=0,67
+node 3 choice: by lemma 0 from #char=0,67
+node 4 choice: #char=21,30 at #char=0,67 ; #char=8,17 at #char=0,67
+node 5 parallel: #char=8,31 at #char=0,67
+
+# sample 2
+(λx_0. (λx_1. (x_1 x_1 ∥ x_1 x_1) ∥ (x_0 + (x_0 + x_0)))) (λx_0. (x_0 (λx_1. x_0) + x_0 x_0 (x_0 + x_0)))
+=>
+node 0 thunk: #char=8,33
+node 1 thunk: #char=1,56
+node 2 thunk: #char=59,104
+node 3 apply: #char=0,105
+node 4 choice: by lemma 0 from #char=0,105
+node 5 choice: #char=44,53 at #char=0,105
+node 6 choice: #char=37,54 at #char=0,105
+node 7 parallel: #char=8,55 at #char=0,105
+
+# sample 3
+(λx_0. (x_0 x_0 + x_0 x_0) (λx_1. λx_2. x_0 x_0 + x_0)) (λx_0. x_0)
+=>
+node 0 thunk: #char=1,54
+node 1 thunk: #char=57,66
+node 2 apply: #char=0,67
+node 3 choice: by lemma 0 from #char=0,67
+node 4 apply: #char=18,25 at #char=0,67 ; #char=8,15 at #char=0,67
+node 5 choice: #char=8,25 at #char=0,67 ; by lemma 0 from #char=18,25 at #char=0,67 ; by lemma 0 from #char=8,15 at #char=0,67
+node 6 thunk: #char=28,47 at #char=0,67
+node 7 choice: #char=28,53 at #char=0,67
+node 8 apply: #char=7,54 at #char=0,67
+
+# sample 4
+(λx_0. x_0 x_0) (λx_0. (x_0 + λx_1. (x_1 ∥ x_1) + (x_0 + x_0) ∥ (x_0 + λx_1. (x_1 ∥ x_1) + (x_0 + x_0))))
+=>
+node 0 thunk: #char=1,14
+node 1 thunk: #char=30,47 ; #char=71,88
+node 2 thunk: #char=17,104
+node 3 apply: #char=0,105
+node 4 choice: by lemma 0 from #char=0,105
+node 5 apply: #char=7,14 at #char=0,105
+
+# sample 5
+(λx_0. (λx_1. (λx_2. x_1 + x_0 x_1 + x_0 x_0 ∥ (λx_2. x_1 x_0) (λx_2. x_2)) ∥ λx_1. ((λx_2. λx_3. x_3) (x_1 x_0) + (λx_2. λx_3. x_3) (x_1 x_0)))) (λx_0. (x_0 ∥ x_0 x_0))
+=>
+node 0 thunk: #char=64,73
+node 1 thunk: #char=116,131 ; #char=86,101
+node 2 thunk: #char=1,144
+node 3 thunk: #char=147,168
+node 4 apply: #char=0,169
+node 5 choice: by lemma 0 from #char=0,169
+node 6 apply: 
+node 7 thunk: #char=8,75 at #char=0,169
+node 8 thunk: #char=78,143 at #char=0,169
+node 9 parallel: #char=8,143 at #char=0,169
+node 10 choice: 
+node 11 parallel: 
+
+# sample 6
+(λx_0. x_0 (λx_1. λx_2. (x_0 + x_0) + x_0) (λx_1. ((x_1 ∥ x_1) (x_1 x_1) ∥ λx_2. x_1 x_2 (λx_3. λx_4. x_2)))) (λx_0. (x_0 (x_0 + x_0 + x_0) (x_0 + x_0 + x_0) + λx_1. (λx_2. (x_1 ∥ x_1) + x_1 x_0 + λx_2. (x_2 + x_2)) + (λx_1. x_0 x_0 (x_0 x_0) ∥ λx_1. x_1)))
+=>
+node 0 thunk: #char=44,107
+node 1 thunk: #char=1,108
+node 2 thunk: #char=245,254
+node 3 thunk: #char=197,214
+node 4 thunk: #char=111,256
+node 5 apply: #char=0,257
+node 6 choice: by lemma 0 from #char=0,257
+node 7 choice: 
+node 8 thunk: #char=12,35 at #char=0,257
+node 9 choice: #char=12,41 at #char=0,257
+node 10 apply: #char=7,42 at #char=0,257
+node 11 apply: #char=7,108 at #char=0,257
+node 12 choice: by lemma 0 from #char=7,42 at #char=0,257
+node 13 apply: 
+node 14 apply: 
+node 15 thunk: #char=219,242 at #char=7,42 at #char=0,257
+node 16 parallel: #char=219,254 at #char=7,42 at #char=0,257
+node 17 thunk: #char=160,215 at #char=7,42 at #char=0,257
+node 18 choice: #char=123,132 at #char=7,42 at #char=0,257 ; #char=141,150 at #char=7,42 at #char=0,257
+node 19 choice: #char=123,138 at #char=7,42 at #char=0,257 ; #char=141,156 at #char=7,42 at #char=0,257
+node 20 apply: #char=118,139 at #char=7,42 at #char=0,257
+node 21 apply: #char=118,157 at #char=7,42 at #char=0,257
+node 22 choice: #char=118,215 at #char=7,42 at #char=0,257
+node 23 choice: #char=118,255 at #char=7,42 at #char=0,257
+node 24 choice: by lemma 0 from #char=118,157 at #char=7,42 at #char=0,257
+node 25 choice: by lemma 0 from #char=118,139 at #char=7,42 at #char=0,257
+node 26 choice: 
+node 27 choice: 
+
+# sample 7
+(λx_0. λx_1. λx_2. x_2) (λx_0. (λx_1. λx_2. x_1) (x_0 x_0 (x_0 ∥ x_0)) ((λx_1. λx_2. x_1) (x_0 x_0 (x_0 ∥ x_0))) (λx_1. λx_2. λx_3. (x_0 x_0 + x_1 x_3 ∥ (x_2 ∥ x_2) x_2)))
+=>
+node 0 thunk: #char=1,22
+node 1 thunk: #char=32,47 ; #char=73,88
+node 2 thunk: #char=25,170
+node 3 apply: #char=0,171
+node 4 choice: by lemma 0 from #char=0,171
+node 5 thunk: #char=1,22 at #char=0,171

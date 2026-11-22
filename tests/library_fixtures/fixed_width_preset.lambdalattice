@@ -1,0 +1,17 @@
+# The knowledge FixedWidthTypingLawTest compiles its library from
+# (gezi.standardlibrary.LibraryFiles.compiled): the first field of the
+# Prolog backend's fixed-width preset with occurrence_erasure, the erasure
+# lemma of the occurrence markers the preset declares, without which reading
+# them throws (StandardLibraryIndex.occurrenceMarkers); their
+# choice the one field of this file's tuple, a term of this file and not a
+# choice the host assembles from paths.
+# FIXME: the imports project "corpora" off the variable gezi, the name https://github.com/Atry/private-overlay/issues/1924
+# of the project root's own directory; they break if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega gezi "corpora") "compiler") "prolog_backend_fixed_width_preset")
+λ prolog_backend_fixed_width_preset _
+. omega (omega (omega (omega gezi "corpora") "compiler") "occurrence_erasure")
+λ occurrence_erasure
+. export (occurrence_erasure + prolog_backend_fixed_width_preset)

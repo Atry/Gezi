@@ -1,0 +1,37 @@
+# Byte strings read from and written to CBOR byte strings (major type 2), in
+# the representation of ../text: a Scott list of 8-tuples of bits.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega corpora "library") "top")
+λ top
+. omega (omega (omega (omega corpora "library") "prelude") "list")
+λ nil _ _ _ _
+. omega (omega (omega (omega corpora "library") "binary") "cbor")
+λ _ _ argument_read _ argument_written _
+. omega (omega (omega (omega corpora "library") "prelude") "list_cbor")
+λ _ _ items_read items_written
+. omega (omega (omega (omega corpora "library") "text") "cbor")
+λ _ _ tuple_read tuple_written
+. (λtuple. tuple λt e. e)
+λ zero_bit
+. (λtuple. tuple λt e. t)
+λ one_bit
+# from_cbor k: a byte string, its bytes as a Scott list of 8-tuples.
+. ( λ tuple
+    . tuple
+    λ k m2 m1 m0
+    . m2 top
+    λ
+    . m1
+      (m0 top λ. argument_read λlength. items_read tuple_read length (λtail. tail) λprefix. k λ. prefix nil) top
+  )
+λ from_cbor
+# to_cbor bytes f z: the byte string of the list of bytes.
+. ( λ tuple
+    . tuple
+    λ bytes f z
+    . items_written f tuple_written z bytes λlength payload. argument_written f zero_bit one_bit zero_bit length payload
+  )
+λ to_cbor
+. export from_cbor to_cbor

@@ -1,0 +1,9 @@
+#   Mapping a function over a list.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega gezi "problems") "prelude_clauses") "fixpoint")
+λ fixpoint
+. omega (omega (omega (omega gezi "problems") "prelude_clauses") "map_body")
+λ map_body
+. export λ. fixpoint map_body

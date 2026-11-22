@@ -1,0 +1,59 @@
+# sample 0
+t = (y = 9)
+=>
+knowing top, ByLayer: 9 absent in 297 steps, 157 tables; BySharedPrefix: 9 absent in 282 steps, 91 tables
+
+# sample 1
+n = (k = 77) + t = (k = 98)
+=>
+knowing top, ByLayer: 77 absent ; 98 absent in 643 steps, 323 tables; BySharedPrefix: 77 absent ; 98 absent in 661 steps, 192 tables
+
+# sample 2
+x = (fv = 188)
+=>
+knowing top, ByLayer: 188 absent in 396 steps, 208 tables; BySharedPrefix: 188 absent in 352 steps, 119 tables
+
+# sample 3
+rr = (h = 117) + c = (h = 134)
+=>
+knowing top, ByLayer: 117 absent ; 134 absent in 704 steps, 356 tables; BySharedPrefix: 117 absent ; 134 absent in 704 steps, 211 tables
+
+# sample 4
+sc = (eb = 322, yip = 125) + uu = (az = 170)
+=>
+knowing top, ByLayer: 322 125 absent ; 170 absent in 1180 steps, 583 tables; BySharedPrefix: 322 125 absent ; 170 absent in 1238 steps, 347 tables
+
+# sample 5
+u = (hopv = 363)
+=>
+knowing top, ByLayer: 363 absent in 521 steps, 271 tables; BySharedPrefix: 363 absent in 447 steps, 154 tables
+
+# sample 6
+q = (obrv = 46, psm = 354, ezxy = 369)
+=>
+knowing top, ByLayer: 46 354 369 absent in 1125 steps, 550 tables; BySharedPrefix: 46 354 369 absent in 1003 steps, 328 tables
+
+# sample 7
+diom = (y = 391, tjug = 298, tm = 127) + pl = (nks = 218)
+=>
+knowing top, ByLayer: 391 298 127 absent ; 218 absent in 1628 steps, 803 tables; BySharedPrefix: 391 298 127 absent ; 218 absent in 1508 steps, 473 tables
+
+# sample 8
+my = (lnczup = 50, uphja = 328)
+=>
+knowing top, ByLayer: 50 328 absent in 1104 steps, 554 tables; BySharedPrefix: 50 328 absent in 1012 steps, 321 tables
+
+# sample 9
+hwfwzw = (dtcd = 422, sd = 295, h = 443, lv = 139) + a = (dtcd = 119, sd = 481, h = 341, lv = 664) + puxw = (dtcd = 250, sd = 148, h = 227, lv = 507) + zvsd = (dtcd = 732, sd = 69, h = 527, lv = 745)
+=>
+knowing top, ByLayer: 422 295 443 139 absent ; 119 481 341 664 absent ; 250 148 227 507 absent ; 732 69 527 745 absent in 5244 steps, 2475 tables; BySharedPrefix: 422 295 443 139 absent ; 119 481 341 664 absent ; 250 148 227 507 absent ; 732 69 527 745 absent in 5013 steps, 1526 tables
+
+# sample 10
+jrlcssg = (tylpsfh = 603) + gefc = (tylpsfh = 406) + ufe = (tylpsfh = 60) + gsg = (tylpsfh = 136) + hbm = (tylpsfh = 524) + iqt = (tylpsfh = 681) + hmouo = (tylpsfh = 339)
+=>
+knowing top, ByLayer: 603 absent ; 406 absent ; 60 absent ; 136 absent ; 524 absent ; 681 absent ; 339 absent in 5887 steps, 2907 tables; BySharedPrefix: 603 absent ; 406 absent ; 60 absent ; 136 absent ; 524 absent ; 681 absent ; 339 absent in 5558 steps, 1668 tables
+
+# sample 11
+xxmhgp = (kovzh = 106, ax = 959, rzsynv = 862) + fak = (v = 37, biaudym = 59, rdkkgxo = 549, tmfkxo = 461, lrfg = 342, cbw = 317)
+=>
+knowing top, ByLayer: 106 959 862 absent ; 37 59 549 461 342 317 absent in 4199 steps, 2030 tables; BySharedPrefix: 106 959 862 absent ; 37 59 549 461 342 317 absent in 3761 steps, 1198 tables

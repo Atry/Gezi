@@ -1,0 +1,108 @@
+# +Point, -Surface
+# -Template
+# -Empty
+#   * <module> The set-free series: a search that answers the empty set when it finds nothing
+#
+# A family of the set-free series where a search that finds nothing answers
+# no answer, never the Scott false, since no answer is always sound; a
+# set-free program can still write it, and Ω is not it (Ω has every answer).
+# A point is a
+# closed pure lambda program, no set in it: depth-first search on the
+# ladders of corpora/contest_set_free_search.pl, whose answer when the
+# stack runs out is not the Scott false but the term
+#
+#     E = Y (\e. \x. x e),
+#
+# which satisfies E = \x. x E by beta and has the empty normal form solution
+# set (proof step 3 below). So
+# the program's S(P) is {true} when the target is reachable and EMPTY when it
+# is not: a setting reads the reachable points as usual, and on an
+# unreachable point every answer it gives, false included, is outside S(P)
+# and a false positive. A setting that replaces the search by a
+# native one must keep "not found" as no answer, not as false.
+#
+# THE PROGRAM is the depth_first attractor's recursion with E for its false,
+# empty_on_exhaustion_template/1, whose leading parameters are E and append:
+#
+#     search empty append self successors goal stack =
+#       stack empty (\n. \rest. goal n true
+#                      (self successors goal (append (successors n) rest)))
+#
+# E has no normal form, so the template, which is a beta eta normal form, is
+# applied to it; the program is Y (template E append) successors goal stack.
+#
+# THE POINTS, each in a DIRECT and a RESPELLED twin (the template and the
+# attractors spelled as in contest_set_free_arithmetic.pl): REACHABLE on the
+# small ladder (target n), a check of the encoding, and UNREACHABLE (target
+# n + 1) on the small, ten and fourteen rung ladders, where depth-first
+# search pops 2^(n+1) - 1 nodes before the stack runs out.
+#
+# THE SNAPSHOTS: the Scott true for a reachable point, and the empty set of
+# normal forms for an unreachable one (`trees([])`). PROOF.
+# 1. The search ends and pops every node of 0 ... n (the proof of
+#    contest_set_free_search.pl: the multiset of the values n - k on the
+#    stack decreases). natural_equal on canonical numerals reduces to the
+#    Boolean of equality. So when the target is at most n the program
+#    reduces to the Scott true, a normal form, and S(P) = {true} (a pure program with a normal form).
+# 2. When the target is n + 1, no popped node satisfies the goal, and the
+#    program reduces to E. Terms equal in Th(∅) have the same S, so
+#    S(P) = S(E).
+# 3. S(E) = ∅: for every closed beta eta normal form N, Th plus
+#    N + E = E derives \x. \y. x = \x. \y. y. The proof compares N with E = \x. x E node by node
+#    along the one infinite path of E's Boehm tree, substituting a
+#    permutator for each head variable it passes (Boehm-out); N is finite,
+#    so at some node the head variable or the number of arguments less the
+#    number of abstractions differs, and that node gives p + q = q for two
+#    distinct variables p and q, hence true = false. The empty snapshots
+#    of the unreachable points rest on this proof.
+#    A loop that never produces a head has every normal form as a solution
+#    (same file, section 5 (f): S(Omega) = S(Y K) = every closed beta eta
+#    normal form), so the empty set is written by a loop that produces a
+#    head at every step.
+#
+# TARGET ALGORITHMS, the specific known algorithms the problem targets, each
+# with its prior work:
+# - depth-first search that marks the nodes it visits: R. Tarjan,
+#   Depth-First Search and Linear Graph Algorithms, SIAM J. Comput. 1972,
+#   doi:10.1137/0201010, and tabled evaluation: W. Chen, D. S. Warren,
+#   Tabled Evaluation with Delaying for General Logic Programs, J. ACM 1996,
+#   doi:10.1145/227595.227597;
+# - recognising E, an infinite chain of one Scott constructor, as the value
+#   of the delay monad that never returns: V. Capretta, General recursion
+#   via coinductive types, LMCS 2005, doi:10.2168/LMCS-1(2:1)2005.
+#
+# READINGS: an unreachable point's "correct" reading, no answer, is also what
+# a setting that is stopped by the limits gives; only its wrong readings say
+# anything, so it is a trap and scores nothing (the report asserts that an
+# empty snapshot is never scored). Sized by the ladders' readings
+# (contest_set_free_search.pl: weak_head pops height 10 in 8380 ms and is
+# stopped at 14).
+# LIMITS: the reduction family's, 10 s, 256 MB, 256 MB.
+
+#
+# Each text is from_cbor of a string literal, a Scott list of bytes,
+# imported from corpora/library/text/cbor. Each number is from_cbor of an
+# integer literal, a Scott integer, imported from corpora/library/integer/cbor.
+# FIXME: the imports project "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λx. x)
+λ integer
+. export
+λ
+. cons (λ_empty_search_size. _empty_search_size (text "small") λ. integer 6)
+λ
+. cons (λ_empty_search_size. _empty_search_size (text "ten") λ. integer 10)
+λ
+. cons (λ_empty_search_size. _empty_search_size (text "fourteen") λ. integer 14) nil

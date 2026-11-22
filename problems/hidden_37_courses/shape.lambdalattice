@@ -1,0 +1,12 @@
+# The shape of the prerequisites of a point of course_point: a Scott sum of
+# five constructors, in order: chain, diamonds, random, whose two fields are
+# the degree and the number of back edges (decimal texts), trap_cycles and
+# trap_ladder. Read by its position
+# (gezi.contest.corpora.reductions.Hidden37Courses, shape, into
+# Hidden37Courses.CourseShape).
+λ export
+. export
+  (λchain diamonds random trap_cycles trap_ladder. chain)
+  (λchain diamonds random trap_cycles trap_ladder. diamonds)
+  (λdegree back_edges chain diamonds random trap_cycles trap_ladder. random degree back_edges)
+  (λchain diamonds random trap_cycles trap_ladder. trap_cycles) λchain diamonds random trap_cycles trap_ladder. trap_ladder

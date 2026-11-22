@@ -1,0 +1,115 @@
+# counting_rooms:
+# CSES 1192, Counting Rooms (https://cses.fi/problemset/task/1192), in our own
+# words: a map of rows of squares, each floor (true) or wall (false), given as
+# a Scott list of rows, each a Scott list of booleans; a room is a largest set
+# of floor squares joined by steps left, right, up and down over floor; the
+# number of rooms. Part of the CSES port's first batch.
+#
+# THE PROGRAM, written by the definition: the floor squares are listed with
+# their row and column, in reading order; reach steps from_square to_square holds when a walk of at
+# most steps over floor leads from from_square to to_square, by its recursion on steps; a room is
+# counted at its first square in reading order, the floor square that no
+# earlier floor square reaches within floor steps, floor the number of floor squares
+# (a shortest walk visits no square twice). Under tabling the reading shares
+# reach steps from_square to_square for each steps, from_square and to_square, about floor^3 steps; the replacement the family
+# asks for is a flood fill, about the size of the map.
+#
+# DEFINITION 14: the program P, the point's term, is built of λ, application and
+# top, with no choice and no parallel outside top. It β-reduces to V, the
+# canonical binary numeral of the answer (reach consumes steps, each fold a finite
+# list): every top it holds (a bit of a literal that no key expects) stands in a
+# branch that a Scott boolean discards, and binary_subtract, which writes no top
+# (../common/binary_modular), is never asked for less than zero, since the
+# program subtracts only what is no larger. So ⊢_β P = V, and P ≃_O V by the
+# soundness of the derivable equations for the contextual preorder of Definition
+# 14 (Lean `ContextualPreorder.contextualEquivalenceOfDerivableLatticeEta`): V
+# is an answer, P ⊑_O V. No other closed βη normal form W has P ⊑_O W: then V
+# ⊑_O W, while Böhm's theorem gives a pure context that takes V to λx y. x and W
+# to λx y. y, and applying both to λa. a and Ω makes the first solvable and the
+# second not.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "fixpoint")
+λ fixpoint
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "boolean")
+λ true false _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons append _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "pair")
+λ pair _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "natural")
+λ binary_zero _ binary_odd _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "arithmetic")
+λ merge_binary_increment _ _ merge_binary_equality
+. omega (omega (omega (omega (omega gezi "problems") "cses") "common") "binary_modular")
+λ _ binary_subtract _ _
+. ( λ tuple
+    . tuple
+    λ
+    . fixpoint
+      ( λ self row_index rows
+        . rows nil
+        λ row others
+        . append
+          ( fixpoint
+            ( λ along column_index squares
+              . squares nil λfloor rest. floor (cons (pair row_index column_index) λ. along (merge_binary_increment column_index) rest) λ. along (merge_binary_increment column_index) rest
+            ) binary_zero row
+          ) λ. self (merge_binary_increment row_index) others
+      ) binary_zero
+  )
+λ floor_squares
+. ( λ tuple
+    . tuple
+    λ first second
+    . merge_binary_equality (merge_binary_increment first) second true λ. merge_binary_equality (merge_binary_increment second) first
+  )
+λ next_to
+. ( λ tuple
+    . tuple
+    λ square other_square
+    . square
+    λ row_index column_index
+    . other_square
+    λ other_row_index other_column_index
+    . merge_binary_equality row_index other_row_index (next_to column_index other_column_index) λ. merge_binary_equality column_index other_column_index (next_to row_index other_row_index) false
+  )
+λ adjacent
+. ( λ tuple
+    . tuple
+    λ square other_square
+    . square λrow_index column_index. other_square λother_row_index other_column_index. merge_binary_equality row_index other_row_index (merge_binary_equality column_index other_column_index) false
+  )
+λ same
+. ( λ tuple
+    . tuple
+    λ. fixpoint λself predicate items. items false λhead tail. predicate head true λ. self predicate tail
+  )
+λ some_member
+. ( λ tuple
+    . tuple
+    λ squares
+    . fixpoint
+    λ self steps from_square to_square
+    . same from_square to_square true
+    λ
+    . steps false (λ_. some_member (λneighbour. adjacent from_square neighbour (self (binary_subtract steps (binary_odd binary_zero) false) neighbour to_square) false) squares) λ_. some_member (λneighbour. adjacent from_square neighbour (self (binary_subtract steps (binary_odd binary_zero) false) neighbour to_square) false) squares
+  )
+λ reach
+. ( λ tuple
+    . tuple
+    λ map
+    . ( λ squares
+        . ( λ floor
+            . fixpoint
+              ( λ self before count rest
+                . rest count
+                λ square others
+                . some_member (λearlier_square. reach squares floor earlier_square square) before (self (cons square before) count others) λ. self (cons square before) (merge_binary_increment count) others
+              ) nil binary_zero squares
+          ) λ. fixpoint (λlength count items. items count λ_ tail. length (merge_binary_increment count) tail) binary_zero squares
+      ) λ. floor_squares map
+  )
+λ counting_rooms
+. export counting_rooms

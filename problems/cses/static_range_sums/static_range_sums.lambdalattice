@@ -1,0 +1,62 @@
+# static_range_sums:
+# CSES 1646, Static Range Sum Queries (https://cses.fi/problemset/task/1646), in our
+# own words: a list of numbers that does not change, and queries, each a pair of
+# places a <= b counted from 1; for each query, the sum of the numbers from place a
+# to place b, both included. The input is the list, a Scott list
+# (corpora/library/prelude/list) of binary naturals
+# (corpora/library/binary/natural), and the queries, a Scott list of pairs `pair a b`
+# (corpora/library/prelude/pair) of binary naturals, 1 <= a <= b <= the length of
+# the list; the answer is the Scott list of the sums of the queries, in their order.
+# Part of the CSES port's third batch.
+#
+# THE PROGRAM, written by the definition: for each query, the list is walked from
+# its first number with the place counted up from 1, adding the numbers whose place is not
+# below a, and stopping once the place passes b. The reading takes about b steps a
+# query, each step a binary addition; the replacement the family asks for is the
+# table of prefix sums, built once in about the length of the list steps, after which
+# a query is one subtraction, on fixed-width integers.
+#
+# DEFINITION 14: the program P, the point's term, is built of λ and application
+# only: its text holds no top, no choice, no parallel and no literal. It β-reduces
+# to V, the Scott list of the canonical binary numerals of the sums (each walk consumes
+# the finite list of numbers, the map consumes the finite list of queries); the
+# branches that a Scott boolean discards are never read. The program calls no
+# subtraction. So ⊢_β P = V, and P ≃_O V by the soundness of the derivable
+# equations for the contextual preorder of Definition 14 (Lean
+# `ContextualPreorder.contextualEquivalenceOfDerivableLatticeEta`): V is an
+# answer, P ⊑_O V. No other closed βη normal form W has P ⊑_O W: then V ⊑_O W,
+# while Böhm's theorem gives a pure context that takes V to λx y. x and W to
+# λx y. y, and applying both to λa. a and Ω makes the first solvable and the
+# second not.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "fixpoint")
+λ fixpoint
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ _ _ _ map _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "natural")
+λ binary_zero _ binary_odd _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "arithmetic")
+λ merge_binary_increment merge_binary_plus _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "order")
+λ binary_less_than _ _
+. (λtuple. tuple (binary_odd binary_zero))
+λ one
+. ( λ tuple
+    . tuple
+    λ numbers first_place last_place
+    . fixpoint
+      ( λ self place items total
+        . items total
+          λ number rest
+          . binary_less_than last_place place total
+            ( self (merge_binary_increment place) rest
+              (binary_less_than place first_place total (merge_binary_plus total number))
+            )
+      ) one numbers binary_zero
+  )
+λ range_sum
+. (λtuple. tuple λnumbers queries. map (λquery. query λfirst_place last_place. range_sum numbers first_place last_place) queries)
+λ static_range_sums
+. export static_range_sums

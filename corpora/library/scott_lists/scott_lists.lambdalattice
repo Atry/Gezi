@@ -1,0 +1,18 @@
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "prelude") "fixpoint")
+λ fixpoint
+. omega (omega (omega (omega corpora "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega corpora "library") "binary") "natural")
+λ _ _ _ binary _
+. omega (omega (omega (omega corpora "library") "prelude") "boolean")
+λ _ _ boolean _
+. (λtuple. tuple λa. fixpoint λself l. l nil λh t. cons (a h) λ. self t)
+λ list
+. (λtuple. tuple λ. list binary)
+λ binary_list
+. (λtuple. tuple λ. list boolean)
+λ boolean_list
+. export list binary_list boolean_list

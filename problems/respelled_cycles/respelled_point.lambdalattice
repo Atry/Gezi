@@ -1,0 +1,72 @@
+# CYCLES THROUGH EVER NEW SPELLINGS (purpose hinted).
+#
+# Every point is M = W W I, I = \x. x, with W = \p. \i. C[p p (A i)] for
+# a context C and an argument A[i] that reduces to i when i is I. M's
+# laps pass A[I], A[A[I]], ... as the second argument of W W: no term of
+# M's weak head reduction repeats, so a reader that detects a cycle by
+# the identity of the terms in progress never meets one; the cycle closes
+# only up to the internal reduction of that argument.
+#
+# THE EQUATION. W W (A[I]) reduces to W W I by reducing its argument
+# (A[I] ->> I), so M =beta C[M]: the same equation as a published point
+# of class false_only (and_false: C[x] = and x false = x false false;
+# if_false: C[x] = x false x).
+#
+# TRAP boolean(true), PROVED: M = true with M =beta C[M] gives true =
+# C[true], and C[true] reduces to false (and true false = false, true
+# false true = false): true = false, refuted by Boehm's theorem.
+#
+# boolean(false), a CONJECTURE (class false_only): M is not beta
+# convertible to the published knots that satisfy the same equation (no
+# reduct of M holds their D), so their proofs (fixpoint_collapse) do not
+# apply as they stand. A proof that lambda beta plus M = false is
+# consistent proves the claim.
+#
+# TARGET ALGORITHMS, the specific known algorithms the problem targets, each
+# with its prior work:
+# - proving that lambda beta eta plus an equation is consistent by adding it
+#   as a reduction rule and showing the union confluent: J. Kuper, On the
+#   Jacopini Technique, Information and Computation 1997,
+#   doi:10.1006/inco.1997.2655.
+# - refuting the traps by Böhm's theorem: H. P. Barendregt, The Lambda
+#   Calculus: Its Syntax and Semantics, North-Holland 1984 (Böhm's theorem).
+
+#
+# Each text is from_cbor of a string literal, a Scott list of bytes,
+# imported from corpora/library/text/cbor. FIXME: the import projects "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+#
+# A context C is a template of one binder, the hole: `λhole. C[hole]`,
+# instantiated with the term put in the hole, so that the point spells
+# C[x] itself and not a redex (λhole. C[hole]) x. false is the prelude's,
+# problems/prelude_clauses/false.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. omega (omega (omega (omega gezi "problems") "prelude_clauses") "false")
+λ false
+. (λtuple. tuple λhole. hole false false)
+λ and_false
+. (λtuple. tuple λhole. hole false hole)
+λ if_false
+. export
+λ
+. cons
+  ( λ _respelled_point
+    . _respelled_point (text "respelled_and_false_self") and_false λ. text "self_applied"
+  )
+λ
+. cons
+  ( λ _respelled_point
+    . _respelled_point (text "respelled_and_false_identity") and_false λ. text "identity_applied"
+  )
+λ
+. cons
+  (λ_respelled_point. _respelled_point (text "respelled_if_false_self") if_false λ. text "self_applied") nil

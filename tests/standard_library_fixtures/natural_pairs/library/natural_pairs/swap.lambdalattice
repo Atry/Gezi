@@ -1,0 +1,7 @@
+# The pair with its two components exchanged.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega natural_pairs "pair")
+λ pair
+. export λx. x λl r. pair r l

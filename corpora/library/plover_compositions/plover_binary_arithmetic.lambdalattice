@@ -1,0 +1,26 @@
+# binary_double and binary_subtract on canonical binary naturals, spelled as
+# problems/cses/common/binary_modular spells them, so that a term built of them is the
+# same IR term as a program's. binary_double natural is 2 natural; binary_subtract
+# minuend subtrahend borrow is minuend - subtrahend - borrow when that is a natural.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "prelude") "fixpoint")
+λ fixpoint
+. omega (omega (omega (omega corpora "library") "prelude") "boolean")
+λ true false _ _
+. omega (omega (omega (omega corpora "library") "binary") "natural")
+λ binary_zero binary_even binary_odd _ _
+. (λtuple. tuple λnatural. natural binary_zero (λ_. binary_even natural) λ_. binary_even natural)
+λ binary_double
+. ( λ tuple
+    . tuple
+    λ
+    . fixpoint
+    λ self minuend subtrahend borrow
+    . (λstep. minuend binary_zero (step false) (step true))
+    λ minuend_bit minuend_tail
+    . (λsubtrahend_bit subtrahend_tail. minuend_bit (subtrahend_bit (borrow (binary_odd (self minuend_tail subtrahend_tail true)) (binary_double (self minuend_tail subtrahend_tail false))) (borrow (binary_double (self minuend_tail subtrahend_tail false)) (binary_odd (self minuend_tail subtrahend_tail false)))) (subtrahend_bit (borrow (binary_double (self minuend_tail subtrahend_tail true)) (binary_odd (self minuend_tail subtrahend_tail true))) (borrow (binary_odd (self minuend_tail subtrahend_tail true)) (binary_double (self minuend_tail subtrahend_tail false))))) (subtrahend false (λ_. false) λ_. true) (subtrahend binary_zero (λtail. tail) λtail. tail)
+  )
+λ binary_subtract
+. export binary_double binary_subtract

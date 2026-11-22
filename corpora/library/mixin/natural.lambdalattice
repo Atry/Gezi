@@ -1,0 +1,92 @@
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega corpora "library") "top")
+λ top
+. ( λ tuple
+    . tuple
+      (λ_ _ x15 _ _. x15 λ_ x19 _ _ _. x19 λ_ x24. x24 + λ_ x2 _ _ _. x2 λ_ x7 _ _ _. x7 λx11 _. x11)
+  )
+λ mixin_natural_boolean_data
+. ( λ tuple
+    . tuple
+      ( λx12 _ x14 _ _. x14 λ_ _ x19 _ _. x19 λ. x12 x12 (λx22. x22) top top top
+      + λx1 x2 _ _ _. x2 λ_ _ x8 _ _. x8 λ. x1 x1 top (λx11. x11) top top
+      )
+  )
+λ mixin_natural_boolean_negation
+. ( λ tuple
+    . tuple
+      ( λx12 _ x14 _ _. x14 λ_ _ _ x20 _. x20 λ_. x12 x12 top (λx23. x23) top top
+      + λ_ x2 _ _ _. x2 λ_ _ _ x9 _. x9 λx11. x11
+      )
+  )
+λ mixin_natural_boolean_and
+. ( λ tuple
+    . tuple
+      ( λ_ _ x14 _ _. x14 λ_ _ _ _ x21. x21 λx22. x22 x22 top (λx23. x23) top top
+      + λ_ x2 _ _ _. x2 λ_ _ _ _ x10. x10 λx11. x11
+      )
+  )
+λ mixin_natural_boolean_equality
+. ( λ tuple
+    . tuple
+      ( λ _ _ _ _ x18
+        . x18
+        λ x19 x20 _ _ _ _
+        . x20 λ_ x26. x26 λ. (λx27. x27 x27 (λx28. x28) top top top top) λ. x19 x19 top top top top λx29. x29
+      + λ_ _ _ x4 _. x4 λ_ x7 _ _ _ _. x7 λx12 _. x12
+      )
+  )
+λ mixin_natural_natural_data
+. ( λ tuple
+    . tuple
+      ( λ_ _ _ _ x18. x18 λx19 _ x21 _ _ _. x21 λ_ x26. x26 λ. x19 x19 top top top top λx27. x27
+      + λ_ _ _ x4 _. x4 λ_ _ x8 _ _ _. x8 λx12 _. x12
+      )
+  )
+λ mixin_natural_natural_visitor
+. ( λ tuple
+    . tuple
+      ( λ x13 _ _ _ x17
+        . x17
+        λ x18 _ _ x21 _ _
+        . x21
+        λ x24
+        . (λx25. x25 x25 top top (λx26. x26 (λ_ _ _ _ _ x33. x33 x24 + x13 x13 top top top λx27. x27)) top top) λ. x18 x18 top top top top λx34. x34
+      + λ_ _ _ x4 _. x4 λ_ _ _ x9 _ _. x9 λx12. x12
+      )
+  )
+λ mixin_natural_natural_plus
+. ( λ tuple
+    . tuple
+      ( λ x17 _ _ _ x21
+        . x21
+        λ x22 _ _ _ x26 _
+        . x26
+        λ x28
+        . x28 x28 top
+          ( λ x29
+            . x29 (x17 x17 top (λx30. x30) top top) λx31. (λx32. x32 x32 top top top (λx33. x33 x31) top) λ. x22 x22 top top top top λx34. x34
+          ) top top top
+      + λ x1 _ _ x4 _
+        . x4
+        λ _ _ _ _ x10 _
+        . x10 λx12. x12 x12 top (λx13. x13 (x1 x1 (λx14. x14) top top top) λ_. x1 x1 top (λx16. x16) top top) top top top
+      )
+  )
+λ mixin_natural_natural_equality
+. ( λ tuple
+    . tuple
+      ( mixin_natural_natural_equality
+      + mixin_natural_natural_plus
+      + mixin_natural_natural_visitor
+      + mixin_natural_natural_data
+      + mixin_natural_boolean_equality
+      + mixin_natural_boolean_and
+      + mixin_natural_boolean_negation
+      + mixin_natural_boolean_data
+      )
+  )
+λ mixin_natural_library
+. export mixin_natural_boolean_data mixin_natural_boolean_negation mixin_natural_boolean_and mixin_natural_boolean_equality mixin_natural_natural_data mixin_natural_natural_visitor mixin_natural_natural_plus mixin_natural_natural_equality mixin_natural_library

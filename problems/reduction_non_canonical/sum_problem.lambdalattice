@@ -1,0 +1,71 @@
+# Non-canonical binary naturals in lambda plus merge: problems of the
+# reduction series that are A DOMAIN TRAP IN THE REDUCTION SERIES.
+#
+# A binary natural is canonical when no even has zero as its half
+# (lambda_jit_scott_decoding:binary_tree/2); `even zero` is another term
+# with the value 0, and Scott case analysis tells the two apart. The
+# definitional plus of contest_merge_dynamic.pl keeps such forms: a sum
+# with zero answers the other operand as it is, and an even plus an even
+# is the even of the halves' sum, so `plus (even zero) zero` is
+# `even zero`, not `zero`, and leading even-over-zero digits of an operand
+# stay in the sum. The answer of each problem is that tree, computed by a
+# reference that follows the definitional code case by case
+# (plus_tree/3), not by the value.
+#
+# THE TRAP: a knowledge base or replacement that plants the canonical
+# literal of the sum's VALUE gives a term that decodes to another tree, so
+# the judge's decoding reads a wrong answer, a false positive under rule
+# 30. Rule 35's condition, that a replacement is a head beta equal to the
+# definitional code's, is what such a layer breaks here: the canonical
+# literal and the non-canonical sum have one value and are not beta equal.
+#
+# THE PROBLEMS:
+# - reduction_non_canonical_even_zero: plus (even zero) zero, the answer
+#   even zero;
+# - reduction_non_canonical_sum_N_digits, N = 16, 32 and 64: the sum of
+#   the two factors of contest_merge_binary.pl's product of N digits, the
+#   left written with eight leading even-over-zero digits and the right
+#   with four; the answers keep six, seven and five leading
+#   even-over-zero digits (the longer operand's bits and the carries
+#   cover the rest).
+#
+# READINGS (2026-09-29, CPU 2 under contest_limited.sh,
+# doc/contest_reduction.pl's reduce_to_file/3 then decode_file/2, a fresh
+# process each): weak_head and tabling(weak_head) read every problem
+# correct, the sum of 64 digits in about 1.1 s of reduction. A reduced
+# term written by hand as the canonical literal of the value reads wrong
+# on the even zero and on the sum of 64 digits.
+# These problems are no frontier: they check that a layer which plants
+# values keeps to the terms its definitional code gives.
+# LIMITS: the family's, 10 s, 256 MB, 256 MB.
+
+#
+# Each text is from_cbor of a string literal, a Scott list of bytes,
+# imported from corpora/library/text/cbor. FIXME: the import projects "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. export
+λ
+. cons
+  ( λ _sum_problem
+    . _sum_problem (text "reduction_non_canonical_sum_sixteen_digits") λ. text "merge_binary_product_sixteen_digits"
+  )
+λ
+. cons
+  ( λ _sum_problem
+    . _sum_problem (text "reduction_non_canonical_sum_thirty_two_digits") λ. text "merge_binary_product_thirty_two_digits"
+  )
+λ
+. cons
+  ( λ _sum_problem
+    . _sum_problem (text "reduction_non_canonical_sum_sixty_four_digits") λ. text "merge_binary_product_sixty_four_digits"
+  ) nil

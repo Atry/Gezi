@@ -1,0 +1,4 @@
+#   upto_body(-Body): \self. \k. \x. k nil (\p. cons x (self self p (successor x))),
+#   the list x, x + 1, ..., x + k - 1.
+λ export
+. export λx_0 x_1 x_2. x_1 (λx_3 x_4. x_3) λx_3 x_4 x_5. x_5 x_2 λ. x_0 x_0 x_3 λx_6 x_7. x_7 x_2

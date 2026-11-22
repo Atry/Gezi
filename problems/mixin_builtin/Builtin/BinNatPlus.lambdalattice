@@ -1,0 +1,49 @@
+# MIXINv2's Builtin/BinNatPlus.mixin.yaml (the package mixinv2-library),
+# desugared to the literal partial-function mixin encoding, a
+# definition `L : V` written `λ"L" L. V`: after the key, a class whose self is
+# named by the label. A lexical reference [a, w…] reads
+# off the self of the nearest enclosing scope that writes a, a qualified one
+# [S, ~, w…] off the self S, and an inherited mixin is applied to the
+# inheritor's self. top is written out, the term of corpora/library/top.lambdalattice.
+# The names BinNatPlus, Builtin and mixin_builtin are the selves the directory tree
+# binds. Written by a translator, a scratch prototype of that desugaring.
+# FIXME: once the .mixin.yaml front end (#1520) reads MIXINv2's YAML, read https://github.com/Atry/private-overlay/issues/1520
+# that YAML and delete this file.
+Builtin Builtin "BinNatVisitor" BinNatPlus
++ Builtin Builtin "BinNatIncrement" BinNatPlus
++ (λ"BinNatFactory" BinNatFactory. ( (λ"Product" Product. (λ"Plus" Plus. (λ"sum" sum. BinNatFactory BinNatFactory "Product" sum)))
++ (λ"Zero" Zero. (λ"Plus" Plus. ( (λ"addend" addend. BinNatFactory BinNatFactory "Product" addend)
++ (λ"sum" sum. Plus Plus "addend" sum))))
++ (λ"Even" Even. ( (λ"half" half. (λ"Plus" Plus. (λ"sum" sum. BinNatFactory BinNatFactory "Product" sum)))
++ (λ"Plus" Plus. ( (λ"addend" addend. ( BinNatFactory BinNatFactory "Product" addend
++ (λ"half" half. BinNatFactory BinNatFactory "Product" half)
++ (λ"halfOfPredecessor" halfOfPredecessor. BinNatFactory BinNatFactory "Product" halfOfPredecessor)))
++ (λ"_AddendAcceptance" _AddendAcceptance. ( (λo. o o "Acceptance") (Plus Plus "addend") _AddendAcceptance
++ (λ"VisitorMap" VisitorMap. ( (λ"ZeroVisitor" ZeroVisitor. (λ"sum" sum. Even sum))
++ (λ"EvenVisitor" EvenVisitor. ( (λ"_recursiveAddition" _recursiveAddition. ( (λo. o o "Plus") (Even Even "half") _recursiveAddition
++ (λ"addend" addend. (λo. o o "half") (Plus Plus "addend") addend)))
++ (λ"sum" sum. ( BinNatFactory BinNatFactory "Even" sum
++ (λ"half" half. (λo. o o "sum") (EvenVisitor EvenVisitor "_recursiveAddition") half)))))
++ (λ"OddVisitor" OddVisitor. ( (λ"_recursiveAddition" _recursiveAddition. ( (λo. o o "Plus") (Even Even "half") _recursiveAddition
++ (λ"addend" addend. (λo. o o "halfOfPredecessor") (Plus Plus "addend") addend)))
++ (λ"sum" sum. ( BinNatFactory BinNatFactory "Odd" sum
++ (λ"halfOfPredecessor" halfOfPredecessor. (λo. o o "sum") (OddVisitor OddVisitor "_recursiveAddition") halfOfPredecessor)))))))
++ (λ"Accepted" Accepted. (λ"sum" sum. BinNatFactory BinNatFactory "Product" sum))))
++ (λ"sum" sum. (λo. o o "sum") ((λo. o o "Accepted") (Plus Plus "_AddendAcceptance")) sum)))))
++ (λ"Odd" Odd. ( (λ"halfOfPredecessor" halfOfPredecessor. ( (λ"Plus" Plus. (λ"sum" sum. BinNatFactory BinNatFactory "Product" sum))
++ (λ"increment" increment. BinNatFactory BinNatFactory "Product" increment)))
++ (λ"Plus" Plus. ( (λ"addend" addend. ( BinNatFactory BinNatFactory "Product" addend
++ (λ"half" half. BinNatFactory BinNatFactory "Product" half)
++ (λ"halfOfPredecessor" halfOfPredecessor. BinNatFactory BinNatFactory "Product" halfOfPredecessor)))
++ (λ"_AddendAcceptance" _AddendAcceptance. ( (λo. o o "Acceptance") (Plus Plus "addend") _AddendAcceptance
++ (λ"VisitorMap" VisitorMap. ( (λ"ZeroVisitor" ZeroVisitor. (λ"sum" sum. Odd sum))
++ (λ"EvenVisitor" EvenVisitor. ( (λ"_recursiveAddition" _recursiveAddition. ( (λo. o o "Plus") (Odd Odd "halfOfPredecessor") _recursiveAddition
++ (λ"addend" addend. (λo. o o "half") (Plus Plus "addend") addend)))
++ (λ"sum" sum. ( BinNatFactory BinNatFactory "Odd" sum
++ (λ"halfOfPredecessor" halfOfPredecessor. (λo. o o "sum") (EvenVisitor EvenVisitor "_recursiveAddition") halfOfPredecessor)))))
++ (λ"OddVisitor" OddVisitor. ( (λ"_recursiveAddition" _recursiveAddition. ( (λo. o o "Plus") (Odd Odd "halfOfPredecessor") _recursiveAddition
++ (λ"addend" addend. (λo. o o "halfOfPredecessor") (Plus Plus "addend") addend)))
++ (λ"sum" sum. ( BinNatFactory BinNatFactory "Even" sum
++ (λ"half" half. (λo. o o "increment") ((λo. o o "sum") (OddVisitor OddVisitor "_recursiveAddition")) half)))))))
++ (λ"Accepted" Accepted. (λ"sum" sum. BinNatFactory BinNatFactory "Product" sum))))
++ (λ"sum" sum. (λo. o o "sum") ((λo. o o "Accepted") (Plus Plus "_AddendAcceptance")) sum)))))))

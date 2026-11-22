@@ -1,0 +1,13 @@
+# A relative path to a library file that is not there.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega path_reaches_nothing "library") "u") "b")
+λ b
+. export
+λ _ rewriting _ _
+. rewriting
+λ _ _ leaves
+. leaves
+λ k
+. k b

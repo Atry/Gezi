@@ -1,0 +1,59 @@
+# The base problems of the CSES families repeated_cses_game_routes_*: a number of levels and one-way flights without a cycle, the answer the number of routes from level 1 to the last level, modulo 10^9 + 7.
+#
+# THE ANSWER of each row is the problem's definition computed exhaustively by a
+# brute-force script (2026-11-22), which enumerates every candidate the problem's
+# statement describes. PROOF: the program of the problem's file follows the
+# definition, and its header argues under Definition 14 that its one normal form
+# is that answer; the data are finite and within the family's bottom rungs, which
+# the reference reading answers. The inputs are the author's own, no CSES test
+# data.
+#
+#   game_routes_point(?Point, ?Levels, ?Flights, ?Result)
+#
+# Levels is an integer (corpora/library/integer/cbor) >= 1; Flights is a Scott list (corpora/library/prelude/list) of pairs `pair a b` (corpora/library/prelude/pair) of integers from 1 to Levels, with no cycle; Result is an integer.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λvalue. value)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λvalue. value)
+λ integer
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "pair")
+λ pair _ _
+. export
+λ
+. cons
+  ( λ _game_routes_point
+    . _game_routes_point (text "cses_game_routes_sample") (integer 4) (cons (pair (integer 1) (integer 2)) λ. cons (pair (integer 2) (integer 4)) λ. cons (pair (integer 1) (integer 3)) λ. cons (pair (integer 3) (integer 4)) λ. cons (pair (integer 1) (integer 4)) λ. nil) λ. (integer 3)
+  )
+λ
+. cons
+  ( λ _game_routes_point
+    . _game_routes_point (text "cses_game_routes_one_level") (integer 1) nil λ. (integer 1)
+  )
+λ
+. cons
+  ( λ _game_routes_point
+    . _game_routes_point (text "cses_game_routes_last_level_unreachable") (integer 3) (cons (pair (integer 1) (integer 2)) λ. nil) λ. (integer 0)
+  )
+λ
+. cons
+  ( λ _game_routes_point
+    . _game_routes_point (text "cses_game_routes_parallel_flights") (integer 3) (cons (pair (integer 1) (integer 2)) λ. cons (pair (integer 1) (integer 2)) λ. cons (pair (integer 2) (integer 3)) λ. nil) λ. (integer 2)
+  )
+λ
+. cons
+  ( λ _game_routes_point
+    . _game_routes_point (text "cses_game_routes_labels_not_in_order") (integer 4) (cons (pair (integer 1) (integer 3)) λ. cons (pair (integer 3) (integer 2)) λ. cons (pair (integer 2) (integer 4)) λ. cons (pair (integer 1) (integer 2)) λ. nil) λ. (integer 2)
+  )
+λ
+. cons
+  ( λ _game_routes_point
+    . _game_routes_point (text "cses_game_routes_dead_end_branch") (integer 4) (cons (pair (integer 1) (integer 2)) λ. cons (pair (integer 1) (integer 3)) λ. cons (pair (integer 3) (integer 4)) λ. nil) λ. (integer 1)
+  ) nil

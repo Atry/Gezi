@@ -1,0 +1,2 @@
+Error planted.scala:2:42 marking "java.lang.invoke.VarHandle | Null": [wartremover:NoVarHandle] VarHandle is disabled
+1 error found

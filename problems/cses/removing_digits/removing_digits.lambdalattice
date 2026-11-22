@@ -1,0 +1,103 @@
+# removing_digits:
+# CSES 1637, Removing Digits (https://cses.fi/problemset/task/1637), in our own
+# words: starting from a positive integer number, each step subtracts one of the
+# nonzero decimal digits of the current number; the fewest steps that reach
+# zero. The input is a binary natural number, the answer a binary natural. Part of the
+# CSES port's second batch.
+#
+# THE PROGRAM, written by the definition: the list of the lengths of all step
+# sequences from number down to zero is built (the list holding 0 when number is zero,
+# otherwise, for each nonzero decimal digit of number, the lengths of the sequences
+# from number - digit, each plus one), and its least member taken. The decimal digits are
+# found by repeated division by ten, written bit by bit from the low end of the
+# binary numeral (ten_divmod). Its reading is exponential in number even under
+# tabling, since every step sequence is counted; the replacement the family asks
+# for is the one-dimensional recurrence fewest(number) = 1 + min over the nonzero
+# digits of number of fewest(number - digit), on fixed-width integers.
+#
+# DEFINITION 14: the program P, the point's term, is built of λ and application
+# only: its text holds no top, no choice, no parallel and no literal (the ten is
+# written with binary_zero, binary_even and binary_odd). It β-reduces to V, the
+# canonical binary numeral of the answer: every recursion ends, since ten_divmod
+# and digits consume a binary numeral (the quotient by ten of a positive number is
+# smaller, and the recursion of digits stops at zero), step_lengths consumes number, which
+# falls by a nonzero digit at each call, and every other recursion consumes a
+# finite list. So the β reduction reaches V; the branches that a Scott boolean
+# discards are never read. binary_subtract, which writes no top
+# (../common/binary_modular), is never asked for less than zero: it subtracts
+# ten from a remainder only when the remainder is not below ten, and a digit
+# from the number that has it. So ⊢_β P = V, and P ≃_O V by the soundness of
+# the derivable equations for the contextual preorder of Definition 14 (Lean
+# `ContextualPreorder.contextualEquivalenceOfDerivableLatticeEta`): V is an
+# answer, P ⊑_O V. No other closed βη normal form W has P ⊑_O W: then V ⊑_O W,
+# while Böhm's theorem gives a pure context that takes V to λx y. x and W to
+# λx y. y, and applying both to λa. a and Ω makes the first solvable and the
+# second not.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "fixpoint")
+λ fixpoint
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "boolean")
+λ _ false _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons append map _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "natural")
+λ binary_zero binary_even binary_odd _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "arithmetic")
+λ merge_binary_increment _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "order")
+λ binary_less_than _ binary_minimum
+. omega (omega (omega (omega (omega gezi "problems") "cses") "common") "binary_modular")
+λ binary_double binary_subtract _ _
+. (λtuple. tuple (binary_even λ. binary_odd λ. binary_even λ. binary_odd binary_zero))
+λ ten
+. ( λ tuple
+    . tuple λ. fixpoint λself function items. items nil λhead tail. append (function head) λ. self function tail
+  )
+λ concat_map
+. ( λ tuple
+    . tuple
+    λ quotient remainder continue
+    . binary_less_than remainder ten (continue (binary_double quotient) remainder) (continue (binary_odd quotient) (binary_subtract remainder ten false))
+  )
+λ settle
+. ( λ tuple
+    . tuple
+    λ. fixpoint
+    λ self natural
+    . natural (λcontinue. continue binary_zero binary_zero)
+      (λhalf continue. self half λquotient remainder. settle quotient (binary_double remainder) continue)
+      λhalf continue. self half λquotient remainder. settle quotient (binary_odd remainder) continue
+  )
+λ ten_divmod
+. ( λ tuple
+    . tuple
+    λ. fixpoint
+    λ self number
+    . number nil (λ_. ten_divmod number λquotient digit. cons digit λ. self quotient) λ_. ten_divmod number λquotient digit. cons digit λ. self quotient
+  )
+λ digits
+. ( λ tuple
+    . tuple
+    λ. fixpoint
+    λ self number
+    . ( λ step
+        . number (cons binary_zero nil) (λ_. step) λ_. step
+      )
+      ( concat_map
+        ( λ digit
+          . digit nil
+            (λ_. map merge_binary_increment λ. self λ. binary_subtract number digit false)
+            λ_. map merge_binary_increment λ. self λ. binary_subtract number digit false
+        ) λ. digits number
+      )
+  )
+λ step_lengths
+. ( λ tuple
+    . tuple λ. fixpoint λself least candidates. candidates least λcandidate rest. self (binary_minimum least candidate) rest
+  )
+λ fold_minimum
+. (λtuple. tuple λnumber. step_lengths number binary_zero λhead tail. fold_minimum head tail)
+λ removing_digits
+. export removing_digits

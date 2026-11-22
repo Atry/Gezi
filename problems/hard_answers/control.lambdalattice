@@ -1,0 +1,50 @@
+#
+# Each text is from_cbor of a string literal, a Scott list of bytes,
+# imported from corpora/library/text/cbor. FIXME: the import projects "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. export
+λ
+. cons (λ_control. _control λ. text "stream_periods_equal_unrolled")
+λ
+. cons (λ_control. _control λ. text "type_periods_subtype_unrolled")
+λ
+. cons (λ_control. _control λ. text "sharing_conjunction_chain_unrolled")
+λ
+. cons (λ_control. _control λ. text "safety_diamond_trapped_unrolled")
+λ
+. cons (λ_control. _control λ. text "safety_escape_behind_traps_unrolled")
+λ
+. cons (λ_control. _control λ. text "path_rebuilt_unrolled")
+λ
+. cons (λ_control. _control λ. text "acyclic_ends_carrying_junk_unrolled")
+λ
+. cons (λ_control. _control λ. text "repmin_sum_small")
+λ
+. cons (λ_control. _control λ. text "fibonacci_parity_nth_unrolled")
+λ
+. cons (λ_control. _control λ. text "path_eta_expanded_unrolled")
+λ
+. cons (λ_control. _control λ. text "jit_hot_count_down_unrolled")
+λ
+. cons (λ_control. _control λ. text "game_subtraction_unrolled")
+λ
+. cons (λ_control. _control λ. text "coins_unrolled")
+#   the former JIT arena
+λ
+. cons (λ_control. _control λ. text "lasso_ends_unrolled")
+λ
+. cons (λ_control. _control λ. text "stream_all_one_unrolled")
+λ
+. cons (λ_control. _control λ. text "regex_all_prefixes_unrolled")
+λ
+. cons (λ_control. _control λ. text "type_self_record_unrolled") nil

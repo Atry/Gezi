@@ -1,0 +1,2 @@
+Error planted.scala:2:22 marking ".newBuilder": [wartremover:NoNewBuilder] newBuilder is disabled
+1 error found

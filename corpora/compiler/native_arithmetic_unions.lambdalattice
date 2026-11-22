@@ -1,0 +1,50 @@
+# The schemes of native_arithmetic's names in the zero universe of the
+# module hindley_milner_unions, as that module writes the schemes of native_types' names:
+# zero_universe_scheme s marks the judgment of a name by its scheme s,
+# beside the real one native_arithmetic declares. Compiled with
+# native_types, native_arithmetic and hindley_milner_unions. The naturals
+# and the booleans are written as hindley_milner_unions writes them, as
+# structures with no name: the naturals the recursive type of n ↦ structure (alternative
+# no_field (alternative (field n no_field) no_alternative)), the booleans
+# structure (alternative no_field (alternative no_field no_alternative)).
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "native_arithmetic") "native_arithmetic")
+λ double even
+. omega (omega (omega (omega corpora "library") "hindley_milner_unions") "types")
+λ function_type _ _ zero_universe_scheme _
+. omega (omega (omega (omega corpora "library") "hindley_milner_unions") "shapes")
+λ structure alternative no_alternative field no_field recursive_type
+. export
+λ _ rewriting _ _
+. rewriting
+λ _ lemmas _
+. lemmas
+  ( λ s
+    . s
+      (λk. k "unions_even_scheme") even
+      ( even
+      ∥ λ
+        . zero_universe_scheme
+        λ
+        . function_type
+          ( recursive_type λx_0. structure λ. alternative no_field λ. alternative (field x_0 no_field) no_alternative
+          ) λ. structure λ. alternative no_field λ. alternative no_field no_alternative
+      + even
+      ) λ_ md _. md λk. k "[absorption](docs/design/gezi-hindley-milner-unions-proofs.md#absorption)"
+  + λ s
+    . s
+      (λk. k "unions_double_scheme") double
+      ( double
+      ∥ λ
+        . zero_universe_scheme
+        λ
+        . function_type
+          ( recursive_type λx_0. structure λ. alternative no_field λ. alternative (field x_0 no_field) no_alternative
+          )
+        λ
+        . recursive_type λx_0. structure λ. alternative no_field λ. alternative (field x_0 no_field) no_alternative
+      + double
+      ) λ_ md _. md λk. k "[absorption](docs/design/gezi-hindley-milner-unions-proofs.md#absorption)"
+  )

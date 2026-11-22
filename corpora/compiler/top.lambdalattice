@@ -1,0 +1,39 @@
+# top, the term that stands for no answer (../library/top): noinline, so that a
+# search does not unfold its fixed point, and the five equations that remove
+# it, for every M. Each holds up to contextual equivalence, ≃_O of Definition
+# 14 (lean/LambdaJit/ContextualPreorderTop.lean, the theorem each lemma
+# cites): top is greatest for ⊑_O. None is derivable by ⊢_{λ-lattice-η}
+# (CONTRIBUTING.md, "Terms"), so an article imports them as lemmas.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega corpora "library") "top")
+λ top
+. export
+  ( λ _ rewriting _ _
+    . rewriting
+    λ _ _ leaves
+    . leaves
+    λ k
+    . k top
+  + λ _ rewriting _ _
+    . rewriting
+    λ _ lemmas _
+    . lemmas
+      # top ∥ M = top and M ∥ top = top: top absorbs the parallel.
+      ( λ s
+        . s (λk. k "top_parallel_right") (λx_0. (x_0 ∥ top)) (λx_0. top) λ_ md _. md λk. k "[contextualEquivalenceParallelTop](gezi/lean/LambdaJit/ContextualPreorderTop.lean)"
+      + λ s
+        . s (λk. k "top_parallel_left") (λx_0. (top ∥ x_0)) (λx_0. top) λ_ md _. md λk. k "[contextualEquivalenceTopParallel](gezi/lean/LambdaJit/ContextualPreorderTop.lean)"
+      # top M = top: top applied is top.
+      + λ s
+        . s (λk. k "top_applied") (λx_0. top x_0) (λx_0. top)
+        λ _ md _
+        . md λk. k "[contextualEquivalenceTopApplication](gezi/lean/LambdaJit/ContextualPreorderTop.lean)"
+      # top + M = M and M + top = M: top is the unit of the choice.
+      + λ s
+        . s (λk. k "top_choice_right") (λx_0. (top + x_0)) (λx_0. x_0) λ_ md _. md λk. k "[contextualEquivalenceChoiceTop](gezi/lean/LambdaJit/ContextualPreorderTop.lean)"
+      + λ s
+        . s (λk. k "top_choice_left") (λx_0. (x_0 + top)) (λx_0. x_0) λ_ md _. md λk. k "[contextualEquivalenceTopChoice](gezi/lean/LambdaJit/ContextualPreorderTop.lean)"
+      )
+  )

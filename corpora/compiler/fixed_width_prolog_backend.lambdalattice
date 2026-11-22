@@ -1,0 +1,45 @@
+# The Prolog backend's facts for fixed_width, a knowledge module of their own
+# (one set of backend facts per backend; prolog_backend.pl has native_types',
+# native_arithmetic_prolog_backend.pl native_arithmetic's): the words of
+# word_type w are represented natively, each as one integer of w bits with its
+# width (the family word, gezi.jit.WordFamily), and the two constructors
+# the codec decodes into and encodes from are bound to it, and are leaves, so
+# that no round unfolds them and the refinement keeps them as written. A filter
+# `x ∥ word_type W`, W a numeral written out, in a term is then a decode point
+# of the JIT, its width W read from that syntax. The constructors have no
+# native entry of their own: a word's width is the family's parameter, and the
+# codec builds and takes each layer itself (NativeBackend.standard). Trusted,
+# as every native specialization is; the family's law test
+# (WordFamilyLawTest) checks that a layer taken and built again is the
+# value, and the backend's check (BackendChecks) checks, when the library is
+# compiled, the constructors' shape at the widths 0 and 1, which cover every
+# width (WordFamily, THE SHAPE CHECK), and that each define takes one
+# parameter for each of its constructor's fields. No lemma justifies these
+# facts. Compiled with fixed_width and native_types.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "fixed_width") "word_representation")
+λ word_end word_cell _ _ word_type _
+. export
+  ( λ _ _ _ backend
+    . backend
+    λ _ _ representations _ _ _
+    . representations
+    λ s
+    . s word_type λk. k "word"
+  + λ _ rewriting _ _
+    . rewriting
+    λ _ _ leaves
+    . leaves
+      ( λk. k word_cell
+      + λk. k word_end
+      )
+  + λ _ _ _ backend
+    . backend
+    λ _ natives _ _ _ _
+    . natives
+      ( λs. s word_cell λk. k "word_cell"
+      + λs. s word_end λk. k "word_end"
+      )
+  )

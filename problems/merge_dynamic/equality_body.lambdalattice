@@ -1,0 +1,5 @@
+#   equality_body(+True, +False, -Body): the same variant and equal halves.
+λ export
+. export
+λ x_0 x_1 x_2 x_3 x_4
+. x_3 (x_4 x_0 (λx_5. x_1) λx_5. x_1) (λx_5. x_4 x_1 (λx_6. x_2 x_2 x_5 x_6) λx_6. x_1) λx_5. x_4 x_1 (λx_6. x_1) λx_6. x_2 x_2 x_5 x_6

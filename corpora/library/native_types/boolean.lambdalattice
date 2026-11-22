@@ -1,0 +1,29 @@
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "native_types") "markers")
+λ _ $constructor _ _
+# true:
+# The boolean true; its scheme boolean_type is the lemma true_scheme of
+# native_types.pl.
+. (λtuple. tuple λ. $constructor λt f. t)
+λ true
+# false:
+# The boolean false; its scheme boolean_type is the lemma false_scheme of
+# native_types.pl.
+. (λtuple. tuple λ. $constructor λt f. f)
+λ false
+# boolean_type:
+# The booleans.
+. (λtuple. tuple (λt f. f + λt f. t))
+λ boolean_type
+# boolean_not:
+# The negation of a boolean, its two results filtered by boolean_type, which
+# they are members of, so that the Prolog backend builds them in its
+# representation (lambda_jit_jit, ONLY A TYPE-FILTERED CONSTRUCTOR ENTERS A
+# REPRESENTATION); its scheme boolean_type -> boolean_type is the lemma
+# boolean_not_scheme of native_types.pl. The argument carries no filter: a
+# typed program filters it where the negation is applied.
+. (λtuple. tuple λb. b (false ∥ boolean_type) (true ∥ boolean_type))
+λ boolean_not
+. export true false boolean_type boolean_not

@@ -1,0 +1,138 @@
+# +Count, +Edges, +Keys, +Start, +Budget, -Term
+# +Count, +Edges, +Keys, +Start, +Budget, -Totals
+# +Rows, +Columns, -Count, -Edges
+# +Count, -Set
+#   * <module> The shortest walk that collects every key: three nested layers, each to be replaced natively
+#
+# A family of the reduction series: a non-trivial problem, at least LeetCode
+# hard and laborious in C or C++, with a concise definition whose solution
+# needs special data structures and a pattern recognised and replaced natively
+# at every layer of nested subproblems. The problem
+# is LeetCode 864, "Shortest Path to Get All Keys", on a grid without locks.
+#
+# The program writes top (corpora/library/top) where the pseudo-code and the
+# argument below write {}, the empty choice of the calculus that still has
+# it; doc/proofs/reduction_series_answers.md carries the argument over to
+# Definition 14, and the generator is the family's Scala object in
+# gezi/contest-corpora.
+#
+# THE PROGRAM, written by the definition in three layers, in continuation
+# passing style so that a set is chosen once, at the head (a set passed as an
+# argument would be chosen afresh at every use):
+#
+#     lengths b v t   = { equal v t (\k. k 0) {},
+#                         b {} (\p. { \k. lengths p u t (\l. k (successor l)) | u a successor of v }) }
+#     tour c v r k    = full c (k r)
+#                         { member c i {} (lengths B v key_i (\d. at_least r d
+#                               (tour (insert c i) key_i (difference r d) k) {})) | i a key }
+#     program         = tour none start T (\r. difference T r)
+#
+# - the inner layer, lengths, is the set of the lengths of the walks of at
+#   most b edges from v to t (the family of corpora/contest_path_lengths.pl);
+#   replaced natively it is a breadth-first distance;
+# - the middle layer, tour, chooses the next key among those not collected,
+#   its collected keys a bit set (the attractors bit_set_member, bit_set_insert
+#   and bit_set_full); replaced natively it is the dynamic programme over the
+#   subsets of keys and the last key, with the subset a bitmask;
+# - the outer layer is the budget arithmetic, the attractors natural_at_least
+#   and natural_difference on unary numerals; replaced natively it is integer
+#   arithmetic.
+# The inner layer's members are boxes whose normal forms are \k. k d, d the
+# length of a walk; walks of one length give boxes of one normal form, so
+# the set grows with the number of walks until equal members are merged. A
+# setting that reads a box as a datum of a one-constructor Scott type and
+# merges equal members by value is left with one box per length, which is
+# the breadth-first distance layer.
+# A setting that replaces only the inner layer still interprets the middle
+# one, and every boundary between a native and an interpreted layer converts
+# the values: the family measures how far the compilation reaches.
+#
+# THE SNAPSHOT. S(P) is the set of the totals of the walks from the start
+# that collect every key in some order, each leg a walk of at most B edges,
+# the total at most T: collect_keys_totals/6. The points take T the least
+# such total, so S(P) is that one number, the answer; the near miss takes T
+# one less, so S(P) is empty. PROOF, with ⟦·⟧, D, S and Th and
+# Lemma 2b of gezi/doc/proofs/certificate_meta_lemmas.md.
+# - (⊇) For an order of the keys and a walk per leg with total s =< T,
+#   choose, at each tour, the key's branch, and in lengths the members along
+#   the leg's walk: finitely many steps reach difference T (T - s), the
+#   numeral s, pure and normal, in ⟦P⟧ by Lemma 2b.2.
+# - (⊆) By Lemma 2b.3 every yield equals a pure term P reaches by a finite
+#   sequence σ. The only sets of P are the sets written above and {}; σ
+#   removes a set at the head only by a member, and {} never (a set heads no
+#   redex, {} has no member). So a pure term is reached only through a full
+#   bit set, every key's branch taken once (member refuses a collected key),
+#   each leg's d a walk length (the inner layer's members are boxes of walk
+#   lengths, by the argument of contest_path_lengths.pl), and at_least keeps r
+#   a budget of T minus the legs so far. The pure term is difference T r, the
+#   total s = T - r of a walk collecting every key, at most T.
+#
+# TARGET ALGORITHMS, the specific known algorithms the problem targets, each
+# with its prior work:
+# - breadth-first distances: R. Bellman, On a routing problem, Quarterly of
+#   Applied Mathematics 1958, doi:10.1090/qam/102435;
+# - the dynamic programme over subsets: M. Held, R. M. Karp, A Dynamic
+#   Programming Approach to Sequencing Problems, J. SIAM 1962,
+#   doi:10.1137/0110015;
+# - tabled evaluation, which keys the tour by the bit set, the last key and
+#   the budget: W. Chen, D. S. Warren, J. ACM 1996, doi:10.1145/227595.227597.
+#
+# READINGS AND SIZES: in the points' comment below (THE POINTS).
+# LIMITS: the reduction family's, 10 s, 256 MB, 256 MB.
+
+#   THE POINTS: collect_keys_point(?Point, ?Rows, ?Columns, ?Keys, ?Slack),
+#   the start the corner 0 and the budget the least total plus Slack. Sized
+#   by a probe of 2026-09-30 (CPUs 0-7, the whole set under a 10 s
+#   limit, the budget the least total): tabling(weak_head) reads the 3 by 3
+#   grid with three keys in 463 ms and the 4 by 4 grid with four keys in
+#   6751 ms, and is stopped at the 5 by 5 grid with four keys; weak_head is
+#   stopped at the 3 by 3 grid (it reads the 2 by 3 grid with two keys in
+#   6580 ms). The near miss takes the budget one short of the least total.
+#
+# Each text is from_cbor of a string literal, a Scott list of bytes,
+# imported from corpora/library/text/cbor. Each number is from_cbor of an
+# integer literal, a Scott integer, imported from corpora/library/integer/cbor.
+# FIXME: the imports project "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λx. x)
+λ integer
+. export
+λ
+. cons
+  ( λ _collect_keys_point
+    . _collect_keys_point
+      (text "reduction_collect_keys_small")
+      (integer 3)
+      (integer 3)
+      (cons (integer 2) λ. cons (integer 6) λ. cons (integer 8) nil) λ. integer 0
+  )
+λ
+. cons
+  ( λ _collect_keys_point
+    . _collect_keys_point
+      (text "reduction_collect_keys_large")
+      (integer 5)
+      (integer 5)
+      (cons (integer 4) λ. cons (integer 12) λ. cons (integer 20) λ. cons (integer 24) nil) λ. integer 0
+  )
+λ
+. cons
+  ( λ _collect_keys_point
+    . _collect_keys_point
+      (text "reduction_collect_keys_near_miss")
+      (integer 3)
+      (integer 3)
+      (cons (integer 2) λ. cons (integer 6) λ. cons (integer 8) nil) λ. integer -1
+  ) nil

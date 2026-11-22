@@ -1,0 +1,55 @@
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "prelude") "fixpoint")
+λ fixpoint
+. omega (omega (omega (omega corpora "library") "prelude") "boolean")
+λ true false _ _
+. omega (omega (omega (omega corpora "library") "prelude") "list")
+λ nil cons _ _ _
+# bit_set_full:
+#   bit_set_full set: every element true.
+. (λtuple. tuple λ. fixpoint λself set. set true λbit rest. bit (self rest) false)
+λ bit_set_full
+# bit_set_insert:
+#   bit_set_insert set i: the set with the element at i true, the set
+#   itself when i is beyond the end.
+. ( λ tuple
+    . tuple
+    λ
+    . fixpoint
+    λ self set index
+    . set nil λbit rest. index (cons true rest) λpredecessor. cons bit λ. self rest predecessor
+  )
+λ bit_set_insert
+# bit_set_member:
+#   bit_set_member set i: the element at i, false beyond the end.
+. ( λ tuple
+    . tuple λ. fixpoint λself set index. set false λbit rest. index bit λpredecessor. self rest predecessor
+  )
+λ bit_set_member
+# bit_set_union:
+#   bit_set_union a b: the elements at each position or'ed, the longer
+#   set's tail kept.
+. ( λ tuple
+    . tuple
+    λ
+    . fixpoint
+    λ self left right
+    . left right λbit rest. right left λother others. cons (bit true other) λ. self rest others
+  )
+λ bit_set_union
+# bits_prefix:
+#   bits_prefix a b: the Scott list of Booleans a is a prefix of b, compared
+#   element by element.
+. ( λ tuple
+    . tuple
+    λ
+    . fixpoint
+    λ self left right
+    . left true
+    λ head tail
+    . right false λother rest. head (other (self tail rest) false) λ. other false λ. self tail rest
+  )
+λ bits_prefix
+. export bit_set_full bit_set_insert bit_set_member bit_set_union bits_prefix

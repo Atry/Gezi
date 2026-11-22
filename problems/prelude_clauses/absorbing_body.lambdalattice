@@ -1,0 +1,2 @@
+#   The body `absorbing` hands its fixpoint.
+λ export. export λself _. self

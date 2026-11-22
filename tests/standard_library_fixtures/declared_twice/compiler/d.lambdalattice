@@ -1,0 +1,14 @@
+# Two lemmas of one name.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega declared_twice "library") "d") "a")
+λ a
+. export
+λ _ rewriting _ _
+. rewriting
+λ _ lemmas _
+. lemmas
+  ( λs. s (λk. k "a") (λx. a x) (λx. x) λ_ _ tex. tex λk. k "\\cite{paper}"
+  + λs. s (λk. k "a") (λx. x) (λx. x) λ_ _ tex. tex λk. k "\\cite{paper}"
+  )

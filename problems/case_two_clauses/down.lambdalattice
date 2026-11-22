@@ -1,0 +1,34 @@
+# VALUE RECURSION WITH A SYMBOLIC COMPUTATION OVER IT, a port of a
+# value-recursion example with two symbols that refer to each other.
+#
+# Two SYMBOLS refer to each other through `down`: the tree symbol's down is
+# the forest symbol and the forest symbol's down is the tree symbol, tied
+# through ONE fixpoint over a pair. A symbol is `\k. k mark down`, the Scott
+# pair of its mark and its down neighbour; the marks are `identity` and
+# `konstant`, the corpus's two comparable elements.
+#
+# `judge` is the symbolic computation: applied to a subject it produces a
+# verdict, the list `cons seen (judge (down subject))`, one `seen` per
+# subject visited, and it never stops, because the two symbols visit each
+# other forever: each subject's value is a finite cycle, but the verdict's
+# spelling grows with every round.
+#
+# THE THREE BOUNDED JUDGES are the controls: `judge_zero`, `judge_one` and
+# `judge_two` visit zero, one and two `down` steps and then stop with `nil`,
+# so their verdicts are finite lists and every setting answers them.
+#
+# `all_seen` CONSUMES A VERDICT to the end: `nil` answers `true`, `cons h t`
+# recurses on `t`. On a bounded verdict it answers `true`; on `unbounded` it
+# walks an infinite list, so its honest answer is BOTTOM, and whether a
+# setting reaches that answer in finite time is what `all_seen_unbounded`
+# reads. The weak head of `unbounded` itself is `cons seen (...)`, which
+# every setting answers at once; the drift is in the tail, and only a
+# consumer of the whole verdict makes it visible.
+#
+# A POINT IS AN EXPORTED UNARY PREDICATE of the module that includes this
+# file, and a piece defined elsewhere is pulled in by a plain call, which
+# yields a fresh copy of that clause's variables; the prelude's pieces reach
+# this file through the module's `use_module` of it.
+
+#   `down` selects a symbol's down neighbour: the second field of the pair.
+λ export. export λx_0. x_0 λx_1 x_2. x_2

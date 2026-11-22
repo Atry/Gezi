@@ -1,0 +1,8 @@
+wren_typed_bindings: λ x_0
+        . x_0 binary_zero binary_even binary_odd merge_binary_plus binary_maximum binary_minimum binary_bitwise_or fixpoint = λ x_0
+        . ( λ
+            . wren_typed_branch
+            λ
+            . x_0 wren_typed_zero wren_typed_even wren_typed_odd wren_typed_plus wren_typed_maximum wren_typed_minimum wren_typed_bitwise_or wren_fixpoint_by_value
+          + x_0 binary_zero binary_even binary_odd merge_binary_plus binary_maximum binary_minimum binary_bitwise_or fixpoint
+          )

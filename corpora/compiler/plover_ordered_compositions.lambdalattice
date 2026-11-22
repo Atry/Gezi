@@ -1,0 +1,152 @@
+# The typed branch of the ordered compositions: a program that counts,
+# modulo a modulus, the sequences of items summing to a target, written by the
+# definition, equals the choice of itself and the typed version at filtered
+# operands. The lemma holds for every items, target and modulus, by monotonicity
+# alone, with no hypothesis that the operands are canonical, by the paper proof
+# its declaration cites.
+#
+# The typed version is a noinline leaf, so the lemma never matches inside its
+# own right side. The choice carries no marker: it stands inside a function's
+# body, where the narrow grammar reads a marker's head as a closed term and
+# refuses the body, and the grammar takes a choice's first narrow member by
+# itself (`NarrowBlocks.chosenMember`).
+#
+# Termination of this module's saturation, derived and not proved: the left
+# side's instances are the program's own subterms of that shape, and the right
+# side adds only the leaf and filters of operands already there.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "prelude") "fixpoint")
+λ fixpoint
+. omega (omega (omega (omega corpora "library") "prelude") "list")
+λ nil cons _ map _
+. omega (omega (omega (omega corpora "library") "binary") "natural")
+λ binary_zero _ _ _ binary_set
+. omega (omega (omega (omega corpora "library") "binary") "arithmetic")
+λ _ merge_binary_plus _ merge_binary_equality
+. omega (omega (omega (omega corpora "library") "binary") "order")
+λ binary_less_than _ _
+. omega (omega (omega (omega corpora "library") "native_types") "list")
+λ native_nil native_cons _ list_type
+. omega (omega (omega (omega corpora "library") "native_types") "boolean")
+λ true false _ _
+. omega (omega (omega (omega corpora "library") "plover_compositions") "plover_compositions")
+λ plover_concatenated_map plover_count_from plover_binary_modulo plover_sequences _ plover_typed_ordered_compositions
+. export
+  ( λ _ rewriting _ _
+    . rewriting
+    λ _ _ leaves
+    . leaves (λkey. key plover_sequences + λkey. key plover_typed_ordered_compositions)
+  + λ _ _ _ backend
+    . backend
+    λ _ natives _ _ _ _
+    . natives (λ binding. binding plover_typed_ordered_compositions λkey. key "plover_ordered_compositions")
+  + λ _ rewriting _ _
+    . rewriting
+    λ _ lemmas _
+    . lemmas
+      # The list's constructors restored where a program writes the prelude's,
+      # which are the backend's without the marker $constructor, so that the
+      # narrow blocks' literals read the list, as binary_restoration does for
+      # the numerals. Each holds by δ and β. The end of a list is restored only
+      # with the cell before it: nil is the term of true, and a lemma on nil
+      # alone would give every boolean of a program the marked spelling.
+      ( λ lemma
+        . lemma (λkey. key "plover_list_last_restored") (λ head. native_cons head native_nil) (λ head. cons head nil)
+        λ _ metadata _
+        . metadata λkey. key "[plover_list_restored](docs/design/gezi-plover-ordered-compositions-proofs.md)"
+      + λ lemma
+        . lemma (λkey. key "plover_list_cons_restored") (λ head tail. native_cons head tail) (λ head tail. cons head tail)
+        λ _ metadata _
+        . metadata λkey. key "[plover_list_restored](docs/design/gezi-plover-ordered-compositions-proofs.md)"
+      # The same for a list given as data, each cell already the abstraction
+      # λ nil_case cons_case. cons_case head tail that cons makes.
+      + λ lemma
+        . lemma
+          (λkey. key "plover_list_last_unfolded")
+          (λ head. native_cons head native_nil)
+          (λ head nil_case cons_case. cons_case head nil)
+        λ _ metadata _
+        . metadata λkey. key "[plover_list_last_unfolded](docs/design/gezi-plover-ordered-compositions-proofs.md)"
+      + λ lemma
+        . lemma
+          (λkey. key "plover_list_cons_unfolded")
+          (λ head tail. native_cons head tail)
+          (λ head tail nil_case cons_case. cons_case head tail)
+        λ _ metadata _
+        . metadata λkey. key "[plover_list_cons_unfolded](docs/design/gezi-plover-ordered-compositions-proofs.md)"
+      # The fold of a program's recursion over items into the attractor. The
+      # left side has two binders and the right side one, so items is the
+      # lemma's one metavariable and target the binder of an object lambda
+      # (`BaselineLemmaEncoding.metavariables`). It holds by δ and β.
+      + λ lemma
+        . lemma
+          (λkey. key "plover_sequences_folded")
+          ( λ items target
+            . fixpoint
+              ( λ self partial_sum
+                . binary_less_than target partial_sum nil λ. merge_binary_equality partial_sum target (cons nil nil) λ. plover_concatenated_map (λitem. map (cons item) λ. self λ. merge_binary_plus partial_sum item) items
+              ) binary_zero
+          )
+          (λ items. plover_sequences items)
+        λ _ metadata _
+        . metadata λkey. key "[plover_sequences_folded](docs/design/gezi-plover-ordered-compositions-proofs.md)"
+      # A program binds the counting function once and calls it at each site.
+      # The let of that function is reduced, and each call of it is read, so
+      # that every site is the count at its own closed arguments. Each is an
+      # instance of the β rule.
+      + λ lemma
+        . lemma
+          (λkey. key "plover_ordered_compositions_let")
+          ( λ body sequences modulus
+            . (λ function. body function) λ target. plover_binary_modulo (plover_count_from binary_zero λ. sequences target) modulus
+          )
+          ( λ body sequences modulus
+            . body λ target. plover_binary_modulo (plover_count_from binary_zero λ. sequences target) modulus
+          )
+        λ _ metadata _
+        . metadata λkey. key "[plover_ordered_compositions_let](docs/design/gezi-plover-ordered-compositions-proofs.md)"
+      + λ lemma
+        . lemma
+          (λkey. key "plover_ordered_compositions_applied")
+          ( λ sequences modulus argument
+            . (λ target. plover_binary_modulo (plover_count_from binary_zero λ. sequences target) modulus) argument
+          )
+          (λ sequences modulus argument. plover_binary_modulo (plover_count_from binary_zero λ. sequences argument) modulus)
+        λ _ metadata _
+        . metadata λkey. key "[plover_ordered_compositions_applied](docs/design/gezi-plover-ordered-compositions-proofs.md)"
+      # The same two for a counting function that takes the items as well.
+      + λ lemma
+        . lemma
+          (λkey. key "plover_ordered_compositions_items_let")
+          ( λ body sequences modulus
+            . (λ function. body function) λ items target. plover_binary_modulo (plover_count_from binary_zero λ. sequences items target) modulus
+          )
+          ( λ body sequences modulus
+            . body λ items target. plover_binary_modulo (plover_count_from binary_zero λ. sequences items target) modulus
+          )
+        λ _ metadata _
+        . metadata λkey. key "[plover_ordered_compositions_items_let](docs/design/gezi-plover-ordered-compositions-proofs.md)"
+      + λ lemma
+        . lemma
+          (λkey. key "plover_ordered_compositions_items_applied")
+          ( λ sequences modulus first second
+            . (λ items target. plover_binary_modulo (plover_count_from binary_zero λ. sequences items target) modulus) first second
+          )
+          (λ sequences modulus first second. plover_binary_modulo (plover_count_from binary_zero λ. sequences first second) modulus)
+        λ _ metadata _
+        . metadata λkey. key "[plover_ordered_compositions_items_applied](docs/design/gezi-plover-ordered-compositions-proofs.md)"
+      + λ lemma
+        . lemma
+          (λkey. key "plover_ordered_compositions_branch")
+          (λ items target modulus. plover_binary_modulo (plover_count_from binary_zero λ. plover_sequences items target) modulus)
+          ( λ items target modulus
+            . ( plover_binary_modulo (plover_count_from binary_zero λ. plover_sequences items target) modulus
+              + plover_typed_ordered_compositions (items ∥ list_type (binary_set false)) (target ∥ binary_set true) (modulus ∥ binary_set false)
+              )
+          )
+        λ _ metadata _
+        . metadata λkey. key "[plover_ordered_compositions_branch](docs/design/gezi-plover-ordered-compositions-proofs.md)"
+      )
+  )

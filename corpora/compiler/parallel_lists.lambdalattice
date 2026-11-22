@@ -1,0 +1,33 @@
+# Structural recursion over Scott lists with types written as parallels.
+#
+# A type is a term: list_type E is the choice fixpoint (λl. nil + cons E l),
+# and filter_by T x is x ∥ T. list_fold z s is the fold with the base and the
+# step outside the knot, as nat_fold of parallel_types; list_fold_filtered T z s
+# filters the base, the recursive result handed to the step, and the step's
+# output by the output type T, which is a parameter of the define. The
+# element is not filtered: the contract list_fold_filtered_contract of
+# filtered_recursion_lists.pl holds for every element type, so a typed branch
+# needs to name the output type only.
+#
+# Every lemma here is a theorem of λ-lattice-unit-η (CONTRIBUTING.md,
+# "Terms"); each declaration cites its paper proof. None uses induction.
+
+# length is the structural recursion it unfolds to (beta).
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "prelude") "list")
+λ _ _ _ _ length
+. omega (omega (omega (omega corpora "library") "parallel_lists") "parallel_lists")
+λ _ list_fold _ _
+. omega (omega (omega (omega corpora "library") "prelude") "natural")
+λ zero successor _ _ _ _ _
+. omega (omega (omega (omega corpora "library") "prelude") "combinators")
+λ _ konstant _ _ _ _ _
+. export
+λ _ rewriting _ _
+. rewriting
+λ _ lemmas _
+. lemmas
+λ s
+. s (λk. k "length_as_fold") length (list_fold zero λ. konstant successor) λ_ md _. md λk. k "[length_as_fold](docs/design/gezi-normality-measure.md)"

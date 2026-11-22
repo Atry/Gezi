@@ -1,0 +1,12 @@
+# The graph of a point of point: a Scott sum of two constructors, in order:
+# cyclic, whose fields are the shape (a constructor of schema/graph_shape)
+# and the size (a decimal text), and tree, the infinite binary tree, whose
+# fields are the order of its branches (a constructor of
+# empty_set_reachability/order), the branches kept (a constructor of
+# empty_set_reachability/branches) and the target's bits (a list of decimal
+# texts). Read by its position
+# (gezi.contest.corpora.reductions.EmptySetReachability, graphOf, into
+# ReachabilityGraph).
+λ export
+. export
+  (λshape size cyclic tree. cyclic shape size) λorder branches bits cyclic tree. tree order branches bits

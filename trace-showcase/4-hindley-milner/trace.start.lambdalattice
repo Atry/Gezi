@@ -1,0 +1,33 @@
+λ start
+. start (λk. k 10)
+  ( λ
+    . (λt. t λx. (λx_2. (λx_3. x_2 λ. x_3 x_3) λx_3. x_2 λ. x_3 x_3) λx_2 x_3. (x_2 ∥ x_3))
+    λ type_of
+    . (λt. t λx. x)
+    λ $merkle$fc082a46
+    . (λt. t λx x_2. (λ"$name". $merkle$fc082a46) "$name" x_2)
+    λ $name
+    . (λt. t λx. (x ∥ (x ∥ x) ∥ x))
+    λ $merkle$d7a618c4
+    . (λt. t λ. (λx. (λ"$generic". $merkle$fc082a46) "$generic" x) λx x_2 x_3. x λ. x_2 x_3)
+    λ compose
+    . (λt. t λx. (x ∥ x ∥ x ∥ x))
+    λ $merkle$3c852300
+    . (λt. t λ. $merkle$3c852300 $merkle$d7a618c4)
+    λ $merkle$d15737bd
+    . (λt. t λx. (λ"$constructor". $merkle$fc082a46) "$constructor" x)
+    λ $merkle$7aefc117
+    . (λt. t (λx x_2. x_2 + λx x_2. x))
+    λ $merkle$de92bd91
+    . ( λ t
+        . t
+        λ x
+        . x
+          ($merkle$7aefc117 λx_2 x_3. x_3 ∥ $merkle$de92bd91)
+          ($merkle$7aefc117 λx_2 x_3. x_2 ∥ $merkle$de92bd91)
+      )
+    λ boolean_not
+    . type_of
+    λ
+    . $name $merkle$d7a618c4 compose ($name $merkle$d15737bd boolean_not) λ. $name ($merkle$3c852300 $merkle$d15737bd) boolean_not
+  )

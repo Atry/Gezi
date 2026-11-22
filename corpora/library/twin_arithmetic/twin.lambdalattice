@@ -1,0 +1,61 @@
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "prelude") "fixpoint")
+λ fixpoint
+. omega (omega (omega (omega corpora "library") "prelude") "boolean")
+λ true false _ _
+. omega (omega (omega (omega corpora "library") "binary") "natural")
+λ binary_zero binary_even binary_odd _ _
+. omega (omega (omega (omega corpora "library") "binary") "arithmetic")
+λ merge_binary_increment _ _ _
+. omega (omega (omega (omega corpora "library") "twin_arithmetic") "merge_arithmetic")
+λ binary_double _ _
+# twin_binary_equality:
+#   The same variant and equal halves, casing on the second operand first.
+. ( λ tuple
+    . tuple
+    λ
+    . fixpoint
+    λ self a b
+    . b (a true (λ_. false) λ_. false) (λk1. a false (λh1. self h1 k1) λ_. false) λk2. a false (λ_. false) λh2. self h2 k2
+  )
+λ twin_binary_equality
+# twin_binary_plus:
+#   2h + 2k = 2(h + k), 2h + 1 + 2k = 2(h + k) + 1, 2h + 2k + 1 =
+#   2(h + k) + 1, 2h + 1 + 2k + 1 = 2((h + 1) + k), casing on the second
+#   operand first.
+. ( λ tuple
+    . tuple
+    λ
+    . fixpoint
+    λ self a b
+    . b a (λk1. a b (λh1. binary_even λ. self h1 k1) λh2. binary_odd λ. self h2 k1) λk2. a b (λh3. binary_odd λ. self h3 k2) λh4. binary_even λ. self (merge_binary_increment h4) k2
+  )
+λ twin_binary_plus
+# twin_binary_times:
+#   a times b = 0 when b is 0, double(a k) when b is 2k, and
+#   a + double(a k) when b is 2k + 1.
+. ( λ tuple
+    . tuple
+    λ
+    . fixpoint
+    λ self a b
+    . b binary_zero (λk1. binary_double λ. self a k1) λk2. twin_binary_plus a λ. binary_double λ. self a k2
+  )
+λ twin_binary_times
+. ( λ tuple
+    . tuple
+    λ
+    . fixpoint λself n. n binary_zero λp. p (binary_odd binary_zero) λq. twin_binary_plus (self q) λ. self p
+  )
+λ twin_binary_fibonacci
+. ( λ tuple
+    . tuple
+    λ
+    . fixpoint
+    λ self r c
+    . c (binary_odd binary_zero) λc1. r (binary_odd binary_zero) λr1. twin_binary_plus (self r c1) λ. self r1 c
+  )
+λ twin_grid_paths
+. export twin_binary_equality twin_binary_plus twin_binary_times twin_binary_fibonacci twin_grid_paths

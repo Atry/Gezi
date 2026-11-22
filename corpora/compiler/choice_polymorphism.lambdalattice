@@ -1,0 +1,32 @@
+# The contract of cons whose output type is the choice of the types of its
+# head and of its tail's elements, used with nil_filtered_bottom of
+# parallel_polymorphism. By a paper derivation, it types cons one (cons
+# false nil), a list of a number and a boolean, which HM does not type. So
+# it is kept out of the lemma set of HM and belongs to the knowledge that
+# reads a choice as a union type.
+#
+# The lemma is a theorem of λ-lattice-unit-η (CONTRIBUTING.md, "Terms");
+# its declaration cites the paper proof. It does not use induction. This module declares no define: it uses filter_by and
+# list_type (parallel_lists) and cons (prelude), with which it is compiled.
+
+# The contract of cons whose output type is the choice of the head's type
+# and of the tail's element type.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "parallel_lists") "parallel_lists")
+λ list_type _ _ filter_by
+. omega (omega (omega (omega corpora "library") "prelude") "list")
+λ _ cons _ _ _
+. export
+λ _ rewriting _ _
+. rewriting
+λ _ lemmas _
+. lemmas
+λ s
+. s
+  (λk. k "cons_filtered_choice")
+  ( λ x_0 x_1 x_2 x_3
+    . filter_by (list_type (x_1 + x_0)) λ. cons (filter_by x_0 x_2) λ. filter_by (list_type x_1) x_3
+  )
+  (λx_0 x_1 x_2 x_3. cons (filter_by x_0 x_2) λ. filter_by (list_type x_1) x_3) λ_ md _. md λk. k "[cons_filtered_choice](docs/design/gezi-set-equations-proofs.md)"

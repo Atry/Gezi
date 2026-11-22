@@ -1,0 +1,4 @@
+direct/repetitions_1 blocks=1 computed=true program=λstart. start (λk. k 1) ((λt. t λx. (λ"$constructor" x_2. x_2) "$constructor" x) λ$merkle$7aefc117. $merkle$7aefc117 (λx x_2 x_3 x_4. x_4 x x_2) (λx x_2 x_3. x_2 λx_4 x_5 x_6. x_6 λx_7 x_8 x_9. x_7) λ. $merkle$7aefc117 λx x_2. x)
+direct/repetitions_4 blocks=4 computed=true program=λstart. start (λk. k 5) ((λt. t λx. (λ"$constructor" x_2. x_2) "$constructor" x) λ$merkle$7aefc117. (λt. t λ. $merkle$7aefc117 λx x_2 x_3 x_4. x_4 x x_2) λ$merkle$d5e4458b. (λt. t λx x_2 x_3. x_3 λx_4 x_5 x_6. x_4) λ$merkle$ae9eb2b7. (λt. t λx x_2 x_3. x_2 $merkle$ae9eb2b7) λ$merkle$a92de1a9. (λt. t λx x_2 x_3. x_2 $merkle$a92de1a9) λ$merkle$e3a27330. $merkle$d5e4458b $merkle$a92de1a9 λ. $merkle$d5e4458b $merkle$ae9eb2b7 λ. $merkle$d5e4458b (λx x_2 x_3. x_2 $merkle$e3a27330) λ. $merkle$d5e4458b $merkle$e3a27330 λ. $merkle$7aefc117 λx x_2. x)
+respelled/repetitions_1 blocks=0 computed=false
+respelled/repetitions_4 blocks=0 computed=false

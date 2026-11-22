@@ -1,0 +1,3 @@
+Error planted.scala:2:13 marking "": [wartremover:NoIterator] Iterator is disabled
+Error planted.scala:2:25 marking ".iterator": [wartremover:NoIterator] Iterator is disabled
+2 errors found

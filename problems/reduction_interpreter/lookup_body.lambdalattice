@@ -1,0 +1,6 @@
+#   lookup_body(-Body): \self. \env. \i. i (env [] (\h. \t. h))
+#   (\p. env [] (\h. \t. self self t p)).
+λ export
+. export
+λ x_0 x_1 x_2
+. x_2 (x_1 ((λf. (λx. f λ. x x) λx. f λ. x x) λz x. (z ∥ x)) λx_3 x_4. x_3) λx_3. x_1 ((λf. (λx. f λ. x x) λx. f λ. x x) λz x. (z ∥ x)) λx_4 x_5. x_0 x_0 x_5 x_3

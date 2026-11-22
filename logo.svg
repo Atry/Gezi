@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-8 -8 118 118" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <title>Gezi - a dove, the N5 lattice and a turned lambda</title>
+  <style>.edge{stroke:#140F3A}.letter{stroke:#FFFFFF}.node{fill:#140F3A}.inner-node{fill:#FFFFFF}@media (prefers-color-scheme:dark){.edge{stroke:#C4BEEE}.letter{stroke:#FFFFFF}.node{fill:#C4BEEE}.inner-node{fill:#FFFFFF}}</style>
+  <defs><clipPath id="inside"><path d="M 31 0 C 30 14 45 32 77 47 C 98 47 90 57 100 58 C 76 62 119 98 1 100 C 21 96 25 94 55 68 C 31 60 9 27 31 0 Z"/></clipPath></defs>
+  <g clip-path="url(#inside)"><path d="M 31.00 0.00 C 30.00 14.00 45.00 32.00 77.00 47.00 C 98.00 47.00 90.00 57.00 100.00 58.00 C 92.80 58.60 82.08 64.80 69.18 72.28 C 66.00 60.00 25.00 22.00 31.00 0.00 Z" fill="#109F93"/><path d="M 31.00 0.00 C 9.00 27.00 31.00 60.00 55.00 68.00 C 25.00 94.00 21.00 96.00 1.00 100.00 C 25.60 97.60 49.84 83.50 69.18 72.28 C 66.00 60.00 25.00 22.00 31.00 0.00 Z" fill="#587ED9"/><path d="M 1.00 100.00 C 42.00 96.00 82.00 59.50 100.00 58.00 C 76.00 62.00 119.00 98.00 1.00 100.00 Z" fill="#9A55D3"/><path class="letter" d="M 1.00 100.00 C 42.00 96.00 82.00 59.50 100.00 58.00 M 69.18 72.28 C 66.00 60.00 25.00 22.00 31.00 0.00" stroke-width="3.2"/><circle class="inner-node" cx="69.18" cy="72.28" r="5"/></g>
+  <path class="edge" d="M 31 0 C 30 14 45 32 77 47 M 31 0 C 9 27 31 60 55 68 M 77 47 C 98 47 90 57 100 58 M 100 58 C 76 62 119 98 1 100 M 55 68 C 25 94 21 96 1 100" stroke-width="3.2"/>
+  <g class="node"><circle cx="31" cy="0" r="5"/><circle cx="77" cy="47" r="5"/><circle cx="55" cy="68" r="5"/><circle cx="100" cy="58" r="5"/><circle cx="1" cy="100" r="5"/></g>
+</svg>

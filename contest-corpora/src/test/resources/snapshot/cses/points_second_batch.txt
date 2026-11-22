@@ -1,0 +1,68 @@
+coin_combinations_ordered_point
+  cses_coin_combinations_ordered_two_three_five: Site(Vector(2, 3, 5),9) => 8
+  cses_coin_combinations_ordered_ones_and_twos: Site(Vector(1, 2),4) => 5
+  cses_coin_combinations_ordered_no_way: Site(Vector(3),7) => 0
+  cses_coin_combinations_ordered_one_coin_exact: Site(Vector(5),5) => 1
+  cses_coin_combinations_ordered_order_matters: Site(Vector(4, 1, 3),6) => 9
+  cses_coin_combinations_ordered_odd_target_even_coins: Site(Vector(2, 4),5) => 0
+coin_combinations_unordered_point
+  cses_coin_combinations_unordered_two_three_five: Site(Vector(2, 3, 5),9) => 3
+  cses_coin_combinations_unordered_ones_and_twos: Site(Vector(1, 2),4) => 3
+  cses_coin_combinations_unordered_no_way: Site(Vector(3),7) => 0
+  cses_coin_combinations_unordered_one_coin_exact: Site(Vector(5),5) => 1
+  cses_coin_combinations_unordered_list_order_three_one: Site(Vector(3, 1),4) => 2
+  cses_coin_combinations_unordered_ones_twos_threes: Site(Vector(1, 2, 3),7) => 8
+  cses_coin_combinations_unordered_odd_target_even_coins: Site(Vector(2, 4),5) => 0
+removing_digits_point
+  cses_removing_digits_number_1: Site(1) => 1
+  cses_removing_digits_number_9: Site(9) => 1
+  cses_removing_digits_number_10: Site(10) => 2
+  cses_removing_digits_number_12: Site(12) => 3
+  cses_removing_digits_number_20: Site(20) => 4
+grid_paths_point
+  cses_grid_paths_single_free_square: Site(.) => 1
+  cses_grid_paths_single_trap: Site(*) => 0
+  cses_grid_paths_two_by_two_free: Site(../..) => 2
+  cses_grid_paths_blocked_diagonal: Site(.*/*.) => 0
+  cses_grid_paths_center_trap: Site(.../.*./...) => 2
+  cses_grid_paths_target_trap: Site(../.*) => 0
+  cses_grid_paths_two_by_three_free: Site(.../...) => 3
+book_shop_point
+  cses_book_shop_two_small_beat_one_large: Site(Vector((3,4), (2,3), (4,5)),5) => 7
+  cses_book_shop_nothing_affordable: Site(Vector((5,10)),4) => 0
+  cses_book_shop_equal_books_both_bought: Site(Vector((2,3), (2,3)),4) => 6
+  cses_book_shop_cheaper_pair_beats_dearer_single: Site(Vector((4,5), (3,3), (3,3)),6) => 6
+  cses_book_shop_budget_exactly_spent: Site(Vector((1,2)),1) => 2
+  cses_book_shop_skip_the_middle_book: Site(Vector((1,1), (2,3), (3,4)),4) => 5
+shortest_routes_single_source_point
+  cses_shortest_routes_single_source_one_city_no_flights: Site(1,Vector()) => [0]
+  cses_shortest_routes_single_source_two_hops_beat_direct: Site(3,Vector((1,2,5), (2,3,4), (1,3,10))) => [0, 5, 9]
+  cses_shortest_routes_single_source_cycle_and_back_flight: Site(4,Vector((1,2,1), (1,3,4), (2,3,2), (3,4,1), (4,2,1), (3,1,1))) => [0, 1, 3, 4]
+  cses_shortest_routes_single_source_parallel_flights: Site(3,Vector((1,2,7), (1,2,3), (2,3,1))) => [0, 3, 4]
+  cses_shortest_routes_single_source_long_chain_beats_direct: Site(5,Vector((1,2,1), (2,3,1), (3,4,1), (4,5,1), (1,5,10), (1,3,5))) => [0, 1, 2, 3, 4]
+shortest_routes_queries_point
+  cses_shortest_routes_queries_one_road_both_directions: Site(2,Vector((1,2,3)),Vector((1,2), (2,1), (1,1))) => [some 3, some 3, some 0]
+  cses_shortest_routes_queries_detour_beats_long_road: Site(4,Vector((1,2,1), (2,3,2), (3,4,1), (1,4,9)),Vector((1,4), (4,2), (2,4))) => [some 4, some 3, some 3]
+  cses_shortest_routes_queries_two_islands: Site(4,Vector((1,2,2), (3,4,5)),Vector((1,3), (3,4), (2,1))) => [none, some 5, some 2]
+  cses_shortest_routes_queries_parallel_roads: Site(2,Vector((1,2,8), (1,2,3)),Vector((2,1))) => [some 3]
+  cses_shortest_routes_queries_city_to_itself_only: Site(1,Vector(),Vector((1,1))) => [some 0]
+  cses_shortest_routes_queries_no_queries: Site(3,Vector((1,2,1)),Vector()) => []
+counting_divisors_point
+  cses_counting_divisors_prime_and_one: Site(Vector(1, 7)) => [1, 2]
+  cses_counting_divisors_square_and_composite: Site(Vector(16, 12)) => [5, 6]
+  cses_counting_divisors_highly_composite: Site(Vector(36, 30)) => [9, 8]
+  cses_counting_divisors_single_prime_square: Site(Vector(25)) => [3]
+  cses_counting_divisors_empty_list: Site(Vector()) => []
+binomial_coefficients_point
+  cses_binomial_coefficients_choose_none_and_all: Site(Vector((4,0), (4,4), (0,0))) => [1, 1, 1]
+  cses_binomial_coefficients_middle_of_row_five: Site(Vector((5,2), (5,3))) => [10, 10]
+  cses_binomial_coefficients_central_of_ten: Site(Vector((10,5))) => [252]
+  cses_binomial_coefficients_choose_one: Site(Vector((7,1), (6,1))) => [7, 6]
+  cses_binomial_coefficients_larger_row: Site(Vector((8,4), (6,2))) => [70, 15]
+distinct_numbers_point
+  cses_distinct_numbers_repeats: Site(Vector(3, 1, 3, 2, 1)) => 3
+  cses_distinct_numbers_single: Site(Vector(5)) => 1
+  cses_distinct_numbers_all_equal: Site(Vector(4, 4, 4, 4)) => 1
+  cses_distinct_numbers_all_different: Site(Vector(1, 2, 3, 4)) => 4
+  cses_distinct_numbers_empty_list: Site(Vector()) => 0
+  cses_distinct_numbers_equal_ends: Site(Vector(9, 2, 9)) => 2

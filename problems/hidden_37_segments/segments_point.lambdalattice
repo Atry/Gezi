@@ -1,0 +1,243 @@
+# +Chunks, +Words, +Budget, -Term, -String
+# +String, +Words, +Budget, -Counts
+# +String, +Words, -Fewest
+# ?Point, ?Length, ?Seed, ?Slack, ?Kind, ?Flip
+#   * <module> A string cut into the fewest dictionary words
+#
+# THE PROBLEM (LeetCode 139 and 140, "Word Break", asked for the fewest
+# words): a bit string and a dictionary of bit words; into how few words of
+# the dictionary can the string be cut? Asked as the set of the numbers at
+# most T of the words of the cuttings; T is the fewest, so the set is that
+# one number.
+#
+# The program writes top (corpora/library/top) where the pseudo-code and the
+# argument below write {}, the empty choice of the calculus that still has
+# it; doc/proofs/reduction_series_answers.md carries the argument over to
+# Definition 14, and the generator is the family's Scala object in
+# gezi/contest-corpora.
+#
+# THE PROGRAM, in continuation passing style, with the prelude's
+# bits_prefix, filter, length, concat and natural_difference (the API of
+# round-37-directions.md), bits_prefix wrapped by the program with its
+# arguments swapped and passed to filter partially applied:
+#
+#     starts = \s. \w. bits_prefix w s
+#     choose = Y (\self. \ws. \f. ws {} (\w. \rest. { f w, self rest f }))
+#     drop   = Y (\self. \n. \s. n s (\m. s nil (\_. \t. self m t)))
+#     cut    = Y (\self. \s. \r. \k.
+#                s (k r)
+#                  (\_. \_. r {} (\p. choose (filter (starts s) Words)
+#                                          (\w. self (drop (length w) s) p k))))
+#     program = cut (concat Chunks) T (\r. difference T r)
+#
+# Words is the dictionary, a Scott list of Scott lists of Booleans; the
+# string is given as concat of a list of chunks, cut at random places that
+# have nothing to do with the words.
+# Directions: D (bits_prefix reached through a wrapper of the program,
+# partially applied and passed to filter; concat); E (the words compared
+# with the string bit by bit); B (merging by value: the cuttings are
+# exponentially many, the states are the rest of the string and the budget);
+# G (the budget arithmetic, length); and the regression direction
+# 4 of that list (the string, a list, is built by concat of chunks
+# and not written out as conses, and the rests are spelled
+# drop (length w) (drop ... (concat Chunks))).
+#
+# THE SNAPSHOT. S(P) is the set of the numbers c =< T such that the string
+# is a concatenation of c words of the dictionary: segment_counts/4, the
+# recursion of that definition over the positions of the string. The
+# fewest, fewest_segments/3, is its least element when there is one; for T
+# the fewest S(P) is {T}, and for T one less it is empty.
+#
+# THE LEMMAS, on the definitions of the library functions (contest_attractors
+# attractor_source/2 and the prelude), not on their native references.
+# ⌜n⌝ is the Scott unary numeral, ⌜0⌝ = λz.λs. z and ⌜n + 1⌝ = λz.λs. s ⌜n⌝,
+# which unary/2 builds exactly; true = λt.λf. t and false = λt.λf. f; [x1,
+# ..., xn] is the Scott list cons x1 (... (cons xn nil)), cons h t one β
+# step from λn.λc. c h t; a bit string or word is a list of Booleans, true
+# for 1 and false for 0. Every word of the dictionary is nonempty.
+# - (Y) fixpoint G =β G (fixpoint G), two β steps.
+# - (Prefix) bits_prefix = Y (λs.λa.λb. a true (λh.λt. b false
+#   (λo.λr. h (o (s t r) false) (o false (s t r))))). By induction on the
+#   list a, bits_prefix a b =β true when a is a prefix of b and false
+#   otherwise: nil gives true; cons h t against nil gives false; against
+#   cons o r, h (o X false) (o false X), X = bits_prefix t r, gives X when
+#   h and o are the same Boolean and false otherwise (the four cases).
+# - (Filter) filter = Y (λs.λp.λxs. xs nil (λh.λt. p h (cons h (s p t))
+#   (s p t))). For a list xs and a p with p x =β true or false for every x
+#   of xs, filter p xs =β the list of the x of xs, in order, with
+#   p x =β true, by induction on xs. With p = starts s, s =β the string
+#   u, p w →β bits_prefix w s, so filter (starts s) Words is β-equal to the
+#   list of the words that are prefixes of u (Prefix).
+# - (Length) length = Y (λs.λxs. xs ⌜0⌝ (λ_.λt. successor (s t))),
+#   successor = λn.λz.λs. s n: length xs =β ⌜|xs|⌝, by induction on xs.
+# - (Drop) drop ⌜n⌝ u =β the list u without its first n elements, for
+#   n =< |u|, by induction on n: ⌜0⌝ gives u, ⌜m + 1⌝ with u = cons h t
+#   gives drop ⌜m⌝ t.
+# - (Concat) concat = foldr append nil, foldr f z xs = xs z (λh.λt. f h
+#   (foldr f z t)), append = Y (λs.λxs.λys. xs ys (λh.λt. cons h (s t ys))).
+#   append a b =β the list a followed by b, by induction on a; so
+#   concat [c1, ..., cj] =β the list c1 followed by ... cj, by induction on
+#   j.
+# - (Choose) choose [w1, ..., wm] f =β {f w1, choose [w2, ..., wm] f}, and
+#   choose nil f =β {}.
+# - (Budget) r {} (λp. M) with r =β ⌜j⌝ is β-equal to {} when j = 0 and to
+#   M[p := ⌜j - 1⌝] when j > 0.
+# - (Difference) difference = Y (λs.λm.λn. n m (λn1. m ⌜0⌝ (λm1. s m1 n1))).
+#   By induction on n, difference ⌜m⌝ ⌜n⌝ =β ⌜m - n⌝ when m >= n.
+# - (Empty) If U →* {} by β and η steps, no pure term is reached from U by
+#   →c steps. Every →c step keeps U →* {}: a β or η step by confluence, {}
+#   being normal; a member replacement of a set s by Lemma 2a of
+#   certificate_meta_lemmas.md, which replays U →* {} to {} with the
+#   descendants of s replaced, and {} is no descendant of s, s having a
+#   member and descendants keeping the number of members. A pure term
+#   reduces only to pure terms, and {} is not pure.
+#
+# So cut s r k, with s =β a suffix v of the string and r =β ⌜j⌝, is
+# β-equal to k r when v is empty; when v is not, to {} when j = 0, and
+# otherwise to {F w1, {F w2, ... {F wm, {}}}} for the words w1, ..., wm of
+# the dictionary that are prefixes of v, in order, where F w is
+# cut (drop (length w) s) ⌜j - 1⌝ k and drop (length w) s is β-equal to v
+# without its first |w| elements (Y, Budget, Filter, Choose, Length, Drop).
+#
+# PROOF, with ⟦·⟧, D, S and Th and Lemma 2b of
+# gezi/doc/proofs/certificate_meta_lemmas.md.
+# - (⊇) For a cutting of the string into c =< T words: the program is
+#   β-equal to cut u ⌜T⌝ k, u the string (Concat). At the i-th word w,
+#   the state is β-equal to cut v ⌜T - i + 1⌝ k, v the rest, and
+#   T - i + 1 > 0; take the member F w of the nested sets above, by Lemma
+#   2b.1 on the β-equal term: the state reached is β-equal to the next one.
+#   At the end the rest is empty and the term is β-equal to k ⌜T - c⌝ =
+#   difference ⌜T⌝ ⌜T - c⌝ =β ⌜c⌝ (Difference), pure and normal: ⌜c⌝ is in
+#   that term's meaning (equal terms, Lemma 2b.2) and so in ⟦P⟧ (Lemma
+#   2b.2).
+# - (⊆) By Lemma 2b.3 every yield equals a pure term P reaches by a finite
+#   sequence σ. Every set of P and of its reducts is one written in choose,
+#   or {} of the budget or of the end of choose; each chosen branch is the
+#   whole term, every call of cut being in tail position. Where the budget
+#   is ⌜0⌝ before the end of the string, and at the end of choose's list,
+#   the term is β-equal to {}, and no pure term is reached from it (Empty).
+#   So a pure term is reached only along a sequence of words, each a prefix
+#   of the rest of the string (Filter), each paid by the budget's successor
+#   case (Budget), until the rest is empty: a cutting of the string into c
+#   words, c =< T, and the term is then β-equal to difference ⌜T⌝ ⌜T - c⌝,
+#   so to ⌜c⌝ (Difference).
+#
+# THE SUBTASKS AND THE TRAPS: segments_point/6 below. The traps: T one less
+# than the fewest (empty), and a near miss, the string of a subtask with one
+# bit flipped so that no cutting exists (empty for every T; a setting that
+# answers some number there is wrong).
+#
+# TARGET ALGORITHM: the dynamic programme over the positions of the string,
+# the fewest words to the end from each, the words found by string matching
+# (D. E. Knuth, J. H. Morris, V. R. Pratt, Fast Pattern Matching in Strings,
+# SIAM J. Comput. 1977, doi:10.1137/0206024); tabled evaluation keyed by the
+# value of the rest and the budget (W. Chen, D. S. Warren, J. ACM 1996,
+# doi:10.1145/227595.227597).
+
+#   THE SUBTASKS: segments_point(?Point, ?Length, ?Seed, ?Slack, ?Kind, ?Flip):
+#   the dictionary and a string of about Length bits made of its words from
+#   a linear congruential sequence of Seed, the budget the fewest plus
+#   Slack; Flip, a Church Boolean, true makes the near miss. Sized by a probe of
+#   2026-09-30 (CPUs 0-5, 1024 MB stack and table, the machine shared),
+#   each reading equal to its snapshot: tabling(weak_head) reads 24 bits
+#   (the fewest 7) in 509 ms, 33 bits (11) in 16595 ms and 40 bits (13) in
+#   827 ms (the cost depends on how the dictionary's words overlap, not on
+#   the length alone), and is stopped at 60 s on 99 bits (33) and 240 bits
+#   (74); 48 bits (16) were stopped too. The traps read nothing, in 8999 ms
+#   (one short) and 298 ms (flipped). The native reference
+#   fewest_segments/3 answers every point in 9 ms or less.
+#
+# The flip is a Church Boolean of corpora/library/prelude/boolean, true for
+# the flipped string and false for the string as drawn.
+# Each text is from_cbor of a string literal, a Scott list of bytes,
+# imported from corpora/library/text/cbor. Each number is from_cbor of an
+# integer literal, a Scott integer, imported from corpora/library/integer/cbor.
+# FIXME: the imports project "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λx. x)
+λ integer
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "boolean")
+λ true false _ _
+. export
+λ
+. cons
+  ( λ _segments_point
+    . _segments_point
+      (text "hidden_37_segments_short")
+      (integer 24)
+      (integer 3)
+      (integer 0)
+      (text "subtask") false
+  )
+λ
+. cons
+  ( λ _segments_point
+    . _segments_point
+      (text "hidden_37_segments_medium")
+      (integer 32)
+      (integer 5)
+      (integer 0)
+      (text "subtask") false
+  )
+λ
+. cons
+  ( λ _segments_point
+    . _segments_point
+      (text "hidden_37_segments_long")
+      (integer 40)
+      (integer 7)
+      (integer 0)
+      (text "subtask") false
+  )
+λ
+. cons
+  ( λ _segments_point
+    . _segments_point
+      (text "hidden_37_segments_longer")
+      (integer 96)
+      (integer 13)
+      (integer 0)
+      (text "subtask") false
+  )
+λ
+. cons
+  ( λ _segments_point
+    . _segments_point
+      (text "hidden_37_segments_longest")
+      (integer 240)
+      (integer 11)
+      (integer 0)
+      (text "subtask") false
+  )
+λ
+. cons
+  ( λ _segments_point
+    . _segments_point
+      (text "hidden_37_segments_trap_short")
+      (integer 32)
+      (integer 5)
+      (integer -1)
+      (text "trap") false
+  )
+λ
+. cons
+  ( λ _segments_point
+    . _segments_point
+      (text "hidden_37_segments_trap_flipped")
+      (integer 24)
+      (integer 3)
+      (integer 0)
+      (text "trap") true
+  ) nil

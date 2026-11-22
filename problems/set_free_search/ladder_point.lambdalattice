@@ -1,0 +1,120 @@
+# +Point, -Surface
+# -Template
+# +Spelling, +Height, -Successors
+# +Spelling, +Target, -Goal
+#   * <module> The set-free series: depth-first search on a DAG with many paths
+#
+# A family of the set-free series on an algorithm shape among the
+# attractors: a noinline search found as recursive descent may be replaced
+# by breadth-first search at compile time. A point is a closed pure lambda program, no set in it,
+# whose answer is a Scott Boolean: whether depth-first search, the
+# attractor `depth_first` of corpora/contest_attractors.pl, finds a target
+# node in a ladder.
+#
+# THE LADDER of height n has the nodes 0 ... n, unary numerals; node k < n
+# has two edges, both to k + 1, and node n none. So there are 2^n paths from
+# 0 to n, and depth-first search without a visited set pops a node once per
+# path that reaches it: 2^(n+1) - 1 pops when the target is not in the
+# ladder, against n + 1 nodes for a search that remembers the nodes it has
+# visited. The successors and the goal are written with the attractors
+# natural_equal, successor, cons and nil.
+#
+# THE POINTS:
+# - REACHABLE (target n): the first path reaches n, so every strategy is
+#   quick; a check of the encoding;
+# - UNREACHABLE (target n + 1): depth-first search pops 2^(n+1) - 1 nodes;
+# - each in a DIRECT and a RESPELLED twin, as in contest_set_free_arithmetic.pl;
+# - NEAR MISS, a proved trap for replacement by shape: the search that tests
+#   the goal only at a leaf, a node with no successor (leaves_only_template/1),
+#   with an interior target. It is no respelling of `depth_first`; a setting
+#   that answers it as reachability answers true where the program's normal
+#   form is false.
+#
+# TARGET ALGORITHMS, the specific known algorithms the problem targets, each
+# with its prior work:
+# - depth-first search that marks the nodes it visits runs in time linear in
+#   the nodes and edges: R. Tarjan, Depth-First Search and Linear Graph
+#   Algorithms, SIAM J. Comput. 1972, doi:10.1137/0201010;
+# - tabled evaluation, which answers a repeated subgoal from its table
+#   instead of evaluating it again: W. Chen, D. S. Warren, Tabled Evaluation
+#   with Delaying for General Logic Programs, J. ACM 1996,
+#   doi:10.1145/227595.227597;
+# - search strategies (depth-first, breadth-first, bounded) as
+#   implementations of one algebraic specification, so that one may be
+#   replaced by another: J. M. Spivey, Algebras for Combinatorial Search,
+#   J. Funct. Program. 2009, doi:10.1017/S0956796809007321;
+# - recognising the attractor after compression: equality saturation (Tate
+#   et al., POPL 2009, doi:10.1145/1480881.1480915) and call restoration by
+#   higher-order patterns (D. Miller, J. Logic Comput. 1991,
+#   doi:10.1093/logcom/1.4.497).
+#
+# THE SNAPSHOT is the Boolean of the reference: target =< n for depth_first,
+# target = n for the leaves-only search. PROOF. The program is pure, so
+# S(P) = {N} for its normal form N. The search ends:
+# each step pops the top node k and pushes its successors, two nodes k + 1
+# for k < n and none for n, so the multiset of the values n - k on the stack
+# decreases in the multiset order, which is well founded. depth_first
+# answers true exactly when some popped node satisfies the goal, and the
+# nodes popped are all of 0 ... n; the leaves-only search tests the goal only
+# at n. natural_equal on canonical numerals reduces to the Boolean of
+# equality (the prelude's definition, by induction on the first numeral), so
+# the program reduces to the Scott Boolean of the reference, a normal form.
+# The near miss with target 3 < n reduces to false, and reachability's
+# answer, true, is another normal form, so a setting answering true on it
+# answers outside S(P).
+# LIMITS: the reduction family's, 10 s, 256 MB, 256 MB.
+
+#   ladder_point(?Point, ?Search, ?Spelling, ?Height, ?Target)
+#
+# The search is a constructor of set_free_search/search, depth_first or
+# leaves_only; the spelling is a constructor of schema/spelling, direct or
+# respelled.
+# Each other text is from_cbor of a string literal, a Scott list of bytes,
+# imported from corpora/library/text/cbor. Each number is from_cbor of an
+# integer literal, a Scott integer, imported from corpora/library/integer/cbor.
+# FIXME: the imports project "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λx. x)
+λ integer
+. omega (omega (omega (omega gezi "problems") "schema") "spelling")
+λ direct respelled
+. omega (omega (omega (omega gezi "problems") "set_free_search") "search")
+λ depth_first leaves_only
+. export
+λ
+. cons
+  ( λ _ladder_point
+    . _ladder_point (text "set_free_ladder_small_reachable_direct") depth_first direct (integer 6) λ. integer 6
+  )
+λ
+. cons
+  ( λ _ladder_point
+    . _ladder_point (text "set_free_ladder_small_reachable_respelled") depth_first respelled (integer 6) λ. integer 6
+  )
+λ
+. cons
+  ( λ _ladder_point
+    . _ladder_point (text "set_free_ladder_small_unreachable_direct") depth_first direct (integer 6) λ. integer 7
+  )
+λ
+. cons
+  ( λ _ladder_point
+    . _ladder_point (text "set_free_ladder_small_unreachable_respelled") depth_first respelled (integer 6) λ. integer 7
+  )
+λ
+. cons
+  ( λ _ladder_point
+    . _ladder_point (text "set_free_ladder_small_near_miss") leaves_only direct (integer 6) λ. integer 3
+  ) nil

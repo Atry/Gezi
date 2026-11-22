@@ -1,0 +1,134 @@
+# +Point, -Surface
+# -Template
+#   * <module> The set-free series: respelled arithmetic attractors
+#
+# A family of the set-free series, named for what its problems are, programs
+# without sets, which start the hard corpus at a lower difficulty. A point is a closed pure lambda
+# program, no set in it, whose answer is one binary numeral: the sum or the
+# product of two numerals, computed by the attractors of
+# corpora/contest_attractors.pl.
+#
+# THE TWINS of every size:
+# - DIRECT: the program applies the attractor's function in the library's
+#   direct spelling, so that every template is the attractor's own normal
+#   form and a replacement by content address reads it;
+# - RESPELLED: the same program in the library's respelled spelling,
+#   reverse beta steps only, so that no closure has the attractor's code and
+#   only a setting that compresses (beta, eta and their reverses) finds the
+#   attractor again;
+# - NEAR MISS, a proved trap for replacement by shape: multiplication with
+#   its even and odd cases exchanged, 0 b = 0, 2h b = b + double(h b),
+#   (2h + 1) b = double(h b). It is no respelling of the times attractor
+#   (below); a setting that replaces it by the native product answers
+#   another numeral, a false positive.
+#
+# TARGET ALGORITHMS, the well-known solutions the family is written for,
+# each with its prior work:
+# - equality saturation, searching the beta eta class of the program in an
+#   e-graph and extracting a program: R. Tate, M. Stepp, Z. Tatlock,
+#   S. Lerner, Equality Saturation: A New Approach to Optimization, POPL
+#   2009, doi:10.1145/1480881.1480915; M. Willsey et al., egg: Fast and
+#   Extensible Equality Saturation, POPL 2021, doi:10.1145/3434304;
+# - restoring the calls of library functions by higher-order pattern
+#   matching: D. Miller, A Logic Programming Language with Lambda-
+#   Abstraction, Function Variables, and Simple Unification, J. Logic
+#   Comput. 1991, doi:10.1093/logcom/1.4.497
+#   (prolog/gezi/call_restoration.pl is an implementation);
+# - instruction selection by equality saturation, a recognised shape
+#   replaced by a native operation: A. VanHattum, R. Nigam, V. T. Lee,
+#   J. Bornholt, A. Sampson, Vectorization for Digital Signal Processors
+#   via Equality Saturation, ASPLOS 2021, doi:10.1145/3445814.3446707;
+# - case of known constructor: S. L. Peyton Jones, A. L. M. Santos, A
+#   Transformation-Based Optimiser for Haskell, Sci. Comput. Program. 1998,
+#   doi:10.1016/S0167-6423(97)00029-4.
+#
+# THE SNAPSHOT of each point is the canonical numeral of its reference
+# computation. PROOF. The program is pure, so its one yield is itself, and a
+# yield with a beta eta normal form N contributes N only; so S(P) = {N} once P has the normal form N.
+# - Direct points: the function F = T D (T D) applied to canonical numerals
+#   beta reduces to the canonical numeral of the reference result, by
+#   induction on the first argument's tree: the inductions of increment,
+#   plus and times in prolog/gezi/catalogue_replacement.pl ("THE
+#   ENTRIES' INDUCTIONS (ii)"), whose definitional terms these templates
+#   are, with multiplication's doubling contracted, a beta step.
+# - Respelled points: each respelled template is the direct one with beta
+#   redexes put back (contest_attractors.pl, SPELLINGS), so the program is
+#   beta convertible to the direct one and has its normal form.
+# - Near misses: the same induction with the exchanged cases: 0 b gives 0;
+#   2h b gives plus(b, double(h b)); (2h + 1) b gives double(h b); plus and
+#   double keep numerals canonical, so the normal form is the canonical
+#   numeral of near_product/3. It is a trap for the native product: at
+#   7 * 6 the reference normal form is the numeral of near_product(7, 6, 0),
+#   0, and the product's is 42; two distinct canonical numerals are distinct
+#   beta eta normal forms, which confluence keeps apart, so an answer 42 is
+#   not in S(P). The same holds at every size here, near_product(A, B)
+#   differing from A * B (checked by near_misses_differ/0 when the module
+#   loads), and weak_head reads the small near miss in a few milliseconds
+#   (tests/contest_set_free_arithmetic.plt).
+# LIMITS: the reduction family's, 10 s, 256 MB, 256 MB.
+
+#   arithmetic_point(?Point, ?Operation, ?Spelling, ?Left, ?Right). The
+#   small points check the encoding; the products of 30, 60 and 120
+#   digits are sized by weak_head's reading of the direct product
+#   (a probe of 2026-09-30, CPU 11, 20 s: 30 digits in 2844 ms,
+#   60 in 12517 ms, 120 stopped), about quadratic in the digits, so that
+#   weak_head reads 30 within the limits and not the larger two, which
+#   need the product recognised.
+#
+# The spelling is a constructor of schema/spelling, direct or respelled.
+# Each other text is from_cbor of a string literal, a Scott list of bytes,
+# imported from corpora/library/text/cbor. Each number is from_cbor of an
+# integer literal, a Scott integer, imported from corpora/library/integer/cbor.
+# FIXME: the imports project "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λx. x)
+λ integer
+. omega (omega (omega (omega gezi "problems") "schema") "spelling")
+λ direct respelled
+. export
+λ
+. cons
+  ( λ _arithmetic_point
+    . _arithmetic_point (text "set_free_sum_small_direct") (text "merge_binary_plus") direct (integer 13) λ. integer 29
+  )
+λ
+. cons
+  ( λ _arithmetic_point
+    . _arithmetic_point
+      (text "set_free_sum_small_respelled")
+      (text "merge_binary_plus") respelled
+      (integer 13) λ. integer 29
+  )
+λ
+. cons
+  ( λ _arithmetic_point
+    . _arithmetic_point
+      (text "set_free_product_small_direct")
+      (text "merge_binary_times") direct
+      (integer 7) λ. integer 6
+  )
+λ
+. cons
+  ( λ _arithmetic_point
+    . _arithmetic_point
+      (text "set_free_product_small_respelled")
+      (text "merge_binary_times") respelled
+      (integer 7) λ. integer 6
+  )
+λ
+. cons
+  ( λ _arithmetic_point
+    . _arithmetic_point (text "set_free_product_small_near_miss") (text "near_times") direct (integer 7) λ. integer 6
+  ) nil

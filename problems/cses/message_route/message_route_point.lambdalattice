@@ -1,0 +1,61 @@
+# The base problems of the CSES families repeated_cses_message_route_*: n computers and
+# undirected connections, the answer the fewest computers on a route from
+# computer 1 to computer n, both counted, or none.
+#
+# THE ANSWER of each row is the problem's definition computed exhaustively
+# (2026-11-21), and CsesSolutions (the family's native solver)
+# gives the same. PROOF: the program of the problem's file follows the
+# definition, and its header argues under Definition 14 that its one normal
+# form is that answer; the data are finite and within the family's bottom
+# rungs, which the reference reading answers. The inputs are our own,
+# no CSES test data.
+#
+#   message_route_point(?Point, ?Computers, ?Connections, ?Result)
+#
+# Connections is a Scott list (corpora/library/prelude/list) of pairs
+# (corpora/library/prelude/pair) of integers, each from_cbor of an integer
+# literal (corpora/library/integer/cbor); computers count from 1; Result is a
+# Scott option of corpora/library/attractors/option, none or some k.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λvalue. value)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λvalue. value)
+λ integer
+. omega (omega (omega (omega (omega gezi "corpora") "library") "attractors") "option")
+λ none some
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "pair")
+λ pair _ _
+. export
+λ
+. cons
+  ( λ _message_route_point
+    . _message_route_point (text "cses_message_route_one_connection") (integer 2) (cons (pair (integer 1) (integer 2)) λ. nil) λ. some (integer 2)
+  )
+λ
+. cons
+  ( λ _message_route_point
+    . _message_route_point (text "cses_message_route_two_islands") (integer 4) (cons (pair (integer 1) (integer 2)) λ. cons (pair (integer 3) (integer 4)) λ. nil) λ. none
+  )
+λ
+. cons
+  ( λ _message_route_point
+    . _message_route_point (text "cses_message_route_two_equal_routes") (integer 6) (cons (pair (integer 1) (integer 2)) λ. cons (pair (integer 2) (integer 3)) λ. cons (pair (integer 3) (integer 6)) λ. cons (pair (integer 1) (integer 4)) λ. cons (pair (integer 4) (integer 5)) λ. cons (pair (integer 5) (integer 6)) λ. nil) λ. some (integer 4)
+  )
+λ
+. cons
+  ( λ _message_route_point
+    . _message_route_point (text "cses_message_route_shortcut") (integer 7) (cons (pair (integer 1) (integer 2)) λ. cons (pair (integer 2) (integer 3)) λ. cons (pair (integer 3) (integer 4)) λ. cons (pair (integer 4) (integer 5)) λ. cons (pair (integer 5) (integer 6)) λ. cons (pair (integer 6) (integer 7)) λ. cons (pair (integer 2) (integer 6)) λ. nil) λ. some (integer 4)
+  )
+λ
+. cons
+  ( λ _message_route_point
+    . _message_route_point (text "cses_message_route_first_computer_alone") (integer 3) (cons (pair (integer 2) (integer 3)) λ. nil) λ. none
+  ) nil

@@ -1,0 +1,118 @@
+#
+# The template is a constructor of schema/template, a Boolean a Church
+# Boolean of corpora/library/prelude/boolean, and the proof a constructor
+# of schema/proof. Each other text is from_cbor
+# of a string literal, a Scott list of bytes, imported from
+# corpora/library/text/cbor. Each number is from_cbor of an integer
+# literal, a Scott integer, imported from corpora/library/integer/cbor.
+# FIXME: the imports project "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λx. x)
+λ integer
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "boolean")
+λ true false _ _
+. omega (omega (omega (omega gezi "problems") "schema") "template")
+λ boolean _ member
+. omega (omega (omega (omega gezi "problems") "schema") "proof")
+λ proved conjecture
+. export
+λ
+. cons
+  ( λ _cycle_claim
+    . _cycle_claim (text "both_booleans") (text "scored") (boolean true) λ. conjecture λ. text "both_booleans"
+  )
+λ
+. cons
+  ( λ _cycle_claim
+    . _cycle_claim (text "both_booleans") (text "scored") (boolean false) λ. conjecture λ. text "both_booleans"
+  )
+λ
+. cons
+  ( λ _cycle_claim
+    . _cycle_claim (text "false_only") (text "scored") (boolean false) λ. conjecture λ. text "false_only"
+  )
+λ
+. cons
+  ( λ _cycle_claim
+    . _cycle_claim (text "false_only") (text "trap") (boolean true) λ. proved λ. text "false_only"
+  )
+λ
+. cons
+  ( λ _cycle_claim
+    . _cycle_claim (text "certificate_member") (text "scored") (member (integer 1) λ. text "natural") λ. proved λ. text "certificate_collapse"
+  )
+λ
+. cons
+  ( λ _cycle_claim
+    . _cycle_claim (text "certificate_member") (text "scored") (member (integer 2) λ. text "natural") λ. proved λ. text "certificate_collapse"
+  )
+λ
+. cons
+  ( λ _cycle_claim
+    . _cycle_claim (text "certificate_member") (text "scored") (member (integer 2) λ. text "stream") λ. proved λ. text "certificate_collapse"
+  )
+λ
+. cons
+  ( λ _cycle_claim
+    . _cycle_claim (text "rejects_certificate") (text "trap") (member (integer 2) λ. text "natural") λ. conjecture λ. text "rejects_certificate"
+  )
+λ
+. cons
+  ( λ _cycle_claim
+    . _cycle_claim (text "rejects_certificate") (text "trap") (member (integer 2) λ. text "stream") λ. conjecture λ. text "rejects_certificate"
+  )
+#   FLIP CYCLE (2026-09-28): M =b M FLIP I D. Trap: boolean(false),
+#   PROVED with no eta: the test's closed equation gives M P Q = Q for all
+#   closed P and Q, so M FLIP I D = I D = D and, by the cycle, M = D; then
+#   the closed equation becomes \y. \a. y y a = \y. \a. a, whose sides are
+#   distinct beta normal forms, refuted by Boehm's theorem. boolean(true)
+#   is not posed (its consistency is not known).
+λ
+. cons
+  ( λ _cycle_claim
+    . _cycle_claim (text "flip_cycle") (text "trap") (boolean false) λ. proved λ. text "flip_cycle"
+  )
+#   CONTINUATION CYCLES (`contest_continuation_cycles.pl`, which holds the
+#   proof of the traps and the reading of the conjectures).
+λ
+. cons
+  ( λ _cycle_claim
+    . _cycle_claim (text "continuation_true_rebuilt") (text "scored") (boolean false) λ. conjecture λ. text "continuation_true_rebuilt"
+  )
+λ
+. cons
+  ( λ _cycle_claim
+    . _cycle_claim (text "continuation_true_rebuilt") (text "trap") (boolean true) λ. proved λ. text "continuation_rebuilt"
+  )
+λ
+. cons
+  ( λ _cycle_claim
+    . _cycle_claim (text "continuation_false_rebuilt") (text "scored") (boolean true) λ. conjecture λ. text "continuation_false_rebuilt"
+  )
+λ
+. cons
+  ( λ _cycle_claim
+    . _cycle_claim (text "continuation_false_rebuilt") (text "trap") (boolean false) λ. proved λ. text "continuation_rebuilt"
+  )
+λ
+. cons
+  ( λ _cycle_claim
+    . _cycle_claim (text "continuation_both") (text "scored") (boolean true) λ. conjecture λ. text "continuation_both"
+  )
+λ
+. cons
+  ( λ _cycle_claim
+    . _cycle_claim (text "continuation_both") (text "scored") (boolean false) λ. conjecture λ. text "continuation_both"
+  ) nil

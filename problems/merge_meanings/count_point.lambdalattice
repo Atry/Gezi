@@ -1,0 +1,93 @@
+# One value with several meanings, in lambda plus merge: scored points of
+# the label-free family where a reverse index of a knowledge base must give one
+# term more than one meaning (a term can have several meanings: \z. \s. z
+# is zero, and nil, and true). The
+# reduction series poses the same program with its answer read by Scott
+# case analysis (contest_reduction_meanings.pl); these points pose it to
+# is_identity, the count compared with a claimed numeral.
+#
+# THE VALUE is \t. \f. t: the Church true, and the Scott unary zero
+# \z. \s. z, one term. The program let binds it once as True and uses
+# that one variable in both meanings:
+# - as a Boolean: is_even returns it, the count's choice applies it, and
+#   the unary equality answers it;
+# - as the unary zero: n is doubled up from it at run time, the input
+#   numerals are built from it, the count starts from it, and the claimed
+#   numeral is built on it.
+#
+# THE PROGRAM counts the even numbers among 0, 1, ..., n - 1, with the
+# is_even, count and upto of contest_reduction_meanings.pl, and compares
+# the count with a claimed unary numeral:
+# - double = \self. \x. x True (\p. successor (successor (self self p))),
+#   and n = 2^k is double applied k times to one, so that the program
+#   stays small (a literal of depth n made the translation take 7588 ms
+#   at n = 1024 in the reduction series);
+# - equal = \self. \a. \b. a (b True (\_. False))
+#   (\p. b False (\q. self self p q)), the unary equality;
+# - the test is equal (count (upto n True) True) claimed, the Church
+#   Boolean of count = claimed. The count of evens below 2^k is 2^(k-1),
+#   and the claimed numeral is double applied k - 1 times to one, or its
+#   successor for the wrong claim.
+# is_even of k takes k steps, so the program takes O(n^2) steps.
+#
+# THE POINTS: n = 256, 512 and 1024, and a wrong claim at 512, the count
+# plus one, which the equality refutes only after reading every
+# successor of the count.
+#
+# READINGS (2026-09-29, CPU 2 under contest_limited.sh, point_claims/2, a
+# fresh process per reading, the family's limits):
+# - weak_head: 256 in 4030 ms; 512, its wrong claim and 1024 stopped;
+# - tabling(weak_head): 256, 512, the wrong 512 and 1024 in 285, 581, 583
+#   and 976 ms, the tables sharing is_even of each numeral with the next.
+# These points are not a frontier for tabling: they give a reverse index
+# a value it must read in two meanings, in the scored suite.
+# LIMITS: the family's, 10 s, 256 MB, 256 MB.
+#
+# TARGET ALGORITHMS, the specific known algorithms the problem targets, each
+# with its prior work:
+# - one shared representation for a term with several meanings, as
+#   hash-consing shares equal terms: J.-C. Filliâtre, S. Conchon, Type-Safe
+#   Modular Hash-Consing, ML Workshop 2006, doi:10.1145/1159876.1159880.
+# - tabled evaluation, which shares is_even of each numeral with the next:
+#   W. Chen, D. S. Warren, Tabled Evaluation with Delaying for General Logic
+#   Programs, J. ACM 1996, doi:10.1145/227595.227597.
+
+#   count_point(?Point, ?Exponent, ?Extra): n = 2^Exponent, the claim
+#   2^(Exponent - 1) + Extra.
+#
+# Each text is from_cbor of a string literal, a Scott list of bytes,
+# imported from corpora/library/text/cbor. Each number is from_cbor of an
+# integer literal, a Scott integer, imported from corpora/library/integer/cbor.
+# FIXME: the imports project "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λx. x)
+λ integer
+. export
+λ
+. cons
+  (λ_count_point. _count_point (text "merge_even_count_two_hundred_fifty_six") (integer 8) λ. integer 0)
+λ
+. cons
+  (λ_count_point. _count_point (text "merge_even_count_five_hundred_twelve") (integer 9) λ. integer 0)
+λ
+. cons
+  ( λ _count_point
+    . _count_point (text "merge_even_count_five_hundred_twelve_wrong") (integer 9) λ. integer 1
+  )
+λ
+. cons
+  ( λ _count_point
+    . _count_point (text "merge_even_count_one_thousand_twenty_four") (integer 10) λ. integer 0
+  ) nil

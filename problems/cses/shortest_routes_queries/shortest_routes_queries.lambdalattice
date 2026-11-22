@@ -1,0 +1,113 @@
+# shortest_routes_queries:
+# CSES 1672, Shortest Routes II (https://cses.fi/problemset/task/1672), in our
+# own words: city_count cities and two-way roads, each joining two cities at a positive
+# cost; for each query, a pair of cities, the least total cost of a trip from
+# the first to the second, or none when no trip exists. The answer is the list
+# of the queries' answers, each a Scott option: none = λwhen_none when_some. when_none, some value =
+# λwhen_none when_some. when_some value. Part of the CSES port's second batch.
+#
+# INPUT: the number of cities, a binary natural (corpora/library/binary/natural);
+# the roads, a Scott list (corpora/library/prelude/list) of triples
+# `pair first (pair second cost)` (corpora/library/prelude/pair), each a binary
+# natural, the cost positive; the queries, a Scott list of pairs of binary
+# naturals. Parallel roads and a road from a city to itself may occur.
+#
+# THE PROGRAM, written by the definition: a trip of total cost exactly trip_cost leads
+# from source to destination (reaches source trip_cost destination) when trip_cost = 0 and destination is source, or when some road between
+# a city intermediate and destination of cost <= trip_cost, in either direction, has a trip of cost trip_cost - cost
+# from source to intermediate, by its recursion on trip_cost (every cost is positive, so trip_cost - cost < trip_cost); the
+# answer to a query source, destination is the least trip_cost, counted up from 0 while trip_cost stays within
+# the total cost total of all roads (a shortest trip uses no road twice), for which
+# reaches source trip_cost destination holds, and none when none does. Under tabling the reading
+# shares reaches source trip_cost destination for each source, trip_cost and destination; the replacement the family asks for
+# is the Floyd-Warshall algorithm, city_count^3 steps, on fixed-width integers (or
+# Dijkstra from each queried city).
+#
+# DEFINITION 14: the program P, the point's term, is built of λ and application
+# only, with no top, no choice and no parallel. It β-reduces to V, the Scott list
+# of the options of canonical binary numerals (reaches consumes trip_cost, the search
+# consumes total - trip_cost, each fold a finite list, and every road costs at least 1, as
+# the problem states, so the argument trip_cost - cost of the recursive call is smaller than
+# d). binary_subtract, which writes no top (../common/binary_modular), is never
+# asked for less than zero, since the program subtracts only a cost that is no
+# larger. So ⊢_β P = V, and P ≃_O V by the soundness of the derivable equations
+# for the contextual preorder of Definition 14 (Lean
+# `ContextualPreorder.contextualEquivalenceOfDerivableLatticeEta`): V is an
+# answer, P ⊑_O V. No other closed βη normal form W has P ⊑_O W: then V ⊑_O W,
+# while Böhm's theorem gives a pure context that takes V to λx y. x and W to
+# λx y. y, and applying both to λa. a and Ω makes the first solvable and the
+# second not.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "fixpoint")
+λ fixpoint
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "boolean")
+λ true false _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ map _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "natural")
+λ binary_zero _ binary_odd _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "arithmetic")
+λ merge_binary_increment merge_binary_plus _ merge_binary_equality
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "order")
+λ binary_less_than _ _
+. omega (omega (omega (omega (omega gezi "problems") "cses") "common") "binary_modular")
+λ _ binary_subtract _ _
+. (λtuple. tuple λwhen_none when_some. when_none)
+λ none
+. (λtuple. tuple λvalue when_none when_some. when_some value)
+λ some
+. ( λ tuple
+    . tuple
+    λ roads
+    . fixpoint
+      ( λ self sum rest
+        . rest sum λ road others. road λ first second_and_cost. second_and_cost λ second cost. self (merge_binary_plus sum cost) others
+      ) binary_zero roads
+  )
+λ total_cost
+. ( λ tuple
+    . tuple
+    λ roads source
+    . fixpoint
+    λ self trip_cost destination
+    . ( λ any
+        . trip_cost (merge_binary_equality destination source) (λ_. any roads) λ_. any roads
+      )
+    λ
+    . fixpoint
+    λ any rest
+    . rest false
+    λ road others
+    . road
+    λ first second_and_cost
+    . second_and_cost
+    λ second cost
+    . binary_less_than trip_cost cost (any others)
+      ( ( λ remaining
+          . ( λ next
+              . merge_binary_equality second destination (self remaining first true next) next
+            ) (merge_binary_equality first destination (self remaining second true (any others)) (any others))
+        ) (binary_subtract trip_cost cost false)
+      )
+  )
+λ reaches
+. ( λ tuple
+    . tuple
+    λ roads total source destination
+    . fixpoint
+      ( λ self trip_cost
+        . binary_less_than total trip_cost none (reaches roads source trip_cost destination (some trip_cost) (self (merge_binary_increment trip_cost)))
+      ) binary_zero
+  )
+λ shortest
+. ( λ tuple
+    . tuple
+    λ city_count roads queries
+    . ( λ total
+        . map (λquery. query λsource destination. shortest roads total source destination) queries
+      ) (total_cost roads)
+  )
+λ shortest_routes_queries
+. export shortest_routes_queries

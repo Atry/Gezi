@@ -1,0 +1,37 @@
+depth	form	steps	tables
+0	tuple	6549	3154
+0	export	6549	3154
+0	packed	6549	3154
+0	export, packed reading	6549	3154
+1	tuple	7189	3216
+1	export	7189	3216
+1	packed	7194	3219
+1	export, packed reading	7197	3216
+2	tuple	7263	3251
+2	export	7281	3260
+2	packed	7273	3256
+2	export, packed reading	7267	3245
+3	tuple	7330	3279
+3	export	7402	3315
+3	packed	7345	3286
+3	export, packed reading	7330	3267
+4	tuple	7436	3330
+4	export	7634	3429
+4	packed	7456	3339
+4	export, packed reading	7432	3312
+5	tuple	7520	3359
+5	export	7988	3593
+5	packed	7545	3370
+5	export, packed reading	7512	3335
+6	tuple	7594	3394
+6	export	8620	3907
+6	packed	7624	3407
+6	export, packed reading	7582	3364
+7	tuple	7661	3422
+7	export	9821	4502
+7	packed	7696	3437
+7	export, packed reading	7645	3386
+8	tuple	7727	3462
+8	export	12173	5685
+8	packed	7767	3479
+8	export, packed reading	7707	3420

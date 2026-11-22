@@ -1,0 +1,136 @@
+# The set of the nodes reachable from a start node, written as a set.
+#
+# A family of the reduction series, a graph problem written by its
+# definition with sets: a typical problem of informatics contests, written
+# definitionally, should run as fast as native code through a common
+# standard library, set expressions included, since they express many graph
+# problems definitionally.
+#
+# THE PROGRAM is the definition of the reachable set with a step budget
+# (ReachableSet.reachableSetTerm, MergeGraph.budgetedReachBody in
+# gezi/contest-corpora):
+#
+#     reach d v = v + d top (\p. walk p v)
+#     walk p v  = the choice of reach p u over the successors u of v
+#                 (top for a node without successors)
+#
+# a node is the Scott unary numeral of its index, let bound once, top is
+# corpora/library/top, and the program is reach n s for the node count n and
+# the start s. Without the budget a walk round a cycle reads ⊥ in DdLP96's
+# reading (a choice is a meet and Y the least fixed point), the whole choice
+# with it, and every closed βη normal form would be an answer; with it the
+# recursion terminates. Read as written the walks are exponentially many;
+# a reading that remembers the nodes it has reached reads the set in time
+# linear in the graph.
+#
+# This family asks for the SET itself, against a snapshot of the reachable
+# nodes; the empty set reachability family asks whether one target is
+# reachable, a Boolean. The points are distinct programs.
+#
+# THE GRAPHS are the two rings and the ring with chords (MergeGraph.graph).
+# THE NEAR MISS, a proved trap, is the two rings with the bridge from ring A
+# to ring B removed (EmptySetReachability.cutGraph): its set is ring A's
+# nodes only, so an answer naming a node of ring B is a false answer.
+#
+# THE SNAPSHOT is the set of the reachable nodes' numerals
+# (ReachableSet.reachableNodes, breadth-first search). PROOF, under
+# Definition 14 (doc/proofs/reduction_series_answers.md): top ≃_O 0, so
+# the program has the answers of the one with 0 in top's place, whose
+# reductions terminate (the budget falls at every walk). Its answers are
+# then those of its selections, the terms got by choosing one member at
+# every choice (the selection theorem), and a choice holding 0 offers no
+# member.
+# - (⊇) For a node t reachable from s by a path s = v0 -> ... -> vk = t with
+#   k < n: choose the walk at v0, ..., v(k-1), each time the successor
+#   v(i+1), and at vk the node itself; the selection reduces to the numeral
+#   of t.
+# - (⊆) A selection either chooses a node at some step, and reduces to the
+#   numeral of a node reached from s by the walk chosen so far, or chooses
+#   walks until the budget is spent or a node has no successor, where it
+#   meets 0 and is no selection. So every answer is the
+#   numeral of a reachable node.
+# - The near miss: from node 0 of the two rings without the bridge, every
+#   edge but the bridge stays in its ring, so the reachable nodes are ring A's.
+#
+# TARGET ALGORITHMS, the specific known algorithms the problem targets, each
+# with its prior work:
+# - breadth-first or depth-first search with a set of visited nodes, and the
+#   connected components: J. Hopcroft, R. Tarjan, Algorithm 447: efficient
+#   algorithms for graph manipulation, CACM 1973, doi:10.1145/362248.362272;
+# - the semi-naive evaluation of recursive queries, which derives each fact
+#   once: F. Bancilhon, R. Ramakrishnan, An amateur's introduction to
+#   recursive query processing strategies, SIGMOD 1986,
+#   doi:10.1145/16856.16859; and tabled evaluation: W. Chen, D. S. Warren,
+#   Tabled Evaluation with Delaying for General Logic Programs, J. ACM 1996,
+#   doi:10.1145/227595.227597.
+#
+# READINGS AND SIZES, on the budgeted program (a probe of
+# 2026-11-12, a scratch test not committed, contest-framework.slice, CPUs 0
+# and 1, load about 6; the steps of `NormalForms.normalForms` within
+# 20,000,000, the family's 10 s; the size is the graph's parameter, two
+# rings of 12 having 24 nodes): two rings of 12, weak_head 10,348 steps and
+# tabling(weak_head) 6,528; of 24, 37,792 and 24,528; of 48, 144,520 and
+# 95,088; of 64, weak_head 254,072, tabling out of tables at 115,351: on
+# the two rings, whose nodes have one successor each, weak_head's steps grow
+# about as the square of the nodes. The ring with chords of 24, weak_head out of
+# steps, tabling 15,852; of 48, weak_head out of steps, tabling 99,068; of
+# 96 and of 128, both stopped (tabling out of tables at about 128,000). The
+# near miss of 12, 4,362 and 2,424, the 12 nodes of ring A. The sizes are
+# kept: each class has a point the baseline readers read and one they do
+# not (2026-11-12).
+# LIMITS: the reduction family's, 10 s, 256 MB, 256 MB.
+
+#   THE POINTS: reachable_set_point(?Point, ?Graph), sized by the
+#   readings above.
+#
+# The graph is a constructor of reachable_set/graph, whole or cut, whose
+# shape is a constructor of schema/graph_shape, two_rings or chord_ring.
+# Each other text is from_cbor of a string literal, a Scott list
+# of bytes, imported from corpora/library/text/cbor. Each number is from_cbor of an
+# integer literal, a Scott integer, imported from corpora/library/integer/cbor.
+# FIXME: the imports project "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λx. x)
+λ integer
+. omega (omega (omega (omega gezi "problems") "schema") "graph_shape")
+λ two_rings chord_ring
+. omega (omega (omega (omega gezi "problems") "reachable_set") "graph")
+λ whole cut
+. export
+λ
+. cons
+  ( λ _reachable_set_point
+    . _reachable_set_point (text "reduction_reachable_set_two_rings_small") λ. whole two_rings λ. integer 12
+  )
+λ
+. cons
+  ( λ _reachable_set_point
+    . _reachable_set_point (text "reduction_reachable_set_two_rings_large") λ. whole two_rings λ. integer 64
+  )
+λ
+. cons
+  ( λ _reachable_set_point
+    . _reachable_set_point (text "reduction_reachable_set_chord_ring_small") λ. whole chord_ring λ. integer 24
+  )
+λ
+. cons
+  ( λ _reachable_set_point
+    . _reachable_set_point (text "reduction_reachable_set_chord_ring_large") λ. whole chord_ring λ. integer 128
+  )
+λ
+. cons
+  ( λ _reachable_set_point
+    . _reachable_set_point (text "reduction_reachable_set_two_rings_near_miss") λ. cut two_rings λ. integer 12
+  ) nil

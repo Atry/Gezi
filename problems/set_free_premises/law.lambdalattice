@@ -1,0 +1,6 @@
+# The law of a twin of law_twin: a Scott sum of two constructors, in order:
+# involution, the complement applied an even number of times, and unit,
+# plus's unit law. Read by its position
+# (gezi.contest.corpora.reductions.SetFreePremises, law, into
+# SetFreePremises.Law).
+λ export. export (λinvolution unit. involution) λinvolution unit. unit

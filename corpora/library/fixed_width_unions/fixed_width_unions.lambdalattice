@@ -1,0 +1,21 @@
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega corpora "library") "top")
+λ top
+# word_structure:
+# The type of the words of width w in the zero universe
+# (fixed_width_unions.pl): noinline, top up to contextual equivalence, by
+# top ∥ M ≃_O top and M ∥ top ≃_O top.
+. (λtuple. tuple λw. (top ∥ (top ∥ top) ∥ (top ∥ top)))
+λ word_structure
+# word_structure_above:
+# The type of the bits above the least significant one of a word, w of them,
+# in the zero universe (fixed_width_unions.pl): unfolded as word_structure is,
+# but no candidate, so that in a program that names one width a word's cells
+# are not each filtered at their own width (two widths: the FIXME at
+# unions_word_structure_above_zero). noinline, top up to contextual
+# equivalence, by top ∥ M ≃_O top and M ∥ top ≃_O top.
+. (λtuple. tuple λw. (top ∥ top ∥ (top ∥ (top ∥ top) ∥ top)))
+λ word_structure_above
+. export word_structure word_structure_above

@@ -1,0 +1,60 @@
+#   raised_limits(?Point, ?Limits): the points read above the default. Each
+#   point here has a head as its intended answer, and its seconds cover the
+#   CPU time plain untabled `weak_head` took to read that head at 32 MB of
+#   stack (doc/contest.pl's `limited_reading/5`, 2026-09-26): call by name
+#   recomputes a shared argument at every use, so these are the points
+#   where sharing pays.
+#   Floyd over a lasso of 30 and 30 nodes: 3340 ms.
+#
+# The limits are a plain tuple of the seconds, the stack megabytes and the
+# table megabytes, `λtuple. tuple S M T`, each a whole number: no point
+# needs a fraction of a second.
+# Each text is from_cbor of a string literal, a Scott list of bytes,
+# imported from corpora/library/text/cbor. Each number is from_cbor of an
+# integer literal, a Scott integer, imported from corpora/library/integer/cbor.
+# FIXME: the imports project "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λx. x)
+λ integer
+. export
+λ
+. cons
+  ( λ _raised_limits
+    . _raised_limits (text "lasso_floyd_cycle_start_large") λtuple. tuple (integer 5) (integer 32) λ. integer 32
+  )
+#   The visited set over a lasso of 30 and 30 nodes: 5526 ms.
+λ
+. cons
+  ( λ _raised_limits
+    . _raised_limits (text "lasso_visited_cycle_start_large") λtuple. tuple (integer 8) (integer 32) λ. integer 32
+  )
+#   a^5 b^5: 1156 ms.
+λ
+. cons
+  ( λ _raised_limits
+    . _raised_limits (text "regex_matches_medium") λtuple. tuple (integer 2) (integer 32) λ. integer 32
+  )
+#   a^7 b^7: 15253 ms.
+λ
+. cons
+  ( λ _raised_limits
+    . _raised_limits (text "regex_matches_large") λtuple. tuple (integer 20) (integer 32) λ. integer 32
+  )
+#   a^5 b^5 a: 2871 ms.
+λ
+. cons
+  ( λ _raised_limits
+    . _raised_limits (text "regex_rejects_medium") λtuple. tuple (integer 4) (integer 32) λ. integer 32
+  ) nil

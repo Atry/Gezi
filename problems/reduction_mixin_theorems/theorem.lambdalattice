@@ -1,0 +1,117 @@
+# Counterexample searches in the mixin encoding of inheritance
+# (corpora/contest_mixin_library.pl, the library `natural`): problems of
+# the reduction series, ported from the retired labeled points of
+# contest_inheritance_theorems.pl, contest_inheritance_theorems_second.pl
+# and contest_inheritance_theorems_third.pl.
+#
+# THE SEARCH. A proposition "for all n, P(n)" is false with first
+# counterexample K. The class counterexample_search has the slots n and found: found reads
+# the Boolean check(self.n), and its Church Boolean chooses between the
+# library's true, where the check holds (a counterexample), and
+# {counterexample_search, n : self.n + 1}.found, where it does not. search is the first
+# slot of a module, so that found makes objects of the class read through
+# the module's self. The program reads {counterexample_search, n : 0}.found at church.
+#
+# THE PROPOSITIONS, the labeled families', each false (checked with
+# Prolog's integers by counterexample/2):
+# - for all n, n + n =/= n + K, K = 2, 3, 4, 5 (first counterexample K);
+# - for all n, n + n =/= 6 (3); (n + n) + n =/= n + 8 (4);
+#   (n + n) + (n + n) =/= n + 9 (3); (n + n) + n =/= 12 (4);
+# - for all n, not (n = 2 mod 3 and n even) (2), not (n = 0 mod 3 and n
+#   odd) (3), not (n = 1 mod 3 and n even) (4), not (n = 2 mod 3 and n
+#   odd) (5). The module's second class, periodic, has the slots n, even
+#   and residue_zero, residue_one, residue_two, each by recursion on n's
+#   accept: zero is even and has residue 0, a successor's parity is the
+#   negation of its predecessor's and its residue the next one.
+#
+# THE SNAPSHOT of each is the Church true. PROOF: the search is the same
+# at every n below K: the check, the library's plus and equality or the
+# periodic class's recursion, descends on the finite numerals and computes
+# false, and the Boolean chooses the next round; at K it computes true and
+# the Boolean chooses the library's true. Every read of a class also has
+# the branches of the mixins that do not define the slot read, which
+# provide the empty set and yield nothing. So the one yield is the Church
+# true, and no round beyond K is reached.
+#
+# LIMITS: the family's, 10 s, 256 MB, 256 MB.
+
+#   theorem(?Point, ?Proposition): Proposition is the check, a
+#   constructor of schema/proposition (over schema/natural_expression,
+#   schema/residue and schema/parity), read by its position.
+#
+# Each text is from_cbor of a string literal, a Scott list of bytes,
+# imported from corpora/library/text/cbor. Each number is from_cbor of an
+# integer literal, a Scott integer, imported from corpora/library/integer/cbor.
+# FIXME: the imports project "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λx. x)
+λ integer
+. omega (omega (omega (omega gezi "problems") "schema") "proposition")
+λ equal periodic _ _ _
+. omega (omega (omega (omega gezi "problems") "schema") "natural_expression")
+λ self_number literal double plus _
+. omega (omega (omega (omega gezi "problems") "schema") "residue")
+λ residue_zero residue_one residue_two
+. omega (omega (omega (omega gezi "problems") "schema") "parity")
+λ even odd
+. export
+λ
+. cons
+  ( λ _theorem
+    . _theorem (text "reduction_mixin_double_meets_plus_two") λ. equal (double self_number) λ. plus self_number λ. literal λ. integer 2
+  )
+λ
+. cons
+  ( λ _theorem
+    . _theorem (text "reduction_mixin_double_meets_plus_three") λ. equal (double self_number) λ. plus self_number λ. literal λ. integer 3
+  )
+λ
+. cons
+  ( λ _theorem
+    . _theorem (text "reduction_mixin_double_meets_plus_four") λ. equal (double self_number) λ. plus self_number λ. literal λ. integer 4
+  )
+λ
+. cons
+  ( λ _theorem
+    . _theorem (text "reduction_mixin_double_meets_plus_five") λ. equal (double self_number) λ. plus self_number λ. literal λ. integer 5
+  )
+λ
+. cons
+  ( λ _theorem
+    . _theorem (text "reduction_mixin_double_meets_six") λ. equal (double self_number) λ. literal λ. integer 6
+  )
+λ
+. cons
+  ( λ _theorem
+    . _theorem (text "reduction_mixin_triple_meets_plus_eight") λ. equal (plus (double self_number) self_number) λ. plus self_number λ. literal λ. integer 8
+  )
+λ
+. cons
+  ( λ _theorem
+    . _theorem (text "reduction_mixin_quadruple_meets_plus_nine") λ. equal (double λ. double self_number) λ. plus self_number λ. literal λ. integer 9
+  )
+λ
+. cons
+  ( λ _theorem
+    . _theorem (text "reduction_mixin_triple_meets_twelve") λ. equal (plus (double self_number) self_number) λ. literal λ. integer 12
+  )
+λ
+. cons (λ_theorem. _theorem (text "reduction_mixin_residue_two_even") λ. periodic residue_two even)
+λ
+. cons (λ_theorem. _theorem (text "reduction_mixin_residue_zero_odd") λ. periodic residue_zero odd)
+λ
+. cons (λ_theorem. _theorem (text "reduction_mixin_residue_one_even") λ. periodic residue_one even)
+λ
+. cons (λ_theorem. _theorem (text "reduction_mixin_residue_two_odd") λ. periodic residue_two odd) nil

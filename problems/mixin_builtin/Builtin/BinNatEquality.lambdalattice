@@ -1,0 +1,44 @@
+# MIXINv2's Builtin/BinNatEquality.mixin.yaml (the package mixinv2-library),
+# desugared to the literal partial-function mixin encoding, a
+# definition `L : V` written `λ"L" L. V`: after the key, a class whose self is
+# named by the label. A lexical reference [a, w…] reads
+# off the self of the nearest enclosing scope that writes a, a qualified one
+# [S, ~, w…] off the self S, and an inherited mixin is applied to the
+# inheritor's self. top is written out, the term of corpora/library/top.lambdalattice.
+# The names BinNatEquality, Builtin and mixin_builtin are the selves the directory tree
+# binds. Written by a translator, a scratch prototype of that desugaring.
+# FIXME: once the .mixin.yaml front end (#1520) reads MIXINv2's YAML, read https://github.com/Atry/private-overlay/issues/1520
+# that YAML and delete this file.
+Builtin Builtin "BinNatVisitor" BinNatEquality
++ Builtin Builtin "BooleanData" BinNatEquality
++ (λ"BinNatFactory" BinNatFactory. ( (λ"Product" Product. (λ"Equal" Equal. ( (λ"other" other. BinNatFactory BinNatFactory "Product" other)
++ (λ"equal" equal. BinNatEquality BinNatEquality "Boolean" equal))))
++ (λ"Zero" Zero. (λ"Equal" Equal. ( (λ"other" other. BinNatFactory BinNatFactory "Product" other)
++ (λ"_OtherAcceptance" _OtherAcceptance. ( (λo. o o "Acceptance") (Equal Equal "other") _OtherAcceptance
++ (λ"VisitorMap" VisitorMap. ( (λ"ZeroVisitor" ZeroVisitor. (λ"equal" equal. (λo. o o "True") (BinNatEquality BinNatEquality "BooleanFactory") equal))
++ (λ"EvenVisitor" EvenVisitor. (λ"equal" equal. (λo. o o "False") (BinNatEquality BinNatEquality "BooleanFactory") equal))
++ (λ"OddVisitor" OddVisitor. (λ"equal" equal. (λo. o o "False") (BinNatEquality BinNatEquality "BooleanFactory") equal))))
++ (λ"Accepted" Accepted. (λ"equal" equal. BinNatEquality BinNatEquality "Boolean" equal))))
++ (λ"equal" equal. (λo. o o "equal") ((λo. o o "Accepted") (Equal Equal "_OtherAcceptance")) equal))))
++ (λ"Even" Even. ( (λ"half" half. (λ"Equal" Equal. (λ"equal" equal. BinNatEquality BinNatEquality "Boolean" equal)))
++ (λ"Equal" Equal. ( (λ"other" other. ( BinNatFactory BinNatFactory "Product" other
++ (λ"half" half. BinNatFactory BinNatFactory "Product" half)))
++ (λ"_recursiveEquality" _recursiveEquality. ( (λo. o o "Equal") (Even Even "half") _recursiveEquality
++ (λ"other" other. (λo. o o "half") (Equal Equal "other") other)))
++ (λ"_OtherAcceptance" _OtherAcceptance. ( (λo. o o "Acceptance") (Equal Equal "other") _OtherAcceptance
++ (λ"VisitorMap" VisitorMap. ( (λ"ZeroVisitor" ZeroVisitor. (λ"equal" equal. (λo. o o "False") (BinNatEquality BinNatEquality "BooleanFactory") equal))
++ (λ"EvenVisitor" EvenVisitor. (λ"equal" equal. (λo. o o "equal") (Equal Equal "_recursiveEquality") equal))
++ (λ"OddVisitor" OddVisitor. (λ"equal" equal. (λo. o o "False") (BinNatEquality BinNatEquality "BooleanFactory") equal))))
++ (λ"Accepted" Accepted. (λ"equal" equal. BinNatEquality BinNatEquality "Boolean" equal))))
++ (λ"equal" equal. (λo. o o "equal") ((λo. o o "Accepted") (Equal Equal "_OtherAcceptance")) equal)))))
++ (λ"Odd" Odd. ( (λ"halfOfPredecessor" halfOfPredecessor. (λ"Equal" Equal. (λ"equal" equal. BinNatEquality BinNatEquality "Boolean" equal)))
++ (λ"Equal" Equal. ( (λ"other" other. ( BinNatFactory BinNatFactory "Product" other
++ (λ"halfOfPredecessor" halfOfPredecessor. BinNatFactory BinNatFactory "Product" halfOfPredecessor)))
++ (λ"_recursiveEquality" _recursiveEquality. ( (λo. o o "Equal") (Odd Odd "halfOfPredecessor") _recursiveEquality
++ (λ"other" other. (λo. o o "halfOfPredecessor") (Equal Equal "other") other)))
++ (λ"_OtherAcceptance" _OtherAcceptance. ( (λo. o o "Acceptance") (Equal Equal "other") _OtherAcceptance
++ (λ"VisitorMap" VisitorMap. ( (λ"ZeroVisitor" ZeroVisitor. (λ"equal" equal. (λo. o o "False") (BinNatEquality BinNatEquality "BooleanFactory") equal))
++ (λ"EvenVisitor" EvenVisitor. (λ"equal" equal. (λo. o o "False") (BinNatEquality BinNatEquality "BooleanFactory") equal))
++ (λ"OddVisitor" OddVisitor. (λ"equal" equal. (λo. o o "equal") (Equal Equal "_recursiveEquality") equal))))
++ (λ"Accepted" Accepted. (λ"equal" equal. BinNatEquality BinNatEquality "Boolean" equal))))
++ (λ"equal" equal. (λo. o o "equal") ((λo. o o "Accepted") (Equal Equal "_OtherAcceptance")) equal)))))))

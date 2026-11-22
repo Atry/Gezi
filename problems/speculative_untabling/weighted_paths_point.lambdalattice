@@ -1,0 +1,61 @@
+# The base problems of the family weighted_paths: small acyclic graphs whose
+# nodes carry seeds, the answer the value of the root, the value of a node being
+# its seed after the given number of steps of x ↦ x² + 1 modulo 10^9 + 7 plus the
+# values of its successors, modulo 10^9 + 7. Rows include a single node with no
+# step and with three, a diamond whose bottom node is reached along two paths,
+# and a chain whose nodes each also reach the node after the next.
+#
+# THE ANSWER of each row is the problem's definition computed by a script
+# (2026-11-21) that follows the statement above with a memoized value per node.
+# PROOF: the program of the problem's file follows the definition, and its
+# header argues under Definition 14 that its one normal form is that answer.
+#
+#   weighted_paths_point(?Point, ?Steps, ?Root, ?Result)
+#
+# Steps is an integer from_cbor of an integer literal (corpora/library/integer/cbor);
+# Root is a node `λk. k seed successors`, the seed such an integer and the
+# successors a Scott list (corpora/library/prelude/list) of nodes, a node reached
+# along several paths bound once by an abstraction and named at each of them;
+# Result is such an integer, below the modulus.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λvalue. value)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λvalue. value)
+λ integer
+. export
+λ
+. cons
+  ( λ _weighted_paths_point
+    . _weighted_paths_point (text "weighted_paths_sink_zero_steps") (integer 0) (λk. k (integer 5) nil) λ. integer 5
+  )
+λ
+. cons
+  ( λ _weighted_paths_point
+    . _weighted_paths_point (text "weighted_paths_sink_three_steps") (integer 3) (λk. k (integer 5) nil) λ. integer 458330
+  )
+λ
+. cons
+  ( λ _weighted_paths_point
+    . _weighted_paths_point (text "weighted_paths_diamond") (integer 2)
+      ( (λnode_d. (λnode_b node_c. λk. k (integer 4) (cons node_b λ. cons node_c λ. nil)) (λk. k (integer 2) (cons node_d λ. nil)) (λk. k (integer 3) (cons node_d λ. nil)))
+        (λk. k (integer 1) nil)
+      )
+      λ. integer 427
+  )
+λ
+. cons
+  ( λ _weighted_paths_point
+    . _weighted_paths_point (text "weighted_paths_shared_chain") (integer 5)
+      ( (λnode_e. (λnode_d. (λnode_c. (λnode_b. λk. k (integer 4) (cons node_b λ. cons node_c λ. nil)) (λk. k (integer 5) (cons node_c λ. cons node_d λ. nil))) (λk. k (integer 6) (cons node_d λ. cons node_e λ. nil))) (λk. k (integer 7) (cons node_e λ. nil)))
+        (λk. k (integer 999999999) nil)
+      )
+      λ. integer 253905581
+  ) nil

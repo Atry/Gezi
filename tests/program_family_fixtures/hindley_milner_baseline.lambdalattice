@@ -1,0 +1,33 @@
+# The knowledge of the configuration hindley_milner_baseline
+# (gezi.programfamilies.Configurations), the Scott tuple of its two fields,
+# each a term of this file and not a choice the host assembles from paths:
+# knowledge  the knowledge files the configuration's library is compiled from,
+#            occurrence_erasure among them: native_types declares the markers
+#            the front end tags occurrences with, and the host tags only with a
+#            marker whose erasure lemma the library has
+#            (StandardLibraryIndex.occurrenceMarkers)
+# enabled    the knowledge whose lemmas its runs enable
+# The file is read by projection off the tree whose visible subtree is
+# Gezi's directory (StandardLibrary.entryTerm).
+# FIXME: this configuration enables native typing (native_types and its https://github.com/Atry/private-overlay/issues/2042
+# unions) with no backend, which the rule of CONTRIBUTING.md, "Efficiency by design, with native structures",
+# rules out: native types are enabled only where the configured backend
+# supports them, and native typing and its backend as one preset of the
+# module system. It is the configuration ported from before that rule; it is
+# to enable that preset once it is written.
+# FIXME: the imports project "corpora" off the variable gezi, the name https://github.com/Atry/private-overlay/issues/1924
+# of the project root's own directory; they break if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega gezi "corpora") "compiler") "native_types")
+λ native_types
+. omega (omega (omega (omega gezi "corpora") "compiler") "hindley_milner_unions")
+λ hindley_milner_unions
+. omega (omega (omega (omega gezi "corpora") "compiler") "occurrence_erasure")
+λ occurrence_erasure
+. export
+λ s
+. s
+  (occurrence_erasure + hindley_milner_unions + native_types)
+  (hindley_milner_unions + native_types)

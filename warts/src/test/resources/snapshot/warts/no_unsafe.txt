@@ -1,0 +1,2 @@
+Error planted.scala:2:31 marking "sun.misc.Unsafe | Null": [wartremover:NoUnsafe] Unsafe is disabled
+1 error found

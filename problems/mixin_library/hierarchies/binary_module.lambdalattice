@@ -1,0 +1,20 @@
+# The hierarchy binary_module of the mixin library and its slots, in order: one
+# row of mixin_library/hierarchy, a file of its own so that
+# mixin_library/library_module can name it by omega. Each text is
+# from_cbor of a string literal, a Scott list of bytes, imported from
+# corpora/library/text/cbor.
+
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. export
+λ _hierarchy
+. _hierarchy (text "binary_module")
+λ
+. cons (text "true") λ. cons (text "false") λ. cons (text "zero") λ. cons (text "even") λ. cons (text "odd") nil

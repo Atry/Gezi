@@ -1,0 +1,69 @@
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "binary") "natural")
+λ binary_zero binary_even binary_odd _ binary_set
+. omega (omega (omega (omega corpora "library") "native_types") "boolean")
+λ true false _ _
+. omega (omega (omega (omega corpora "library") "native_types") "type_operators")
+λ arrow _ _
+. omega (omega (omega (omega corpora "library") "binary") "binary_bitwise_or")
+λ binary_bitwise_or
+. omega (omega (omega (omega corpora "library") "binary") "order")
+λ _ binary_maximum binary_minimum
+. omega (omega (omega (omega corpora "library") "binary") "arithmetic")
+λ _ merge_binary_plus _ _
+# wren_fixpoint_by_value:
+# Turing's fixed point combinator with the self-application under a λ, the
+# form a strict reading ends on: fixpoint is generic Θ, Θ = A A with
+# A = λx.λf. f (x x f), and this define is B B with B = λx.λf. f (λv. x x f v),
+# equal to Θ by η under λ. The typed member of wren_typed_bindings spells fixpoint this
+# way.
+. (λtuple. tuple λ. (λx f. f λv. x x f v) λx f. f λv. x x f v)
+λ wren_fixpoint_by_value
+# wren_typed_branch:
+# The marker of a typed branch: β-equal to the identity, applied to the
+# typed member of a choice that a wren_typed_block lemma makes. Its body is
+# the identity's η expansion, not in normal form, so that no other define and
+# no program's identity shares its handle (a condition of 2026-11-03: hash
+# consing would make the identity's applications this
+# marker's applications). noinline, so the e-graph reads it as a leaf.
+. (λtuple. tuple λx. (λy. y) x)
+λ wren_typed_branch
+# wren_typed_zero:
+# The canonical binary zero under its type: binary_zero filtered by
+# binary_set true, the representation binary_natural at true
+# (binary_prolog_backend). wren_typed_block, the typed branch of a binding
+# of binary_zero.
+. (λtuple. tuple (binary_zero ∥ binary_set true))
+λ wren_typed_zero
+# wren_typed_even:
+# binary_even under its type: a positive binary natural to a positive one
+# (binary_set false; 2h is canonical for a positive h only).
+. (λtuple. tuple λ. arrow (binary_set false) (binary_set false) binary_even)
+λ wren_typed_even
+# wren_typed_odd:
+# binary_odd under its type: a canonical binary natural to a positive one.
+. (λtuple. tuple λ. arrow (binary_set true) (binary_set false) binary_odd)
+λ wren_typed_odd
+# wren_typed_bitwise_or:
+# binary_bitwise_or under its type: two canonical binary naturals to one.
+. ( λ tuple
+    . tuple λx. arrow (binary_set true) (binary_set true) λ. binary_bitwise_or (x ∥ binary_set true)
+  )
+λ wren_typed_bitwise_or
+# wren_typed_maximum:
+# binary_maximum under its type: two canonical binary naturals to one.
+. (λtuple. tuple λx. arrow (binary_set true) (binary_set true) λ. binary_maximum (x ∥ binary_set true))
+λ wren_typed_maximum
+# wren_typed_minimum:
+# binary_minimum under its type: two canonical binary naturals to one.
+. (λtuple. tuple λx. arrow (binary_set true) (binary_set true) λ. binary_minimum (x ∥ binary_set true))
+λ wren_typed_minimum
+# wren_typed_plus:
+# merge_binary_plus under its type: two canonical binary naturals to one.
+. ( λ tuple
+    . tuple λx. arrow (binary_set true) (binary_set true) λ. merge_binary_plus (x ∥ binary_set true)
+  )
+λ wren_typed_plus
+. export wren_fixpoint_by_value wren_typed_branch wren_typed_zero wren_typed_even wren_typed_odd wren_typed_bitwise_or wren_typed_maximum wren_typed_minimum wren_typed_plus

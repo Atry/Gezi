@@ -1,0 +1,11 @@
+# The published list of the ways the tabled weak head applies a function to a continuation (ContinuationOption): substituted, the β rule as it is; packed, a head that uses its continuation in tail position read as applied to the closed pack first, so that the work before the continuation is shared.
+# A Scott sum whose constructors are the tuple's fields, in the order of the
+# enum's cases; an entry.lambdalattice imports this file and writes a
+# constructor, and EntryData reads which alternative it takes by structure
+# (gezi.contest.entry.EntryData, THE OPTIONS AS SCOTT CONSTRUCTORS).
+λ export
+. (λtuple. tuple λsubstituted packed. substituted)
+λ substituted
+. (λtuple. tuple λsubstituted packed. packed)
+λ packed
+. export substituted packed

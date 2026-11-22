@@ -1,0 +1,57 @@
+# The base problems of the CSES families repeated_cses_rectangle_cutting_*: a rectangle a by b of whole units, the answer the fewest cuts after which every piece is a square.
+#
+# THE ANSWER of each row is the problem's definition computed exhaustively by a
+# brute-force script (2026-11-22), which enumerates every candidate the problem's
+# statement describes. PROOF: the program of the problem's file follows the
+# definition, and its header argues under Definition 14 that its one normal form
+# is that answer; the data are finite and within the family's bottom rungs, which
+# the reference reading answers. The inputs are the author's own, no CSES test
+# data.
+#
+#   rectangle_cutting_point(?Point, ?First, ?Second, ?Result)
+#
+# First and Second are integers (corpora/library/integer/cbor), each at least 1; Result is an integer.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λvalue. value)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λvalue. value)
+λ integer
+. export
+λ
+. cons
+  ( λ _rectangle_cutting_point
+    . _rectangle_cutting_point (text "cses_rectangle_cutting_square") (integer 4) (integer 4) λ. (integer 0)
+  )
+λ
+. cons
+  ( λ _rectangle_cutting_point
+    . _rectangle_cutting_point (text "cses_rectangle_cutting_strip") (integer 1) (integer 4) λ. (integer 3)
+  )
+λ
+. cons
+  ( λ _rectangle_cutting_point
+    . _rectangle_cutting_point (text "cses_rectangle_cutting_three_by_five") (integer 3) (integer 5) λ. (integer 3)
+  )
+λ
+. cons
+  ( λ _rectangle_cutting_point
+    . _rectangle_cutting_point (text "cses_rectangle_cutting_two_by_six") (integer 2) (integer 6) λ. (integer 2)
+  )
+λ
+. cons
+  ( λ _rectangle_cutting_point
+    . _rectangle_cutting_point (text "cses_rectangle_cutting_three_by_six") (integer 3) (integer 6) λ. (integer 1)
+  )
+λ
+. cons
+  ( λ _rectangle_cutting_point
+    . _rectangle_cutting_point (text "cses_rectangle_cutting_four_by_five") (integer 4) (integer 5) λ. (integer 4)
+  ) nil

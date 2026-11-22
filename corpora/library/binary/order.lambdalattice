@@ -1,0 +1,31 @@
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "native_types") "fixpoint")
+λ fixpoint
+. omega (omega (omega (omega corpora "library") "native_types") "boolean")
+λ true false _ _
+# binary_less_than:
+# Whether a < b of two canonical binary naturals. The recursion reads the
+# bits of both from the least significant up, with below, the comparison of
+# the bits read so far: when the halves are equal, below decides. A zero
+# against a nonzero numeral decides at once, since a canonical nonzero
+# numeral is above zero. Each bit is read once.
+. ( λ tuple
+    . tuple
+    λ
+    . fixpoint
+      ( λ self below a b
+        . a (b below (λ_. true) λ_. true) (λh1. b false (λk1. self below h1 k1) λk2. self true h1 k2) λh2. b false (λk3. self false h2 k3) λk4. self below h2 k4
+      ) false
+  )
+λ binary_less_than
+# binary_maximum:
+# The larger of two canonical binary naturals.
+. (λtuple. tuple λa b. binary_less_than a b b a)
+λ binary_maximum
+# binary_minimum:
+# The smaller of two canonical binary naturals.
+. (λtuple. tuple λa b. binary_less_than a b a b)
+λ binary_minimum
+. export binary_less_than binary_maximum binary_minimum

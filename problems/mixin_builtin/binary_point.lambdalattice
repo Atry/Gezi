@@ -1,0 +1,118 @@
+# The base problems of the family repeated_reduction_mixin_builtin_binary: the check
+# C.Equal(A.Plus(B)) of MIXINv2's Builtin BinNatPlus and BinNatEquality
+# (the files of Builtin/ beside this file), A, B and C built as nested objects as
+# MIXINv2/packages/mixinv2-library/tests/BinNatArithmeticTest.mixin.yaml builds
+# them, the program shaped as ThreePlusFour.lambdalattice, read at church.
+# The sums are those of problems/reduction_mixin_binary, the same programs in
+# the fixed-width mixin encoding, and one pair each at 64 and 128 bits. A sum
+# that fails has the result plus the power of two just above it, a new highest
+# bit, so that the comparison must reach the top.
+#
+# THE SNAPSHOT of each is the Boolean of the equation, computed with integers.
+# PROOF: plus descends on the receiver's halves and equality on both numerals'
+# halves, every recursion on a finite numeral, and each class has one
+# implementation of each member read; MIXINv2's evaluator reads the same YAML
+# to the same Booleans at the three smaller sizes.
+#
+#   binary_point(?Point, ?Left, ?Right, ?Result)
+#
+# Each text is from_cbor of a string literal, a Scott list of bytes,
+# imported from corpora/library/text/cbor. Each number is from_cbor of an
+# integer literal, a Scott integer, imported from corpora/library/integer/cbor.
+# FIXME: the imports project "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λx. x)
+λ integer
+. export
+λ
+. cons
+  ( λ _binary_point
+    . _binary_point
+      (text "mixin_builtin_binary_sum_small_holds")
+      (integer 13)
+      (integer 29) λ. integer 42
+  )
+λ
+. cons
+  ( λ _binary_point
+    . _binary_point
+      (text "mixin_builtin_binary_sum_small_fails")
+      (integer 13)
+      (integer 29) λ. integer 106
+  )
+λ
+. cons
+  ( λ _binary_point
+    . _binary_point
+      (text "mixin_builtin_binary_sum_medium_holds")
+      (integer 12345)
+      (integer 54321) λ. integer 66666
+  )
+λ
+. cons
+  ( λ _binary_point
+    . _binary_point
+      (text "mixin_builtin_binary_sum_medium_fails")
+      (integer 12345)
+      (integer 54321) λ. integer 197738
+  )
+λ
+. cons
+  ( λ _binary_point
+    . _binary_point
+      (text "mixin_builtin_binary_sum_large_holds")
+      (integer 123456789)
+      (integer 987654321) λ. integer 1111111110
+  )
+λ
+. cons
+  ( λ _binary_point
+    . _binary_point
+      (text "mixin_builtin_binary_sum_large_fails")
+      (integer 123456789)
+      (integer 987654321) λ. integer 3258594758
+  )
+λ
+. cons
+  ( λ _binary_point
+    . _binary_point
+      (text "mixin_builtin_binary_sum_sixty_four_bits_holds")
+      (integer 18446744073709551615)
+      (integer 9223372036854788153) λ. integer 27670116110564339768
+  )
+λ
+. cons
+  ( λ _binary_point
+    . _binary_point
+      (text "mixin_builtin_binary_sum_sixty_four_bits_fails")
+      (integer 18446744073709551615)
+      (integer 9223372036854788153) λ. integer 64563604257983443000
+  )
+λ
+. cons
+  ( λ _binary_point
+    . _binary_point
+      (text "mixin_builtin_binary_sum_one_hundred_twenty_eight_bits_holds")
+      (integer 170141183460469231732674958037007562517)
+      (integer 85070591730234615865967108647929707185) λ. integer 255211775190703847598642066684937269702
+  )
+λ
+. cons
+  ( λ _binary_point
+    . _binary_point
+      (text "mixin_builtin_binary_sum_one_hundred_twenty_eight_bits_fails")
+      (integer 170141183460469231732674958037007562517)
+      (integer 85070591730234615865967108647929707185) λ. integer 595494142111642311062016674116705481158
+  ) nil

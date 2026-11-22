@@ -1,0 +1,17 @@
+# The round prolog_backend_type_check the strategies' and the JIT's tests
+# saturate with (gezi.strategies.StrategyTesting.round): the Prolog
+# backend's preset's type-check round, the preset's field
+# prolog_backend_type_check (corpora/compiler/prolog_backend_preset.lambdalattice),
+# whose candidacies write the typed versions (JitNativesTest,
+# NativeRouteCompilationTest). Native typing is enabled through the preset
+# only (CONTRIBUTING.md, "Efficiency by design, with native structures").
+# The one field of its tuple, the round's knowledge, a term of this file and not a choice the host assembles from paths. One round a file, so that a test reads only its round's
+# imports.
+# FIXME: the imports project "corpora" off the variable gezi, the name https://github.com/Atry/private-overlay/issues/1924
+# of the project root's own directory; they break if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega gezi "corpora") "compiler") "prolog_backend_preset")
+λ _ prolog_backend_type_check
+. export prolog_backend_type_check

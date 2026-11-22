@@ -1,0 +1,74 @@
+# The bit tuples of the JVM's value types, the Java FFI's own representation, faithful to the JVM and apart from the
+# standard library's numbers, which it leaves unchanged: a value type of width w is the Scott tuple of its w
+# bits, high bit first, each a Scott boolean, the JVM's boolean itself. The tuples are by width alone: byte is
+# bits_8; short and char are bits_16; int and float are bits_32; long and double are bits_64, the bits of a float or a
+# double being the IEEE 754 bits Float.floatToRawIntBits and Double.doubleToRawLongBits give. Two types of one width
+# have one criterion, since a criterion is a term and two α-equivalent terms are one (`CONTRIBUTING.md`, "Structure only: no names, and every function a pure function of the term":
+# "不允许使用名字，所有东西都必须按结构的纯函数"); a construct's descriptor says how its bits are read, as a JVM instruction's
+# opcode does.
+#
+# Each width has its constructor, which makes a tuple of w bits, and its criterion, the tuples of w booleans, the tuple
+# of w copies of the booleans' criterion; a filter x ∥ bits_32_type in a term asserts that x is a tuple of 32 bits.
+# The families are declared in corpora/compiler/java_ffi.lambdalattice.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "native_types") "boolean")
+λ _ _ bit _
+# bits_8:
+# The tuple of 8 bits, high bit first.
+. ( λ tuple
+    . tuple
+    λ bit_0 bit_1 bit_2 bit_3 bit_4 bit_5 bit_6 bit_7 consumer
+    . consumer bit_0 bit_1 bit_2 bit_3 bit_4 bit_5 bit_6 bit_7
+  )
+λ bits_8
+# bits_8_type:
+# The tuples of 8 booleans.
+. (λtuple. tuple λconsumer. consumer bit bit bit bit bit bit bit bit)
+λ bits_8_type
+# bits_16:
+# The tuple of 16 bits, high bit first.
+. ( λ tuple
+    . tuple
+    λ bit_0 bit_1 bit_2 bit_3 bit_4 bit_5 bit_6 bit_7 bit_8 bit_9 bit_10 bit_11 bit_12 bit_13 bit_14 bit_15 consumer
+    . consumer bit_0 bit_1 bit_2 bit_3 bit_4 bit_5 bit_6 bit_7 bit_8 bit_9 bit_10 bit_11 bit_12 bit_13 bit_14 bit_15
+  )
+λ bits_16
+# bits_16_type:
+# The tuples of 16 booleans.
+. (λtuple. tuple λconsumer. consumer bit bit bit bit bit bit bit bit bit bit bit bit bit bit bit bit)
+λ bits_16_type
+# bits_32:
+# The tuple of 32 bits, high bit first.
+. ( λ tuple
+    . tuple
+    λ bit_0 bit_1 bit_2 bit_3 bit_4 bit_5 bit_6 bit_7 bit_8 bit_9 bit_10 bit_11 bit_12 bit_13 bit_14 bit_15 bit_16 bit_17 bit_18 bit_19 bit_20 bit_21 bit_22 bit_23 bit_24 bit_25 bit_26 bit_27 bit_28 bit_29 bit_30 bit_31 consumer
+    . consumer bit_0 bit_1 bit_2 bit_3 bit_4 bit_5 bit_6 bit_7 bit_8 bit_9 bit_10 bit_11 bit_12 bit_13 bit_14 bit_15 bit_16 bit_17 bit_18 bit_19 bit_20 bit_21 bit_22 bit_23 bit_24 bit_25 bit_26 bit_27 bit_28 bit_29 bit_30 bit_31
+  )
+λ bits_32
+# bits_32_type:
+# The tuples of 32 booleans.
+. ( λ tuple
+    . tuple
+    λ consumer
+    . consumer bit bit bit bit bit bit bit bit bit bit bit bit bit bit bit bit bit bit bit bit bit bit bit bit bit bit bit bit bit bit bit bit
+  )
+λ bits_32_type
+# bits_64:
+# The tuple of 64 bits, high bit first.
+. ( λ tuple
+    . tuple
+    λ bit_0 bit_1 bit_2 bit_3 bit_4 bit_5 bit_6 bit_7 bit_8 bit_9 bit_10 bit_11 bit_12 bit_13 bit_14 bit_15 bit_16 bit_17 bit_18 bit_19 bit_20 bit_21 bit_22 bit_23 bit_24 bit_25 bit_26 bit_27 bit_28 bit_29 bit_30 bit_31 bit_32 bit_33 bit_34 bit_35 bit_36 bit_37 bit_38 bit_39 bit_40 bit_41 bit_42 bit_43 bit_44 bit_45 bit_46 bit_47 bit_48 bit_49 bit_50 bit_51 bit_52 bit_53 bit_54 bit_55 bit_56 bit_57 bit_58 bit_59 bit_60 bit_61 bit_62 bit_63 consumer
+    . consumer bit_0 bit_1 bit_2 bit_3 bit_4 bit_5 bit_6 bit_7 bit_8 bit_9 bit_10 bit_11 bit_12 bit_13 bit_14 bit_15 bit_16 bit_17 bit_18 bit_19 bit_20 bit_21 bit_22 bit_23 bit_24 bit_25 bit_26 bit_27 bit_28 bit_29 bit_30 bit_31 bit_32 bit_33 bit_34 bit_35 bit_36 bit_37 bit_38 bit_39 bit_40 bit_41 bit_42 bit_43 bit_44 bit_45 bit_46 bit_47 bit_48 bit_49 bit_50 bit_51 bit_52 bit_53 bit_54 bit_55 bit_56 bit_57 bit_58 bit_59 bit_60 bit_61 bit_62 bit_63
+  )
+λ bits_64
+# bits_64_type:
+# The tuples of 64 booleans.
+. ( λ tuple
+    . tuple
+    λ consumer
+    . consumer bit bit bit bit bit bit bit bit bit bit bit bit bit bit bit bit bit bit bit bit bit bit bit bit bit bit bit bit bit bit bit bit bit bit bit bit bit bit bit bit bit bit bit bit bit bit bit bit bit bit bit bit bit bit bit bit bit bit bit bit bit bit bit bit
+  )
+λ bits_64_type
+. export bits_8 bits_8_type bits_16 bits_16_type bits_32 bits_32_type bits_64 bits_64_type

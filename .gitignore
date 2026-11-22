@@ -1,0 +1,10 @@
+target/
+local.sbt
+secret/
+.vscode/launch.json
+.bsp/
+.metals/
+.bloop/
+*.scala.semanticdb
+shared-worktrees/
+.jupyter/

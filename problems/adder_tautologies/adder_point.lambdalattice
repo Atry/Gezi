@@ -1,0 +1,53 @@
+# THE TAUTOLOGY FAMILY, ADDERS, in the
+# published encoding of `contest_tautology.pl`.
+#
+# A ripple-carry adder of two Width-bit numbers a and b (variables 1 to
+# Width are a's bits, Width + 1 to 2 Width are b's, least significant
+# first): sum bit s_i = a_i xor b_i xor c_i, carry c_(i+1) = (a_i and b_i)
+# or (c_i and (a_i xor b_i)), c_0 false.
+#
+# - hidden_adder_commutes_6 and hidden_adder_commutes_8: every sum bit of
+#   a + b equals the same bit of b + a (the conjunction over the bits of
+#   not (s_i(a, b) xor s_i(b, a))). Tautologies: head true, trap false.
+# - hidden_adder_commutes_unless_zero_8: the same conjunction and the or
+#   of all 16 variables; false only at the all-false assignment, the last
+#   the enumeration visits. Head false, trap true.
+#
+# Each circuit was evaluated at every assignment (2026-09-28, an
+# exhaustive enumeration outside Prolog): the two commutations hold at all
+# of them, and the third fails at the all-false assignment only.
+#
+# TARGET ALGORITHMS, the specific known algorithms the problem targets, each
+# with its prior work:
+# - those of the family's encoding, contest_tautology.pl: decision diagrams,
+#   on which adders under an interleaved variable order stay small: R. E.
+#   Bryant, Graph-Based Algorithms for Boolean Function Manipulation, IEEE
+#   Transactions on Computers 1986, doi:10.1109/TC.1986.1676819.
+
+#
+# The template is a constructor of schema/template, a Boolean a Church
+# Boolean of corpora/library/prelude/boolean. Each other text is from_cbor
+# of a string literal, a Scott list of bytes, imported from
+# corpora/library/text/cbor. FIXME: the imports project "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "boolean")
+λ true false _ _
+. omega (omega (omega (omega gezi "problems") "schema") "template")
+λ boolean _ _
+. export
+λ
+. cons (λ_adder_point. _adder_point (text "hidden_adder_commutes_6") λ. boolean true)
+λ
+. cons (λ_adder_point. _adder_point (text "hidden_adder_commutes_8") λ. boolean true)
+λ
+. cons (λ_adder_point. _adder_point (text "hidden_adder_commutes_unless_zero_8") λ. boolean false) nil

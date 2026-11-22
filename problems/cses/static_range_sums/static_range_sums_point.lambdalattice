@@ -1,0 +1,54 @@
+# The base problems of the CSES families repeated_cses_static_range_sums_*: a list of integers and queries, each a pair of places a <= b counted from 1, the answer the list of the sums of the values from place a to place b.
+#
+# THE ANSWER of each row is the problem's definition computed exhaustively by a
+# brute-force script (2026-11-22), which enumerates every candidate the problem's
+# statement describes. PROOF: the program of the problem's file follows the
+# definition, and its header argues under Definition 14 that its one normal form
+# is that answer; the data are finite and within the family's bottom rungs, which
+# the reference reading answers. The inputs are the author's own, no CSES test
+# data.
+#
+#   static_range_sums_point(?Point, ?Values, ?Queries, ?Result)
+#
+# Values is a Scott list (corpora/library/prelude/list) of integers (corpora/library/integer/cbor); Queries is a Scott list of pairs `pair a b` (corpora/library/prelude/pair) of integers, 1 <= a <= b <= the length of Values; Result is a Scott list of integers.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λvalue. value)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λvalue. value)
+λ integer
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "pair")
+λ pair _ _
+. export
+λ
+. cons
+  ( λ _static_range_sums_point
+    . _static_range_sums_point (text "cses_static_range_sums_sample") (cons (integer 3) λ. cons (integer 2) λ. cons (integer 4) λ. cons (integer 5) λ. cons (integer 1) λ. cons (integer 1) λ. cons (integer 5) λ. cons (integer 3) λ. nil) (cons (pair (integer 2) (integer 4)) λ. cons (pair (integer 5) (integer 6)) λ. cons (pair (integer 1) (integer 8)) λ. cons (pair (integer 3) (integer 3)) λ. nil) λ. (cons (integer 11) λ. cons (integer 2) λ. cons (integer 24) λ. cons (integer 4) λ. nil)
+  )
+λ
+. cons
+  ( λ _static_range_sums_point
+    . _static_range_sums_point (text "cses_static_range_sums_single_value") (cons (integer 5) λ. nil) (cons (pair (integer 1) (integer 1)) λ. nil) λ. (cons (integer 5) λ. nil)
+  )
+λ
+. cons
+  ( λ _static_range_sums_point
+    . _static_range_sums_point (text "cses_static_range_sums_zeros_and_a_seven") (cons (integer 0) λ. cons (integer 0) λ. cons (integer 7) λ. nil) (cons (pair (integer 1) (integer 2)) λ. cons (pair (integer 3) (integer 3)) λ. cons (pair (integer 2) (integer 3)) λ. nil) λ. (cons (integer 0) λ. cons (integer 7) λ. cons (integer 7) λ. nil)
+  )
+λ
+. cons
+  ( λ _static_range_sums_point
+    . _static_range_sums_point (text "cses_static_range_sums_same_query_twice") (cons (integer 1) λ. cons (integer 2) λ. cons (integer 3) λ. cons (integer 4) λ. nil) (cons (pair (integer 2) (integer 3)) λ. cons (pair (integer 2) (integer 3)) λ. nil) λ. (cons (integer 5) λ. cons (integer 5) λ. nil)
+  )
+λ
+. cons
+  ( λ _static_range_sums_point
+    . _static_range_sums_point (text "cses_static_range_sums_whole_list") (cons (integer 4) λ. cons (integer 4) λ. cons (integer 4) λ. nil) (cons (pair (integer 1) (integer 3)) λ. nil) λ. (cons (integer 12) λ. nil)
+  ) nil

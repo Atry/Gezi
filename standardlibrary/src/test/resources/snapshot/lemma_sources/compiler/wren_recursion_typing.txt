@@ -1,0 +1,19 @@
+wren_appended_cons: λx_0 x_1 x_2. wren_appended (wren_cons x_0 x_1) x_2 = λx_0 x_1 x_2. wren_cons x_0 (wren_appended x_1 x_2)
+wren_appended_nil: λx_0. wren_appended wren_nil x_0 = λx_0. wren_cons x_0 wren_nil
+wren_applied_to_cons: λx_0 x_1 x_2. wren_applied_to x_0 (wren_cons x_1 x_2) = λx_0 x_1 x_2. wren_applied_to ((λk. k x_1) x_0) x_2
+wren_applied_to_nil: λx_0. wren_applied_to x_0 wren_nil = λx_0. wren_recursion_branch x_0
+wren_recursion_branch_identity: λx_0. wren_recursion_branch x_0 = λx_0. x_0
+wren_apply_closure: λx_0 x_1. wren_apply (λx_2. x_0 x_2) x_1 = λx_0 x_1. x_0 x_1
+wren_with_inputs_cons: λx_0 x_1 x_2. wren_with_inputs (wren_cons x_0 x_1) x_2 = λx_0 x_1 x_2 x_3. wren_with_inputs x_1 (wren_apply x_2 (x_3 ∥ x_0))
+wren_with_inputs_nil: λx_0. wren_with_inputs wren_nil x_0 = λx_0. x_0
+wren_typed_fixpoint_unfolding: λx_0 x_1. wren_typed_fixpoint x_0 x_1 = λx_0 x_1. wren_fixpoint_by_value λx_2. wren_with_inputs x_1 (wren_apply x_0 x_2)
+wren_recursion_extend: λ x_0 x_1 x_2 x_3 x_4 x_5
+            . (wren_recursion_branch (wren_applied_to (wren_typed_fixpoint x_1 x_2) x_3) + x_0) (x_4 ∥ x_5 + x_4) = λ x_0 x_1 x_2 x_3 x_4 x_5
+            . ( wren_recursion_branch (wren_applied_to (wren_typed_fixpoint x_1 (wren_appended x_2 x_5)) (wren_appended x_3 (x_4 ∥ x_5)))
+              + (wren_recursion_branch (wren_applied_to (wren_typed_fixpoint x_1 x_2) x_3) + x_0) (x_4 ∥ x_5 + x_4)
+              )
+wren_recursion_enter: λx_0 x_1 x_2. fixpoint x_0 (x_1 ∥ x_2 + x_1) = λ x_0 x_1 x_2
+            . ( wren_recursion_branch (wren_applied_to (wren_typed_fixpoint x_0 (wren_cons x_2 wren_nil)) (wren_cons (x_1 ∥ x_2) wren_nil))
+              + fixpoint x_0 (x_1 ∥ x_2 + x_1)
+              )
+wren_recursion_let: λx_0 x_1. (λx_2. x_0 x_2) λ. fixpoint x_1 = λx_0 x_1. x_0 λ. fixpoint x_1

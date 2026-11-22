@@ -1,0 +1,52 @@
+# A first-order loop that cases on its count, wren_fixpoint_by_value applied to a body
+# `\s. \n. \t. n t Even Odd` and to a count and a state, equals itself plus a
+# typed branch in which the count, the state, every recursive call's arguments
+# and result, and the loop's result are filtered by binary_set true. The even
+# and odd branches are taken whole (A and B, applied to the loop's own self and
+# state), so one lemma covers both spellings of the odd case. Sound by
+# refinement for every term the left side matches (proofs file, the section on
+# this module): each filter refines, every context is monotone, so the typed
+# member is below the loop and the choice equals the loop.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "wren_typed_block") "wren_typed_block")
+λ wren_fixpoint_by_value wren_typed_branch _ _ _ _ _ _ _
+. omega (omega (omega (omega corpora "library") "binary") "natural")
+λ _ _ _ _ binary_set
+. omega (omega (omega (omega corpora "library") "native_types") "boolean")
+λ true _ _ _
+. export
+λ _ rewriting _ _
+. rewriting
+λ _ lemmas _
+. lemmas
+λ s
+. s
+  (λk. k "solo_own_loop_typing")
+  ( λ x_0 x_1 x_2 x_3
+    . wren_fixpoint_by_value (λx_4 x_5 x_6. x_5 x_6 (x_0 x_4 x_6) λ. x_1 x_4 x_6) x_2 x_3
+  )
+  ( λ x_0 x_1 x_2 x_3
+    . ( λ
+        . wren_typed_branch
+        λ
+        . wren_fixpoint_by_value
+          ( λ x_4 x_5 x_6
+            . ( λ
+                . (x_5 ∥ binary_set true)
+                  (x_6 ∥ binary_set true)
+                  ( x_0
+                    (λx_7 x_8. (x_4 (x_7 ∥ binary_set true) (x_8 ∥ binary_set true) ∥ binary_set true))
+                    (x_6 ∥ binary_set true)
+                  )
+                λ
+                . x_1
+                  (λx_7 x_8. (x_4 (x_7 ∥ binary_set true) (x_8 ∥ binary_set true) ∥ binary_set true))
+                  (x_6 ∥ binary_set true)
+              ∥ binary_set true
+              )
+          ) x_2 x_3
+      + wren_fixpoint_by_value (λx_4 x_5 x_6. x_5 x_6 (x_0 x_4 x_6) λ. x_1 x_4 x_6) x_2 x_3
+      )
+  ) λ_ md _. md λk. k "[solo_own_loop_typing](docs/design/gezi-set-equations-proofs.md)"

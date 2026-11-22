@@ -1,0 +1,25 @@
+#   product_twin(?Twin, ?Operation, ?Spelling)
+#
+# The spelling is a constructor of schema/spelling, direct or respelled.
+# Each other text is from_cbor of a string literal, a Scott list of bytes,
+# imported from corpora/library/text/cbor. FIXME: the imports project "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. omega (omega (omega (omega gezi "problems") "schema") "spelling")
+λ direct respelled
+. export
+λ
+. cons (λ_product_twin. _product_twin (text "direct") (text "merge_binary_times") direct)
+λ
+. cons (λ_product_twin. _product_twin (text "respelled") (text "merge_binary_times") respelled)
+λ
+. cons (λ_product_twin. _product_twin (text "near_miss") (text "near_times") direct) nil

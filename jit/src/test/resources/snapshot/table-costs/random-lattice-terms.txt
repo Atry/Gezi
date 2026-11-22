@@ -1,0 +1,82 @@
+# trial 64
+0	(λx_0. (x_0 ∥ x_0)) (λx_0. x_0) (λx_0. λx_1. x_1)	finished(1)	steps=27	entries=4	hits=0	entrySteps=3	lookupSteps=4	cutOff=0
+1	(λx_0. λx_1. x_0 x_0) ((λx_0. x_0) ((λx_0. x_0) ((λx_0. x_0 + λx_0. x_0 + λx_0. x_0) (λx_0. x_0))))	finished(1)	steps=43	entries=11	hits=3	entrySteps=101	lookupSteps=14	cutOff=0
+2	(λx_0. x_0 (λx_1. (λx_2. (x_2 + x_0 + x_1)) ((λx_2. x_0) x_1)) x_0) (λx_0. x_0)	finished(1)	steps=27	entries=16	hits=4	entrySteps=137	lookupSteps=23	cutOff=0
+3	(λx_0. x_0) (λx_0. x_0) (λx_0. (x_0 x_0 (λx_1. x_1) ∥ (x_0 + x_0)))	finished(0)	steps=43	entries=18	hits=7	entrySteps=139	lookupSteps=29	cutOff=0
+4	(λx_0. x_0 ∥ (λx_0. x_0) (λx_0. x_0)) (λx_0. x_0) (λx_0. x_0) ((λx_0. x_0) (λx_0. (λx_1. λx_2. x_1) (x_0 x_0)))	finished(1)	steps=61	entries=23	hits=12	entrySteps=150	lookupSteps=40	cutOff=0
+5	(λx_0. x_0 ∥ λx_0. λx_1. x_1) ((λx_0. x_0) (λx_0. x_0)) ((λx_0. x_0) (λx_0. x_0 x_0))	finished(1)	steps=39	entries=28	hits=13	entrySteps=163	lookupSteps=46	cutOff=0
+6	(λx_0. x_0) (λx_0. x_0) (λx_0. (λx_1. x_1) x_0) ((λx_0. x_0) (λx_0. x_0))	finished(1)	steps=23	entries=30	hits=16	entrySteps=168	lookupSteps=52	cutOff=0
+7	(λx_0. λx_1. x_0 (λx_2. (x_0 + x_2) x_2)) ((λx_0. x_0) (λx_0. x_0) ∥ (λx_0. (λx_1. x_0 (x_1 x_1)) (λx_1. x_0 (x_1 x_1))) (λx_0. λx_1. (x_0 ∥ x_1)))	finished(0)	steps=92	entries=42	hits=21	entrySteps=190	lookupSteps=77	cutOff=0
+8	(λx_0. λx_1. (x_0 + x_1 + x_0) ∥ λx_0. x_0) (λx_0. x_0) ((λx_0. x_0 ∥ λx_0. x_0) (λx_0. x_0))	finished(1)	steps=83	entries=44	hits=32	entrySteps=200	lookupSteps=91	cutOff=0
+9	(λx_0. x_0 (x_0 (x_0 x_0))) (λx_0. x_0)	finished(1)	steps=18	entries=46	hits=34	entrySteps=213	lookupSteps=95	cutOff=0
+10	(λx_0. x_0) (λx_0. λx_1. ((λx_2. (λx_3. x_2 (x_3 x_3)) (λx_3. x_2 (x_3 x_3))) (λx_2. λx_3. (x_2 ∥ x_3)) ∥ x_0)) ((λx_0. x_0) (λx_0. x_0 x_0))	finished(0)	steps=36	entries=48	hits=38	entrySteps=215	lookupSteps=104	cutOff=0
+11	(λx_0. x_0 ∥ λx_0. x_0) (λx_0. x_0) (λx_0. x_0 ∥ (λx_0. x_0) (λx_0. λx_1. x_0))	finished(0)	steps=51	entries=52	hits=42	entrySteps=217	lookupSteps=112	cutOff=0
+12	(λx_0. x_0 x_0) (λx_0. x_0) ((λx_0. x_0 x_0) (λx_0. x_0))	finished(1)	steps=21	entries=55	hits=44	entrySteps=225	lookupSteps=117	cutOff=0
+13	(λx_0. x_0) (λx_0. x_0) (λx_0. x_0) (λx_0. λx_1. λx_2. λx_3. λx_4. λx_5. x_0) (λx_0. x_0)	finished(1)	steps=43	entries=57	hits=47	entrySteps=227	lookupSteps=122	cutOff=0
+14	(λx_0. (λx_1. λx_2. (λx_3. λx_4. x_1) x_2) ((x_0 ∥ x_0) x_0 x_0)) (λx_0. x_0)	finished(1)	steps=51	entries=62	hits=51	entrySteps=246	lookupSteps=133	cutOff=0
+15	(λx_0. x_0 x_0 x_0 x_0 x_0) ((λx_0. x_0) (λx_0. x_0) ((λx_0. λx_1. x_1) (λx_0. x_0)))	finished(1)	steps=33	entries=70	hits=53	entrySteps=285	lookupSteps=143	cutOff=0
+16	((λx_0. x_0) ((λx_0. x_0 x_0) (λx_0. x_0)) ∥ λx_0. x_0) ((λx_0. x_0) (λx_0. x_0 ∥ λx_0. x_0) (λx_0. x_0))	finished(1)	steps=50	entries=73	hits=59	entrySteps=294	lookupSteps=152	cutOff=0
+17	((λx_0. x_0 x_0) (λx_0. x_0) + (λx_0. x_0 ∥ λx_0. x_0 + λx_0. x_0 + (λx_0. x_0) (λx_0. x_0))) (λx_0. x_0)	finished(1)	steps=61	entries=73	hits=70	entrySteps=294	lookupSteps=163	cutOff=0
+18	(λx_0. (λx_1. x_0 ∥ (λx_1. (λx_2. x_1 (x_2 x_2)) (λx_2. x_1 (x_2 x_2))) (λx_1. λx_2. (x_1 ∥ x_2)) x_0)) (λx_0. x_0 x_0 ∥ λx_0. x_0) (λx_0. x_0)	finished(0)	steps=78	entries=79	hits=77	entrySteps=301	lookupSteps=181	cutOff=0
+19	(λx_0. x_0) (λx_0. (x_0 + x_0 + x_0)) ((λx_0. x_0 x_0) ((λx_0. x_0) (λx_0. x_0)))	finished(1)	steps=34	entries=84	hits=82	entrySteps=345	lookupSteps=191	cutOff=0
+20	(λx_0. (λx_1. (λx_2. x_1 (x_2 x_2)) (λx_2. x_1 (x_2 x_2))) (λx_1. λx_2. (x_1 ∥ x_2)) (λx_1. x_1 x_1)) (λx_0. x_0) ((λx_0. x_0) (λx_0. x_0))	finished(0)	steps=57	entries=88	hits=88	entrySteps=358	lookupSteps=207	cutOff=0
+21	(λx_0. λx_1. x_1 (x_0 (x_0 x_1))) ((λx_0. x_0) (λx_0. x_0) ∥ λx_0. x_0)	finished(1)	steps=63	entries=93	hits=95	entrySteps=366	lookupSteps=220	cutOff=0
+22	(λx_0. x_0) (λx_0. x_0)	finished(1)	steps=11	entries=93	hits=97	entrySteps=366	lookupSteps=222	cutOff=0
+23	(λx_0. x_0 + λx_0. x_0 + λx_0. x_0) (λx_0. x_0) ((λx_0. x_0) ((λx_0. x_0) (λx_0. (x_0 ∥ x_0) ∥ λx_0. x_0)) (λx_0. x_0))	finished(1)	steps=90	entries=96	hits=111	entrySteps=384	lookupSteps=239	cutOff=0
+24	(λx_0. λx_1. x_0) ((λx_0. x_0) (λx_0. x_0)) (λx_0. x_0) (λx_0. λx_1. (λx_2. λx_3. x_1 x_1) x_0)	finished(1)	steps=30	entries=99	hits=112	entrySteps=387	lookupSteps=244	cutOff=0
+25	(λx_0. x_0) ((λx_0. x_0 ∥ λx_0. x_0) (λx_0. x_0)) (((λx_0. (λx_1. x_0 (x_1 x_1)) (λx_1. x_0 (x_1 x_1))) (λx_0. λx_1. (x_0 ∥ x_1)) ∥ λx_0. x_0) (λx_0. x_0)) (λx_0. x_0)	finished(0)	steps=140	entries=101	hits=133	entrySteps=391	lookupSteps=277	cutOff=0
+26	((λx_0. x_0) (λx_0. x_0) ∥ (λx_0. x_0 ∥ λx_0. x_0)) (λx_0. λx_1. x_0 x_1 (λx_2. x_1 x_2))	finished(1)	steps=52	entries=106	hits=134	entrySteps=397	lookupSteps=285	cutOff=0
+27	(λx_0. λx_1. x_0) (λx_0. x_0 x_0 ((x_0 ∥ x_0 x_0) x_0)) (λx_0. x_0)	finished(0)	steps=34	entries=108	hits=134	entrySteps=401	lookupSteps=287	cutOff=0
+28	(λx_0. x_0) (λx_0. λx_1. (x_1 (x_1 x_1) ∥ x_0) (λx_2. λx_3. x_0))	finished(0)	steps=54	entries=110	hits=136	entrySteps=405	lookupSteps=292	cutOff=0
+29	(λx_0. x_0 x_0 (x_0 x_0)) (λx_0. x_0) ((λx_0. x_0 + λx_0. x_0) (λx_0. x_0) ∥ λx_0. x_0)	finished(1)	steps=39	entries=112	hits=142	entrySteps=413	lookupSteps=300	cutOff=0
+30	(λx_0. (x_0 ∥ x_0)) ((λx_0. x_0 + (λx_0. x_0) (λx_0. x_0) + λx_0. x_0) (λx_0. x_0 x_0))	finished(1)	steps=36	entries=115	hits=147	entrySteps=433	lookupSteps=308	cutOff=0
+31	(λx_0. (x_0 ∥ x_0 x_0 (λx_1. x_0))) (λx_0. x_0)	finished(0)	steps=33	entries=117	hits=151	entrySteps=435	lookupSteps=314	cutOff=0
+32	(λx_0. x_0) (λx_0. x_0) (λx_0. x_0)	finished(1)	steps=15	entries=117	hits=154	entrySteps=435	lookupSteps=317	cutOff=0
+33	(λx_0. λx_1. λx_2. (λx_3. λx_4. λx_5. x_3) (x_1 (x_1 x_2)) x_2) (λx_0. x_0)	finished(1)	steps=31	entries=119	hits=154	entrySteps=441	lookupSteps=321	cutOff=0
+34	(λx_0. x_0 ∥ (λx_0. x_0) (λx_0. x_0)) ((λx_0. x_0) (λx_0. λx_1. x_1) (λx_0. x_0))	finished(1)	steps=29	entries=121	hits=157	entrySteps=448	lookupSteps=326	cutOff=0
+35	(λx_0. x_0) ((λx_0. x_0) (λx_0. x_0) + (λx_0. x_0 ∥ λx_0. x_0) + (λx_0. x_0) (λx_0. x_0) (λx_0. x_0 + λx_0. x_0))	finished(1)	steps=37	entries=123	hits=161	entrySteps=470	lookupSteps=332	cutOff=0
+36	(λx_0. (x_0 + x_0) ∥ λx_0. x_0 ∥ λx_0. x_0) (λx_0. (λx_1. x_1) x_0 (x_0 x_0))	finished(1)	steps=40	entries=127	hits=162	entrySteps=478	lookupSteps=338	cutOff=0
+37	(λx_0. x_0 x_0) (λx_0. (x_0 + x_0 + x_0) x_0 ∥ λx_0. λx_1. λx_2. x_2)	Exceeded	steps=200000	entries=127	hits=162	entrySteps=478	lookupSteps=338	cutOff=0
+38	(λx_0. (λx_1. x_0 (x_1 x_1)) (λx_1. x_0 (x_1 x_1))) (λx_0. λx_1. (x_0 ∥ x_1)) ((λx_0. x_0) ((λx_0. x_0) (λx_0. x_0) (λx_0. x_0)) ∥ (λx_0. x_0) (λx_0. x_0))	finished(0)	steps=48	entries=129	hits=169	entrySteps=488	lookupSteps=351	cutOff=0
+39	(λx_0. x_0) ((λx_0. x_0) (λx_0. x_0) (λx_0. x_0)) (λx_0. x_0 + (λx_0. x_0 ∥ λx_0. x_0)) (λx_0. x_0)	finished(1)	steps=39	entries=130	hits=175	entrySteps=491	lookupSteps=358	cutOff=0
+# trial 4
+0	(λx_0. (x_0 ∥ x_0)) (λx_0. x_0) (λx_0. λx_1. x_1)	finished(1)	steps=27	entries=4	hits=0	entrySteps=3	lookupSteps=4	cutOff=0
+1	(λx_0. λx_1. x_0 x_0) ((λx_0. x_0) ((λx_0. x_0) ((λx_0. x_0 + λx_0. x_0 + λx_0. x_0) (λx_0. x_0))))	finished(1)	steps=43	entries=11	hits=3	entrySteps=101	lookupSteps=14	cutOff=0
+2	(λx_0. x_0 (λx_1. (λx_2. (x_2 + x_0 + x_1)) ((λx_2. x_0) x_1)) x_0) (λx_0. x_0)	finished(1)	steps=27	entries=16	hits=4	entrySteps=137	lookupSteps=23	cutOff=0
+3	(λx_0. x_0) (λx_0. x_0) (λx_0. (x_0 x_0 (λx_1. x_1) ∥ (x_0 + x_0)))	finished(0)	steps=43	entries=18	hits=7	entrySteps=139	lookupSteps=29	cutOff=0
+4	(λx_0. x_0 ∥ (λx_0. x_0) (λx_0. x_0)) (λx_0. x_0) (λx_0. x_0) ((λx_0. x_0) (λx_0. (λx_1. λx_2. x_1) (x_0 x_0)))	finished(1)	steps=61	entries=23	hits=12	entrySteps=150	lookupSteps=40	cutOff=0
+5	(λx_0. x_0 ∥ λx_0. λx_1. x_1) ((λx_0. x_0) (λx_0. x_0)) ((λx_0. x_0) (λx_0. x_0 x_0))	finished(1)	steps=39	entries=28	hits=13	entrySteps=163	lookupSteps=46	cutOff=0
+6	(λx_0. x_0) (λx_0. x_0) (λx_0. (λx_1. x_1) x_0) ((λx_0. x_0) (λx_0. x_0))	finished(1)	steps=23	entries=30	hits=16	entrySteps=168	lookupSteps=52	cutOff=0
+7	(λx_0. λx_1. x_0 (λx_2. (x_0 + x_2) x_2)) ((λx_0. x_0) (λx_0. x_0) ∥ (λx_0. (λx_1. x_0 (x_1 x_1)) (λx_1. x_0 (x_1 x_1))) (λx_0. λx_1. (x_0 ∥ x_1)))	finished(0)	steps=92	entries=42	hits=21	entrySteps=190	lookupSteps=77	cutOff=1
+8	(λx_0. λx_1. (x_0 + x_1 + x_0) ∥ λx_0. x_0) (λx_0. x_0) ((λx_0. x_0 ∥ λx_0. x_0) (λx_0. x_0))	finished(1)	steps=83	entries=44	hits=32	entrySteps=200	lookupSteps=91	cutOff=1
+9	(λx_0. x_0 (x_0 (x_0 x_0))) (λx_0. x_0)	finished(1)	steps=18	entries=46	hits=34	entrySteps=213	lookupSteps=95	cutOff=1
+10	(λx_0. x_0) (λx_0. λx_1. ((λx_2. (λx_3. x_2 (x_3 x_3)) (λx_3. x_2 (x_3 x_3))) (λx_2. λx_3. (x_2 ∥ x_3)) ∥ x_0)) ((λx_0. x_0) (λx_0. x_0 x_0))	finished(0)	steps=35	entries=48	hits=37	entrySteps=215	lookupSteps=102	cutOff=1
+11	(λx_0. x_0 ∥ λx_0. x_0) (λx_0. x_0) (λx_0. x_0 ∥ (λx_0. x_0) (λx_0. λx_1. x_0))	finished(0)	steps=51	entries=52	hits=41	entrySteps=217	lookupSteps=110	cutOff=1
+12	(λx_0. x_0 x_0) (λx_0. x_0) ((λx_0. x_0 x_0) (λx_0. x_0))	finished(1)	steps=21	entries=55	hits=43	entrySteps=225	lookupSteps=115	cutOff=2
+13	(λx_0. x_0) (λx_0. x_0) (λx_0. x_0) (λx_0. λx_1. λx_2. λx_3. λx_4. λx_5. x_0) (λx_0. x_0)	finished(1)	steps=43	entries=57	hits=46	entrySteps=227	lookupSteps=120	cutOff=2
+14	(λx_0. (λx_1. λx_2. (λx_3. λx_4. x_1) x_2) ((x_0 ∥ x_0) x_0 x_0)) (λx_0. x_0)	finished(1)	steps=51	entries=62	hits=50	entrySteps=246	lookupSteps=131	cutOff=2
+15	(λx_0. x_0 x_0 x_0 x_0 x_0) ((λx_0. x_0) (λx_0. x_0) ((λx_0. λx_1. x_1) (λx_0. x_0)))	finished(1)	steps=33	entries=70	hits=52	entrySteps=285	lookupSteps=141	cutOff=2
+16	((λx_0. x_0) ((λx_0. x_0 x_0) (λx_0. x_0)) ∥ λx_0. x_0) ((λx_0. x_0) (λx_0. x_0 ∥ λx_0. x_0) (λx_0. x_0))	finished(1)	steps=50	entries=73	hits=58	entrySteps=294	lookupSteps=150	cutOff=2
+17	((λx_0. x_0 x_0) (λx_0. x_0) + (λx_0. x_0 ∥ λx_0. x_0 + λx_0. x_0 + (λx_0. x_0) (λx_0. x_0))) (λx_0. x_0)	finished(1)	steps=63	entries=73	hits=69	entrySteps=294	lookupSteps=161	cutOff=2
+18	(λx_0. (λx_1. x_0 ∥ (λx_1. (λx_2. x_1 (x_2 x_2)) (λx_2. x_1 (x_2 x_2))) (λx_1. λx_2. (x_1 ∥ x_2)) x_0)) (λx_0. x_0 x_0 ∥ λx_0. x_0) (λx_0. x_0)	finished(0)	steps=78	entries=79	hits=73	entrySteps=301	lookupSteps=174	cutOff=3
+19	(λx_0. x_0) (λx_0. (x_0 + x_0 + x_0)) ((λx_0. x_0 x_0) ((λx_0. x_0) (λx_0. x_0)))	finished(1)	steps=33	entries=83	hits=78	entrySteps=335	lookupSteps=183	cutOff=3
+20	(λx_0. (λx_1. (λx_2. x_1 (x_2 x_2)) (λx_2. x_1 (x_2 x_2))) (λx_1. λx_2. (x_1 ∥ x_2)) (λx_1. x_1 x_1)) (λx_0. x_0) ((λx_0. x_0) (λx_0. x_0))	finished(0)	steps=52	entries=84	hits=82	entrySteps=343	lookupSteps=188	cutOff=3
+21	(λx_0. λx_1. x_1 (x_0 (x_0 x_1))) ((λx_0. x_0) (λx_0. x_0) ∥ λx_0. x_0)	finished(1)	steps=63	entries=89	hits=89	entrySteps=351	lookupSteps=201	cutOff=3
+22	(λx_0. x_0) (λx_0. x_0)	finished(1)	steps=11	entries=89	hits=91	entrySteps=351	lookupSteps=203	cutOff=3
+23	(λx_0. x_0 + λx_0. x_0 + λx_0. x_0) (λx_0. x_0) ((λx_0. x_0) ((λx_0. x_0) (λx_0. (x_0 ∥ x_0) ∥ λx_0. x_0)) (λx_0. x_0))	finished(1)	steps=90	entries=92	hits=105	entrySteps=369	lookupSteps=220	cutOff=3
+24	(λx_0. λx_1. x_0) ((λx_0. x_0) (λx_0. x_0)) (λx_0. x_0) (λx_0. λx_1. (λx_2. λx_3. x_1 x_1) x_0)	finished(1)	steps=29	entries=94	hits=106	entrySteps=370	lookupSteps=224	cutOff=3
+25	(λx_0. x_0) ((λx_0. x_0 ∥ λx_0. x_0) (λx_0. x_0)) (((λx_0. (λx_1. x_0 (x_1 x_1)) (λx_1. x_0 (x_1 x_1))) (λx_0. λx_1. (x_0 ∥ x_1)) ∥ λx_0. x_0) (λx_0. x_0)) (λx_0. x_0)	finished(0)	steps=125	entries=96	hits=117	entrySteps=374	lookupSteps=237	cutOff=3
+26	((λx_0. x_0) (λx_0. x_0) ∥ (λx_0. x_0 ∥ λx_0. x_0)) (λx_0. λx_1. x_0 x_1 (λx_2. x_1 x_2))	finished(1)	steps=52	entries=101	hits=118	entrySteps=380	lookupSteps=245	cutOff=3
+27	(λx_0. λx_1. x_0) (λx_0. x_0 x_0 ((x_0 ∥ x_0 x_0) x_0)) (λx_0. x_0)	finished(0)	steps=34	entries=103	hits=118	entrySteps=384	lookupSteps=247	cutOff=3
+28	(λx_0. x_0) (λx_0. λx_1. (x_1 (x_1 x_1) ∥ x_0) (λx_2. λx_3. x_0))	finished(0)	steps=54	entries=105	hits=120	entrySteps=388	lookupSteps=252	cutOff=3
+29	(λx_0. x_0 x_0 (x_0 x_0)) (λx_0. x_0) ((λx_0. x_0 + λx_0. x_0) (λx_0. x_0) ∥ λx_0. x_0)	finished(1)	steps=39	entries=107	hits=126	entrySteps=396	lookupSteps=260	cutOff=3
+30	(λx_0. (x_0 ∥ x_0)) ((λx_0. x_0 + (λx_0. x_0) (λx_0. x_0) + λx_0. x_0) (λx_0. x_0 x_0))	finished(1)	steps=36	entries=110	hits=130	entrySteps=416	lookupSteps=267	cutOff=3
+31	(λx_0. (x_0 ∥ x_0 x_0 (λx_1. x_0))) (λx_0. x_0)	finished(0)	steps=33	entries=112	hits=134	entrySteps=418	lookupSteps=273	cutOff=3
+32	(λx_0. x_0) (λx_0. x_0) (λx_0. x_0)	finished(1)	steps=15	entries=112	hits=137	entrySteps=418	lookupSteps=276	cutOff=3
+33	(λx_0. λx_1. λx_2. (λx_3. λx_4. λx_5. x_3) (x_1 (x_1 x_2)) x_2) (λx_0. x_0)	finished(1)	steps=31	entries=114	hits=137	entrySteps=424	lookupSteps=280	cutOff=3
+34	(λx_0. x_0 ∥ (λx_0. x_0) (λx_0. x_0)) ((λx_0. x_0) (λx_0. λx_1. x_1) (λx_0. x_0))	finished(1)	steps=29	entries=116	hits=140	entrySteps=431	lookupSteps=285	cutOff=3
+35	(λx_0. x_0) ((λx_0. x_0) (λx_0. x_0) + (λx_0. x_0 ∥ λx_0. x_0) + (λx_0. x_0) (λx_0. x_0) (λx_0. x_0 + λx_0. x_0))	finished(1)	steps=37	entries=118	hits=144	entrySteps=453	lookupSteps=291	cutOff=3
+36	(λx_0. (x_0 + x_0) ∥ λx_0. x_0 ∥ λx_0. x_0) (λx_0. (λx_1. x_1) x_0 (x_0 x_0))	finished(1)	steps=40	entries=122	hits=145	entrySteps=461	lookupSteps=297	cutOff=3
+37	(λx_0. x_0 x_0) (λx_0. (x_0 + x_0 + x_0) x_0 ∥ λx_0. λx_1. λx_2. x_2)	Exceeded	steps=200000	entries=122	hits=145	entrySteps=461	lookupSteps=297	cutOff=3
+38	(λx_0. (λx_1. x_0 (x_1 x_1)) (λx_1. x_0 (x_1 x_1))) (λx_0. λx_1. (x_0 ∥ x_1)) ((λx_0. x_0) ((λx_0. x_0) (λx_0. x_0) (λx_0. x_0)) ∥ (λx_0. x_0) (λx_0. x_0))	finished(0)	steps=42	entries=123	hits=149	entrySteps=470	lookupSteps=302	cutOff=3
+39	(λx_0. x_0) ((λx_0. x_0) (λx_0. x_0) (λx_0. x_0)) (λx_0. x_0 + (λx_0. x_0 ∥ λx_0. x_0)) (λx_0. x_0)	finished(1)	steps=39	entries=124	hits=155	entrySteps=473	lookupSteps=309	cutOff=3

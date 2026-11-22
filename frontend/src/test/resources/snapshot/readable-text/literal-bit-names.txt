@@ -1,0 +1,199 @@
+# sample 0
+Literal(h'c24f89dad576c73be00000000000000000') at 24
+=>
+number_715783147271573136280197058042789888_digit_24
+
+# sample 1
+Literal(h'9fff') at 13
+=>
+literal_$u005B_$u0020$u005D_digit_13
+
+# sample 2
+Literal(h'40') at 4
+=>
+bytes__digit_4
+
+# sample 3
+Literal(h'60') at 0
+=>
+string__digit_0
+
+# sample 4
+Literal(h'80') at 7
+=>
+literal_$u005B$u005D_digit_7
+
+# sample 5
+Literal(h'a0') at 1
+=>
+literal_$u007B$u007D_digit_1
+
+# sample 6
+Literal(h'40') at 5
+=>
+bytes__digit_5
+
+# sample 7
+Literal(h'c35001c12234f283e3dfffffffffffffffff') at 15
+=>
+number_$minus2332035086327930272147468896335560704_digit_15
+
+# sample 8
+Literal(h'a0') at 7
+=>
+literal_$u007B$u007D_digit_7
+
+# sample 9
+Literal(h'fb40d29c98ff4dc2b8') at 62
+=>
+number_19058$u002E39058250442_digit_62
+
+# sample 10
+Literal(h'60') at 4
+=>
+string__digit_4
+
+# sample 11
+Literal(h'd81ef6') at 13
+=>
+literal_30$u0028null$u0029_digit_13
+
+# sample 12
+Literal(h'60') at 3
+=>
+string__digit_3
+
+# sample 13
+Literal(h'415c') at 5
+=>
+bytes_5c_digit_5
+
+# sample 14
+Literal(h'9fff') at 3
+=>
+literal_$u005B_$u0020$u005D_digit_3
+
+# sample 15
+Literal(h'd81ea0') at 18
+=>
+literal_30$u0028$u007B$u007D$u0029_digit_18
+
+# sample 16
+Literal(h'fbc0f0b9a576b51614') at 20
+=>
+number_$minus68506$u002E34148129105_digit_20
+
+# sample 17
+Literal(h'616f') at 0
+=>
+string_o_digit_0
+
+# sample 18
+Literal(h'40') at 4
+=>
+bytes__digit_4
+
+# sample 19
+Literal(h'a0') at 6
+=>
+literal_$u007B$u007D_digit_6
+
+# sample 20
+Literal(h'80') at 6
+=>
+literal_$u005B$u005D_digit_6
+
+# sample 21
+Literal(h'9f1b33719257d464e6c0ff') at 82
+=>
+literal_$u005B_$u00203706904874225821376$u005D_digit_82
+
+# sample 22
+Literal(h'811b2f47004a88418b54') at 60
+=>
+literal_$u005B3406691963242646356$u005D_digit_60
+
+# sample 23
+Literal(h'8142dc10') at 5
+=>
+literal_$u005Bh$u0027dc10$u0027$u005D_digit_5
+
+# sample 24
+Literal(h'8140') at 11
+=>
+literal_$u005Bh$u0027$u0027$u005D_digit_11
+
+# sample 25
+Literal(h'a0') at 1
+=>
+literal_$u007B$u007D_digit_1
+
+# sample 26
+Literal(h'82a081626368') at 0
+=>
+literal_$u005B$u007B$u007D$u002C$u0020$u005B$u0022ch$u0022$u005D$u005D_digit_0
+
+# sample 27
+Literal(h'c2500ad712b0191235650000000000000000') at 23
+=>
+number_14409002817722752968594608406969450496_digit_23
+
+# sample 28
+Literal(h'd81ef5') at 0
+=>
+literal_30$u0028true$u0029_digit_0
+
+# sample 29
+Literal(h'a0') at 0
+=>
+literal_$u007B$u007D_digit_0
+
+# sample 30
+Literal(h'f6') at 4
+=>
+literal_f6_digit_4
+
+# sample 31
+Literal(h'fb411a932b5d051734') at 9
+=>
+number_435402$u002E84083973174_digit_9
+
+# sample 32
+Literal(h'81f5') at 1
+=>
+literal_$u005Btrue$u005D_digit_1
+
+# sample 33
+Literal(h'fb411cc5835766a820') at 58
+=>
+number_471392$u002E8353525419_digit_58
+
+# sample 34
+Literal(h'647400650a') at 8
+=>
+string_t$u0000e$u000A_digit_8
+
+# sample 35
+Literal(h'65696c74730a') at 30
+=>
+string_ilts$u000A_digit_30
+
+# sample 36
+Literal(h'9fff') at 15
+=>
+literal_$u005B_$u0020$u005D_digit_15
+
+# sample 37
+Literal(h'c35056b15c95ce834594ffffffffffffffff') at 106
+=>
+number_$minus115234522032055790036461395186982846464_digit_106
+
+# sample 38
+Literal(h'9fff') at 11
+=>
+literal_$u005B_$u0020$u005D_digit_11
+
+# sample 39
+Literal(h'1b0892716de6f46863') at 46
+=>
+number_617680815743330403_digit_46

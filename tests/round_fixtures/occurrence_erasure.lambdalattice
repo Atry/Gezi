@@ -1,0 +1,14 @@
+# The round occurrence_erasure the strategies' and the JIT's tests saturate
+# with (gezi.strategies.StrategyTesting.round), the native route's
+# erasure: the one field of its tuple, the round's knowledge, the knowledge
+# file it imports, a term of this file and not a choice the
+# host assembles from paths. One round a file, so that a test reads only its round's
+# imports.
+# FIXME: the imports project "corpora" off the variable gezi, the name https://github.com/Atry/private-overlay/issues/1924
+# of the project root's own directory; they break if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega gezi "corpora") "compiler") "occurrence_erasure")
+λ occurrence_erasure
+. export occurrence_erasure

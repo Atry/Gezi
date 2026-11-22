@@ -1,0 +1,134 @@
+# Dynamic programming in lambda plus merge, with no label: scored points
+# of the label-free family.
+#
+# THE LANGUAGE is the lambda surface with the merge [T1, ..., Tn], with no
+# label, and the judging applies as it is. The problems are those of contest_inheritance_dynamic.pl, written
+# again in the design's patterns:
+# - data are Scott encodings, one fixed eliminator per type: Booleans
+#   \t. \f. t and \t. \f. f; unary numerals \z. \s. z and \z. \s. s n; binary
+#   numerals with three variants, zero \z. \e. \o. z, even 2h (h > 0)
+#   \z. \e. \o. e h and odd 2h + 1 \z. \e. \o. o h; lists \n. \c. n and
+#   \n. \c. c h t; the two symbols \a. \b. a and \a. \b. b;
+# - operations are curried functions, recursive by self-application: the
+#   binary increment, plus and equality, and the symbols' equality;
+# - each is bound once at the top of a program by a let, (\x. B) V, so a
+#   program grows linearly, and an API is one code wherever it is used.
+# ONLY BOOLEANS ARE MERGED. A merge feeds the same argument to every
+# operand, so plus on a merge of numerals would mix the operands' bits, as
+# it did in the labeled family (contest_inheritance_dynamic.pl, subset
+# sum): {3, 5} + 7 read as {8, 10, 12, 14}. A search merges the Church
+# Booleans of its branches, and the test reads true when any branch is
+# true.
+#
+# THE PROBLEMS, each with the Prolog reference of
+# contest_dynamic_references.pl (the usual algorithm, the complexity the
+# problem expects):
+# - grid paths: paths(r, c) = paths(r - 1, c) + paths(r, c - 1), 1 on an
+#   edge, on unary coordinates with a binary count; the test compares
+#   paths(n, n) with a claimed count;
+# - subset sum: search_k(acc) merges search_(k+1)(acc) and
+#   search_(k+1)(acc + a_k), and search_n(acc) is acc == target; the target
+#   is the total of the first n odd primes, reached only by taking every
+#   item;
+# - longest common subsequence as a decision, lcs(left, right, need):
+#   true when need is zero, false when a string is empty, and otherwise
+#   the merge of leaving out left's head, leaving out right's head, and,
+#   when the heads are equal, leaving out both with need - 1; the need is
+#   the reference's length.
+# The sizes follow the family's rule, n, 2n and 4n, with a
+# frontier beyond: grid paths and LCS at 8, 16, 32 and 64, subset sum at
+# 4, 8 and 16.
+#
+# WITHOUT LABELS THE PROBLEMS ARE EASIER TO SHARE. Each API is let bound
+# once, so a recursive call such as `self self r' c` is spelled the same
+# wherever it is reached, and plain tabling shares the subproblems of grid
+# paths and LCS, which the labeled family's spellings hid: there every
+# reading but the record reading was stopped at size 8, and the record
+# reading at 8 as well. Subset sum stays exponential: a sum reached by
+# different additions is spelled differently, and the reference
+# deduplicates by value.
+#
+# READINGS (2026-09-28, CPU 2 under contest_limited.sh, a fresh process
+# per reading, the intended template through claims_answered/4, 10 s,
+# 256 MB, 256 MB):
+# - weak_head: grid 8 in 8604 ms; subset 4 and 8 in 29 and 595 ms, subset
+#   16 stopped; LCS 8 stopped.
+# - tabling(weak_head): grid 8, 16 and 32 in 138, 826 and 7799 ms, grid 64
+#   stopped (10247 ms); LCS 8, 16 and 32 in 99, 578 and 4864 ms, LCS 64
+#   stopped (10065 ms); subset 4 and 8 in 20 and 324 ms, subset 10 and 12
+#   in 1376 and 5275 ms in a probe, subset 16 stopped. Each doubling costs
+#   grid paths about 9 and LCS about 8, where the references cost 4;
+#   subset sum costs about 2 per item.
+# - records_routed(record_interned(tabling(weak_head)), weak_head): grid 8
+#   in 8540 ms, LCS 8 in 102 ms, subset 8 in 360 ms, subset 16 stopped.
+# THE FRONTIER: grid paths 64, LCS 64 and subset sum 16, read by none of
+# the three.
+# BEYOND THE FRONTIER (settings read grid paths 64 and subset sum 16): one
+# step beyond each, grid paths 128 and
+# subset sum 24. Readings (2026-09-28, CPU 2 under contest_limited.sh,
+# point_claims/2, the family's limits): weak_head and tabling(weak_head)
+# stopped on both, grid paths 128 in 5856 and 5868 ms, subset sum 24 in
+# 6645 and 6775 ms.
+# LIMITS: the family's, 10 s, 256 MB, 256 MB.
+#
+# TARGET ALGORITHMS, the specific known algorithms the problem targets, each
+# with its prior work:
+# - dynamic programming, each subproblem solved once: R. Bellman, Dynamic
+#   Programming, Princeton University Press 1957.
+# - reached from the recursive definitions by memoisation or tabling: D.
+#   Michie, "Memo" Functions and Machine Learning, Nature 1968,
+#   doi:10.1038/218019a0; W. Chen, D. S. Warren, Tabled Evaluation with
+#   Delaying for General Logic Programs, J. ACM 1996,
+#   doi:10.1145/227595.227597.
+# - longest common subsequence in quadratic time: R. A. Wagner, M. J.
+#   Fischer, The String-to-String Correction Problem, J. ACM 1974,
+#   doi:10.1145/321796.321811; D. S. Hirschberg, A Linear Space Algorithm
+#   for Computing Maximal Common Subsequences, CACM 1975,
+#   doi:10.1145/360825.360861.
+
+#   grid_point(?Point, ?Size, ?Claimed): paths(Size, Size) == Claimed. The
+#   wrong point's Claimed is paths(16, 16) = 601080390 with bit 28 set, so
+#   that the comparison must reach that bit.
+#
+# Each text is from_cbor of a string literal, a Scott list of bytes,
+# imported from corpora/library/text/cbor. Each number is from_cbor of an
+# integer literal, a Scott integer, imported from corpora/library/integer/cbor.
+# FIXME: the imports project "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λx. x)
+λ integer
+. export
+λ
+. cons (λ_grid_point. _grid_point (text "merge_grid_paths_eight") (integer 8) λ. integer 12870)
+λ
+. cons (λ_grid_point. _grid_point (text "merge_grid_paths_sixteen") (integer 16) λ. integer 601080390)
+λ
+. cons
+  (λ_grid_point. _grid_point (text "merge_grid_paths_sixteen_wrong") (integer 16) λ. integer 869515846)
+λ
+. cons
+  ( λ _grid_point
+    . _grid_point (text "merge_grid_paths_thirty_two") (integer 32) λ. integer 1832624140942590534
+  )
+λ
+. cons
+  ( λ _grid_point
+    . _grid_point (text "merge_grid_paths_sixty_four") (integer 64) λ. integer 23951146041928082866135587776380551750
+  )
+λ
+. cons
+  ( λ _grid_point
+    . _grid_point (text "merge_grid_paths_one_hundred_twenty_eight") (integer 128) λ. integer 5768658823449206338089748357862286887740211701975162032608436567264518750790
+  ) nil

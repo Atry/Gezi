@@ -1,0 +1,72 @@
+# Grid paths in the mixin encoding of inheritance
+# (corpora/contest_mixin_library.pl, the libraries `natural` and `binary`):
+# problems of the reduction series, ported from the
+# retired labeled points of contest_inheritance_dynamic.pl and
+# contest_inheritance_dynamic_middle.pl.
+#
+# THE PROBLEM. The number of monotone lattice paths from (i, j) to (0, 0)
+# is paths(i, j) = 1 when i = 0 or j = 0, and paths(i - 1, j) +
+# paths(i, j - 1) otherwise, which is C(i + j, i). The class grid has the
+# slots i, j (unary naturals) and count (a binary natural), and is the one
+# slot of a module of width 1, so that count makes objects of the class
+# read through the module's self. count dispatches on self.i's and
+# self.j's accept, and answers up.count.plus(left.count) with
+# up = {grid, i : self.i.predecessor, j : self.j} and
+# left = {grid, i : self.i, j : self.j.predecessor}. The two calls
+# reach paths(i - 1, j - 1) by different spellings, so a reading that
+# shares only equal spellings makes about C(2n, n) calls, 4 a step of n;
+# the reference (contest_dynamic_references:reference_grid_paths/3) is the
+# usual table, O(n^2) additions.
+#
+# THE PROGRAM reads C.equality({grid, i : n, j : n}.count) at church,
+# the labeled program's check: paths(n, n) for n = 2 .. 8, and the wrong
+# paths(4, 4) == 134, off by 2^6 in a high bit.
+#
+# THE SNAPSHOT of each is the Boolean of the equation. PROOF:
+# the recursion descends on the finite unary numerals under every choice,
+# every class has one implementation of each slot it is read at, and every
+# end is the Boolean of the equation.
+#
+# LIMITS: the family's, 10 s, 256 MB, 256 MB.
+
+#   grid_point(?Point, ?Size, ?Claimed)
+#
+# Each text is from_cbor of a string literal, a Scott list of bytes,
+# imported from corpora/library/text/cbor. Each number is from_cbor of an
+# integer literal, a Scott integer, imported from corpora/library/integer/cbor.
+# FIXME: the imports project "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λx. x)
+λ integer
+. export
+λ
+. cons (λ_grid_point. _grid_point (text "reduction_mixin_grid_paths_two") (integer 2) λ. integer 6)
+λ
+. cons (λ_grid_point. _grid_point (text "reduction_mixin_grid_paths_three") (integer 3) λ. integer 20)
+λ
+. cons (λ_grid_point. _grid_point (text "reduction_mixin_grid_paths_four") (integer 4) λ. integer 70)
+λ
+. cons
+  (λ_grid_point. _grid_point (text "reduction_mixin_grid_paths_four_wrong") (integer 4) λ. integer 134)
+λ
+. cons (λ_grid_point. _grid_point (text "reduction_mixin_grid_paths_five") (integer 5) λ. integer 252)
+λ
+. cons (λ_grid_point. _grid_point (text "reduction_mixin_grid_paths_six") (integer 6) λ. integer 924)
+λ
+. cons
+  (λ_grid_point. _grid_point (text "reduction_mixin_grid_paths_seven") (integer 7) λ. integer 3432)
+λ
+. cons
+  (λ_grid_point. _grid_point (text "reduction_mixin_grid_paths_eight") (integer 8) λ. integer 12870) nil

@@ -1,0 +1,13 @@
+# The published list of the e-matching backends that run a round's program (EmatchingImplementation): closures, Scala closures; interpretation, the program walked at every call; bytecode, a generated hidden class.
+# A Scott sum whose constructors are the tuple's fields, in the order of the
+# enum's cases; an entry.lambdalattice imports this file and writes a
+# constructor, and EntryData reads which alternative it takes by structure
+# (gezi.contest.entry.EntryData, THE OPTIONS AS SCOTT CONSTRUCTORS).
+λ export
+. (λtuple. tuple λclosures interpretation bytecode. closures)
+λ closures
+. (λtuple. tuple λclosures interpretation bytecode. interpretation)
+λ interpretation
+. (λtuple. tuple λclosures interpretation bytecode. bytecode)
+λ bytecode
+. export closures interpretation bytecode

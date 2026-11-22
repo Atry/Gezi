@@ -1,0 +1,202 @@
+# +Jobs, +Workers, +Budget, -Term
+# +Jobs, +Workers, +Budget, -Times
+# +Jobs, +Workers, -Least
+# ?Point, ?Count, ?Workers, ?Seed, ?Slack, ?Kind
+#   * <module> The least time to finish all jobs
+#
+# THE PROBLEM (LeetCode 1723, "Find Minimum Time to Finish All Jobs"): jobs
+# of given lengths and W workers; each job goes to one worker, and a
+# worker's time is the sum of its jobs. What is the least possible largest
+# time? Asked as the set of the largest times at most T of the assignments;
+# T is the least, so the set is that one number.
+#
+# The program writes top (corpora/library/top) where the pseudo-code and the
+# argument below write {}, the empty choice of the calculus that still has
+# it; doc/proofs/reduction_series_answers.md carries the argument over to
+# Definition 14, and the generator is the family's Scala object in
+# gezi/contest-corpora.
+#
+# THE PROGRAM, in continuation passing style, the times left to each worker
+# a Scott list of unary numerals, with the prelude's natural_at_least,
+# natural_difference and foldr (the API of round-37-directions.md), the
+# least of the times left taken by foldr of the program's own min:
+#
+#     assign  = Y (\self. \caps. \j. \f.
+#                 caps {} (\c. \others.
+#                   { at_least c j (f (cons (difference c j) others)) {},
+#                     self others j (\rest. f (cons c rest)) }))
+#     place   = Y (\self. \jobs. \caps. \k.
+#                 jobs (k caps) (\j. \rest. assign caps j (\next. self rest next k)))
+#     min     = \a. \b. at_least a b b a
+#     program = place Jobs [T, ..., T] (\caps. difference T (foldr min T caps))
+#
+# Directions: A (the assignments are W^n, the native search is over the
+# subsets of the jobs, one worker at a time, as in Held and Karp's
+# programme over subsets); B (merging by value: many assignments leave the
+# same times, the state is the rest of the jobs and the list of the times
+# left, and the times are spelled by nested differences); D (foldr applied
+# to a function of the program, natural_at_least and natural_difference
+# called directly and inside it); G (the unary arithmetic of the times).
+#
+# THE SNAPSHOT. S(P) is the set of the largest times at most T of the
+# assignments of the jobs to the W workers in which every worker's time is
+# at most T: finishing_times/4 on small instances. Every one is at least the
+# least largest time, least_finishing_time/3, so for T the least S(P) is
+# {T}, and for T one less it is empty.
+#
+# THE LEMMAS, on the definitions of the library functions (contest_attractors
+# attractor_source/2 and the prelude), not on their native references.
+# ⌜n⌝ is the Scott unary numeral, ⌜0⌝ = λz.λs. z and ⌜n + 1⌝ = λz.λs. s ⌜n⌝,
+# which unary/2 builds exactly; true = λt.λf. t and false = λt.λf. f; a list
+# is a Scott list, cons h t one β step from λn.λc. c h t.
+# - (Y) fixpoint G =β G (fixpoint G), two β steps.
+# - (AtLeast) at_least = Y (λs.λm.λn. n true (λn1. m false (λm1. s m1 n1))).
+#   By induction on n, at_least ⌜m⌝ ⌜n⌝ =β true when m >= n and false
+#   otherwise.
+# - (Difference) difference = Y (λs.λm.λn. n m (λn1. m ⌜0⌝ (λm1. s m1 n1))).
+#   By induction on n, difference ⌜m⌝ ⌜n⌝ =β ⌜m - n⌝ when m >= n.
+# - (Min) min ⌜a⌝ ⌜b⌝ →β at_least ⌜a⌝ ⌜b⌝ ⌜b⌝ ⌜a⌝ =β ⌜min(a, b)⌝ (AtLeast).
+# - (Foldr) foldr = Y (λs.λf.λz.λxs. xs z (λh.λt. f h (s f z t))). By
+#   induction on the list, foldr min ⌜T⌝ [⌜c1⌝, ..., ⌜cW⌝] =β
+#   ⌜min(T, c1, ..., cW)⌝ (Min).
+# - (Assign) assign [⌜c1⌝, ..., ⌜cW⌝] ⌜j⌝ f is β-equal to a nest of sets
+#   {A1, {A2, ... {AW, {}}}}, Ai β-equal to f applied to the list with ci
+#   replaced by ⌜ci - j⌝ when ci >= j, and to {} when ci < j (AtLeast,
+#   Difference), by induction on W: the second member of each level is
+#   assign on the rest, its continuation putting ⌜ci⌝ back in front.
+# - (Empty) If U →* {} by β and η steps, no pure term is reached from U by
+#   →c steps. Every →c step keeps U →* {}: a β or η step by confluence, {}
+#   being normal; a member replacement of a set s by Lemma 2a of
+#   certificate_meta_lemmas.md, which replays U →* {} to {} with the
+#   descendants of s replaced, and {} is no descendant of s, s having a
+#   member and descendants keeping the number of members. A pure term
+#   reduces only to pure terms, and {} is not pure.
+#
+# So place [j1, ..., jn] caps k, with caps =β the list of the numerals of
+# the times left, is β-equal to k caps when there is no job, and otherwise
+# to the nest of Assign for j1, whose member for a worker with time left
+# c >= j1 is β-equal to place [j2, ..., jn] caps' k, caps' with c replaced
+# by c - j1.
+#
+# PROOF, with ⟦·⟧, D, S and Th and Lemma 2b of
+# gezi/doc/proofs/certificate_meta_lemmas.md.
+# - (⊇) For an assignment whose every worker's time is at most T, give the
+#   jobs in order to their workers: at each job, the worker's time left is
+#   T less the jobs given to it so far, at least the job's length; take its
+#   member of the nest of Assign, by Lemma 2b.1 on the β-equal term. After
+#   the last job the term is β-equal to k caps, caps the list of the
+#   numerals T - t1, ..., T - tW, ti the workers' times, and so to
+#   difference ⌜T⌝ ⌜min(T, T - t1, ..., T - tW)⌝ =β ⌜max(t1, ..., tW)⌝
+#   (Foldr, Difference), pure and normal: it is in that term's meaning
+#   (equal terms, Lemma 2b.2) and so in ⟦P⟧ (Lemma 2b.2).
+# - (⊆) By Lemma 2b.3 every yield equals a pure term P reaches by a finite
+#   sequence σ. Every set of P and of its reducts is one written in assign,
+#   or {}; each chosen branch is the whole term, every call of place and of
+#   assign's continuation being in tail position. The terms β-equal to {}
+#   (a worker whose time left is shorter than the job, the end of the
+#   workers) reach no pure term (Empty). So a pure term is reached only
+#   through an assignment of every job to a worker whose time left covers
+#   it, that is an assignment with every time at most T, and the term is
+#   then β-equal to ⌜max(t1, ..., tW)⌝, which is at most T.
+#
+# THE SUBTASKS AND THE TRAPS: workers_point/6 below. The traps: T one less
+# than the least (empty), and a near miss, the jobs of a subtask with one job
+# lengthened by one so that the least largest time grows past T (empty).
+#
+# TARGET ALGORITHM: the dynamic programme over the subsets of the jobs, the
+# subsets one worker can finish within T found first (M. Held, R. M. Karp,
+# A Dynamic Programming Approach to Sequencing Problems, J. SIAM 1962,
+# doi:10.1137/0110015); tabled evaluation keyed by the value of the rest of
+# the jobs and of the times left (W. Chen, D. S. Warren, J. ACM 1996,
+# doi:10.1145/227595.227597).
+
+#   THE SUBTASKS: workers_point(?Point, ?Count, ?Workers, ?Seed, ?Slack,
+#   ?Kind): Count jobs of lengths 1 to 12 from a linear congruential
+#   sequence of Seed, the budget the least plus the Slack's amount; the
+#   Slack is a constructor of hidden_37_workers/slack, added with its amount
+#   or near, the near miss.
+#   Sized by a probe of 2026-09-30 (CPUs 0-5, 1024 MB stack and
+#   table, the machine shared), each reading equal to its snapshot:
+#   tabling(weak_head) reads six jobs on two workers (the least 24) in
+#   107 ms, eight on three (21) in 605 ms and ten on three (22) in 7031 ms,
+#   and is stopped at 60 s on fourteen on four (26); the traps read
+#   nothing, in 447 ms (one short) and 479 ms (near miss, the least 22).
+#   The native reference least_finishing_time/3 answers in 4 ms to 2129 ms.
+#
+# Each text is from_cbor of a string literal, a Scott list of bytes,
+# imported from corpora/library/text/cbor. Each number is from_cbor of an
+# integer literal, a Scott integer, imported from corpora/library/integer/cbor.
+# FIXME: the imports project "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λx. x)
+λ integer
+. omega (omega (omega (omega gezi "problems") "hidden_37_workers") "slack")
+λ near added
+. export
+λ
+. cons
+  ( λ _workers_point
+    . _workers_point
+      (text "hidden_37_workers_six")
+      (integer 6)
+      (integer 2)
+      (integer 3)
+      (added λ. integer 0) λ. text "subtask"
+  )
+λ
+. cons
+  ( λ _workers_point
+    . _workers_point
+      (text "hidden_37_workers_eight")
+      (integer 8)
+      (integer 3)
+      (integer 5)
+      (added λ. integer 0) λ. text "subtask"
+  )
+λ
+. cons
+  ( λ _workers_point
+    . _workers_point
+      (text "hidden_37_workers_ten")
+      (integer 10)
+      (integer 3)
+      (integer 7)
+      (added λ. integer 0) λ. text "subtask"
+  )
+λ
+. cons
+  ( λ _workers_point
+    . _workers_point
+      (text "hidden_37_workers_fourteen")
+      (integer 14)
+      (integer 4)
+      (integer 11)
+      (added λ. integer 0) λ. text "subtask"
+  )
+λ
+. cons
+  ( λ _workers_point
+    . _workers_point
+      (text "hidden_37_workers_trap_short")
+      (integer 8)
+      (integer 3)
+      (integer 5)
+      (added λ. integer -1) λ. text "trap"
+  )
+λ
+. cons
+  ( λ _workers_point
+    . _workers_point (text "hidden_37_workers_trap_near") (integer 8) (integer 3) (integer 5) near λ. text "trap"
+  ) nil

@@ -1,0 +1,9 @@
+λtrace. trace
+  (λn. λc. c (λh0. h0 (λh0. λh1. h1 (λh0. h0 (λk. k "lemmas.lambdalattice") (λk. k 0) (λk. k 33))) (λf. λa. (λu. u) (f a)) (λf. λa. f a))
+    (λn. λc. n))
+  (λn. λc. n)
+  (λn. λc. c (λn. λc. c (λh0. λh1. λh2. λh3. h0 (λh0. λh1. λh2. λh3. λh4. h0 (λk. k 0)) (λh0. h0 (λk. k 0) (λn. λc. n)) (λh0. λh1. h0) (λn. λc. n))
+      (λn. λc. c (λh0. λh1. λh2. λh3. h0 (λh0. λh1. λh2. λh3. λh4. h0 (λk. k 0)) (λh0. h0 (λk. k 0) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h1) (λn. λc. n))) (λh0. λh1. h0) (λn. λc. n))
+      (λn. λc. c (λh0. λh1. λh2. λh3. h0 (λh0. λh1. λh2. λh3. λh4. h2 (λh0. λh1. h0)) (λh0. h0 (λk. k 0) (λn. λc. n)) (λh0. λh1. h0) (λn. λc. n))
+      (λn. λc. n))))
+    (λn. λc. n))

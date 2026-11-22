@@ -1,0 +1,239 @@
+# The binary naturals read from and written to CBOR (RFC 8949), and the
+# heads and arguments other modules' from_cbor and to_cbor share: every Scott
+# module has its own from_cbor and to_cbor, and there is no cbor module of its
+# own. A CBOR item's bits are variable arguments: each byte
+# eight Scott booleans, high bit first. from_cbor k reads one item and gives
+# k its value, the bits after the item going on to k's result; it is top on an
+# item of another kind. to_cbor v f z is the right fold f b1 (f b2 (… (f bn
+# z))) of the bits of v's deterministic encoding (RFC 8949, section 4.2.1).
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "prelude") "fixpoint")
+λ fixpoint
+. omega (omega (omega corpora "library") "top")
+λ top
+. omega (omega (omega (omega corpora "library") "binary") "natural")
+λ binary_zero binary_even binary_odd _ _
+. omega (omega (omega (omega corpora "library") "binary") "order")
+λ binary_less_than _ _
+. omega (omega (omega (omega corpora "library") "binary") "arithmetic")
+λ binary_increment _ _ _
+# one_bit, zero_bit: the bits 1 and 0 of a variable argument.
+. (λtuple. tuple λt e. t)
+λ one_bit
+. (λtuple. tuple λt e. e)
+λ zero_bit
+# shifted acc bit: 2 acc + bit, read high bit first, with no even over zero,
+# so that leading zero bits leave zero.
+. ( λ tuple
+    . tuple λacc bit. bit (binary_odd acc) λ. acc binary_zero (λ_. binary_even acc) λ_. binary_even acc
+  )
+λ shifted
+# byte_read acc k: eight bits more of a big-endian number.
+. ( λ tuple
+    . tuple
+    λ acc k b7 b6 b5 b4 b3 b2 b1 b0
+    . k
+    λ
+    . shifted
+      (shifted (shifted (shifted (shifted (shifted (shifted (shifted acc b7) b6) b5) b4) b3) b2) b1) b0
+  )
+λ byte_read
+# bytes_read count acc k: count bytes more of a big-endian number, count a
+# binary natural, by halves: 2h bytes are h bytes then h bytes, 2h + 1 one
+# byte more.
+. ( λ tuple
+    . tuple
+    λ
+    . fixpoint
+    λ bytes_read count acc k
+    . count
+      (k acc)
+      (λhalf. bytes_read half acc λread. bytes_read half read k) λhalf. bytes_read half acc λread. bytes_read half read λeven. byte_read even k
+  )
+λ bytes_read
+. (λtuple. tuple λ. binary_odd binary_zero)
+λ one
+. (λtuple. tuple λ. binary_even one)
+λ two
+. (λtuple. tuple λ. binary_even two)
+λ four
+. (λtuple. tuple λ. binary_even four)
+λ eight
+# argument_read k: the five bits of a head's additional information and the
+# argument they give, 0 to 23 inline, 24 to 27 one, two, four or eight bytes
+# after the head; 28 to 31 are top (no length here is indefinite).
+. ( λ tuple
+    . tuple
+    λ k a4 a3 a2 a1 a0
+    . ( λ inline
+        . a4
+          ( a3
+            ( λ
+              . a2 top
+              λ
+              . a1 (a0 (bytes_read eight binary_zero k) λ. bytes_read four binary_zero k) λ. a0 (bytes_read two binary_zero k) λ. bytes_read one binary_zero k
+            ) inline
+          ) inline
+      )
+    λ
+    . k λ. shifted (shifted (shifted (shifted (shifted binary_zero a4) a3) a2) a1) a0
+  )
+λ argument_read
+# bignum_read k: the byte string of a tag 2 or 3 after its head, major type
+# 2 and its length, then that many bytes of a big-endian natural.
+. ( λ tuple
+    . tuple
+    λ k m2 m1 m0
+    . m2 top λ. m1 (m0 top λ. argument_read λlength. bytes_read length binary_zero k) top
+  )
+λ bignum_read
+# from_cbor k: a natural, major type 0, or tag 2 over a byte string.
+. ( λ tuple
+    . tuple
+    λ k m2 m1 m0
+    . m2
+      ( m1
+        (m0 top λa4 a3 a2 a1 a0. a4 top λ. a3 top λ. a2 top λ. a1 (a0 top λ. bignum_read k) top) top
+      )
+    λ
+    . m1 top λ. m0 top λ. argument_read k
+  )
+λ from_cbor
+# bit_written f n inner k: the low bit of n folded over inner, and n halved.
+. ( λ tuple
+    . tuple
+    λ f n inner k
+    . n (k binary_zero λ. f zero_bit inner) (λh. k h λ. f zero_bit inner) λh. k h λ. f one_bit inner
+  )
+λ bit_written
+# bits_written_five, bits_written_eight: the five or eight low bits of n,
+# the lowest innermost, so that the fold reads them high bit first.
+. ( λ tuple
+    . tuple
+    λ f n inner k
+    . bit_written f n inner
+    λ n1 i1
+    . bit_written f n1 i1
+    λ n2 i2
+    . bit_written f n2 i2
+    λ n3 i3
+    . bit_written f n3 i3
+    λ n4 i4
+    . bit_written f n4 i4
+    λ n5 i5
+    . k n5 i5
+  )
+λ bits_written_five
+. ( λ tuple
+    . tuple
+    λ f n inner k
+    . bits_written_five f n inner
+    λ n5 i5
+    . bit_written f n5 i5
+    λ n6 i6
+    . bit_written f n6 i6
+    λ n7 i7
+    . bit_written f n7 i7
+    λ n8 i8
+    . k n8 i8
+  )
+λ bits_written_eight
+. (λtuple. tuple λf n inner k. bits_written_eight f n inner λn8 i8. bits_written_eight f n8 i8 k)
+λ bits_written_sixteen
+. ( λ tuple
+    . tuple λf n inner k. bits_written_sixteen f n inner λn16 i16. bits_written_sixteen f n16 i16 k
+  )
+λ bits_written_thirty_two
+. ( λ tuple
+    . tuple λf n inner k. bits_written_thirty_two f n inner λn32 i32. bits_written_thirty_two f n32 i32 k
+  )
+λ bits_written_sixty_four
+. ( λ tuple
+    . tuple
+    λ n
+    . binary_even
+    λ
+    . binary_even λ. binary_even λ. binary_even λ. binary_even λ. binary_even λ. binary_even λ. binary_even n
+  )
+λ times_two_hundred_fifty_six
+. (λtuple. tuple λ. binary_even λ. binary_even λ. binary_even λ. binary_odd λ. binary_odd binary_zero)
+λ twenty_four
+. (λtuple. tuple λ. times_two_hundred_fifty_six one)
+λ two_power_eight
+. (λtuple. tuple λ. times_two_hundred_fifty_six two_power_eight)
+λ two_power_sixteen
+. (λtuple. tuple λ. times_two_hundred_fifty_six λ. times_two_hundred_fifty_six two_power_sixteen)
+λ two_power_thirty_two
+. ( λ tuple
+    . tuple
+    λ
+    . times_two_hundred_fifty_six
+    λ
+    . times_two_hundred_fifty_six λ. times_two_hundred_fifty_six λ. times_two_hundred_fifty_six two_power_thirty_two
+  )
+λ two_power_sixty_four
+# argument_written f m2 m1 m0 n inner: the head of major type m2 m1 m0 with
+# n, n < 2^64, as its shortest argument (RFC 8949, section 4.2.1), then inner.
+. ( λ tuple
+    . tuple
+    λ f m2 m1 m0 n inner
+    . ( λ headed
+        . binary_less_than n twenty_four
+          (bits_written_five f n inner λ_ written. headed written)
+        λ
+        . binary_less_than n two_power_eight
+          ( bits_written_eight f n inner λ_ written. headed λ. f one_bit λ. f one_bit λ. f zero_bit λ. f zero_bit λ. f zero_bit written
+          )
+        λ
+        . binary_less_than n two_power_sixteen
+          ( bits_written_sixteen f n inner λ_ written. headed λ. f one_bit λ. f one_bit λ. f zero_bit λ. f zero_bit λ. f one_bit written
+          )
+        λ
+        . binary_less_than n two_power_thirty_two
+          ( bits_written_thirty_two f n inner λ_ written. headed λ. f one_bit λ. f one_bit λ. f zero_bit λ. f one_bit λ. f zero_bit written
+          )
+        λ
+        . bits_written_sixty_four f n inner λ_ written. headed λ. f one_bit λ. f one_bit λ. f zero_bit λ. f one_bit λ. f one_bit written
+      ) λwritten. f m2 λ. f m1 λ. f m0 written
+  )
+λ argument_written
+# bytes_written f n inner count k: the bytes of n, the low byte innermost,
+# until n is zero, and their count.
+. ( λ tuple
+    . tuple
+    λ
+    . fixpoint
+    λ bytes_written f n inner count k
+    . (λmore. n (k count inner) (λ_. more) λ_. more)
+    λ
+    . bits_written_eight f n inner λrest written. bytes_written f rest written (binary_increment count) k
+  )
+λ bytes_written
+# unsigned_written f m0 n inner: n of major type 0 (m0 zero) or 1 (m0 one)
+# below 2^64, else tag 2 or 3 over the byte string of n's big-endian bytes
+# with no leading zero byte.
+. ( λ tuple
+    . tuple
+    λ f m0 n inner
+    . binary_less_than n two_power_sixty_four
+      (argument_written f zero_bit zero_bit m0 n inner)
+    λ
+    . bytes_written f n inner binary_zero
+    λ length payload
+    . f one_bit
+    λ
+    . f one_bit
+    λ
+    . f zero_bit
+    λ
+    . f zero_bit
+    λ
+    . f zero_bit λ. f zero_bit λ. f one_bit λ. f m0 λ. argument_written f zero_bit one_bit zero_bit length payload
+  )
+λ unsigned_written
+# to_cbor n f z: the natural n.
+. (λtuple. tuple λn f z. unsigned_written f zero_bit n z)
+λ to_cbor
+. export from_cbor to_cbor argument_read bignum_read argument_written unsigned_written

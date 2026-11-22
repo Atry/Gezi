@@ -1,0 +1,57 @@
+# The base problems of the CSES families repeated_cses_shortest_routes_single_source_*: n cities and one-way flights with positive costs, the answer
+# the least cost of a trip from city 1 to each city, in order of the cities (every city reachable).
+#
+# THE ANSWER of each row is the problem's definition computed exhaustively by
+# a brute-force script of it (enumerating the walks, subsets, divisors or
+# elements, 2026-11-21), not by the efficient algorithm. PROOF: the program of the problem's
+# file follows the definition, and its header argues under Definition 14 that
+# its one normal form is that answer; the data are finite and small. The inputs
+# are our own, no CSES test data.
+#
+#   shortest_routes_single_source_point(?Point, ?Cities, ?Flights, ?Result)
+#
+# Cities is an integer (corpora/library/integer/cbor), computers count from 1; Flights is a Scott list
+# (corpora/library/prelude/list) of triples
+# `pair from (pair to cost)` (corpora/library/prelude/pair), each an integer literal's value; Result is a Scott list
+# of integers.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λvalue. value)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λvalue. value)
+λ integer
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "pair")
+λ pair _ _
+. export
+λ
+. cons
+  ( λ _shortest_routes_single_source_point
+    . _shortest_routes_single_source_point (text "cses_shortest_routes_single_source_one_city_no_flights") (integer 1) nil λ. cons (integer 0) λ. nil
+  )
+λ
+. cons
+  ( λ _shortest_routes_single_source_point
+    . _shortest_routes_single_source_point (text "cses_shortest_routes_single_source_two_hops_beat_direct") (integer 3) (cons (pair (integer 1) (pair (integer 2) (integer 5))) λ. cons (pair (integer 2) (pair (integer 3) (integer 4))) λ. cons (pair (integer 1) (pair (integer 3) (integer 10))) λ. nil) λ. cons (integer 0) λ. cons (integer 5) λ. cons (integer 9) λ. nil
+  )
+λ
+. cons
+  ( λ _shortest_routes_single_source_point
+    . _shortest_routes_single_source_point (text "cses_shortest_routes_single_source_cycle_and_back_flight") (integer 4) (cons (pair (integer 1) (pair (integer 2) (integer 1))) λ. cons (pair (integer 1) (pair (integer 3) (integer 4))) λ. cons (pair (integer 2) (pair (integer 3) (integer 2))) λ. cons (pair (integer 3) (pair (integer 4) (integer 1))) λ. cons (pair (integer 4) (pair (integer 2) (integer 1))) λ. cons (pair (integer 3) (pair (integer 1) (integer 1))) λ. nil) λ. cons (integer 0) λ. cons (integer 1) λ. cons (integer 3) λ. cons (integer 4) λ. nil
+  )
+λ
+. cons
+  ( λ _shortest_routes_single_source_point
+    . _shortest_routes_single_source_point (text "cses_shortest_routes_single_source_parallel_flights") (integer 3) (cons (pair (integer 1) (pair (integer 2) (integer 7))) λ. cons (pair (integer 1) (pair (integer 2) (integer 3))) λ. cons (pair (integer 2) (pair (integer 3) (integer 1))) λ. nil) λ. cons (integer 0) λ. cons (integer 3) λ. cons (integer 4) λ. nil
+  )
+λ
+. cons
+  ( λ _shortest_routes_single_source_point
+    . _shortest_routes_single_source_point (text "cses_shortest_routes_single_source_long_chain_beats_direct") (integer 5) (cons (pair (integer 1) (pair (integer 2) (integer 1))) λ. cons (pair (integer 2) (pair (integer 3) (integer 1))) λ. cons (pair (integer 3) (pair (integer 4) (integer 1))) λ. cons (pair (integer 4) (pair (integer 5) (integer 1))) λ. cons (pair (integer 1) (pair (integer 5) (integer 10))) λ. cons (pair (integer 1) (pair (integer 3) (integer 5))) λ. nil) λ. cons (integer 0) λ. cons (integer 1) λ. cons (integer 2) λ. cons (integer 3) λ. cons (integer 4) λ. nil
+  ) nil

@@ -1,0 +1,415 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>trace-1.html</title>
+<link rel="stylesheet" href="trace-player/lib/bootstrap/dist/css/bootstrap.min.css">
+<link rel="stylesheet" href="trace-player/lib/bootstrap-icons/font/bootstrap-icons.min.css">
+<link rel="stylesheet" href="trace-player/player.css">
+</head>
+<body>
+<main id="trace-player"></main>
+<script type="application/x-lambdalattice" data-role="start">λ start
+. start (λk. k 13)
+  ( λ
+    . (λt. t λx. x)
+    λ $merkle$fc082a46
+    . (λt. t λx. (λ"$constructor". $merkle$fc082a46) "$constructor" x)
+    λ $merkle$7aefc117
+    . (λt. t λx x_2. x_2 λ. x x x_2)
+    λ $merkle$584376f6
+    . (λt. t λ. (λx. (λ"$generic". $merkle$fc082a46) "$generic" x) λ. $merkle$584376f6 $merkle$584376f6)
+    λ fixpoint
+    . (λt. t λx x_2 x_3 x_4. x_3 x)
+    λ binary_even
+    . (λt. t λx x_2 x_3 x_4. x_4 x)
+    λ binary_odd
+    . ( λ t
+        . t
+        λ
+        . fixpoint
+        λ x x_2 x_3
+        . x_2 x_3 (λx_4. x_3 x_2 (λx_5. binary_even λ. x x_4 x_5) λx_5. binary_odd λ. x x_4 x_5) λx_4. x_3 x_2 (λx_5. binary_odd λ. x x_4 x_5) λx_5. binary_odd λ. x x_4 x_5
+      )
+    λ binary_bitwise_or
+    . (λt. t λx. $merkle$7aefc117 λx_2 x_3. x_2)
+    λ $merkle$7c68046d
+    . ( λ t
+        . t
+        λ
+        . fixpoint
+          ( λ x x_2 x_3 x_4
+            . x_3
+              (x_4 x_2 $merkle$7c68046d $merkle$7c68046d)
+              ( λ x_5
+                . x_4 ($merkle$7aefc117 λx_6 x_7. x_7) (λx_6. x x_2 x_5 x_6) λx_6. x ($merkle$7aefc117 λx_7 x_8. x_7) x_5 x_6
+              )
+            λ x_5
+            . x_4 ($merkle$7aefc117 λx_6 x_7. x_7) (λx_6. x ($merkle$7aefc117 λx_7 x_8. x_8) x_5 x_6) λx_6. x x_2 x_5 x_6
+          ) λ. $merkle$7aefc117 λx x_2. x_2
+      )
+    λ fixpoint$merkle$1b16e251
+    . (λt. t λx x_2. fixpoint$merkle$1b16e251 x x_2 x x_2)
+    λ binary_minimum
+    . (λt. t λx x_2. fixpoint$merkle$1b16e251 x x_2 x_2 x)
+    λ binary_maximum
+    . (λt. t λx x_2 x_3. x)
+    λ binary_zero
+    . ( λ t
+        . t
+        λ
+        . fixpoint
+        λ x x_2 x_3
+        . x_2 x_3 (λx_4. x_3 x_2 (λx_5. binary_even λ. x x_4 x_5) λx_5. binary_odd λ. x x_4 x_5)
+        λ x_4
+        . x_3 x_2 (λx_5. binary_odd λ. x x_4 x_5)
+        λ x_5
+        . binary_even
+        λ
+        . fixpoint
+          (λx_6 x_7. x_7 (binary_odd binary_zero) (λx_8. binary_odd x_8) λx_8. binary_even λ. x_6 x_8) λ. x x_4 x_5
+      )
+    λ merge_binary_plus
+    . $merkle$7aefc117
+      (λx x_2 x_3 x_4. x_4 x x_2)
+      ( ( λ x
+          . ( λ x_2
+              . ( λ x_3
+                  . ( λ x_4
+                      . ( λ x_5
+                          . ( λ x_6
+                              . ( λ x_7
+                                  . ( λ x_8
+                                      . x_8
+                                        (x_3 λ. x_3 λ. x_3 λ. x_3 λ. x_2 λ. x_3 λ. x_3 x)
+                                        ( λ x_9
+                                          . ( λ x_10
+                                              . ( λ x_11
+                                                  . ( λ x_12
+                                                      . ( λ x_13
+                                                          . ( λ x_14
+                                                              . ( λ x_15
+                                                                  . ( λ x_16
+                                                                      . ( λ x_17
+                                                                          . ( λ x_18
+                                                                              . ( λ x_19
+                                                                                  . ( λ x_20
+                                                                                      . ( λ x_21
+                                                                                          . ( λ x_22
+                                                                                              . ( λ x_23
+                                                                                                  . ( λ x_24
+                                                                                                      . ( λ x_25
+                                                                                                          . ( λ x_26
+                                                                                                              . ( λ x_27
+                                                                                                                  . (λx_28. x_4 x_28 λ. x_2 λ. x_2 λ. x_3 λ. x_3 λ. x_2 λ. x_3 λ. x_2 λ. x_3 λ. x_3 λ. x_3 λ. x_3 x) λ. x_5 x_12 λ. x_2 λ. x_3 λ. x_3 λ. x_3 λ. x_3 λ. x_2 λ. x_2 λ. x_3 λ. x_3 x
+                                                                                                                ) λ. x_6 x_17 x_18
+                                                                                                            ) λ. x_6 x_11 λ. x_3 λ. x_3 λ. x_2 λ. x_3 λ. x_3 λ. x_3 λ. x_3 λ. x_3 x
+                                                                                                        ) λ. x_5 x_22 λ. x_2 λ. x_3 λ. x_3 λ. x_2 λ. x_2 λ. x_3 λ. x_3 λ. x_2 λ. x_2 λ. x_2 λ. x_3 λ. x_3 x
+                                                                                                    ) λ. x_5 x_17 λ. x_2 λ. x_3 λ. x_3 λ. x_2 λ. x_2 λ. x_2 λ. x_3 λ. x_2 λ. x_3 λ. x_2 λ. x_3 x
+                                                                                                ) λ. x_4 x_22 λ. x_2 λ. x_3 λ. x_2 λ. x_2 λ. x_2 λ. x_2 λ. x_2 λ. x_3 x
+                                                                                            ) λ. x_5 x_12 λ. x_2 λ. x_3 λ. x_2 λ. x_2 λ. x_2 λ. x_3 λ. x_2 λ. x_3 x
+                                                                                        ) λ. x_7 x_9 λ. x_3 λ. x_3 λ. x_3 λ. x_2 λ. x_2 λ. x_3 λ. x_3 λ. x_2 λ. x_3 λ. x_2 λ. x_2 λ. x_3 x
+                                                                                    ) λ. x_4 x_19 λ. x_2 λ. x_3 λ. x_2 λ. x_3 λ. x_2 λ. x_2 λ. x_3 λ. x_3 x
+                                                                                ) λ. x_5 x_9 λ. x_3 λ. x_3 λ. x_2 λ. x_2 λ. x_2 λ. x_2 λ. x_2 λ. x_2 λ. x_3 λ. x_3 λ. x_2 λ. x_3 x
+                                                                            )
+                                                                          λ
+                                                                          . x_6 (x_2 λ. x_3 λ. x_2 λ. x_2 λ. x_2 λ. x_3 λ. x_2 λ. x_2 λ. x_3 x) λ. x_2 λ. x_2 λ. x_2 λ. x_3 λ. x_2 λ. x_2 λ. x_2 λ. x_3 λ. x_3 λ. x_3 x
+                                                                        ) λ. x_7 x_11 λ. x_3 λ. x_2 λ. x_3 λ. x_3 λ. x_2 λ. x_3 λ. x_3 λ. x_3 x
+                                                                    ) λ. x_7 x_11 λ. x_2 λ. x_3 λ. x_3 λ. x_3 λ. x_3 λ. x_2 λ. x_3 λ. x_3 λ. x_2 λ. x_2 λ. x_3 λ. x_3 x
+                                                                ) λ. x_5 x_12 λ. x_3 λ. x_3 λ. x_2 λ. x_3 λ. x_2 λ. x_3 λ. x_3 λ. x_3 x
+                                                            ) λ. x_4 x_13 λ. x_3 λ. x_2 λ. x_3 λ. x_3 λ. x_2 λ. x_3 λ. x_3 λ. x_3 λ. x_3 λ. x_3 λ. x_3 x
+                                                        )
+                                                      λ
+                                                      . x_6 (x_3 λ. x_3 λ. x_2 λ. x_2 λ. x_2 λ. x_2 λ. x_3 λ. x_3 x) λ. x_2 λ. x_2 λ. x_2 λ. x_3 λ. x_3 λ. x_3 λ. x_3 λ. x_3 x
+                                                    ) λ. x_5 x_11 λ. x_2 λ. x_3 λ. x_3 λ. x_2 λ. x_3 λ. x_2 λ. x_2 λ. x_2 λ. x_3 x
+                                                ) λ. x_5 x_10 λ. x_2 λ. x_2 λ. x_3 λ. x_3 λ. x_2 λ. x_2 λ. x_2 λ. x_3 λ. x_3 x
+                                            ) λ. x_6 x_9 λ. x_3 λ. x_2 λ. x_3 λ. x_3 λ. x_2 λ. x_3 λ. x_2 λ. x_2 λ. x_3 λ. x_3 λ. x_2 λ. x_3 x
+                                        )
+                                      λ
+                                      . x_8
+                                        (x_2 λ. x_3 λ. x_3 λ. x_3 λ. x_3 λ. x_3 x)
+                                        ( λ x_9
+                                          . ( λ x_10
+                                              . ( λ x_11
+                                                  . ( λ x_12
+                                                      . ( λ x_13
+                                                          . ( λ x_14
+                                                              . ( λ x_15
+                                                                  . ( λ x_16
+                                                                      . ( λ x_17
+                                                                          . ( λ x_18
+                                                                              . ( λ x_19
+                                                                                  . ( λ x_20
+                                                                                      . ( λ x_21
+                                                                                          . ( λ x_22
+                                                                                              . ( λ x_23
+                                                                                                  . (λx_24. x_4 x_24 λ. x_3 λ. x_3 λ. x_3 λ. x_2 λ. x_3 λ. x_2 λ. x_2 λ. x_3 x) λ. x_4 x_23 λ. x_3 λ. x_2 λ. x_2 λ. x_3 λ. x_3 λ. x_2 λ. x_3 λ. x_3 λ. x_2 λ. x_3 λ. x_3 x
+                                                                                                ) λ. x_7 x_13 λ. x_2 λ. x_2 λ. x_2 λ. x_2 λ. x_3 λ. x_3 λ. x_3 λ. x_3 λ. x_3 x
+                                                                                            ) λ. x_4 x_21 λ. x_3 λ. x_3 λ. x_2 λ. x_2 λ. x_3 λ. x_3 λ. x_3 λ. x_2 λ. x_2 λ. x_3 λ. x_2 λ. x_3 x
+                                                                                        ) λ. x_6 x_11 λ. x_2 λ. x_3 λ. x_3 λ. x_2 λ. x_2 λ. x_2 λ. x_3 λ. x_3 x
+                                                                                    ) λ. x_4 x_19 λ. x_2 λ. x_2 λ. x_2 λ. x_2 λ. x_3 λ. x_2 λ. x_2 λ. x_3 λ. x_2 λ. x_2 λ. x_2 λ. x_3 x
+                                                                                ) λ. x_5 x_13 λ. x_2 λ. x_3 λ. x_3 λ. x_3 λ. x_3 λ. x_3 λ. x_3 λ. x_3 λ. x_3 λ. x_3 x
+                                                                            )
+                                                                          λ
+                                                                          . x_6 (x_3 λ. x_3 λ. x_2 λ. x_3 λ. x_2 λ. x_2 λ. x_2 λ. x_2 λ. x_2 λ. x_3 λ. x_3 λ. x_3 x) λ. x_3 λ. x_2 λ. x_2 λ. x_3 λ. x_2 λ. x_3 λ. x_2 λ. x_3 λ. x_2 λ. x_3 λ. x_2 λ. x_3 x
+                                                                        ) λ. x_4 x_16 λ. x_2 λ. x_3 λ. x_2 λ. x_3 λ. x_3 λ. x_3 λ. x_3 λ. x_2 λ. x_3 λ. x_2 λ. x_3 x
+                                                                    ) λ. x_5 x_9 λ. x_2 λ. x_3 λ. x_2 λ. x_2 λ. x_3 λ. x_2 λ. x_2 λ. x_2 λ. x_2 λ. x_2 λ. x_2 λ. x_3 x
+                                                                )
+                                                              λ
+                                                              . x_6 (x_3 λ. x_2 λ. x_3 λ. x_2 λ. x_3 λ. x_2 λ. x_2 λ. x_2 λ. x_3 x) λ. x_2 λ. x_3 λ. x_2 λ. x_3 λ. x_2 λ. x_3 λ. x_2 λ. x_3 x
+                                                            ) λ. x_5 x_13 λ. x_3 λ. x_3 λ. x_3 λ. x_3 λ. x_3 λ. x_3 λ. x_2 λ. x_3 λ. x_3 x
+                                                        ) λ. x_7 x_12 λ. x_3 λ. x_3 λ. x_3 λ. x_3 λ. x_2 λ. x_2 λ. x_3 λ. x_3 λ. x_3 λ. x_2 λ. x_3 λ. x_3 x
+                                                    ) λ. x_4 x_11 λ. x_3 λ. x_2 λ. x_2 λ. x_3 λ. x_3 λ. x_2 λ. x_3 λ. x_3 λ. x_3 x
+                                                ) λ. x_6 x_10 λ. x_3 λ. x_3 λ. x_3 λ. x_2 λ. x_3 λ. x_3 λ. x_2 λ. x_3 λ. x_3 λ. x_3 x
+                                            ) λ. x_4 x_9 λ. x_3 λ. x_3 λ. x_2 λ. x_2 λ. x_2 λ. x_3 λ. x_2 λ. x_3 λ. x_2 λ. x_2 λ. x_3 x
+                                        )
+                                      λ
+                                      . x_8
+                                        (x_2 λ. x_2 λ. x_2 λ. x_3 λ. x_2 λ. x_3 λ. x_3 λ. x_3 λ. x_3 λ. x_3 x)
+                                        ( λ x_9
+                                          . ( λ x_10
+                                              . ( λ x_11
+                                                  . ( λ x_12
+                                                      . ( λ x_13
+                                                          . ( λ x_14
+                                                              . ( λ x_15
+                                                                  . ( λ x_16
+                                                                      . ( λ x_17
+                                                                          . ( λ x_18
+                                                                              . ( λ x_19
+                                                                                  . ( λ x_20
+                                                                                      . ( λ x_21
+                                                                                          . ( λ x_22
+                                                                                              . ( λ x_23
+                                                                                                  . ( λ x_24
+                                                                                                      . ( λ x_25
+                                                                                                          . ( λ x_26
+                                                                                                              . ( λ x_27
+                                                                                                                  . ( λ x_28
+                                                                                                                      . ( λ x_29
+                                                                                                                          . ( λ x_30
+                                                                                                                              . (λx_31. x_6 (x_2 λ. x_3 λ. x_2 λ. x_2 λ. x_3 λ. x_3 λ. x_2 λ. x_3 λ. x_3 x) x_27) λ. x_4 x_30 λ. x_2 λ. x_3 λ. x_3 λ. x_2 λ. x_3 λ. x_3 λ. x_2 λ. x_3 λ. x_3 x
+                                                                                                                            ) λ. x_7 x_26 λ. x_3 λ. x_3 λ. x_2 λ. x_2 λ. x_3 λ. x_2 λ. x_3 λ. x_3 λ. x_3 λ. x_3 x
+                                                                                                                        ) λ. x_5 x_24 λ. x_2 λ. x_2 λ. x_2 λ. x_3 λ. x_2 λ. x_2 λ. x_2 λ. x_3 λ. x_2 λ. x_3 x
+                                                                                                                    ) λ. x_7 x_19 λ. x_3 λ. x_3 λ. x_2 λ. x_2 λ. x_3 λ. x_3 λ. x_2 λ. x_2 λ. x_3 λ. x_2 λ. x_3 x
+                                                                                                                ) λ. x_6 x_26 λ. x_3 λ. x_3 λ. x_3 λ. x_2 λ. x_3 λ. x_3 λ. x_3 λ. x_3 λ. x_3 x
+                                                                                                            ) λ. x_7 x_14 λ. x_3 λ. x_2 λ. x_2 λ. x_2 λ. x_2 λ. x_3 λ. x_3 λ. x_2 λ. x_3 x
+                                                                                                        ) λ. x_5 x_18 λ. x_2 λ. x_3 λ. x_3 λ. x_3 λ. x_3 λ. x_2 λ. x_3 λ. x_3 x
+                                                                                                    ) λ. x_4 x_23 λ. x_3 λ. x_2 λ. x_2 λ. x_2 λ. x_3 λ. x_3 λ. x_3 λ. x_2 λ. x_3 λ. x_3 λ. x_2 λ. x_3 x
+                                                                                                ) λ. x_5 x_22 λ. x_3 λ. x_2 λ. x_2 λ. x_3 λ. x_3 λ. x_3 λ. x_3 λ. x_3 λ. x_3 x
+                                                                                            ) λ. x_4 x_21 λ. x_2 λ. x_2 λ. x_3 λ. x_3 λ. x_3 λ. x_3 λ. x_2 λ. x_3 x
+                                                                                        ) λ. x_6 x_18 x_13
+                                                                                    ) λ. x_6 x_18 x_10
+                                                                                )
+                                                                              λ
+                                                                              . x_6 (x_2 λ. x_2 λ. x_2 λ. x_3 λ. x_3 λ. x_3 λ. x_2 λ. x_2 λ. x_3 λ. x_3 x) λ. x_3 λ. x_2 λ. x_2 λ. x_2 λ. x_3 λ. x_2 λ. x_3 λ. x_2 λ. x_2 λ. x_3 λ. x_3 λ. x_3 x
+                                                                            ) λ. x_6 x_10 x_14
+                                                                        ) λ. x_7 x_9 λ. x_3 λ. x_3 λ. x_3 λ. x_3 λ. x_3 λ. x_2 λ. x_2 λ. x_3 λ. x_3 x
+                                                                    ) λ. x_5 x_11 λ. x_3 λ. x_2 λ. x_2 λ. x_3 λ. x_3 λ. x_2 λ. x_3 λ. x_3 λ. x_3 λ. x_3 λ. x_3 x
+                                                                ) λ. x_5 x_13 λ. x_3 λ. x_3 λ. x_3 λ. x_2 λ. x_3 λ. x_3 λ. x_3 λ. x_2 λ. x_2 λ. x_2 λ. x_3 x
+                                                            ) λ. x_6 x_11 x_10
+                                                        ) λ. x_5 x_12 λ. x_3 λ. x_3 λ. x_3 λ. x_2 λ. x_3 λ. x_3 λ. x_2 λ. x_2 λ. x_2 λ. x_2 λ. x_3 λ. x_3 x
+                                                    )
+                                                  λ
+                                                  . x_6 (x_3 λ. x_2 λ. x_3 λ. x_3 λ. x_2 λ. x_3 λ. x_2 λ. x_2 λ. x_2 λ. x_3 λ. x_3 λ. x_3 x) λ. x_2 λ. x_2 λ. x_3 λ. x_2 λ. x_2 λ. x_3 λ. x_3 λ. x_3 x
+                                                ) λ. x_6 x_9 λ. x_2 λ. x_3 λ. x_2 λ. x_3 λ. x_2 λ. x_3 λ. x_3 λ. x_3 λ. x_2 λ. x_3 λ. x_3 x
+                                            )
+                                          λ
+                                          . x_6 (x_3 λ. x_2 λ. x_2 λ. x_3 λ. x_3 λ. x_3 λ. x_3 λ. x_2 λ. x_2 λ. x_2 λ. x_2 λ. x_3 x) λ. x_3 λ. x_2 λ. x_3 λ. x_3 λ. x_2 λ. x_3 λ. x_3 λ. x_3 λ. x_2 λ. x_3 x
+                                        )
+                                      λ
+                                      . x_8
+                                        (x_2 λ. x_3 λ. x_2 λ. x_3 λ. x_3 λ. x_3 λ. x_3 λ. x_3 x)
+                                        ( λ x_9
+                                          . ( λ x_10
+                                              . ( λ x_11
+                                                  . ( λ x_12
+                                                      . ( λ x_13
+                                                          . ( λ x_14
+                                                              . ( λ x_15
+                                                                  . ( λ x_16
+                                                                      . ( λ x_17
+                                                                          . ( λ x_18
+                                                                              . ( λ x_19
+                                                                                  . ( λ x_20
+                                                                                      . ( λ x_21
+                                                                                          . ( λ x_22
+                                                                                              . ( λ x_23
+                                                                                                  . (λx_24. x_4 x_24 λ. x_3 λ. x_3 λ. x_3 λ. x_3 λ. x_2 λ. x_3 λ. x_2 λ. x_2 λ. x_3 λ. x_3 x) λ. x_7 x_20 λ. x_2 λ. x_3 λ. x_3 λ. x_2 λ. x_3 λ. x_3 λ. x_2 λ. x_3 λ. x_3 x
+                                                                                                ) λ. x_7 x_20 λ. x_3 λ. x_3 λ. x_2 λ. x_2 λ. x_2 λ. x_2 λ. x_3 λ. x_2 λ. x_3 λ. x_3 λ. x_3 x
+                                                                                            ) λ. x_5 x_10 λ. x_3 λ. x_2 λ. x_3 λ. x_3 λ. x_2 λ. x_2 λ. x_3 λ. x_3 λ. x_2 λ. x_3 x
+                                                                                        ) λ. x_7 x_10 λ. x_2 λ. x_2 λ. x_3 λ. x_3 λ. x_2 λ. x_3 λ. x_3 λ. x_2 λ. x_2 λ. x_3 x
+                                                                                    ) λ. x_7 x_14 λ. x_3 λ. x_2 λ. x_3 λ. x_2 λ. x_2 λ. x_3 λ. x_2 λ. x_3 λ. x_2 λ. x_2 λ. x_3 x
+                                                                                ) λ. x_7 x_16 λ. x_2 λ. x_2 λ. x_3 λ. x_2 λ. x_2 λ. x_2 λ. x_2 λ. x_3 λ. x_3 x
+                                                                            ) λ. x_7 x_10 λ. x_2 λ. x_2 λ. x_3 λ. x_2 λ. x_3 λ. x_2 λ. x_2 λ. x_3 λ. x_2 λ. x_2 λ. x_2 λ. x_3 x
+                                                                        ) λ. x_4 x_16 λ. x_3 λ. x_2 λ. x_3 λ. x_2 λ. x_3 λ. x_3 λ. x_2 λ. x_2 λ. x_3 x
+                                                                    ) λ. x_7 x_10 λ. x_2 λ. x_2 λ. x_2 λ. x_2 λ. x_3 λ. x_2 λ. x_2 λ. x_3 x
+                                                                ) λ. x_7 x_14 λ. x_3 λ. x_2 λ. x_2 λ. x_3 λ. x_3 λ. x_3 λ. x_2 λ. x_3 λ. x_3 λ. x_2 λ. x_3 x
+                                                            ) λ. x_5 x_12 λ. x_3 λ. x_2 λ. x_3 λ. x_3 λ. x_3 λ. x_2 λ. x_3 λ. x_3 λ. x_3 x
+                                                        ) λ. x_6 x_12 λ. x_2 λ. x_3 λ. x_3 λ. x_2 λ. x_3 λ. x_3 λ. x_2 λ. x_3 λ. x_3 λ. x_3 x
+                                                    ) λ. x_5 x_10 λ. x_2 λ. x_3 λ. x_3 λ. x_3 λ. x_2 λ. x_2 λ. x_2 λ. x_2 λ. x_3 λ. x_2 λ. x_3 x
+                                                ) λ. x_6 x_10 x_10
+                                            ) λ. x_6 x_9 x_9
+                                        )
+                                      λ
+                                      . x_3
+                                      λ
+                                      . x_2
+                                      λ
+                                      . x_3
+                                      λ
+                                      . x_2
+                                      λ
+                                      . x_2
+                                      λ
+                                      . x_3
+                                      λ
+                                      . x_3
+                                      λ
+                                      . x_2
+                                      λ
+                                      . x_2
+                                      λ
+                                      . x_2 λ. x_2 λ. x_3 λ. x_3 λ. x_2 λ. x_3 λ. x_2 λ. x_2 λ. x_2 λ. x_3 λ. x_3 λ. x_2 λ. x_2 λ. x_3 λ. x_3 x
+                                    )
+                                  λ
+                                  . fixpoint
+                                  λ x_8 x_9 x_10 x_11
+                                  . x_9 x_11 (λx_12. x_8 x_12 x_10 λ. x_8 x_12 x_10 x_11) λx_12. x_10 λ. x_8 x_12 x_10 λ. x_8 x_12 x_10 x_11
+                                ) binary_bitwise_or
+                            ) binary_minimum
+                        ) binary_maximum
+                    ) merge_binary_plus
+                ) binary_odd
+            ) binary_even
+        ) binary_zero
+      ) λ. $merkle$7aefc117 λx x_2. x
+  )</script>
+<script type="application/x-lambdalattice" data-role="trace">(λbinary_zero. λbinary_even. λbinary_odd. λmerge_binary_plus. λbinary_maximum. λbinary_minimum. λbinary_bitwise_or. λfixpoint. λwren_typed_branch. λwren_typed_zero. λwren_typed_even. λwren_typed_odd. λwren_typed_plus. λwren_typed_maximum. λwren_typed_minimum. λwren_typed_bitwise_or. λwren_fixpoint_by_value. λbinary_set. λtrue. λtrace. trace
+  (λn. λc. c (λh0. h0 (λh0. λh1. h1 (λh0. h0 (λk. k "../../corpora/compiler/wren_typed_block.lambdalattice") (λk. k 4184) (λk. k 4697))) (λ x_0
+        . x_0 binary_zero binary_even binary_odd merge_binary_plus binary_maximum binary_minimum binary_bitwise_or fixpoint) (λ x_0
+        . ( λ
+            . wren_typed_branch
+            λ
+            . x_0 wren_typed_zero wren_typed_even wren_typed_odd wren_typed_plus wren_typed_maximum wren_typed_minimum wren_typed_bitwise_or wren_fixpoint_by_value
+          + x_0 binary_zero binary_even binary_odd merge_binary_plus binary_maximum binary_minimum binary_bitwise_or fixpoint
+          )))
+    (λn. λc. c (λh0. h0 (λh0. λh1. h1 (λh0. h0 (λk. k "../../corpora/compiler/wren_typed_specialization.lambdalattice") (λk. k 5057) (λk. k 5096))) (λx_0. wren_typed_branch x_0) (λx_0. x_0))
+    (λn. λc. c (λh0. h0 (λh0. λh1. h1 (λh0. h0 (λk. k "../../corpora/compiler/wren_typed_specialization.lambdalattice") (λk. k 3931) (λk. k 4548))) (λx_0 x_1 x_2. wren_fixpoint_by_value (λx_3 x_4 x_5. x_0 (λx_6. x_3 x_6 x_5) x_4 x_5) x_1 x_2) (λ x_0 x_1 x_2
+        . ( λ
+            . wren_typed_branch
+            λ
+            . wren_fixpoint_by_value
+              ( λ x_3 x_4 x_5
+                . ( x_0
+                    (λx_6 x_7. (x_3 (x_6 ∥ binary_set true) (x_7 ∥ binary_set true) ∥ binary_set true))
+                    (x_4 ∥ binary_set true) x_2
+                    (x_5 ∥ binary_set true)
+                  ∥ binary_set true
+                  )
+              ) x_1
+          + wren_fixpoint_by_value (λx_3 x_4. x_0 x_3 x_4 x_2) x_1
+          )))
+    (λn. λc. n))))
+  (λn. λc. c (λh0. h0 (λh0. λh1. h0 (λk. k 0)) (λn. λc. n) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h0) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h1) (λn. λc. n))))
+    (λn. λc. c (λh0. h0 (λh0. λh1. h1 (λk. k 0)) (λn. λc. c (λh0. λh1. λh2. λh3. h1 (λh0. λh1. h1 (λk. k 0)) (λh0. h0 (λk. k 0) (λn. λc. n)) (λh0. λh1. h0) (λn. λc. n)) (λn. λc. n)) (λn. λc. n))
+    (λn. λc. c (λh0. h0 (λh0. λh1. h1 (λk. k 1)) (λn. λc. n) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h0) (λn. λc. n)))
+    (λn. λc. c (λh0. h0 (λh0. λh1. h1 (λk. k 2)) (λn. λc. n) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h0) (λn. λc. n)))
+    (λn. λc. c (λh0. h0 (λh0. λh1. h1 (λk. k 3)) (λn. λc. n) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h0) (λn. λc. n)))
+    (λn. λc. c (λh0. h0 (λh0. λh1. h1 (λk. k 4)) (λn. λc. n) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h0) (λn. λc. n)))
+    (λn. λc. c (λh0. h0 (λh0. λh1. h1 (λk. k 5)) (λn. λc. n) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h0) (λn. λc. n)))
+    (λn. λc. c (λh0. h0 (λh0. λh1. h1 (λk. k 6)) (λn. λc. n) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h0) (λn. λc. n)))
+    (λn. λc. c (λh0. h0 (λh0. λh1. h1 (λk. k 7)) (λn. λc. n) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h0) (λn. λc. n)))
+    (λn. λc. c (λh0. h0 (λh0. λh1. h1 (λk. k 8)) (λn. λc. c (λh0. λh1. λh2. λh3. h0 (λh0. λh1. λh2. λh3. λh4. h2 (λh0. λh1. h0)) (λh0. h0 (λk. k 0) (λn. λc. n)) (λh0. λh1. h0) (λn. λc. n)) (λn. λc. n)) (λn. λc. n))
+    (λn. λc. c (λh0. h0 (λh0. λh1. h1 (λk. k 8)) (λn. λc. n) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h0) (λn. λc. n)))
+    (λn. λc. n))))))))))))
+  (λn. λc. c (λn. λc. c (λh0. λh1. λh2. λh3. h0 (λh0. λh1. λh2. λh3. λh4. h2 (λh0. λh1. h1 (λh0. h0 (λh0. λh1. h0 (λk. k 9)) (λn. λc. c (λh0. λh1. h0 (λk. k 0)) (λn. λc. n))))) (λh0. h0 (λk. k 0) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h0) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h1) (λn. λc. n)))) (λh0. λh1. h1) (λn. λc. n))
+      (λn. λc. c (λh0. λh1. λh2. λh3. h0 (λh0. λh1. λh2. λh3. λh4. h2 (λh0. λh1. h1 (λh0. h0 (λh0. λh1. h0 (λk. k 9)) (λn. λc. c (λh0. λh1. h0 (λk. k 2)) (λn. λc. c (λh0. λh1. h0 (λk. k 0)) (λn. λc. n)))))) (λh0. h0 (λk. k 0) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h0) (λn. λc. n))) (λh0. λh1. h1) (λn. λc. n))
+      (λn. λc. c (λh0. λh1. λh2. λh3. h0 (λh0. λh1. λh2. λh3. λh4. h2 (λh0. λh1. h1 (λh0. h0 (λh0. λh1. h0 (λk. k 9)) (λn. λc. c (λh0. λh1. h0 (λk. k 3)) (λn. λc. c (λh0. λh1. h0 (λk. k 2)) (λn. λc. c (λh0. λh1. h0 (λk. k 0)) (λn. λc. n))))))) (λh0. h0 (λk. k 0) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h0) (λn. λc. n))) (λh0. λh1. h1) (λn. λc. n))
+      (λn. λc. c (λh0. λh1. λh2. λh3. h0 (λh0. λh1. λh2. λh3. λh4. h2 (λh0. λh1. h1 (λh0. h0 (λh0. λh1. h0 (λk. k 9)) (λn. λc. c (λh0. λh1. h0 (λk. k 4)) (λn. λc. c (λh0. λh1. h0 (λk. k 3)) (λn. λc. c (λh0. λh1. h0 (λk. k 2)) (λn. λc. c (λh0. λh1. h0 (λk. k 0)) (λn. λc. n)))))))) (λh0. h0 (λk. k 0) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h0) (λn. λc. n))) (λh0. λh1. h1) (λn. λc. n))
+      (λn. λc. c (λh0. λh1. λh2. λh3. h0 (λh0. λh1. λh2. λh3. λh4. h2 (λh0. λh1. h1 (λh0. h0 (λh0. λh1. h0 (λk. k 9)) (λn. λc. c (λh0. λh1. h0 (λk. k 5)) (λn. λc. c (λh0. λh1. h0 (λk. k 4)) (λn. λc. c (λh0. λh1. h0 (λk. k 3)) (λn. λc. c (λh0. λh1. h0 (λk. k 2)) (λn. λc. c (λh0. λh1. h0 (λk. k 0)) (λn. λc. n))))))))) (λh0. h0 (λk. k 0) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h0) (λn. λc. n))) (λh0. λh1. h1) (λn. λc. n))
+      (λn. λc. c (λh0. λh1. λh2. λh3. h0 (λh0. λh1. λh2. λh3. λh4. h2 (λh0. λh1. h1 (λh0. h0 (λh0. λh1. h0 (λk. k 9)) (λn. λc. c (λh0. λh1. h0 (λk. k 6)) (λn. λc. c (λh0. λh1. h0 (λk. k 5)) (λn. λc. c (λh0. λh1. h0 (λk. k 4)) (λn. λc. c (λh0. λh1. h0 (λk. k 3)) (λn. λc. c (λh0. λh1. h0 (λk. k 2)) (λn. λc. c (λh0. λh1. h0 (λk. k 0)) (λn. λc. n)))))))))) (λh0. h0 (λk. k 0) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h0) (λn. λc. n))) (λh0. λh1. h1) (λn. λc. n))
+      (λn. λc. c (λh0. λh1. λh2. λh3. h0 (λh0. λh1. λh2. λh3. λh4. h2 (λh0. λh1. h1 (λh0. h0 (λh0. λh1. h0 (λk. k 9)) (λn. λc. c (λh0. λh1. h0 (λk. k 7)) (λn. λc. c (λh0. λh1. h0 (λk. k 6)) (λn. λc. c (λh0. λh1. h0 (λk. k 5)) (λn. λc. c (λh0. λh1. h0 (λk. k 4)) (λn. λc. c (λh0. λh1. h0 (λk. k 3)) (λn. λc. c (λh0. λh1. h0 (λk. k 2)) (λn. λc. c (λh0. λh1. h0 (λk. k 0)) (λn. λc. n))))))))))) (λh0. h0 (λk. k 0) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h0) (λn. λc. n))) (λh0. λh1. h1) (λn. λc. n))
+      (λn. λc. c (λh0. λh1. λh2. λh3. h0 (λh0. λh1. λh2. λh3. λh4. h2 (λh0. λh1. h1 (λh0. h0 (λh0. λh1. h0 (λk. k 10)) (λn. λc. c (λh0. λh1. h0 (λk. k 8)) (λn. λc. c (λh0. λh1. h0 (λk. k 7)) (λn. λc. c (λh0. λh1. h0 (λk. k 6)) (λn. λc. c (λh0. λh1. h0 (λk. k 5)) (λn. λc. c (λh0. λh1. h0 (λk. k 4)) (λn. λc. c (λh0. λh1. h0 (λk. k 3)) (λn. λc. c (λh0. λh1. h0 (λk. k 2)) (λn. λc. c (λh0. λh1. h0 (λk. k 0)) (λn. λc. n)))))))))))) (λh0. h0 (λk. k 0) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h0) (λn. λc. n))) (λh0. λh1. h1) (λn. λc. n))
+      (λn. λc. c (λh0. λh1. λh2. λh3. h0 (λh0. λh1. λh2. λh3. λh4. h0 (λk. k 0)) (λh0. h0 (λk. k 7) (λn. λc. n)) (λh0. λh1. h0) (λn. λc. n))
+      (λn. λc. c (λh0. λh1. λh2. λh3. h0 (λh0. λh1. λh2. λh3. λh4. h0 (λk. k 1)) (λh0. h0 (λk. k 0) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h3) (λn. λc. n))) (λh0. λh1. h0) (λn. λc. n))
+      (λn. λc. c (λh0. λh1. λh2. λh3. h0 (λh0. λh1. λh2. λh3. λh4. h2 (λh0. λh1. h0)) (λh0. h0 (λk. k 0) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h0) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h0) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h0) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h0) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h0) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h0) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h0) (λn. λc. n))))))))) (λh0. λh1. h0) (λn. λc. n))
+      (λn. λc. c (λh0. λh1. λh2. λh3. h0 (λh0. λh1. λh2. λh3. λh4. h2 (λh0. λh1. h0)) (λh0. h0 (λk. k 1) (λn. λc. n)) (λh0. λh1. h0) (λn. λc. n))
+      (λn. λc. c (λh0. λh1. λh2. λh3. h0 (λh0. λh1. λh2. λh3. λh4. h2 (λh0. λh1. h0)) (λh0. h0 (λk. k 1) (λn. λc. n)) (λh0. λh1. h0) (λn. λc. n))
+      (λn. λc. c (λh0. λh1. λh2. λh3. h0 (λh0. λh1. λh2. λh3. λh4. h2 (λh0. λh1. h0)) (λh0. h0 (λk. k 1) (λn. λc. n)) (λh0. λh1. h0) (λn. λc. n))
+      (λn. λc. c (λh0. λh1. λh2. λh3. h0 (λh0. λh1. λh2. λh3. λh4. h2 (λh0. λh1. h0)) (λh0. h0 (λk. k 1) (λn. λc. n)) (λh0. λh1. h0) (λn. λc. n))
+      (λn. λc. c (λh0. λh1. λh2. λh3. h0 (λh0. λh1. λh2. λh3. λh4. h2 (λh0. λh1. h0)) (λh0. h0 (λk. k 1) (λn. λc. n)) (λh0. λh1. h0) (λn. λc. n))
+      (λn. λc. c (λh0. λh1. λh2. λh3. h0 (λh0. λh1. λh2. λh3. λh4. h2 (λh0. λh1. h0)) (λh0. h0 (λk. k 1) (λn. λc. n)) (λh0. λh1. h0) (λn. λc. n))
+      (λn. λc. c (λh0. λh1. λh2. λh3. h0 (λh0. λh1. λh2. λh3. λh4. h2 (λh0. λh1. h0)) (λh0. h0 (λk. k 1) (λn. λc. n)) (λh0. λh1. h0) (λn. λc. n))
+      (λn. λc. c (λh0. λh1. λh2. λh3. h0 (λh0. λh1. λh2. λh3. λh4. h2 (λh0. λh1. h0)) (λh0. h0 (λk. k 0) (λn. λc. n)) (λh0. λh1. h0) (λn. λc. n))
+      (λn. λc. c (λh0. λh1. λh2. λh3. h0 (λh0. λh1. λh2. λh3. λh4. h2 (λh0. λh1. h0)) (λh0. h0 (λk. k 0) (λn. λc. n)) (λh0. λh1. h0) (λn. λc. n))
+      (λn. λc. c (λh0. λh1. λh2. λh3. h0 (λh0. λh1. λh2. λh3. λh4. h2 (λh0. λh1. h0)) (λh0. h0 (λk. k 0) (λn. λc. n)) (λh0. λh1. h0) (λn. λc. n))
+      (λn. λc. c (λh0. λh1. λh2. λh3. h0 (λh0. λh1. λh2. λh3. λh4. h2 (λh0. λh1. h0)) (λh0. h0 (λk. k 0) (λn. λc. n)) (λh0. λh1. h0) (λn. λc. n))
+      (λn. λc. c (λh0. λh1. λh2. λh3. h0 (λh0. λh1. λh2. λh3. λh4. h2 (λh0. λh1. h0)) (λh0. h0 (λk. k 0) (λn. λc. n)) (λh0. λh1. h0) (λn. λc. n))
+      (λn. λc. c (λh0. λh1. λh2. λh3. h0 (λh0. λh1. λh2. λh3. λh4. h2 (λh0. λh1. h0)) (λh0. h0 (λk. k 0) (λn. λc. n)) (λh0. λh1. h0) (λn. λc. n))
+      (λn. λc. c (λh0. λh1. λh2. λh3. h0 (λh0. λh1. λh2. λh3. λh4. h2 (λh0. λh1. h0)) (λh0. h0 (λk. k 0) (λn. λc. n)) (λh0. λh1. h0) (λn. λc. n))
+      (λn. λc. c (λh0. λh1. λh2. λh3. h0 (λh0. λh1. λh2. λh3. λh4. h2 (λh0. λh1. h0)) (λh0. h0 (λk. k 0) (λn. λc. n)) (λh0. λh1. h0) (λn. λc. n))
+      (λn. λc. c (λh0. λh1. λh2. λh3. h1 (λh0. λh1. h0 (λk. k 2) (λh0. λh1. h0) (λk. k 0)) (λh0. h0 (λk. k 0) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h1) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h1) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h1) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h0) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h0) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h0) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h1) (λn. λc. n))))))))) (λh0. λh1. h1) (λn. λc. n))
+      (λn. λc. c (λh0. λh1. λh2. λh3. h0 (λh0. λh1. λh2. λh3. λh4. h0 (λk. k 2)) (λh0. h0 (λk. k 3) (λn. λc. n)) (λh0. λh1. h0) (λn. λc. n))
+      (λn. λc. c (λh0. λh1. λh2. λh3. h0 (λh0. λh1. λh2. λh3. λh4. h0 (λk. k 1)) (λh0. h0 (λk. k 0) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h3) (λn. λc. n))) (λh0. λh1. h0) (λn. λc. n))
+      (λn. λc. c (λh0. λh1. λh2. λh3. h1 (λh0. λh1. h0 (λk. k 2) (λh0. λh1. h1) (λk. k 1)) (λh0. h0 (λk. k 0) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h0) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h1) (λn. λc. n)))) (λh0. λh1. h0) (λn. λc. n))
+      (λn. λc. c (λh0. λh1. λh2. λh3. h1 (λh0. λh1. h0 (λk. k 2) (λh0. λh1. h1) (λk. k 0)) (λh0. h0 (λk. k 3) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h2) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h0) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h1) (λn. λc. n))))) (λh0. λh1. h0) (λn. λc. n))
+      (λn. λc. c (λh0. λh1. λh2. λh3. h1 (λh0. λh1. h0 (λk. k 2) (λh0. λh1. h0) (λk. k 0)) (λh0. h0 (λk. k 5) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h0) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h0) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h0) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h1) (λn. λc. n)))))) (λh0. λh1. h1) (λn. λc. n))
+      (λn. λc. c (λh0. λh1. λh2. λh3. h0 (λh0. λh1. λh2. λh3. λh4. h0 (λk. k 2)) (λh0. h0 (λk. k 3) (λn. λc. n)) (λh0. λh1. h0) (λn. λc. n))
+      (λn. λc. c (λh0. λh1. λh2. λh3. h0 (λh0. λh1. λh2. λh3. λh4. h0 (λk. k 1)) (λh0. h0 (λk. k 0) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h3) (λn. λc. n))) (λh0. λh1. h0) (λn. λc. n))
+      (λn. λc. c (λh0. λh1. λh2. λh3. h1 (λh0. λh1. h0 (λk. k 2) (λh0. λh1. h1) (λk. k 1)) (λh0. h0 (λk. k 0) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h0) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h1) (λn. λc. n)))) (λh0. λh1. h0) (λn. λc. n))
+      (λn. λc. c (λh0. λh1. λh2. λh3. h1 (λh0. λh1. h0 (λk. k 2) (λh0. λh1. h1) (λk. k 0)) (λh0. h0 (λk. k 3) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h2) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h0) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h1) (λn. λc. n))))) (λh0. λh1. h0) (λn. λc. n))
+      (λn. λc. c (λh0. λh1. λh2. λh3. h1 (λh0. λh1. h0 (λk. k 2) (λh0. λh1. h0) (λk. k 0)) (λh0. h0 (λk. k 5) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h0) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h0) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h0) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h1) (λn. λc. n)))))) (λh0. λh1. h1) (λn. λc. n))
+      (λn. λc. c (λh0. λh1. λh2. λh3. h0 (λh0. λh1. λh2. λh3. λh4. h0 (λk. k 2)) (λh0. h0 (λk. k 3) (λn. λc. n)) (λh0. λh1. h0) (λn. λc. n))
+      (λn. λc. c (λh0. λh1. λh2. λh3. h0 (λh0. λh1. λh2. λh3. λh4. h0 (λk. k 1)) (λh0. h0 (λk. k 0) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h3) (λn. λc. n))) (λh0. λh1. h0) (λn. λc. n))
+      (λn. λc. c (λh0. λh1. λh2. λh3. h1 (λh0. λh1. h0 (λk. k 2) (λh0. λh1. h1) (λk. k 1)) (λh0. h0 (λk. k 0) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h0) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h1) (λn. λc. n)))) (λh0. λh1. h0) (λn. λc. n))
+      (λn. λc. c (λh0. λh1. λh2. λh3. h1 (λh0. λh1. h0 (λk. k 2) (λh0. λh1. h1) (λk. k 0)) (λh0. h0 (λk. k 3) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h2) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h0) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h1) (λn. λc. n))))) (λh0. λh1. h0) (λn. λc. n))
+      (λn. λc. c (λh0. λh1. λh2. λh3. h1 (λh0. λh1. h0 (λk. k 2) (λh0. λh1. h0) (λk. k 0)) (λh0. h0 (λk. k 5) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h0) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h0) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h0) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h1) (λn. λc. n)))))) (λh0. λh1. h1) (λn. λc. n))
+      (λn. λc. c (λh0. λh1. λh2. λh3. h0 (λh0. λh1. λh2. λh3. λh4. h0 (λk. k 2)) (λh0. h0 (λk. k 3) (λn. λc. n)) (λh0. λh1. h0) (λn. λc. n))
+      (λn. λc. c (λh0. λh1. λh2. λh3. h0 (λh0. λh1. λh2. λh3. λh4. h0 (λk. k 1)) (λh0. h0 (λk. k 0) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h3) (λn. λc. n))) (λh0. λh1. h0) (λn. λc. n))
+      (λn. λc. c (λh0. λh1. λh2. λh3. h1 (λh0. λh1. h0 (λk. k 2) (λh0. λh1. h1) (λk. k 1)) (λh0. h0 (λk. k 0) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h0) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h1) (λn. λc. n)))) (λh0. λh1. h0) (λn. λc. n))
+      (λn. λc. c (λh0. λh1. λh2. λh3. h1 (λh0. λh1. h0 (λk. k 2) (λh0. λh1. h1) (λk. k 0)) (λh0. h0 (λk. k 3) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h2) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h0) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h1) (λn. λc. n))))) (λh0. λh1. h0) (λn. λc. n))
+      (λn. λc. c (λh0. λh1. λh2. λh3. h0 (λh0. λh1. λh2. λh3. λh4. h2 (λh0. λh1. h0)) (λh0. h0 (λk. k 5) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h2) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h0) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h0) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h0) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h0) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h0) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h0) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h0) (λn. λc. n)))))))))) (λh0. λh1. h0) (λn. λc. n))
+      (λn. λc. c (λh0. λh1. λh2. λh3. h0 (λh0. λh1. λh2. λh3. λh4. h2 (λh0. λh1. h0)) (λh0. h0 (λk. k 1) (λn. λc. n)) (λh0. λh1. h0) (λn. λc. n))
+      (λn. λc. c (λh0. λh1. λh2. λh3. h0 (λh0. λh1. λh2. λh3. λh4. h2 (λh0. λh1. h0)) (λh0. h0 (λk. k 1) (λn. λc. n)) (λh0. λh1. h0) (λn. λc. n))
+      (λn. λc. c (λh0. λh1. λh2. λh3. h0 (λh0. λh1. λh2. λh3. λh4. h2 (λh0. λh1. h0)) (λh0. h0 (λk. k 1) (λn. λc. n)) (λh0. λh1. h0) (λn. λc. n))
+      (λn. λc. c (λh0. λh1. λh2. λh3. h0 (λh0. λh1. λh2. λh3. λh4. h2 (λh0. λh1. h0)) (λh0. h0 (λk. k 1) (λn. λc. n)) (λh0. λh1. h0) (λn. λc. n))
+      (λn. λc. c (λh0. λh1. λh2. λh3. h0 (λh0. λh1. λh2. λh3. λh4. h2 (λh0. λh1. h0)) (λh0. h0 (λk. k 1) (λn. λc. n)) (λh0. λh1. h0) (λn. λc. n))
+      (λn. λc. c (λh0. λh1. λh2. λh3. h0 (λh0. λh1. λh2. λh3. λh4. h2 (λh0. λh1. h0)) (λh0. h0 (λk. k 1) (λn. λc. n)) (λh0. λh1. h0) (λn. λc. n))
+      (λn. λc. c (λh0. λh1. λh2. λh3. h0 (λh0. λh1. λh2. λh3. λh4. h2 (λh0. λh1. h0)) (λh0. h0 (λk. k 1) (λn. λc. n)) (λh0. λh1. h0) (λn. λc. n))
+      (λn. λc. c (λh0. λh1. λh2. λh3. h0 (λh0. λh1. λh2. λh3. λh4. h2 (λh0. λh1. h0)) (λh0. h0 (λk. k 0) (λn. λc. n)) (λh0. λh1. h0) (λn. λc. n))
+      (λn. λc. c (λh0. λh1. λh2. λh3. h0 (λh0. λh1. λh2. λh3. λh4. h2 (λh0. λh1. h0)) (λh0. h0 (λk. k 0) (λn. λc. n)) (λh0. λh1. h0) (λn. λc. n))
+      (λn. λc. c (λh0. λh1. λh2. λh3. h0 (λh0. λh1. λh2. λh3. λh4. h2 (λh0. λh1. h0)) (λh0. h0 (λk. k 0) (λn. λc. n)) (λh0. λh1. h0) (λn. λc. n))
+      (λn. λc. c (λh0. λh1. λh2. λh3. h0 (λh0. λh1. λh2. λh3. λh4. h2 (λh0. λh1. h0)) (λh0. h0 (λk. k 0) (λn. λc. n)) (λh0. λh1. h0) (λn. λc. n))
+      (λn. λc. c (λh0. λh1. λh2. λh3. h0 (λh0. λh1. λh2. λh3. λh4. h2 (λh0. λh1. h0)) (λh0. h0 (λk. k 0) (λn. λc. n)) (λh0. λh1. h0) (λn. λc. n))
+      (λn. λc. c (λh0. λh1. λh2. λh3. h0 (λh0. λh1. λh2. λh3. λh4. h2 (λh0. λh1. h0)) (λh0. h0 (λk. k 0) (λn. λc. n)) (λh0. λh1. h0) (λn. λc. n))
+      (λn. λc. c (λh0. λh1. λh2. λh3. h0 (λh0. λh1. λh2. λh3. λh4. h2 (λh0. λh1. h0)) (λh0. h0 (λk. k 0) (λn. λc. n)) (λh0. λh1. h0) (λn. λc. n))
+      (λn. λc. n))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))
+    (λn. λc. c (λn. λc. c (λh0. λh1. λh2. λh3. h2 (λh0. h0 (λk. k 0) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h0) (λn. λc. c (λh0. λh1. λh2. λh3. λh4. h1) (λn. λc. n)))) (λx_0. λx_1. λx_2. x_2 (λx_3. λx_4. λx_5. x_4 (λx_6. λx_7. λx_8. x_7 (λx_9. λx_10. λx_11. x_11 (λx_12. λx_13. λx_14. x_14 (λx_15. λx_16. λx_17. x_16 (λx_18. λx_19. λx_20. x_20 (λx_21. λx_22. λx_23. x_23 (λx_24. λx_25. λx_26. x_25 (λx_27. λx_28. λx_29. x_29 (λx_30. λx_31. λx_32. x_31 (λx_33. λx_34. λx_35. x_34 (λx_36. λx_37. λx_38. x_38 (λx_39. λx_40. λx_41. x_39)))))))))))))))
+      (λn. λc. n))
+    (λn. λc. n)))
+)
+  (λx_0. λx_1. λx_2. x_0)
+  (λx_0. λx_1. λx_2. λx_3. x_2 x_0)
+  (λx_0. λx_1. λx_2. λx_3. x_3 x_0)
+  ((λx_0. (λ"$generic". λx_1. x_1) "$generic" x_0) ((λx_0. λx_1. x_1 (x_0 x_0 x_1)) (λx_0. λx_1. x_1 (x_0 x_0 x_1))) (λx_0. λx_1. λx_2. x_1 x_2 (λx_3. x_2 x_1 (λx_4. (λx_5. λx_6. λx_7. λx_8. x_7 x_5) (x_0 x_3 x_4)) (λx_4. (λx_5. λx_6. λx_7. λx_8. x_8 x_5) (x_0 x_3 x_4))) (λx_3. x_2 x_1 (λx_4. (λx_5. λx_6. λx_7. λx_8. x_8 x_5) (x_0 x_3 x_4)) (λx_4. (λx_5. λx_6. λx_7. λx_8. x_7 x_5) ((λx_5. (λ"$generic". λx_6. x_6) "$generic" x_5) ((λx_5. λx_6. x_6 (x_5 x_5 x_6)) (λx_5. λx_6. x_6 (x_5 x_5 x_6))) (λx_5. λx_6. x_6 ((λx_7. λx_8. λx_9. λx_10. x_10 x_7) (λx_7. λx_8. λx_9. x_7)) (λx_7. (λx_8. λx_9. λx_10. λx_11. x_11 x_8) x_7) (λx_7. (λx_8. λx_9. λx_10. λx_11. x_10 x_8) (x_5 x_7))) (x_0 x_3 x_4))))))
+  (λx_0. λx_1. (λx_2. (λ"$generic". λx_3. x_3) "$generic" x_2) ((λx_2. λx_3. x_3 (x_2 x_2 x_3)) (λx_2. λx_3. x_3 (x_2 x_2 x_3))) (λx_2. λx_3. λx_4. λx_5. x_4 (x_5 x_3 (λx_6. (λx_7. (λ"$constructor". λx_8. x_8) "$constructor" x_7) (λx_7. λx_8. x_7)) (λx_6. (λx_7. (λ"$constructor". λx_8. x_8) "$constructor" x_7) (λx_7. λx_8. x_7))) (λx_6. x_5 ((λx_7. (λ"$constructor". λx_8. x_8) "$constructor" x_7) (λx_7. λx_8. x_8)) (λx_7. x_2 x_3 x_6 x_7) (λx_7. x_2 ((λx_8. (λ"$constructor". λx_9. x_9) "$constructor" x_8) (λx_8. λx_9. x_8)) x_6 x_7)) (λx_6. x_5 ((λx_7. (λ"$constructor". λx_8. x_8) "$constructor" x_7) (λx_7. λx_8. x_8)) (λx_7. x_2 ((λx_8. (λ"$constructor". λx_9. x_9) "$constructor" x_8) (λx_8. λx_9. x_9)) x_6 x_7) (λx_7. x_2 x_3 x_6 x_7))) ((λx_2. (λ"$constructor". λx_3. x_3) "$constructor" x_2) (λx_2. λx_3. x_3)) x_0 x_1 x_1 x_0)
+  (λx_0. λx_1. (λx_2. (λ"$generic". λx_3. x_3) "$generic" x_2) ((λx_2. λx_3. x_3 (x_2 x_2 x_3)) (λx_2. λx_3. x_3 (x_2 x_2 x_3))) (λx_2. λx_3. λx_4. λx_5. x_4 (x_5 x_3 (λx_6. (λx_7. (λ"$constructor". λx_8. x_8) "$constructor" x_7) (λx_7. λx_8. x_7)) (λx_6. (λx_7. (λ"$constructor". λx_8. x_8) "$constructor" x_7) (λx_7. λx_8. x_7))) (λx_6. x_5 ((λx_7. (λ"$constructor". λx_8. x_8) "$constructor" x_7) (λx_7. λx_8. x_8)) (λx_7. x_2 x_3 x_6 x_7) (λx_7. x_2 ((λx_8. (λ"$constructor". λx_9. x_9) "$constructor" x_8) (λx_8. λx_9. x_8)) x_6 x_7)) (λx_6. x_5 ((λx_7. (λ"$constructor". λx_8. x_8) "$constructor" x_7) (λx_7. λx_8. x_8)) (λx_7. x_2 ((λx_8. (λ"$constructor". λx_9. x_9) "$constructor" x_8) (λx_8. λx_9. x_9)) x_6 x_7) (λx_7. x_2 x_3 x_6 x_7))) ((λx_2. (λ"$constructor". λx_3. x_3) "$constructor" x_2) (λx_2. λx_3. x_3)) x_0 x_1 x_0 x_1)
+  ((λx_0. (λ"$generic". λx_1. x_1) "$generic" x_0) ((λx_0. λx_1. x_1 (x_0 x_0 x_1)) (λx_0. λx_1. x_1 (x_0 x_0 x_1))) (λx_0. λx_1. λx_2. x_1 x_2 (λx_3. x_2 x_1 (λx_4. (λx_5. λx_6. λx_7. λx_8. x_7 x_5) (x_0 x_3 x_4)) (λx_4. (λx_5. λx_6. λx_7. λx_8. x_8 x_5) (x_0 x_3 x_4))) (λx_3. x_2 x_1 (λx_4. (λx_5. λx_6. λx_7. λx_8. x_8 x_5) (x_0 x_3 x_4)) (λx_4. (λx_5. λx_6. λx_7. λx_8. x_8 x_5) (x_0 x_3 x_4)))))
+  ((λx_0. (λ"$generic". λx_1. x_1) "$generic" x_0) ((λx_0. λx_1. x_1 (x_0 x_0 x_1)) (λx_0. λx_1. x_1 (x_0 x_0 x_1))))
+  (λx_0. (λx_1. x_1) x_0)
+  (λx_0. λx_1. λx_2. x_0 ∥ (λx_0. (λ"$generic". λx_1. x_1) "$generic" x_0) ((λx_0. λx_1. x_1 (x_0 x_0 x_1)) (λx_0. λx_1. x_1 (x_0 x_0 x_1))) (λx_0. λx_1. ((λx_2. λx_3. λx_4. λx_5. x_5 x_2) (x_0 ((λx_2. (λ"$constructor". λx_3. x_3) "$constructor" x_2) (λx_2. λx_3. x_2))) + (λx_2. λx_3. λx_4. λx_5. x_4 x_2) (x_0 ((λx_2. (λ"$constructor". λx_3. x_3) "$constructor" x_2) (λx_2. λx_3. x_3))) + x_1 (λx_2. λx_3. λx_4. x_2) ((λx_2. (λx_3. x_2 (x_3 x_3)) (λx_3. x_2 (x_3 x_3))) (λx_2. λx_3. (x_2 ∥ x_3))))) ((λx_0. (λ"$constructor". λx_1. x_1) "$constructor" x_0) (λx_0. λx_1. x_0)))
+  ((λx_0. λx_1. λx_2. λx_3. (x_2 (x_3 ∥ x_0) ∥ x_1)) ((λx_0. (λ"$generic". λx_1. x_1) "$generic" x_0) ((λx_0. λx_1. x_1 (x_0 x_0 x_1)) (λx_0. λx_1. x_1 (x_0 x_0 x_1))) (λx_0. λx_1. ((λx_2. λx_3. λx_4. λx_5. x_5 x_2) (x_0 ((λx_2. (λ"$constructor". λx_3. x_3) "$constructor" x_2) (λx_2. λx_3. x_2))) + (λx_2. λx_3. λx_4. λx_5. x_4 x_2) (x_0 ((λx_2. (λ"$constructor". λx_3. x_3) "$constructor" x_2) (λx_2. λx_3. x_3))) + x_1 (λx_2. λx_3. λx_4. x_2) ((λx_2. (λx_3. x_2 (x_3 x_3)) (λx_3. x_2 (x_3 x_3))) (λx_2. λx_3. (x_2 ∥ x_3))))) ((λx_0. (λ"$constructor". λx_1. x_1) "$constructor" x_0) (λx_0. λx_1. x_1))) ((λx_0. (λ"$generic". λx_1. x_1) "$generic" x_0) ((λx_0. λx_1. x_1 (x_0 x_0 x_1)) (λx_0. λx_1. x_1 (x_0 x_0 x_1))) (λx_0. λx_1. ((λx_2. λx_3. λx_4. λx_5. x_5 x_2) (x_0 ((λx_2. (λ"$constructor". λx_3. x_3) "$constructor" x_2) (λx_2. λx_3. x_2))) + (λx_2. λx_3. λx_4. λx_5. x_4 x_2) (x_0 ((λx_2. (λ"$constructor". λx_3. x_3) "$constructor" x_2) (λx_2. λx_3. x_3))) + x_1 (λx_2. λx_3. λx_4. x_2) ((λx_2. (λx_3. x_2 (x_3 x_3)) (λx_3. x_2 (x_3 x_3))) (λx_2. λx_3. (x_2 ∥ x_3))))) ((λx_0. (λ"$constructor". λx_1. x_1) "$constructor" x_0) (λx_0. λx_1. x_1))) (λx_0. λx_1. λx_2. λx_3. x_2 x_0))
+  ((λx_0. λx_1. λx_2. λx_3. (x_2 (x_3 ∥ x_0) ∥ x_1)) ((λx_0. (λ"$generic". λx_1. x_1) "$generic" x_0) ((λx_0. λx_1. x_1 (x_0 x_0 x_1)) (λx_0. λx_1. x_1 (x_0 x_0 x_1))) (λx_0. λx_1. ((λx_2. λx_3. λx_4. λx_5. x_5 x_2) (x_0 ((λx_2. (λ"$constructor". λx_3. x_3) "$constructor" x_2) (λx_2. λx_3. x_2))) + (λx_2. λx_3. λx_4. λx_5. x_4 x_2) (x_0 ((λx_2. (λ"$constructor". λx_3. x_3) "$constructor" x_2) (λx_2. λx_3. x_3))) + x_1 (λx_2. λx_3. λx_4. x_2) ((λx_2. (λx_3. x_2 (x_3 x_3)) (λx_3. x_2 (x_3 x_3))) (λx_2. λx_3. (x_2 ∥ x_3))))) ((λx_0. (λ"$constructor". λx_1. x_1) "$constructor" x_0) (λx_0. λx_1. x_0))) ((λx_0. (λ"$generic". λx_1. x_1) "$generic" x_0) ((λx_0. λx_1. x_1 (x_0 x_0 x_1)) (λx_0. λx_1. x_1 (x_0 x_0 x_1))) (λx_0. λx_1. ((λx_2. λx_3. λx_4. λx_5. x_5 x_2) (x_0 ((λx_2. (λ"$constructor". λx_3. x_3) "$constructor" x_2) (λx_2. λx_3. x_2))) + (λx_2. λx_3. λx_4. λx_5. x_4 x_2) (x_0 ((λx_2. (λ"$constructor". λx_3. x_3) "$constructor" x_2) (λx_2. λx_3. x_3))) + x_1 (λx_2. λx_3. λx_4. x_2) ((λx_2. (λx_3. x_2 (x_3 x_3)) (λx_3. x_2 (x_3 x_3))) (λx_2. λx_3. (x_2 ∥ x_3))))) ((λx_0. (λ"$constructor". λx_1. x_1) "$constructor" x_0) (λx_0. λx_1. x_1))) (λx_0. λx_1. λx_2. λx_3. x_3 x_0))
+  (λx_0. (λx_1. λx_2. λx_3. λx_4. (x_3 (x_4 ∥ x_1) ∥ x_2)) ((λx_1. (λ"$generic". λx_2. x_2) "$generic" x_1) ((λx_1. λx_2. x_2 (x_1 x_1 x_2)) (λx_1. λx_2. x_2 (x_1 x_1 x_2))) (λx_1. λx_2. ((λx_3. λx_4. λx_5. λx_6. x_6 x_3) (x_1 ((λx_3. (λ"$constructor". λx_4. x_4) "$constructor" x_3) (λx_3. λx_4. x_3))) + (λx_3. λx_4. λx_5. λx_6. x_5 x_3) (x_1 ((λx_3. (λ"$constructor". λx_4. x_4) "$constructor" x_3) (λx_3. λx_4. x_4))) + x_2 (λx_3. λx_4. λx_5. x_3) ((λx_3. (λx_4. x_3 (x_4 x_4)) (λx_4. x_3 (x_4 x_4))) (λx_3. λx_4. (x_3 ∥ x_4))))) ((λx_1. (λ"$constructor". λx_2. x_2) "$constructor" x_1) (λx_1. λx_2. x_1))) ((λx_1. (λ"$generic". λx_2. x_2) "$generic" x_1) ((λx_1. λx_2. x_2 (x_1 x_1 x_2)) (λx_1. λx_2. x_2 (x_1 x_1 x_2))) (λx_1. λx_2. ((λx_3. λx_4. λx_5. λx_6. x_6 x_3) (x_1 ((λx_3. (λ"$constructor". λx_4. x_4) "$constructor" x_3) (λx_3. λx_4. x_3))) + (λx_3. λx_4. λx_5. λx_6. x_5 x_3) (x_1 ((λx_3. (λ"$constructor". λx_4. x_4) "$constructor" x_3) (λx_3. λx_4. x_4))) + x_2 (λx_3. λx_4. λx_5. x_3) ((λx_3. (λx_4. x_3 (x_4 x_4)) (λx_4. x_3 (x_4 x_4))) (λx_3. λx_4. (x_3 ∥ x_4))))) ((λx_1. (λ"$constructor". λx_2. x_2) "$constructor" x_1) (λx_1. λx_2. x_1))) ((λx_1. (λ"$generic". λx_2. x_2) "$generic" x_1) ((λx_1. λx_2. x_2 (x_1 x_1 x_2)) (λx_1. λx_2. x_2 (x_1 x_1 x_2))) (λx_1. λx_2. λx_3. x_2 x_3 (λx_4. x_3 x_2 (λx_5. (λx_6. λx_7. λx_8. λx_9. x_8 x_6) (x_1 x_4 x_5)) (λx_5. (λx_6. λx_7. λx_8. λx_9. x_9 x_6) (x_1 x_4 x_5))) (λx_4. x_3 x_2 (λx_5. (λx_6. λx_7. λx_8. λx_9. x_9 x_6) (x_1 x_4 x_5)) (λx_5. (λx_6. λx_7. λx_8. λx_9. x_8 x_6) ((λx_6. (λ"$generic". λx_7. x_7) "$generic" x_6) ((λx_6. λx_7. x_7 (x_6 x_6 x_7)) (λx_6. λx_7. x_7 (x_6 x_6 x_7))) (λx_6. λx_7. x_7 ((λx_8. λx_9. λx_10. λx_11. x_11 x_8) (λx_8. λx_9. λx_10. x_8)) (λx_8. (λx_9. λx_10. λx_11. λx_12. x_12 x_9) x_8) (λx_8. (λx_9. λx_10. λx_11. λx_12. x_11 x_9) (x_6 x_8))) (x_1 x_4 x_5))))) (x_0 ∥ (λx_1. (λ"$generic". λx_2. x_2) "$generic" x_1) ((λx_1. λx_2. x_2 (x_1 x_1 x_2)) (λx_1. λx_2. x_2 (x_1 x_1 x_2))) (λx_1. λx_2. ((λx_3. λx_4. λx_5. λx_6. x_6 x_3) (x_1 ((λx_3. (λ"$constructor". λx_4. x_4) "$constructor" x_3) (λx_3. λx_4. x_3))) + (λx_3. λx_4. λx_5. λx_6. x_5 x_3) (x_1 ((λx_3. (λ"$constructor". λx_4. x_4) "$constructor" x_3) (λx_3. λx_4. x_4))) + x_2 (λx_3. λx_4. λx_5. x_3) ((λx_3. (λx_4. x_3 (x_4 x_4)) (λx_4. x_3 (x_4 x_4))) (λx_3. λx_4. (x_3 ∥ x_4))))) ((λx_1. (λ"$constructor". λx_2. x_2) "$constructor" x_1) (λx_1. λx_2. x_1)))))
+  (λx_0. (λx_1. λx_2. λx_3. λx_4. (x_3 (x_4 ∥ x_1) ∥ x_2)) ((λx_1. (λ"$generic". λx_2. x_2) "$generic" x_1) ((λx_1. λx_2. x_2 (x_1 x_1 x_2)) (λx_1. λx_2. x_2 (x_1 x_1 x_2))) (λx_1. λx_2. ((λx_3. λx_4. λx_5. λx_6. x_6 x_3) (x_1 ((λx_3. (λ"$constructor". λx_4. x_4) "$constructor" x_3) (λx_3. λx_4. x_3))) + (λx_3. λx_4. λx_5. λx_6. x_5 x_3) (x_1 ((λx_3. (λ"$constructor". λx_4. x_4) "$constructor" x_3) (λx_3. λx_4. x_4))) + x_2 (λx_3. λx_4. λx_5. x_3) ((λx_3. (λx_4. x_3 (x_4 x_4)) (λx_4. x_3 (x_4 x_4))) (λx_3. λx_4. (x_3 ∥ x_4))))) ((λx_1. (λ"$constructor". λx_2. x_2) "$constructor" x_1) (λx_1. λx_2. x_1))) ((λx_1. (λ"$generic". λx_2. x_2) "$generic" x_1) ((λx_1. λx_2. x_2 (x_1 x_1 x_2)) (λx_1. λx_2. x_2 (x_1 x_1 x_2))) (λx_1. λx_2. ((λx_3. λx_4. λx_5. λx_6. x_6 x_3) (x_1 ((λx_3. (λ"$constructor". λx_4. x_4) "$constructor" x_3) (λx_3. λx_4. x_3))) + (λx_3. λx_4. λx_5. λx_6. x_5 x_3) (x_1 ((λx_3. (λ"$constructor". λx_4. x_4) "$constructor" x_3) (λx_3. λx_4. x_4))) + x_2 (λx_3. λx_4. λx_5. x_3) ((λx_3. (λx_4. x_3 (x_4 x_4)) (λx_4. x_3 (x_4 x_4))) (λx_3. λx_4. (x_3 ∥ x_4))))) ((λx_1. (λ"$constructor". λx_2. x_2) "$constructor" x_1) (λx_1. λx_2. x_1))) ((λx_1. λx_2. (λx_3. (λ"$generic". λx_4. x_4) "$generic" x_3) ((λx_3. λx_4. x_4 (x_3 x_3 x_4)) (λx_3. λx_4. x_4 (x_3 x_3 x_4))) (λx_3. λx_4. λx_5. λx_6. x_5 (x_6 x_4 (λx_7. (λx_8. (λ"$constructor". λx_9. x_9) "$constructor" x_8) (λx_8. λx_9. x_8)) (λx_7. (λx_8. (λ"$constructor". λx_9. x_9) "$constructor" x_8) (λx_8. λx_9. x_8))) (λx_7. x_6 ((λx_8. (λ"$constructor". λx_9. x_9) "$constructor" x_8) (λx_8. λx_9. x_9)) (λx_8. x_3 x_4 x_7 x_8) (λx_8. x_3 ((λx_9. (λ"$constructor". λx_10. x_10) "$constructor" x_9) (λx_9. λx_10. x_9)) x_7 x_8)) (λx_7. x_6 ((λx_8. (λ"$constructor". λx_9. x_9) "$constructor" x_8) (λx_8. λx_9. x_9)) (λx_8. x_3 ((λx_9. (λ"$constructor". λx_10. x_10) "$constructor" x_9) (λx_9. λx_10. x_10)) x_7 x_8) (λx_8. x_3 x_4 x_7 x_8))) ((λx_3. (λ"$constructor". λx_4. x_4) "$constructor" x_3) (λx_3. λx_4. x_4)) x_1 x_2 x_2 x_1) (x_0 ∥ (λx_1. (λ"$generic". λx_2. x_2) "$generic" x_1) ((λx_1. λx_2. x_2 (x_1 x_1 x_2)) (λx_1. λx_2. x_2 (x_1 x_1 x_2))) (λx_1. λx_2. ((λx_3. λx_4. λx_5. λx_6. x_6 x_3) (x_1 ((λx_3. (λ"$constructor". λx_4. x_4) "$constructor" x_3) (λx_3. λx_4. x_3))) + (λx_3. λx_4. λx_5. λx_6. x_5 x_3) (x_1 ((λx_3. (λ"$constructor". λx_4. x_4) "$constructor" x_3) (λx_3. λx_4. x_4))) + x_2 (λx_3. λx_4. λx_5. x_3) ((λx_3. (λx_4. x_3 (x_4 x_4)) (λx_4. x_3 (x_4 x_4))) (λx_3. λx_4. (x_3 ∥ x_4))))) ((λx_1. (λ"$constructor". λx_2. x_2) "$constructor" x_1) (λx_1. λx_2. x_1)))))
+  (λx_0. (λx_1. λx_2. λx_3. λx_4. (x_3 (x_4 ∥ x_1) ∥ x_2)) ((λx_1. (λ"$generic". λx_2. x_2) "$generic" x_1) ((λx_1. λx_2. x_2 (x_1 x_1 x_2)) (λx_1. λx_2. x_2 (x_1 x_1 x_2))) (λx_1. λx_2. ((λx_3. λx_4. λx_5. λx_6. x_6 x_3) (x_1 ((λx_3. (λ"$constructor". λx_4. x_4) "$constructor" x_3) (λx_3. λx_4. x_3))) + (λx_3. λx_4. λx_5. λx_6. x_5 x_3) (x_1 ((λx_3. (λ"$constructor". λx_4. x_4) "$constructor" x_3) (λx_3. λx_4. x_4))) + x_2 (λx_3. λx_4. λx_5. x_3) ((λx_3. (λx_4. x_3 (x_4 x_4)) (λx_4. x_3 (x_4 x_4))) (λx_3. λx_4. (x_3 ∥ x_4))))) ((λx_1. (λ"$constructor". λx_2. x_2) "$constructor" x_1) (λx_1. λx_2. x_1))) ((λx_1. (λ"$generic". λx_2. x_2) "$generic" x_1) ((λx_1. λx_2. x_2 (x_1 x_1 x_2)) (λx_1. λx_2. x_2 (x_1 x_1 x_2))) (λx_1. λx_2. ((λx_3. λx_4. λx_5. λx_6. x_6 x_3) (x_1 ((λx_3. (λ"$constructor". λx_4. x_4) "$constructor" x_3) (λx_3. λx_4. x_3))) + (λx_3. λx_4. λx_5. λx_6. x_5 x_3) (x_1 ((λx_3. (λ"$constructor". λx_4. x_4) "$constructor" x_3) (λx_3. λx_4. x_4))) + x_2 (λx_3. λx_4. λx_5. x_3) ((λx_3. (λx_4. x_3 (x_4 x_4)) (λx_4. x_3 (x_4 x_4))) (λx_3. λx_4. (x_3 ∥ x_4))))) ((λx_1. (λ"$constructor". λx_2. x_2) "$constructor" x_1) (λx_1. λx_2. x_1))) ((λx_1. λx_2. (λx_3. (λ"$generic". λx_4. x_4) "$generic" x_3) ((λx_3. λx_4. x_4 (x_3 x_3 x_4)) (λx_3. λx_4. x_4 (x_3 x_3 x_4))) (λx_3. λx_4. λx_5. λx_6. x_5 (x_6 x_4 (λx_7. (λx_8. (λ"$constructor". λx_9. x_9) "$constructor" x_8) (λx_8. λx_9. x_8)) (λx_7. (λx_8. (λ"$constructor". λx_9. x_9) "$constructor" x_8) (λx_8. λx_9. x_8))) (λx_7. x_6 ((λx_8. (λ"$constructor". λx_9. x_9) "$constructor" x_8) (λx_8. λx_9. x_9)) (λx_8. x_3 x_4 x_7 x_8) (λx_8. x_3 ((λx_9. (λ"$constructor". λx_10. x_10) "$constructor" x_9) (λx_9. λx_10. x_9)) x_7 x_8)) (λx_7. x_6 ((λx_8. (λ"$constructor". λx_9. x_9) "$constructor" x_8) (λx_8. λx_9. x_9)) (λx_8. x_3 ((λx_9. (λ"$constructor". λx_10. x_10) "$constructor" x_9) (λx_9. λx_10. x_10)) x_7 x_8) (λx_8. x_3 x_4 x_7 x_8))) ((λx_3. (λ"$constructor". λx_4. x_4) "$constructor" x_3) (λx_3. λx_4. x_4)) x_1 x_2 x_1 x_2) (x_0 ∥ (λx_1. (λ"$generic". λx_2. x_2) "$generic" x_1) ((λx_1. λx_2. x_2 (x_1 x_1 x_2)) (λx_1. λx_2. x_2 (x_1 x_1 x_2))) (λx_1. λx_2. ((λx_3. λx_4. λx_5. λx_6. x_6 x_3) (x_1 ((λx_3. (λ"$constructor". λx_4. x_4) "$constructor" x_3) (λx_3. λx_4. x_3))) + (λx_3. λx_4. λx_5. λx_6. x_5 x_3) (x_1 ((λx_3. (λ"$constructor". λx_4. x_4) "$constructor" x_3) (λx_3. λx_4. x_4))) + x_2 (λx_3. λx_4. λx_5. x_3) ((λx_3. (λx_4. x_3 (x_4 x_4)) (λx_4. x_3 (x_4 x_4))) (λx_3. λx_4. (x_3 ∥ x_4))))) ((λx_1. (λ"$constructor". λx_2. x_2) "$constructor" x_1) (λx_1. λx_2. x_1)))))
+  (λx_0. (λx_1. λx_2. λx_3. λx_4. (x_3 (x_4 ∥ x_1) ∥ x_2)) ((λx_1. (λ"$generic". λx_2. x_2) "$generic" x_1) ((λx_1. λx_2. x_2 (x_1 x_1 x_2)) (λx_1. λx_2. x_2 (x_1 x_1 x_2))) (λx_1. λx_2. ((λx_3. λx_4. λx_5. λx_6. x_6 x_3) (x_1 ((λx_3. (λ"$constructor". λx_4. x_4) "$constructor" x_3) (λx_3. λx_4. x_3))) + (λx_3. λx_4. λx_5. λx_6. x_5 x_3) (x_1 ((λx_3. (λ"$constructor". λx_4. x_4) "$constructor" x_3) (λx_3. λx_4. x_4))) + x_2 (λx_3. λx_4. λx_5. x_3) ((λx_3. (λx_4. x_3 (x_4 x_4)) (λx_4. x_3 (x_4 x_4))) (λx_3. λx_4. (x_3 ∥ x_4))))) ((λx_1. (λ"$constructor". λx_2. x_2) "$constructor" x_1) (λx_1. λx_2. x_1))) ((λx_1. (λ"$generic". λx_2. x_2) "$generic" x_1) ((λx_1. λx_2. x_2 (x_1 x_1 x_2)) (λx_1. λx_2. x_2 (x_1 x_1 x_2))) (λx_1. λx_2. ((λx_3. λx_4. λx_5. λx_6. x_6 x_3) (x_1 ((λx_3. (λ"$constructor". λx_4. x_4) "$constructor" x_3) (λx_3. λx_4. x_3))) + (λx_3. λx_4. λx_5. λx_6. x_5 x_3) (x_1 ((λx_3. (λ"$constructor". λx_4. x_4) "$constructor" x_3) (λx_3. λx_4. x_4))) + x_2 (λx_3. λx_4. λx_5. x_3) ((λx_3. (λx_4. x_3 (x_4 x_4)) (λx_4. x_3 (x_4 x_4))) (λx_3. λx_4. (x_3 ∥ x_4))))) ((λx_1. (λ"$constructor". λx_2. x_2) "$constructor" x_1) (λx_1. λx_2. x_1))) ((λx_1. (λ"$generic". λx_2. x_2) "$generic" x_1) ((λx_1. λx_2. x_2 (x_1 x_1 x_2)) (λx_1. λx_2. x_2 (x_1 x_1 x_2))) (λx_1. λx_2. λx_3. x_2 x_3 (λx_4. x_3 x_2 (λx_5. (λx_6. λx_7. λx_8. λx_9. x_8 x_6) (x_1 x_4 x_5)) (λx_5. (λx_6. λx_7. λx_8. λx_9. x_9 x_6) (x_1 x_4 x_5))) (λx_4. x_3 x_2 (λx_5. (λx_6. λx_7. λx_8. λx_9. x_9 x_6) (x_1 x_4 x_5)) (λx_5. (λx_6. λx_7. λx_8. λx_9. x_9 x_6) (x_1 x_4 x_5)))) (x_0 ∥ (λx_1. (λ"$generic". λx_2. x_2) "$generic" x_1) ((λx_1. λx_2. x_2 (x_1 x_1 x_2)) (λx_1. λx_2. x_2 (x_1 x_1 x_2))) (λx_1. λx_2. ((λx_3. λx_4. λx_5. λx_6. x_6 x_3) (x_1 ((λx_3. (λ"$constructor". λx_4. x_4) "$constructor" x_3) (λx_3. λx_4. x_3))) + (λx_3. λx_4. λx_5. λx_6. x_5 x_3) (x_1 ((λx_3. (λ"$constructor". λx_4. x_4) "$constructor" x_3) (λx_3. λx_4. x_4))) + x_2 (λx_3. λx_4. λx_5. x_3) ((λx_3. (λx_4. x_3 (x_4 x_4)) (λx_4. x_3 (x_4 x_4))) (λx_3. λx_4. (x_3 ∥ x_4))))) ((λx_1. (λ"$constructor". λx_2. x_2) "$constructor" x_1) (λx_1. λx_2. x_1)))))
+  ((λx_0. λx_1. x_1 (λx_2. x_0 x_0 x_1 x_2)) (λx_0. λx_1. x_1 (λx_2. x_0 x_0 x_1 x_2)))
+  ((λx_0. (λ"$generic". λx_1. x_1) "$generic" x_0) ((λx_0. λx_1. x_1 (x_0 x_0 x_1)) (λx_0. λx_1. x_1 (x_0 x_0 x_1))) (λx_0. λx_1. ((λx_2. λx_3. λx_4. λx_5. x_5 x_2) (x_0 ((λx_2. (λ"$constructor". λx_3. x_3) "$constructor" x_2) (λx_2. λx_3. x_2))) + (λx_2. λx_3. λx_4. λx_5. x_4 x_2) (x_0 ((λx_2. (λ"$constructor". λx_3. x_3) "$constructor" x_2) (λx_2. λx_3. x_3))) + x_1 (λx_2. λx_3. λx_4. x_2) ((λx_2. (λx_3. x_2 (x_3 x_3)) (λx_3. x_2 (x_3 x_3))) (λx_2. λx_3. (x_2 ∥ x_3))))))
+  ((λx_0. (λ"$constructor". λx_1. x_1) "$constructor" x_0) (λx_0. λx_1. x_0))
+</script>
+<script src="trace-player/main.js"></script>
+</body>
+</html>

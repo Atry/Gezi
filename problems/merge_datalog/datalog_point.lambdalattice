@@ -1,0 +1,110 @@
+# Datalog in lambda plus merge, with no label: scored points of the
+# label-free family.
+#
+# THE ENCODING. The constants 0 .. N-1 are Scott unary numerals, let bound
+# one after another (contest_merge_graph.pl, numeral_lets/4). A binary
+# relation is a curried Church Boolean, \x. \y. flag(x, y), a nested case
+# on both numerals (numeral_case/3), true exactly on its facts. A rule is
+# a curried Boolean function built from:
+# - conjunction, and = \p. \q. p q false;
+# - existence over the constants, exists = \f. [f c0, ..., f c(N-1)],
+#   the merge of the Booleans (a merge read as the predicate's or);
+# - disjunction of a rule's bodies, a merge.
+# So a join is an existence over the whole universe, the naive join of
+# Datalog evaluated top-down, where the labeled family
+# (contest_inheritance_datalog.pl) walked tries by label.
+#
+# THE RULES:
+# - transitive closure: path x z = [edge x z, exists (\y. and (edge x y)
+#   (path y z))];
+# - reachability in the symmetric closure: sym x y = [edge x y, edge y x],
+#   reach x z = [sym x z, exists (\y. and (sym x y) (reach y z))].
+# Both are recursive by self-application, and the test reads the Church
+# Boolean of the rule at the asked tuple. Only Booleans are merged.
+#
+# THE RELATIONS, chosen so that the existence, which tries the constants in
+# order, meets a cycle before the way out:
+# - two rings of n constants each: 0 -> 1 -> ... -> n-1 -> 0, n-1 -> n,
+#   and n -> ... -> 2n-1 -> n; the tuple is path(0, 2n-1). At n-1 the
+#   existence tries 0, back into the first ring, before n;
+# - a line 0 -> 1 -> ... -> n-1; the tuple is reach(0, n-1). At every
+#   constant the existence tries the one before it first.
+# weak_head runs around the first cycle; tabling completes it.
+#
+# THE REFERENCE is the least fixpoint of the rule by semi-naive Datalog
+# evaluation in Prolog (reference_holds/4), the expected algorithm.
+#
+# The sizes are n, 2n and 4n with a frontier beyond: two rings of 3, 6 and
+# 12 constants each, and 24; the line of 4, 8 and 16 constants, and 32.
+#
+# READINGS (2026-09-28, CPU 2 under contest_limited.sh, a fresh process per
+# reading, the boolean(true) template, 10 s, 256 MB, 256 MB):
+# - weak_head runs around the first cycle and is stopped on every point.
+# - tabling(weak_head): two rings of 3, 6 and 12 in 29, 236 and 3659 ms,
+#   of 24 stopped (7149 ms); the line of 4, 8 and 16 in 13, 66 and 671 ms,
+#   of 32 stopped (6791 ms). A doubling costs 8 to 16: every step of the
+#   closure tries the whole universe, where semi-naive evaluation joins
+#   only the new tuples.
+# - records_routed(record_interned(tabling(weak_head)), weak_head): within
+#   about 10 per cent of tabling(weak_head), stopped on the same frontier.
+# The frontier readings stop before 10 s, as the graph family's did: the
+# memory the global store holds outside the limits.
+# LIMITS: the family's, 10 s, 256 MB, 256 MB.
+#
+# TARGET ALGORITHMS, the specific known algorithms the problem targets, each
+# with its prior work:
+# - semi-naive evaluation of the rule's least fixpoint: F. Bancilhon, R.
+#   Ramakrishnan, An Amateur's Introduction to Recursive Query Processing
+#   Strategies, SIGMOD 1986, doi:10.1145/16856.16859.
+# - tabled evaluation: W. Chen, D. S. Warren, Tabled Evaluation with
+#   Delaying for General Logic Programs, J. ACM 1996,
+#   doi:10.1145/227595.227597.
+
+#   THE POINTS.
+#
+# The shape is a constructor of merge_datalog/shape, two_rings or line.
+# Each other text is from_cbor of a string literal, a Scott list of bytes,
+# imported from corpora/library/text/cbor. Each number is from_cbor of an
+# integer literal, a Scott integer, imported from corpora/library/integer/cbor.
+# FIXME: the imports project "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λx. x)
+λ integer
+. omega (omega (omega (omega gezi "problems") "merge_datalog") "shape")
+λ two_rings line
+. export
+λ
+. cons
+  (λ_datalog_point. _datalog_point (text "merge_datalog_two_rings_path_three") two_rings λ. integer 3)
+λ
+. cons
+  (λ_datalog_point. _datalog_point (text "merge_datalog_two_rings_path_six") two_rings λ. integer 6)
+λ
+. cons
+  (λ_datalog_point. _datalog_point (text "merge_datalog_two_rings_path_twelve") two_rings λ. integer 12)
+λ
+. cons
+  ( λ _datalog_point
+    . _datalog_point (text "merge_datalog_two_rings_path_twenty_four") two_rings λ. integer 24
+  )
+λ
+. cons (λ_datalog_point. _datalog_point (text "merge_datalog_line_reach_four") line λ. integer 4)
+λ
+. cons (λ_datalog_point. _datalog_point (text "merge_datalog_line_reach_eight") line λ. integer 8)
+λ
+. cons (λ_datalog_point. _datalog_point (text "merge_datalog_line_reach_sixteen") line λ. integer 16)
+λ
+. cons
+  (λ_datalog_point. _datalog_point (text "merge_datalog_line_reach_thirty_two") line λ. integer 32) nil

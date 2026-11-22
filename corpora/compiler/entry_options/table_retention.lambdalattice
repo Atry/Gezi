@@ -1,0 +1,13 @@
+# The published list of the retentions of the tables an entry's reading leaves for its next reading (TableRetentionOption): kept_all, every table, never dropped; none_kept, none, each reading from no table; dropped_at_percent, every table until they reach its one field, an integer from 1 to 100, percent of the table limit, then none.
+# A Scott sum whose constructors are the tuple's fields, in the order of the
+# enum's cases; an entry.lambdalattice imports this file and writes a
+# constructor, and EntryData reads which alternative it takes by structure
+# (gezi.contest.entry.EntryData, THE OPTIONS AS SCOTT CONSTRUCTORS).
+λ export
+. (λtuple. tuple λkept_all none_kept dropped_at_percent. kept_all)
+λ kept_all
+. (λtuple. tuple λkept_all none_kept dropped_at_percent. none_kept)
+λ none_kept
+. (λtuple. tuple λpercent kept_all none_kept dropped_at_percent. dropped_at_percent percent)
+λ dropped_at_percent
+. export kept_all none_kept dropped_at_percent

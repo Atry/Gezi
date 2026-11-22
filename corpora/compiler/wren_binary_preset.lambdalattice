@@ -1,0 +1,59 @@
+# A preset: the native typing of the canonical binary naturals with the
+# backend modules that represent them, enabled together, as
+# prolog_backend_preset does for the Prolog backend's types
+# (CONTRIBUTING.md, "Efficiency by design, with native structures").
+#
+# wren_binary_preset       the knowledge a library is compiled from: the
+#                          binary naturals' codecs (binary_prolog_backend),
+#                          the natives of four binary operations
+#                          (binary_operations_wren_backend), the candidacy
+#                          and schemes of the binary naturals
+#                          (binary_wren_shapes), the bindings of the typed
+#                          versions to natives (wren_typed_natives) and their
+#                          unfoldings (wren_typed_unfolded)
+# wren_typed_block         the knowledge of one round each, the typed branch,
+# wren_typed_specialization  the specialization of the typed versions, and
+# wren_own_loop_lifting    the lift of a function's own halving loop; each
+#                          round's lemmas are its own file's, so each is its
+#                          own member
+# wren_typed_unfolded      the unfoldings of the typed versions, for a round
+#                          that saturates them beside the typed branch (the
+#                          round of solo_own_loop_typing); also part of
+#                          wren_binary_preset
+#
+# An entry that enables a round of one of the last four members includes
+# wren_binary_preset in its knowledge: the typed versions those rounds write
+# are run by the natives and codecs the preset binds, and typed without them
+# they would type for no backend. The generic typing (native_types,
+# native_arithmetic, the unions, prolog_backend_shapes) is not part of this
+# preset; an entry enables it through prolog_backend_preset.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega corpora "compiler") "binary_prolog_backend")
+λ binary_prolog_backend
+. omega (omega (omega corpora "compiler") "binary_operations_wren_backend")
+λ binary_operations_wren_backend
+. omega (omega (omega corpora "compiler") "binary_wren_shapes")
+λ binary_wren_shapes
+. omega (omega (omega corpora "compiler") "wren_typed_natives")
+λ wren_typed_natives
+. omega (omega (omega corpora "compiler") "wren_typed_unfolded")
+λ wren_typed_unfolded
+. omega (omega (omega corpora "compiler") "wren_typed_block")
+λ wren_typed_block
+. omega (omega (omega corpora "compiler") "wren_typed_specialization")
+λ wren_typed_specialization
+. omega (omega (omega corpora "compiler") "wren_own_loop_lifting")
+λ wren_own_loop_lifting
+. ( λ tuple
+    . tuple
+      ( wren_typed_unfolded
+      + wren_typed_natives
+      + binary_wren_shapes
+      + binary_operations_wren_backend
+      + binary_prolog_backend
+      )
+  )
+λ wren_binary_preset
+. export wren_binary_preset wren_typed_block wren_typed_specialization wren_own_loop_lifting wren_typed_unfolded

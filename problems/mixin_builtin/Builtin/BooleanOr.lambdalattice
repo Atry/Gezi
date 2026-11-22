@@ -1,0 +1,18 @@
+# MIXINv2's Builtin/BooleanOr.mixin.yaml (the package mixinv2-library),
+# desugared to the literal partial-function mixin encoding, a
+# definition `L : V` written `λ"L" L. V`: after the key, a class whose self is
+# named by the label. A lexical reference [a, w…] reads
+# off the self of the nearest enclosing scope that writes a, a qualified one
+# [S, ~, w…] off the self S, and an inherited mixin is applied to the
+# inheritor's self. top is written out, the term of corpora/library/top.lambdalattice.
+# The names BooleanOr, Builtin and mixin_builtin are the selves the directory tree
+# binds. Written by a translator, a scratch prototype of that desugaring.
+# FIXME: once the .mixin.yaml front end (#1520) reads MIXINv2's YAML, read https://github.com/Atry/private-overlay/issues/1520
+# that YAML and delete this file.
+Builtin Builtin "BooleanData" BooleanOr
++ (λ"BooleanFactory" BooleanFactory. ( (λ"Product" Product. (λ"Or" Or. ( (λ"other" other. BooleanFactory BooleanFactory "Product" other)
++ (λ"or" or. BooleanFactory BooleanFactory "Product" or))))
++ (λ"True" True. (λ"Or" Or. ( (λ"other" other. BooleanFactory BooleanFactory "Product" other)
++ (λ"or" or. BooleanFactory BooleanFactory "True" or))))
++ (λ"False" False. (λ"Or" Or. ( (λ"other" other. BooleanFactory BooleanFactory "Product" other)
++ (λ"or" or. Or Or "other" or))))))

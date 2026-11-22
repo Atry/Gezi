@@ -1,0 +1,4 @@
+# A parity of a periodic proposition (the type proposition): a Scott sum of
+# two constructors, in order: even and odd. Read by its position
+# (gezi.contest.corpora.reductions.ReductionMixinTheorems).
+λ export. export (λeven odd. even) λeven odd. odd

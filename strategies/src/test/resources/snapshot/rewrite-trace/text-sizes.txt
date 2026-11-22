@@ -1,0 +1,4 @@
+2 members: 2 commands, 2 position segments, 597 bytes of text
+4 members: 4 commands, 9 position segments, 1117 bytes of text
+8 members: 8 commands, 35 position segments, 2157 bytes of text
+16 members: 16 commands, 135 position segments, 4237 bytes of text

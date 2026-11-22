@@ -1,0 +1,55 @@
+# The first problems of the reduction series: the label-free
+# families' programs with the claimed value taken away, so that the
+# answer is the value itself, a binary natural read by Scott case
+# analysis. The programs are built by the families' own builders
+# (corpora/contest_merge_dynamic.pl, contest_merge_fibonacci.pl,
+# contest_merge_binary.pl), with the same sizes as their points.
+#
+# - reduction_fibonacci_N: fib(N), N = 20, 40, 80, 160, 320;
+# - reduction_binary_product_N_digits: the products of
+#   contest_merge_binary.pl, 16, 32, 64 and 128 digits;
+# - reduction_grid_paths_N: the lattice paths of an N by N grid, the
+#   binomial C(2N, N), N = 8, 16, 32, 64;
+# - reduction_sum_both_orders_N_digits: the merge [a + b, b + a] of two
+#   numbers of N digits, 16, 32 and 64: two heads that decode to one
+#   value, the program with a merge whose answer is one normalized value.
+#
+# The expected trees are computed in Prolog: fib by iteration
+# (reference_fibonacci/2), the product and the sum by Prolog's
+# arithmetic, the binomial by its product formula.
+
+#
+# Each text is from_cbor of a string literal, a Scott list of bytes,
+# imported from corpora/library/text/cbor. FIXME: the import projects "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. export
+λ
+. cons
+  ( λ _product_problem
+    . _product_problem (text "reduction_binary_product_sixteen_digits") λ. text "merge_binary_product_sixteen_digits"
+  )
+λ
+. cons
+  ( λ _product_problem
+    . _product_problem (text "reduction_binary_product_thirty_two_digits") λ. text "merge_binary_product_thirty_two_digits"
+  )
+λ
+. cons
+  ( λ _product_problem
+    . _product_problem (text "reduction_binary_product_sixty_four_digits") λ. text "merge_binary_product_sixty_four_digits"
+  )
+λ
+. cons
+  ( λ _product_problem
+    . _product_problem (text "reduction_binary_product_one_hundred_twenty_eight_digits") λ. text "merge_binary_product_one_hundred_twenty_eight_digits"
+  ) nil

@@ -1,0 +1,79 @@
+# The facts of the Prolog backend, a knowledge module of their own, enabled with the
+# library only when the Prolog backend is: one set of backend facts per backend, since a
+# backend's facts differ (a backend compiling to C proves the properties of fixed-width
+# integers where this one has big integers). Another backend, such as one compiling to C with fixed-width
+# integers, is another module in place of this one. No lemma justifies these facts.
+#
+# The naturals of native_types are the Prolog backend's integers, and its booleans are the
+# Prolog backend's atoms true and false: nat_type's and boolean_type's members are
+# represented natively (the vocabulary entry native_specialization; the codecs
+# gezi.weakhead.BigIntegerCodec and gezi.weakhead.BooleanCodec), and the
+# constructors each codec decodes into and encodes from are the terms each type's
+# data_family lists, a constructor being its type's representation and its position in
+# that list, never a name: a type and a constructor are identified by the interned value
+# of their definition. A filter `x ∥ nat_type` or
+# `x ∥ boolean_type` in a term is then a decode point of the JIT. The declarations are
+# trusted, as the natives are, and vouched for by the comparison of gezi.jit.JitNativesTest
+# (specializationVouched). The lists are Prolog lists: list_type e's members are
+# represented natively in the representation list(e) (gezi.weakhead.ListCodec), and a
+# filter `x ∥ list_type e` is a decode point, so that a cooperative problem uses the native
+# representations everywhere.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "prelude") "list")
+λ prelude_nil prelude_cons _ _ _
+. omega (omega (omega (omega corpora "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λx. x)
+λ integer_literal
+. omega (omega (omega (omega corpora "library") "native_types") "natural")
+λ zero successor _ nat_type
+. omega (omega (omega (omega corpora "library") "native_types") "boolean")
+λ true false boolean_type _
+. omega (omega (omega (omega corpora "library") "native_types") "list")
+λ nil cons _ list_type
+. omega (omega (omega (omega corpora "compiler") "backend_vocabulary") "jvm_types")
+λ _ list
+. export
+  ( λ _ _ _ backend
+    . backend
+    λ _ _ _ _ _ jvm_types
+    . jvm_types
+    λ s
+    . s list_type list
+  + λ _ _ _ backend
+    . backend
+    λ _ _ _ _ fields _
+    . fields
+      ( λ s
+        . s list_type cons
+        λ
+        . prelude_cons (λparameter _ _. parameter λ. integer_literal 0) λ. prelude_cons (λ_ recursive _. recursive) prelude_nil
+      + λs. s nat_type successor λ. prelude_cons (λ_ recursive _. recursive) prelude_nil
+      )
+  + λ _ _ _ backend
+    . backend
+    λ _ _ _ families _ _
+    . families
+      ( λs. s list_type (integer_literal 1) λ. prelude_cons nil λ. prelude_cons cons prelude_nil
+      + λs. s boolean_type (integer_literal 0) λ. prelude_cons true λ. prelude_cons false prelude_nil
+      # The constructors of each family, declared by facts (the framework feature
+      # "data families declared by facts", 2026-11-07), in the
+      # order of their cases: the naturals of no criterion parameter, zero of no field and
+      # successor of the natural it follows; the booleans of no criterion parameter, true
+      # and false of no field; the lists of one criterion parameter, the element's, nil of
+      # no field and cons of the element and the rest. Each family is held by the
+      # framework's codec of its representation, which these facts describe; the lists'
+      # declaration is checked against the list codec (jvm_type(list)).
+      + λs. s nat_type (integer_literal 0) λ. prelude_cons zero λ. prelude_cons successor prelude_nil
+      )
+  + λ _ _ _ backend
+    . backend
+    λ _ _ representations _ _ _
+    . representations
+      ( λs. s list_type λk. k "list"
+      + λs. s boolean_type λk. k "boolean"
+      + λs. s nat_type λk. k "big_integer"
+      )
+  )

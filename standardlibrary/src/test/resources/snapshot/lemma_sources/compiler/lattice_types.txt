@@ -1,0 +1,5 @@
+choice_applied: λx_0 x_1 x_2. (x_1 + x_0) x_2 = λx_0 x_1 x_2. (x_1 x_2 + x_0 x_2)
+parallel_applied: λx_0 x_1 x_2. (x_0 ∥ x_1) x_2 = λx_0 x_1 x_2. (x_0 x_2 ∥ x_1 x_2)
+pair_applied: λx_0 x_1 x_2. pair x_0 x_1 x_2 = λx_0 x_1 x_2. x_2 x_0 x_1
+self_apply_applied: λx_0. self_apply x_0 = λx_0. x_0 x_0
+identity_returns_its_argument: λx_0. identity x_0 = λx_0. x_0

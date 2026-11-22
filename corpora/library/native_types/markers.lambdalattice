@@ -1,0 +1,37 @@
+# The four markers: each
+# is the identity on what it wraps, spelled as a one-key partial function of a
+# literal, of the identity, applied to that literal, and then to the wrapped
+# term: (λ"$k". λv. v) "$k" is λv. v by the β rule (a partial function of a
+# literal applied to that literal reads its bits one by one), so the marker
+# applied to M is M. The key's match is a closed term, the same at every use,
+# so a tabled evaluator matches it once per reading state and each further
+# pass costs 6 steps more than an identity's (measured 2026-11-17). Every
+# reader of these markers is tabled: weak head without tabling is a rejected
+# design. The keys start with `$`, synthetic labels, which the compiler's
+# knowledge writes and an end user's program does not: lemmas are for the
+# compiler, not for end users.
+# $generic:
+# The marker of a polymorphic library function: the function's class holds
+# its scheme alone, and the closure under the marker is a class of its own;
+# noinline.
+λ export
+. (λtuple. tuple λx. (λ"$generic" v. v) "$generic" x)
+λ $generic
+# $constructor:
+# The marker of a constructor; noinline.
+. (λtuple. tuple λx. (λ"$constructor" v. v) "$constructor" x)
+λ $constructor
+# $name:
+# The occurrence t of a library name x in a program: $name t x is x, the tag t
+# unique to the occurrence, so that hash consing makes no two occurrences of
+# the program one class ($closure for a closure's); noinline. Evaluation
+# reads x and never reads t.
+. (λtuple. tuple λt x. (λ"$name" v. v) "$name" x)
+λ $name
+# $closure:
+# The occurrence t of a closure c in a program: $closure t c is c, the tag t
+# unique to the occurrence, as $name is for the occurrence of a library name;
+# noinline. Evaluation reads c and never reads t.
+. (λtuple. tuple λt c. (λ"$closure" v. v) "$closure" c)
+λ $closure
+. export $generic $constructor $name $closure

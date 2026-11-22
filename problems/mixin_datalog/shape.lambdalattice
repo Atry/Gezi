@@ -1,0 +1,10 @@
+# The shape of the edges of a closure or symmetric program of
+# mixin_datalog/program: a Scott sum of four constructors, in order: the
+# cycle over a, b and c, the chain over a, b and c, then the ring and the
+# line, whose one field is their size. Read by its position
+# (gezi.contest.corpora.merges.MixinDatalog, ProgramShape).
+λ export
+. export
+  (λabc_cycle abc_chain ring line. abc_cycle)
+  (λabc_cycle abc_chain ring line. abc_chain)
+  (λsize abc_cycle abc_chain ring line. ring size) λsize abc_cycle abc_chain ring line. line size

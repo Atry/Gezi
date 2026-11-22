@@ -1,0 +1,11 @@
+# The published list of the ways the tabled weak head reads a parallel (ParallelOption): both_sides, both sides read and every parallel set of one paired with every parallel set of the other; heads_met, each parallel set met head by head, lambda heads of one code merged by their fillings and a set of two heads that apply different binders dropped.
+# A Scott sum whose constructors are the tuple's fields, in the order of the
+# enum's cases; an entry.lambdalattice imports this file and writes a
+# constructor, and EntryData reads which alternative it takes by structure
+# (gezi.contest.entry.EntryData, THE OPTIONS AS SCOTT CONSTRUCTORS).
+λ export
+. (λtuple. tuple λboth_sides heads_met. both_sides)
+λ both_sides
+. (λtuple. tuple λboth_sides heads_met. heads_met)
+λ heads_met
+. export both_sides heads_met

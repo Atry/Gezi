@@ -1,0 +1,14 @@
+# A natural expression of a theorem's proposition
+# (reduction_mixin_theorems/theorem, mixin_traps/theorem_trap; the type
+# proposition): a Scott sum of five constructors, in order: self_number, the
+# number n the counterexample search is at; literal, whose one field is a
+# Scott integer of corpora/library/integer/cbor; double, whose one field is
+# an expression; plus, whose two fields are expressions; and successor,
+# whose one field is an expression. Read by its position
+# (gezi.contest.corpora.reductions.ReductionMixinTheorems).
+λ export
+. export
+  (λself_number literal double plus successor. self_number)
+  (λvalue self_number literal double plus successor. literal value)
+  (λexpression self_number literal double plus successor. double expression)
+  (λleft right self_number literal double plus successor. plus left right) λexpression self_number literal double plus successor. successor expression

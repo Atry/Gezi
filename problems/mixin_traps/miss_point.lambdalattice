@@ -1,0 +1,43 @@
+#   miss_point(?Point, ?Graph, ?Source)
+#
+# The graph is a constructor of mixin_traps/graph: ring with its size, or
+# two_rings, chord_ring, lasso or double_successor_ring. Each other text is
+# from_cbor of a string literal, a Scott list of bytes, imported from
+# corpora/library/text/cbor. Each number is from_cbor of an integer
+# literal, a Scott integer, imported from corpora/library/integer/cbor.
+# FIXME: the imports project "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λx. x)
+λ integer
+. omega (omega (omega (omega gezi "problems") "mixin_traps") "graph")
+λ ring _ _ _ two_rings chord_ring lasso double_successor_ring
+. export
+λ
+. cons (λ_miss_point. _miss_point (text "mixin_ring_three_misses") (ring λ. integer 3) λ. text "n0")
+λ
+. cons (λ_miss_point. _miss_point (text "mixin_ring_twenty_misses") (ring λ. integer 20) λ. text "n0")
+λ
+. cons (λ_miss_point. _miss_point (text "mixin_ring_forty_misses") (ring λ. integer 40) λ. text "n0")
+λ
+. cons (λ_miss_point. _miss_point (text "mixin_two_rings_misses") two_rings λ. text "n0")
+λ
+. cons (λ_miss_point. _miss_point (text "mixin_chord_ring_misses") chord_ring λ. text "n0")
+λ
+. cons (λ_miss_point. _miss_point (text "mixin_lasso_misses") lasso λ. text "t0")
+λ
+. cons
+  ( λ _miss_point
+    . _miss_point (text "mixin_double_successor_ring_misses") double_successor_ring λ. text "n0"
+  ) nil

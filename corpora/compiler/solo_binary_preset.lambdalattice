@@ -1,0 +1,24 @@
+# A preset: a typing of the canonical binary naturals, the filters
+# `x ∥ binary_set true` that solo_own_loop_typing writes on a first-order
+# loop's binders, enabled only together with the backend that represents
+# those naturals (CONTRIBUTING.md, "Efficiency by design, with native structures").
+#
+# solo_own_loop_typing     the knowledge of one round, and of the library
+#                          the round is compiled with
+#
+# The backend is not in this preset: the binary naturals' codecs
+# (binary_prolog_backend), the natives of the binary operations
+# (binary_operations_wren_backend), the candidacy and schemes of the binary
+# naturals (binary_wren_shapes) and the typed versions that
+# solo_own_loop_typing's typed branch is read through (wren_typed_block's
+# wren_fixpoint_by_value and wren_typed_branch) are enabled through the
+# preset corpora/compiler/wren_binary_preset. An entry that
+# enables solo_own_loop_typing, in its knowledge or in a round, includes
+# wren_binary_preset in its knowledge: typed without it, the loop's filters
+# would type for no backend.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega corpora "compiler") "solo_own_loop_typing")
+λ solo_own_loop_typing
+. export solo_own_loop_typing

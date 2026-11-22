@@ -1,0 +1,192 @@
+# ?Point, ?Outcome, ?Value
+# +Point, -Limits
+# +Point, +Outcome
+# +Intended, +Value, +Outcome, -Verdict, -Spent
+# THE INTENDED ANSWERS OF THE CONTEST CORPUS (`contest.pl`), as data, and
+# the limits every point is read under.
+#
+# `intended(Point, Outcome, Value)`: Outcome is a constructor of
+# schema/outcome, `head` or `failed` (the program has no weak head); Value
+# is a constructor of
+# schema/intended_value, `boolean true`, `boolean false` (the Church
+# Booleans of corpora/library/prelude/boolean), `natural Count`, or `none`
+# when Outcome is `failed`. Each is the
+# program's intended answer, argued in the comment above the point in
+# `contest_clauses.pl`.
+#
+# `point_limits(Point, limits(Seconds, StackMegabytes, TableMegabytes))`:
+# one second, 32 MB of stack and 32 MB of table space unless the point
+# has raised limits below, each with the reason at the fact. Every setting
+# reads a point under the same limits.
+#   certificate(?Name, ?Term): multifile, a CERTIFICATE a corpus names, a
+#   closed de Bruijn lambda term with one weak head (MIXINv8's
+#   certificates); read by verdict/5.
+
+#   ---- 1. linked list cycle ----
+#
+# The outcome is a constructor of schema/outcome, the value a constructor
+# of schema/intended_value, a Boolean a Church Boolean of
+# corpora/library/prelude/boolean. Each other text is from_cbor
+# of a string literal, a Scott list of bytes, imported from
+# corpora/library/text/cbor. Each number is from_cbor of an integer
+# literal, a Scott integer, imported from corpora/library/integer/cbor.
+# FIXME: the imports project "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λx. x)
+λ integer
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "boolean")
+λ true false _ _
+. omega (omega (omega (omega gezi "problems") "schema") "intended_value")
+λ boolean natural _ none
+. omega (omega (omega (omega gezi "problems") "schema") "outcome")
+λ head failed
+. export
+λ
+. cons (λ_intended. _intended (text "lasso_ends_small") failed none)
+λ
+. cons (λ_intended. _intended (text "lasso_ends_medium") failed none)
+λ
+. cons (λ_intended. _intended (text "lasso_ends_large") failed none)
+λ
+. cons (λ_intended. _intended (text "acyclic_ends_small") head λ. boolean true)
+λ
+. cons (λ_intended. _intended (text "acyclic_ends_medium") head λ. boolean true)
+λ
+. cons (λ_intended. _intended (text "lasso_ends_unrolled") head λ. boolean true)
+λ
+. cons (λ_intended. _intended (text "lasso_floyd_has_cycle_small") head λ. boolean true)
+λ
+. cons (λ_intended. _intended (text "lasso_floyd_has_cycle_medium") head λ. boolean true)
+λ
+. cons (λ_intended. _intended (text "lasso_floyd_has_cycle_large") head λ. boolean true)
+λ
+. cons (λ_intended. _intended (text "acyclic_floyd_has_cycle_small") head λ. boolean false)
+λ
+. cons (λ_intended. _intended (text "acyclic_floyd_has_cycle_medium") head λ. boolean false)
+λ
+. cons (λ_intended. _intended (text "lasso_floyd_cycle_start_small") head λ. natural λ. integer 2)
+λ
+. cons (λ_intended. _intended (text "lasso_floyd_cycle_start_medium") head λ. natural λ. integer 8)
+λ
+. cons (λ_intended. _intended (text "lasso_floyd_cycle_start_large") head λ. natural λ. integer 30)
+λ
+. cons (λ_intended. _intended (text "rho_floyd_cycle_start") head λ. natural λ. integer 0)
+λ
+. cons (λ_intended. _intended (text "lasso_floyd_cycle_start_unrolled") head λ. natural λ. integer 2)
+λ
+. cons (λ_intended. _intended (text "lasso_visited_cycle_start_small") head λ. natural λ. integer 2)
+λ
+. cons (λ_intended. _intended (text "lasso_visited_cycle_start_medium") head λ. natural λ. integer 8)
+λ
+. cons (λ_intended. _intended (text "lasso_visited_cycle_start_large") head λ. natural λ. integer 30)
+#   ---- 2. symbolic computation ----
+λ
+. cons (λ_intended. _intended (text "stream_nth_ones_by_map_small") head λ. natural λ. integer 1)
+λ
+. cons (λ_intended. _intended (text "stream_nth_ones_by_map_large") head λ. natural λ. integer 1)
+λ
+. cons (λ_intended. _intended (text "stream_nth_naturals_by_map_small") head λ. natural λ. integer 6)
+λ
+. cons (λ_intended. _intended (text "stream_nth_naturals_by_map_large") head λ. natural λ. integer 25)
+λ
+. cons (λ_intended. _intended (text "stream_ones_all_one") failed none)
+λ
+. cons (λ_intended. _intended (text "stream_mutual_all_one") failed none)
+λ
+. cons (λ_intended. _intended (text "stream_ones_by_map_all_one") failed none)
+λ
+. cons (λ_intended. _intended (text "stream_naturals_all_zero") head λ. boolean false)
+λ
+. cons (λ_intended. _intended (text "stream_all_one_unrolled") head λ. boolean true)
+λ
+. cons (λ_intended. _intended (text "regex_matches_small") head λ. boolean true)
+λ
+. cons (λ_intended. _intended (text "regex_matches_medium") head λ. boolean true)
+λ
+. cons (λ_intended. _intended (text "regex_matches_large") head λ. boolean true)
+λ
+. cons (λ_intended. _intended (text "regex_rejects_small") head λ. boolean false)
+λ
+. cons (λ_intended. _intended (text "regex_rejects_medium") head λ. boolean false)
+λ
+. cons (λ_intended. _intended (text "regex_no_base_nonempty") failed none)
+λ
+. cons (λ_intended. _intended (text "regex_with_base_nonempty") head λ. boolean true)
+λ
+. cons (λ_intended. _intended (text "regex_derivative_nonempty") head λ. boolean false)
+λ
+. cons (λ_intended. _intended (text "regex_all_prefixes_plain") failed none)
+λ
+. cons (λ_intended. _intended (text "regex_all_prefixes_smart") failed none)
+λ
+. cons (λ_intended. _intended (text "regex_all_prefixes_unrolled") head λ. boolean true)
+#   ---- 3. theorem proving ----
+λ
+. cons (λ_intended. _intended (text "proof_evens_small") failed none)
+λ
+. cons (λ_intended. _intended (text "proof_evens_medium") failed none)
+λ
+. cons (λ_intended. _intended (text "proof_evens_large") failed none)
+λ
+. cons (λ_intended. _intended (text "proof_evens_by_map_identity") failed none)
+λ
+. cons (λ_intended. _intended (text "proof_evens_by_map_successor") failed none)
+λ
+. cons (λ_intended. _intended (text "proof_evens_wrong_witness") head λ. boolean false)
+λ
+. cons (λ_intended. _intended (text "proof_evens_odd_claim") head λ. boolean false)
+λ
+. cons (λ_intended. _intended (text "proof_evens_unrolled") head λ. boolean true)
+λ
+. cons (λ_intended. _intended (text "proof_infinite_lasso") failed none)
+λ
+. cons (λ_intended. _intended (text "proof_infinite_ones_by_map") failed none)
+λ
+. cons (λ_intended. _intended (text "proof_infinite_finite_list") head λ. boolean false)
+λ
+. cons (λ_intended. _intended (text "circular_bisimulation_small") head λ. boolean true)
+λ
+. cons (λ_intended. _intended (text "circular_bisimulation_medium") head λ. boolean true)
+λ
+. cons (λ_intended. _intended (text "circular_bisimulation_false_claim") head λ. boolean false)
+λ
+. cons (λ_intended. _intended (text "circular_bisimulation_wrong_citation") head λ. boolean false)
+λ
+. cons (λ_intended. _intended (text "circular_bisimulation_unguarded") head λ. boolean false)
+#   ---- 4. type systems ----
+λ
+. cons (λ_intended. _intended (text "type_basic_record") head λ. boolean true)
+λ
+. cons (λ_intended. _intended (text "type_self_record") failed none)
+λ
+. cons (λ_intended. _intended (text "type_self_record_unrolled") head λ. boolean true)
+λ
+. cons (λ_intended. _intended (text "type_self_record_reversed") head λ. boolean false)
+λ
+. cons (λ_intended. _intended (text "type_self_record_reversed_unrolled") head λ. boolean false)
+λ
+. cons (λ_intended. _intended (text "type_this_subclass") failed none)
+λ
+. cons (λ_intended. _intended (text "type_this_superclass") head λ. boolean false)
+λ
+. cons (λ_intended. _intended (text "type_binary_method") head λ. boolean false)
+λ
+. cons (λ_intended. _intended (text "type_binary_method_renamed") failed none)
+λ
+. cons (λ_intended. _intended (text "type_abstract_stack") failed none)
+λ
+. cons (λ_intended. _intended (text "type_abstract_element_mismatch") head λ. boolean false)
+λ
+. cons (λ_intended. _intended (text "type_operator_rebuilt_argument") failed none) nil

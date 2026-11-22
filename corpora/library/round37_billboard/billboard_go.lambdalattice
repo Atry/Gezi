@@ -1,0 +1,19 @@
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "prelude") "fixpoint")
+λ fixpoint
+. omega (omega (omega (omega corpora "library") "binary") "arithmetic")
+λ _ merge_binary_plus _ merge_binary_equality
+. omega (omega (omega corpora "library") "top")
+λ top
+. export
+λ
+. fixpoint
+λ self rods left right
+. rods (merge_binary_equality left right left top)
+λ rod rest
+. ( self rest left λ. merge_binary_plus rod right
+  + self rest (merge_binary_plus rod left) right
+  + self rest left right
+  )

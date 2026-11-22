@@ -1,0 +1,107 @@
+# array_description:
+# CSES 1746, Array Description (https://cses.fi/problemset/task/1746), in our own
+# words: an array whose entries are whole numbers from 1 to m, some of them
+# known and the others, marked 0, not yet chosen; the number of ways to choose
+# the unknown entries so that every two neighbouring entries differ by at most 1,
+# modulo 10^9 + 7. The input is the bound m, a binary natural
+# (corpora/library/binary/natural), and the array, a Scott list
+# (corpora/library/prelude/list) of binary naturals; the answer is a binary natural.
+# Every known entry lies between 1 and m, as CSES promises. Part of the CSES
+# port's third batch.
+#
+# THE PROGRAM, written by the definition: the list of all fillings of the array is built
+# (an unknown entry takes each value from 1 to m in turn, a known entry its own
+# value alone), the fillings in which every two neighbours differ by at most 1 are
+# counted, and the count is reduced modulo 10^9 + 7. Its reading is exponential in the
+# number of unknown entries even under tabling, since all m^k fillings of k unknown entries are built and
+# checked; the replacement the family asks for is the dynamic program
+# ways(position, value) = ways(position - 1, value - 1) + ways(position - 1, value) +
+# ways(position - 1, value + 1) over the values that the entry may take, about the length of the array times m steps, on fixed-width
+# integers modulo 10^9 + 7.
+#
+# DEFINITION 14: the program P, the point's term, is built of λ and application
+# only: its text holds no top, no choice, no parallel and no literal (the modulus
+# and the numerals are written with binary_zero, binary_even and binary_odd). It
+# β-reduces to V, the canonical binary numeral of the answer: every recursion
+# ends, since values_up_to consumes the bounded gap m - value and every other
+# recursion consumes a finite list or a binary numeral; the branches that a
+# Scott boolean discards are never read. ../common/binary_modular's binary_modulo,
+# which writes no top, is called with the positive modulus only. So ⊢_β P = V, and P ≃_O V by the soundness of the derivable
+# equations for the contextual preorder of Definition 14 (Lean
+# `ContextualPreorder.contextualEquivalenceOfDerivableLatticeEta`): V is an
+# answer, P ⊑_O V. No other closed βη normal form W has P ⊑_O W: then V ⊑_O W,
+# while Böhm's theorem gives a pure context that takes V to λx y. x and W to
+# λx y. y, and applying both to λa. a and Ω makes the first solvable and the
+# second not.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "fixpoint")
+λ fixpoint
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "boolean")
+λ true false _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons append map _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "natural")
+λ binary_zero binary_even binary_odd _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "arithmetic")
+λ merge_binary_increment _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "order")
+λ binary_less_than _ _
+. omega (omega (omega (omega (omega gezi "problems") "cses") "common") "binary_modular")
+λ _ _ _ binary_modulo
+. (λtuple. tuple λ. binary_odd λ. binary_odd λ. binary_odd λ. binary_even λ. binary_even λ. binary_even λ. binary_even λ. binary_even λ. binary_even λ. binary_odd λ. binary_even λ. binary_odd λ. binary_even λ. binary_even λ. binary_odd λ. binary_odd λ. binary_even λ. binary_odd λ. binary_even λ. binary_odd λ. binary_odd λ. binary_even λ. binary_even λ. binary_odd λ. binary_odd λ. binary_odd λ. binary_even λ. binary_odd λ. binary_odd λ. binary_odd binary_zero)
+λ modulus
+. (λtuple. tuple (binary_odd binary_zero))
+λ one
+. ( λ tuple
+    . tuple λ. fixpoint λself function items. items nil λhead tail. append (function head) λ. self function tail
+  )
+λ concat_map
+. ( λ tuple
+    . tuple
+    λ upper
+    . fixpoint
+      ( λ self value
+        . binary_less_than upper value nil (cons value λ. self (merge_binary_increment value))
+      ) one
+  )
+λ values_up_to
+. ( λ tuple
+    . tuple
+    λ upper
+    . fixpoint
+      ( λ self entries
+        . entries (cons nil nil)
+          λ head tail
+          . ( λ rest
+              . concat_map (λvalue. map (cons value) rest) (head (values_up_to upper) (λ_. cons head nil) λ_. cons head nil)
+            ) λ. self tail
+      )
+  )
+λ fillings
+. (λtuple. tuple λleft right. binary_less_than left (merge_binary_increment (merge_binary_increment right)) (binary_less_than right (merge_binary_increment (merge_binary_increment left)) true false) false)
+λ close
+. ( λ tuple
+    . tuple
+    λ. fixpoint
+    λ self entries
+    . entries true
+      λ head tail
+      . tail true
+        λ next _
+        . close head next (self tail) false
+  )
+λ smooth
+. ( λ tuple
+    . tuple
+    λ. fixpoint
+    λ self count all_fillings
+    . all_fillings count
+      λ filling rest
+      . self (smooth filling (merge_binary_increment count) count) rest
+  )
+λ count_smooth
+. (λtuple. tuple λupper entries. binary_modulo (count_smooth binary_zero (fillings upper entries)) modulus)
+λ array_description
+. export array_description

@@ -1,0 +1,6 @@
+# The published list of the granularities of the JIT's code (GranularityOption): predicate_per_code, one clause for each spine of a code's body.
+# A Scott sum whose constructors are the tuple's fields, in the order of the
+# enum's cases; an entry.lambdalattice imports this file and writes a
+# constructor, and EntryData reads which alternative it takes by structure
+# (gezi.contest.entry.EntryData, THE OPTIONS AS SCOTT CONSTRUCTORS).
+λ export. export λpredicate_per_code. predicate_per_code

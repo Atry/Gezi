@@ -1,0 +1,11 @@
+# The published list of how far the JIT's instance table pulls a missed instance's reading beyond the heads its consumers ask for (LookaheadOption): lazily, each head only when asked for; within_steps, the rest of the instance's heads pulled within its one field, a positive integer, of steps right after its first head.
+# A Scott sum whose constructors are the tuple's fields, in the order of the
+# enum's cases; an entry.lambdalattice imports this file and writes a
+# constructor, and EntryData reads which alternative it takes by structure
+# (gezi.contest.entry.EntryData, THE OPTIONS AS SCOTT CONSTRUCTORS).
+λ export
+. (λtuple. tuple λlazily within_steps. lazily)
+λ lazily
+. (λtuple. tuple λsteps lazily within_steps. within_steps steps)
+λ within_steps
+. export lazily within_steps

@@ -1,0 +1,23 @@
+# The set of another backend, which names no native and no representation
+# of the Prolog backend.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega other_backend "library") "other_backend_set") "successor")
+λ successor
+. omega (omega (omega (omega other_backend "library") "other_backend_set") "bounded_type")
+λ bounded_type
+. export
+  ( λ _ _ _ backend
+    . backend
+    λ _ _ representations _ _ _
+    . representations
+    λ s
+    . s bounded_type λk. k "fixed_width"
+  + λ _ _ _ backend
+    . backend
+    λ _ natives _ _ _ _
+    . natives
+    λ s
+    . s successor λk. k "c_successor"
+  )

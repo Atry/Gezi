@@ -1,0 +1,45 @@
+# The Moore machine state of an FFI program and its computation graph (CONTRIBUTING.md, "Terms"). A program is a closed term, a state
+# λk. k output transition, with k in neither field: output is what the state asks the FFI to do, and transition takes
+# the input symbol, a closed term, to the next state. The FFI's meaning is the step-by-step reading of x ∥
+# moore_state_type for any x, not of x itself, which unfiltered would bring stray terms; moore_state_type is the
+# criterion of one step (java_ffi/moore_types).
+#
+# An output ends its branch with an answer, or runs an expression. An expression is one of three nodes, with no control
+# flow:
+# - call: a method, λk. k ["owner", "name", "descriptor"], and a Scott list (prelude/list) of expressions, an instance
+#   method's receiver being the first;
+# - new: a class, λk. k "owner", a constructor's descriptor, λk. k "descriptor", and a Scott list of expressions: the
+#   JVM's new instruction with the constructor, a method;
+# - decode: a primitive value in the format natives read, a Scott boolean
+#   (native_types/boolean) or a bit tuple (java_ffi/bits), which stands at a primitive parameter and is read as the type
+#   the descriptor gives there.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "java_ffi") "moore_types")
+λ _ _ _ _ moore_state_type _ _ _
+# state:
+# The state of an output and a transition.
+. (λtuple. tuple λoutput transition k. k output transition)
+λ state
+# finish:
+# The output that ends a branch with the answer.
+. (λtuple. tuple λanswer on_finish on_run. on_finish answer)
+λ finish
+# run:
+# The output that runs the expression.
+. (λtuple. tuple λexpression on_finish on_run. on_run expression)
+λ run
+# call:
+# The node of a method call.
+. (λtuple. tuple λmethod arguments on_call on_new on_decode. on_call method arguments)
+λ call
+# new:
+# The node of the new instruction with a constructor.
+. (λtuple. tuple λclass descriptor arguments on_call on_new on_decode. on_new class descriptor arguments)
+λ new
+# decode:
+# The node of a primitive value.
+. (λtuple. tuple λvalue on_call on_new on_decode. on_decode value)
+λ decode
+. export state finish run call new decode moore_state_type

@@ -1,0 +1,29 @@
+# Backend facts for two more operations of the module binary, as
+# binary_operations_wren_backend binds four: merge_binary_increment to
+# wren_binary_increment and merge_binary_equality to wren_binary_equality,
+# natives of the framework's standard set, implemented in
+# `gezi/jit/src/main/scala/gezi/jit/BinaryNaturalNatives.scala`, written for
+# the narrow blocks. Under the dispatch strategy fallback a native fires only on
+# operands already in the family binary_natural's representation at the
+# parameter true (the canonical naturals); any other call runs the define's
+# body. Each native's soundness claim, on canonical binary naturals:
+# merge_binary_increment's body has one normal form, the canonical natural
+# after its operand (its file's three equations: 0 + 1 = 1, 2h + 1, and
+# (2g + 1) + 1 = 2(g + 1), g + 1 positive, so the result is canonical); and
+# merge_binary_equality's body has one normal form, the boolean true when the
+# two are equal and false otherwise (it compares the two numerals' Scott
+# constructors pairwise, and two canonical numerals are equal exactly when
+# their constructors are).
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "binary") "arithmetic")
+λ merge_binary_increment _ _ merge_binary_equality
+. export
+λ _ _ _ backend
+. backend
+λ _ natives _ _ _ _
+. natives
+  ( λs. s merge_binary_increment λk. k "wren_binary_increment"
+  + λs. s merge_binary_equality λk. k "wren_binary_equality"
+  )

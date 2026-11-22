@@ -1,0 +1,33 @@
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "prelude") "fixpoint")
+λ fixpoint
+. omega (omega (omega (omega corpora "library") "prelude") "list")
+λ nil cons _ _ _
+# list_type:
+# The type of the Scott lists whose elements are in the type given as the
+# argument, as a choice. A finite list whose elements each lie below element
+# in Scott's D∞ (the numerals below nat_type, for instance) is a closed βη
+# normal form N with list_type element ⊑_O N.
+# FIXME: that no other closed βη normal form is above list_type element in https://github.com/Atry/private-overlay/issues/2013
+# ⊑_O is not proved, as for nat_type.
+. (λtuple. tuple λelement. fixpoint λl. (cons element l + nil))
+λ list_type
+# list_fold:
+# Structural recursion over a Scott list, with no filter and with the base
+# and the step outside the knot, as nat_fold has them:
+# list_fold z s (cons h t) is s h (list_fold z s t).
+. (λtuple. tuple λz s. fixpoint λself xs. xs z λh t. s h λ. self t)
+λ list_fold
+# list_fold_filtered:
+# Structural recursion over a Scott list into the type given as the first
+# argument, with the base, the recursive result passed to the step, and the
+# step's output filtered by it; the element is passed unfiltered.
+. (λtuple. tuple λoutput z s. list_fold (z ∥ output) λh r. (s h (r ∥ output) ∥ output))
+λ list_fold_filtered
+# filter_by:
+# The filter by a type given as the argument: filter_by T x is x ∥ T.
+. (λtuple. tuple λtype x. (x ∥ type))
+λ filter_by
+. export list_type list_fold list_fold_filtered filter_by

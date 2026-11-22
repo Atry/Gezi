@@ -1,0 +1,16 @@
+# THE PRELUDE: a fixpoint combinator and the Scott encoding.
+#
+# Everything here is pure lambda: no arithmetic, no constants. Scott rather
+# than Church because the corpora match on data, and a Scott constructor IS
+# its own case analysis: applied to its handlers, a cyclic list hands its
+# head and its tail to the one that matches.
+#
+# A POINT IS AN EXPORTED UNARY PREDICATE, so this file is an ordinary Prolog
+# module and another corpus reaches these pieces through `use_module`.
+#
+# EVERY BINDER IS A DISTINCT PROLOG VARIABLE within one clause, and a piece
+# that is reused is pulled in by calling its predicate rather than repeated
+# as text, which yields a fresh copy of the clause's variables every time.
+
+#   The Y combinator. `fixpoint @ F` reduces to `F @ (fixpoint @ F)`.
+λ export. export λx_0. (λx_1. x_0 λ. x_1 x_1) λx_1. x_0 λ. x_1 x_1

@@ -1,0 +1,45 @@
+# The power of a natural modulo a modulus, written by the definition, a multiplication
+# for each unit of the exponent, and its typed version, which a native computes. The
+# recursion has the structure problems/cses/exponentiation gives it, so that plover_power
+# is the same IR term as the function a program writes.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "prelude") "fixpoint")
+λ fixpoint
+. omega (omega (omega (omega corpora "library") "prelude") "boolean")
+λ _ false _ _
+. omega (omega (omega (omega corpora "library") "binary") "natural")
+λ binary_zero _ binary_odd _ binary_set
+. omega (omega (omega (omega corpora "library") "binary") "arithmetic")
+λ _ _ merge_binary_times _
+. omega (omega (omega (omega corpora "library") "native_types") "boolean")
+λ criterion_true criterion_false _ _
+. omega (omega (omega (omega corpora "library") "plover_compositions") "plover_binary_arithmetic")
+λ _ binary_subtract
+. omega (omega (omega (omega corpora "library") "plover_compositions") "plover_compositions")
+λ _ _ plover_binary_modulo _ _ _
+# plover_power:
+# P₃ of the proofs file, section 9. A noinline attractor.
+. ( λ tuple
+    . tuple
+    λ
+    . fixpoint
+    λ self base exponent
+    . exponent (binary_odd binary_zero) (λ_. merge_binary_times base λ. self base λ. binary_subtract exponent (binary_odd binary_zero) false) λ_. merge_binary_times base λ. self base λ. binary_subtract exponent (binary_odd binary_zero) false
+  )
+λ plover_power
+# plover_modular_power:
+# A₃ of the proofs file, section 9.
+. (λtuple. tuple λ base exponent modulus. plover_binary_modulo (plover_power base exponent) modulus)
+λ plover_modular_power
+# plover_typed_modular_power:
+# A₃_T of the proofs file, section 9: the base and the exponent canonical naturals and
+# the modulus a positive one.
+. ( λ tuple
+    . tuple
+    λ base exponent modulus
+    . (plover_modular_power (base ∥ binary_set criterion_true) (exponent ∥ binary_set criterion_true) (modulus ∥ binary_set criterion_false) ∥ binary_set criterion_true)
+  )
+λ plover_typed_modular_power
+. export plover_power plover_modular_power plover_typed_modular_power

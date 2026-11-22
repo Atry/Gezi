@@ -1,0 +1,469 @@
+# The lemmas of the HM baseline with unification as unions of classes: a type is a term of the ZERO UNIVERSE, built of the combinators
+# of this module, each of which is top up to contextual equivalence, so that
+# any two types are one term and an instance may unite any two type classes.
+# A program node x is judged by its type, x + (x ∥ type_of x), sound by
+# absorption; the constraints of HM between types are unify nodes, each top up
+# to contextual equivalence and so equal to both its arguments
+# (unions_unify_*), and decomposition makes the
+# parts of two function types, two structures, two alternatives and two
+# fields unified ones. No program node is spelled again, only terms of the
+# zero universe.
+#
+# The types of data are STRUCTURES, with no name (`CONTRIBUTING.md`, "Structure only: no names, and every function a pure function of the term"): a Scott
+# value's type is the field lists of its alternatives,
+# structure (alternative f1 (alternative f2 ... no_alternative)), each fi a
+# list field t (field u ... no_field). A constructor's scheme is the
+# structure of its body, the i-th of n alternatives with its fields, the
+# other alternatives' field lists scheme variables; constructors that share a
+# body are one handle and have its one scheme, so that every occurrence
+# instantiates it, whatever its type holds. A recursive type, the naturals'
+# or the lists' in a fold's scheme, is recursive_type f, the zero-universe
+# fixed point of the type function f, unfolded by
+# unions_recursive_type_unfolding into a cycle of the graph: unification is
+# the unification of rational trees, with no occurs check through a
+# structure. Used with the library native_types.
+#
+# The typed versions and the contracts are in a backend's shape module,
+# prolog_backend_shapes.pl for the Prolog backend.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "native_types") "natural")
+λ zero successor nat_fold _
+. omega (omega (omega (omega corpora "library") "hindley_milner_unions") "types")
+λ function_type closure_type scheme zero_universe_scheme instance_variable
+. omega (omega (omega (omega corpora "library") "hindley_milner_unions") "shapes")
+λ structure alternative no_alternative field no_field recursive_type
+. omega (omega (omega (omega corpora "library") "native_types") "boolean")
+λ _ false _ boolean_not
+. omega (omega (omega (omega corpora "library") "native_types") "list")
+λ _ cons list_fold _
+. omega (omega (omega (omega corpora "library") "native_types") "combinators")
+λ identity konstant compose
+. omega (omega (omega (omega corpora "library") "native_types") "fixpoint")
+λ fixpoint
+. omega (omega (omega (omega corpora "library") "hindley_milner_unions") "judgments")
+λ type_of candidate_of unify
+. omega (omega (omega (omega corpora "library") "native_types") "markers")
+λ _ _ $name $closure
+. omega (omega (omega (omega corpora "library") "native_types") "type_operators")
+λ _ _ parameter
+. export
+  ( λ _ rewriting _ _
+    . rewriting
+    λ _ _ leaves
+    . leaves
+      ( λk. k closure_type
+      + λk. k instance_variable
+      + λk. k scheme
+      + λk. k zero_universe_scheme
+      + λk. k candidate_of
+      + λk. k unify
+      + λk. k recursive_type
+      + λk. k no_field
+      + λk. k field
+      + λk. k no_alternative
+      + λk. k alternative
+      + λk. k structure
+      + λk. k function_type
+      + λk. k type_of
+      )
+  + λ _ rewriting _ _
+    . rewriting
+    λ _ lemmas _
+    . lemmas
+      # The unify node of two function types, two structures, two alternatives or
+      # two fields is the choice of it and the unify nodes of their parts: all are
+      # top up to contextual equivalence.
+      ( λ s
+        . s
+          (λk. k "unions_field_decomposition")
+          (λx_0 x_1 x_2 x_3. unify (field x_0 x_1) λ. field x_2 x_3)
+          (λx_0 x_1 x_2 x_3. (unify x_1 x_3 + unify x_0 x_2 + unify (field x_0 x_1) λ. field x_2 x_3)) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      + λ s
+        . s
+          (λk. k "unions_alternative_decomposition")
+          (λx_0 x_1 x_2 x_3. unify (alternative x_0 x_1) λ. alternative x_2 x_3)
+          ( λ x_0 x_1 x_2 x_3
+            . (unify x_1 x_3 + unify x_0 x_2 + unify (alternative x_0 x_1) λ. alternative x_2 x_3)
+          ) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      + λ s
+        . s
+          (λk. k "unions_structure_decomposition")
+          (λx_0 x_1. unify (structure x_0) λ. structure x_1)
+          (λx_0 x_1. (unify x_0 x_1 + unify (structure x_0) λ. structure x_1)) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      + λ s
+        . s
+          (λk. k "unions_function_decomposition")
+          (λx_0 x_1 x_2 x_3. unify (function_type x_0 x_1) λ. function_type x_2 x_3)
+          ( λ x_0 x_1 x_2 x_3
+            . (unify x_1 x_3 + unify x_0 x_2 + unify (function_type x_0 x_1) λ. function_type x_2 x_3)
+          ) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      # ---- unification ----
+      # unify a b is a, and is b, for a and b of the zero universe: the three are
+      # top up to contextual equivalence. One lemma for each kind of type the
+      # argument is.
+      + λ s
+        . s
+          (λk. k "unions_unify_variable_right")
+          (λx_0 x_1 x_2. unify x_0 λ. instance_variable x_1 x_2)
+          (λx_0 x_1 x_2. instance_variable x_1 x_2) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      + λ s
+        . s
+          (λk. k "unions_unify_variable_left")
+          (λx_0 x_1 x_2. unify (instance_variable x_0 x_1) x_2)
+          (λx_0 x_1 x_2. instance_variable x_0 x_1) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      + λ s
+        . s
+          (λk. k "unions_unify_function_right")
+          (λx_0 x_1 x_2. unify x_0 λ. function_type x_1 x_2)
+          (λx_0 x_1 x_2. function_type x_1 x_2) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      + λ s
+        . s
+          (λk. k "unions_unify_function_left")
+          (λx_0 x_1 x_2. unify (function_type x_0 x_1) x_2)
+          (λx_0 x_1 x_2. function_type x_0 x_1) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      + λ s
+        . s (λk. k "unions_unify_no_field_right") (λx_0. unify x_0 no_field) (λx_0. no_field) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      + λ s
+        . s (λk. k "unions_unify_no_field_left") (λx_0. unify no_field x_0) (λx_0. no_field) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      + λ s
+        . s
+          (λk. k "unions_unify_field_right")
+          (λx_0 x_1 x_2. unify x_0 λ. field x_1 x_2)
+          (λx_0 x_1 x_2. field x_1 x_2) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      + λ s
+        . s
+          (λk. k "unions_unify_field_left")
+          (λx_0 x_1 x_2. unify (field x_0 x_1) x_2)
+          (λx_0 x_1 x_2. field x_0 x_1) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      + λ s
+        . s
+          (λk. k "unions_unify_no_alternative_right")
+          (λx_0. unify x_0 no_alternative)
+          (λx_0. no_alternative) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      + λ s
+        . s (λk. k "unions_unify_no_alternative_left") (λx_0. unify no_alternative x_0) (λx_0. no_alternative) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      + λ s
+        . s
+          (λk. k "unions_unify_alternative_right")
+          (λx_0 x_1 x_2. unify x_0 λ. alternative x_1 x_2)
+          (λx_0 x_1 x_2. alternative x_1 x_2) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      + λ s
+        . s
+          (λk. k "unions_unify_alternative_left")
+          (λx_0 x_1 x_2. unify (alternative x_0 x_1) x_2)
+          (λx_0 x_1 x_2. alternative x_0 x_1) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      + λ s
+        . s
+          (λk. k "unions_unify_structure_right")
+          (λx_0 x_1. unify x_0 λ. structure x_1)
+          (λx_0 x_1. structure x_1) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      + λ s
+        . s
+          (λk. k "unions_unify_structure_left")
+          (λx_0 x_1. unify (structure x_0) x_1)
+          (λx_0 x_1. structure x_0) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      + λ s
+        . s (λk. k "unions_unify_type_of_right") (λx_0 x_1. unify x_0 λ. type_of x_1) (λx_0 x_1. type_of x_1) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      + λ s
+        . s (λk. k "unions_unify_type_of_left") (λx_0 x_1. unify (type_of x_0) x_1) (λx_0 x_1. type_of x_0) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      # ---- closures ----
+      # parameter p is judged by p: absorption.
+      + λ s
+        . s
+          (λk. k "unions_parameter_typed")
+          (λx_0. parameter x_0)
+          (λx_0. (parameter x_0 ∥ x_0 + parameter x_0)) λ_ md _. md λk. k "[absorption](docs/design/gezi-hindley-milner-unions-proofs.md#absorption)"
+      # A closure c whose body m is a closure, a lambda chain of several
+      # parameters: m is typed as a closure of its own, and c's type is unified
+      # with function_type p (type_of m): all are top up to contextual equivalence.
+      + λ s
+        . s
+          (λk. k "unions_closure_curried")
+          (λx_0 x_1. closure_type x_0 λx_2. x_1 x_2)
+          ( λ x_0 x_1
+            . ( unify (type_of x_0) λ. function_type (instance_variable x_0 x_0) λ. type_of x_1
+              + closure_type x_1 λ. x_1 λ. parameter λ. instance_variable x_1 x_1
+              + closure_type x_0 λx_2. x_1 x_2
+              )
+          ) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      # A closure c whose body b is judged tb: the choice of closure_type c b and
+      # the unify node of type_of c and function_type p tb, p the type of c's
+      # parameter: all are top up to contextual equivalence.
+      + λ s
+        . s
+          (λk. k "unions_closure_body")
+          (λx_0 x_1 x_2. closure_type x_0 (x_1 ∥ x_2 + x_1))
+          ( λ x_0 x_1 x_2
+            . ( unify (type_of x_0) λ. function_type (instance_variable x_0 x_0) x_2
+              + closure_type x_0 (x_1 ∥ x_2 + x_1)
+              )
+          ) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      # closure_type c b is type_of c: both are top up to contextual equivalence.
+      + λ s
+        . s (λk. k "unions_closure_type") (λx_0 x_1. closure_type x_0 x_1) (λx_0 x_1. type_of x_0) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      # A closure occurrence c is judged by closure_type c b, b its body read at
+      # its parameter, parameter p, p the type variable named by c and c:
+      # absorption. closure_type names the closure itself, not its type: the type
+      # class of many closures is one class (all of the type nat_type -> nat_type
+      # in successor ((\q. ...) p)), and a pattern binding c through it would
+      # bind every closure of that type (measured 2026-10-28 on the nested family:
+      # the matches of unions_closure_body grew as the square of the depth).
+      + λ s
+        . s
+          (λk. k "unions_closure_typed")
+          (λx_0 x_1. $closure x_0 λx_2. x_1 x_2)
+          ( λ x_0 x_1
+            . ( $closure x_0 λx_2. x_1 x_2
+              ∥ λ
+                . closure_type ($closure x_0 λx_2. x_1 x_2)
+                λ
+                . x_1 λ. parameter λ. instance_variable ($closure x_0 λx_2. x_1 x_2) λ. $closure x_0 λx_2. x_1 x_2
+              + $closure x_0 λx_2. x_1 x_2
+              )
+          ) λ_ md _. md λk. k "[absorption](docs/design/gezi-hindley-milner-unions-proofs.md#absorption)"
+      # ---- applications ----
+      # [type_of x, unify a b] is type_of x: both members are top up to contextual
+      # equivalence (top + M ≃_O M).
+      + λ s
+        . s
+          (λk. k "unions_type_choice")
+          (λx_0 x_1 x_2. (unify x_1 x_2 + type_of x_0))
+          (λx_0 x_1 x_2. type_of x_0) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      # A function judged tf applied to an argument judged tx is judged by its
+      # type, type_of of the application, written as the choice of it and the
+      # unify node of tf and function_type tx (type_of of the application): both
+      # are top up to contextual equivalence, and the judgment is the application
+      # by absorption.
+      + λ s
+        . s
+          (λk. k "unions_application_typed")
+          (λx_0 x_1 x_2 x_3. (x_0 ∥ x_2 + x_0) (x_1 ∥ x_3 + x_1))
+          ( λ x_0 x_1 x_2 x_3
+            . ( (x_0 ∥ x_2 + x_0) (x_1 ∥ x_3 + x_1)
+              ∥ ( unify x_2 λ. function_type x_3 λ. type_of λ. (x_0 ∥ x_2 + x_0) (x_1 ∥ x_3 + x_1)
+                + type_of λ. (x_0 ∥ x_2 + x_0) (x_1 ∥ x_3 + x_1)
+                )
+              + (x_0 ∥ x_2 + x_0) (x_1 ∥ x_3 + x_1)
+              )
+          ) λ_ md _. md λk. k "[absorption](docs/design/gezi-hindley-milner-unions-proofs.md#absorption)"
+      # ---- occurrences and their candidates ----
+      # A candidate structure b or function_type e q of an occurrence o: o judged
+      # by the unify node of its type t and the candidate instead, spelled into
+      # candidate_of's argument; a body has one scheme, so every occurrence
+      # instantiates it, whatever its type holds (HM's instantiation at each
+      # occurrence). Both sides are o + (p ∥ s): candidate_of [o, o ∥ t] is o for
+      # every t, by candidate_of's define and absorption, whatever p is.
+      + λ s
+        . s
+          (λk. k "unions_function_activation")
+          (λx_0 x_1 x_2 x_3 x_4. (x_2 ∥ function_type x_3 x_4 + candidate_of (x_0 ∥ x_1 + x_0)))
+          ( λ x_0 x_1 x_2 x_3 x_4
+            . (x_2 ∥ function_type x_3 x_4 + candidate_of (x_0 ∥ unify x_1 λ. function_type x_3 x_4 + x_0))
+          ) λ_ md _. md λk. k "[respelling](docs/design/gezi-hindley-milner-unions-proofs.md#respelling)"
+      + λ s
+        . s
+          (λk. k "unions_structure_activation")
+          (λx_0 x_1 x_2 x_3. (x_2 ∥ structure x_3 + candidate_of (x_0 ∥ x_1 + x_0)))
+          (λx_0 x_1 x_2 x_3. (x_2 ∥ structure x_3 + candidate_of (x_0 ∥ unify x_1 λ. structure x_3 + x_0))) λ_ md _. md λk. k "[respelling](docs/design/gezi-hindley-milner-unions-proofs.md#respelling)"
+      # A candidate scheme g of an occurrence o is the candidate g v, v the type
+      # variable named by o and g: absorption.
+      + λ s
+        . s
+          (λk. k "unions_candidate_instance")
+          (λx_0 x_1. (candidate_of x_0 ∥ scheme λx_2. x_1 x_2 + candidate_of x_0))
+          ( λ x_0 x_1
+            . ( candidate_of x_0
+              ∥ x_1 λ. instance_variable x_0 x_1
+              + (candidate_of x_0 ∥ scheme λx_2. x_1 x_2 + candidate_of x_0)
+              )
+          ) λ_ md _. md λk. k "[absorption](docs/design/gezi-hindley-milner-unions-proofs.md#absorption)"
+      # Each scheme s of the name is a candidate of the occurrence o, a judgment
+      # of candidate_of o by s, which is o: candidate_of o is o, and the judgment
+      # is candidate_of o by absorption.
+      + λ s
+        . s
+          (λk. k "unions_occurrence_candidate")
+          (λx_0 x_1 x_2. $name x_0 (x_1 ∥ zero_universe_scheme x_2 + x_1))
+          ( λ x_0 x_1 x_2
+            . ( candidate_of λ. $name x_0 (x_1 ∥ zero_universe_scheme x_2 + x_1)
+              ∥ x_2
+              + candidate_of λ. $name x_0 (x_1 ∥ zero_universe_scheme x_2 + x_1)
+              + $name x_0 (x_1 ∥ zero_universe_scheme x_2 + x_1)
+              )
+          ) λ_ md _. md λk. k "[candidate](docs/design/gezi-hindley-milner-unions-proofs.md#candidate)"
+      # An occurrence is judged by its type: absorption.
+      + λ s
+        . s
+          (λk. k "unions_occurrence_typed")
+          (λx_0 x_1. $name x_0 x_1)
+          (λx_0 x_1. ($name x_0 x_1 ∥ type_of λ. $name x_0 x_1 + $name x_0 x_1)) λ_ md _. md λk. k "[absorption](docs/design/gezi-hindley-milner-unions-proofs.md#absorption)"
+      # ---- the schemes of the library's names in the zero universe: absorption ----
+      # recursive_type f is unified with f (recursive_type f): both sides are the
+      # top up to contextual equivalence for every f, the unfolding standing under
+      # unify, never alone
+      # on a side, where it is f 0 and the equation holds only for an f whose body
+      # is a type. f is a function metavariable, so the e-graph reduces the
+      # unfolding by the β rule into a structure, which unions_unify_structure_right
+      # unites with the unify node, and the class of the recursive type holds its
+      # unfolding over itself, a cycle.
+      + λ s
+        . s
+          (λk. k "unions_recursive_type_unfolding")
+          (λx_0. recursive_type λx_1. x_0 x_1)
+          (λx_0. unify (recursive_type λx_1. x_0 x_1) λ. x_0 λ. recursive_type λx_1. x_0 x_1) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      # The folds, the naturals and the lists written as recursive structures:
+      # the naturals the fixed point of n ↦ structure (alternative no_field
+      # (alternative (field n no_field) no_alternative)), the lists of e that of
+      # l ↦ structure (alternative no_field (alternative (field e (field l
+      # no_field)) no_alternative)).
+      + λ s
+        . s
+          (λk. k "unions_list_fold_scheme") list_fold
+          ( list_fold
+          ∥ λ
+            . zero_universe_scheme
+            λ
+            . scheme
+            λ x_0
+            . scheme
+            λ x_1
+            . function_type x_1
+            λ
+            . function_type (function_type x_0 λ. function_type x_1 x_1)
+            λ
+            . function_type
+              ( λ
+                . recursive_type
+                λ x_2
+                . structure λ. alternative no_field λ. alternative (field x_0 λ. field x_2 no_field) no_alternative
+              ) x_1
+          + list_fold
+          ) λ_ md _. md λk. k "[absorption](docs/design/gezi-hindley-milner-unions-proofs.md#absorption)"
+      + λ s
+        . s
+          (λk. k "unions_nat_fold_scheme") nat_fold
+          ( nat_fold
+          ∥ λ
+            . zero_universe_scheme
+            λ
+            . scheme
+            λ x_0
+            . function_type x_0
+            λ
+            . function_type (function_type x_0 x_0)
+            λ
+            . function_type
+              ( recursive_type λx_1. structure λ. alternative no_field λ. alternative (field x_1 no_field) no_alternative
+              ) x_0
+          + nat_fold
+          ) λ_ md _. md λk. k "[absorption](docs/design/gezi-hindley-milner-unions-proofs.md#absorption)"
+      + λ s
+        . s
+          (λk. k "unions_fixpoint_scheme") fixpoint
+          (fixpoint ∥ zero_universe_scheme λ. scheme λx_0. function_type (function_type x_0 x_0) x_0 + fixpoint) λ_ md _. md λk. k "[absorption](docs/design/gezi-hindley-milner-unions-proofs.md#absorption)"
+      + λ s
+        . s
+          (λk. k "unions_compose_scheme") compose
+          ( compose
+          ∥ λ
+            . zero_universe_scheme
+            λ
+            . scheme
+            λ x_0
+            . scheme
+            λ x_1
+            . scheme
+            λ x_2
+            . function_type (function_type x_1 x_2) λ. function_type (function_type x_0 x_1) λ. function_type x_0 x_2
+          + compose
+          ) λ_ md _. md λk. k "[absorption](docs/design/gezi-hindley-milner-unions-proofs.md#absorption)"
+      + λ s
+        . s
+          (λk. k "unions_konstant_scheme") konstant
+          ( konstant
+          ∥ zero_universe_scheme λ. scheme λx_0. scheme λx_1. function_type x_0 λ. function_type x_1 x_0
+          + konstant
+          ) λ_ md _. md λk. k "[absorption](docs/design/gezi-hindley-milner-unions-proofs.md#absorption)"
+      + λ s
+        . s
+          (λk. k "unions_identity_scheme") identity
+          (identity ∥ zero_universe_scheme λ. scheme λx_0. function_type x_0 x_0 + identity) λ_ md _. md λk. k "[absorption](docs/design/gezi-hindley-milner-unions-proofs.md#absorption)"
+      # boolean_not, from the booleans' structure to itself: two alternatives,
+      # neither with a field.
+      + λ s
+        . s
+          (λk. k "unions_boolean_not_scheme") boolean_not
+          ( boolean_not
+          ∥ λ
+            . zero_universe_scheme
+            λ
+            . function_type (structure λ. alternative no_field λ. alternative no_field no_alternative) λ. structure λ. alternative no_field λ. alternative no_field no_alternative
+          + boolean_not
+          ) λ_ md _. md λk. k "[absorption](docs/design/gezi-hindley-milner-unions-proofs.md#absorption)"
+      # cons, λh.λt.λa.λb. b h t: the second of two alternatives with two fields.
+      + λ s
+        . s
+          (λk. k "unions_second_of_two_two_fields_scheme") cons
+          ( cons
+          ∥ λ
+            . zero_universe_scheme
+            λ
+            . scheme
+            λ x_0
+            . scheme
+            λ x_1
+            . scheme
+            λ x_2
+            . function_type x_1
+            λ
+            . function_type x_2 λ. structure λ. alternative x_0 λ. alternative (field x_1 λ. field x_2 no_field) no_alternative
+          + cons
+          ) λ_ md _. md λk. k "[absorption](docs/design/gezi-hindley-milner-unions-proofs.md#absorption)"
+      # successor, λn.λa.λb. b n: the second of two alternatives with one field.
+      + λ s
+        . s
+          (λk. k "unions_second_of_two_one_field_scheme") successor
+          ( successor
+          ∥ λ
+            . zero_universe_scheme
+            λ
+            . scheme
+            λ x_0
+            . scheme
+            λ x_1
+            . function_type x_1 λ. structure λ. alternative x_0 λ. alternative (field x_1 no_field) no_alternative
+          + successor
+          ) λ_ md _. md λk. k "[absorption](docs/design/gezi-hindley-milner-unions-proofs.md#absorption)"
+      # false, λa.λb. b: the second of two alternatives with no field.
+      + λ s
+        . s
+          (λk. k "unions_second_of_two_scheme") false
+          ( false
+          ∥ zero_universe_scheme λ. scheme λx_0. structure λ. alternative x_0 λ. alternative no_field no_alternative
+          + false
+          ) λ_ md _. md λk. k "[absorption](docs/design/gezi-hindley-milner-unions-proofs.md#absorption)"
+      # The constructors, by the structures of their bodies. zero, true and nil
+      # share λa.λb. a, the first of two alternatives with no field: one handle,
+      # one scheme, written once.
+      + λ s
+        . s
+          (λk. k "unions_first_of_two_scheme") zero
+          ( zero
+          ∥ zero_universe_scheme λ. scheme λx_0. structure λ. alternative no_field λ. alternative x_0 no_alternative
+          + zero
+          ) λ_ md _. md λk. k "[absorption](docs/design/gezi-hindley-milner-unions-proofs.md#absorption)"
+      # ---- λ-lattice laws ----
+      # x ∥ x = x: idempotence of the parallel.
+      + λ s
+        . s (λk. k "unions_parallel_idempotence") (λx_0. (x_0 ∥ x_0)) (λx_0. x_0)
+        λ _ md _
+        . md
+        λ k
+        . k "[parallel_idempotence](docs/design/gezi-hindley-milner-unions-proofs.md#parallel_idempotence)"
+      # x + (x ∥ y) = x: absorption.
+      + λ s
+        . s (λk. k "unions_absorption") (λx_0 x_1. (x_0 ∥ x_1 + x_0)) (λx_0 x_1. x_0) λ_ md _. md λk. k "[absorption](docs/design/gezi-hindley-milner-unions-proofs.md#absorption)"
+      )
+  )

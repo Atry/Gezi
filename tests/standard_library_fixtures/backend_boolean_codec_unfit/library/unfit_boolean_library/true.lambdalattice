@@ -1,0 +1,2 @@
+# A true of another shape than the codec assumes: it answers the second case.
+λ export. export λ_ f. f

@@ -1,0 +1,43 @@
+# The Prolog backend's facts for binary, a knowledge module of their own (one
+# set of backend facts per backend, as fixed_width_prolog_backend.pl is for
+# fixed_width): the canonical binary naturals of binary_set P are
+# represented natively, each as one integer (the family binary_natural,
+# gezi.jit.BinaryNaturalFamily), and the three constructors the codec
+# decodes into and encodes from are bound to it, and are leaves, so that no
+# round unfolds them and the refinement keeps them as written. A filter
+# `x ∥ binary_set P`, P a boolean written out, in a term is then a decode
+# point of the JIT, P read from that syntax. Trusted, as every native
+# specialization is; the decoding law (BinaryNaturalDecodingLawTest) checks
+# the JIT against weak_head on generated numerals, canonical and not, under
+# both sets, and the backend's check (BackendChecks) checks the
+# constructors' shape and parameters when the library is compiled. No lemma
+# justifies these facts. Compiled with binary and native_types.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "binary") "natural")
+λ binary_zero binary_even binary_odd _ binary_set
+. export
+  ( λ _ _ _ backend
+    . backend
+    λ _ _ representations _ _ _
+    . representations
+    λ s
+    . s binary_set λk. k "binary_natural"
+  + λ _ rewriting _ _
+    . rewriting
+    λ _ _ leaves
+    . leaves
+      ( λk. k binary_odd
+      + λk. k binary_even
+      + λk. k binary_zero
+      )
+  + λ _ _ _ backend
+    . backend
+    λ _ natives _ _ _ _
+    . natives
+      ( λs. s binary_odd λk. k "binary_odd"
+      + λs. s binary_even λk. k "binary_even"
+      + λs. s binary_zero λk. k "binary_zero"
+      )
+  )

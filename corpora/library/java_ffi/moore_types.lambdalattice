@@ -1,0 +1,94 @@
+# The criteria of an FFI program's Moore machine state, one step at a time: a state is a pair whose left field is in
+# the computation graph's schema, and each next state is filtered again. A criterion is told by the identity of its
+# interned term; the fixed point and Ω are written out in it.
+#
+# Ω stands at the positions a criterion leaves open, since Ω ∥ M ≃_O M (Lean: omegaParallelContextualEquivalence): a
+# state's transition, a finish's answer, a method's or a constructor's symbols and a decoded value, whose type the
+# descriptor at its position gives, a method's descriptor holding its value types.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "prelude") "list_cbor")
+λ list_from_cbor _ _ _
+. omega (omega (omega (omega corpora "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. omega (omega (omega corpora "library") "top")
+λ top
+. omega (omega (omega (omega corpora "library") "java_ffi") "literals")
+λ bits_8_list_type _ _ _ _
+# bottom:
+# Ω, the least term of ⊑_O.
+. (λtuple. tuple λ. (λx. x x) λx. x x)
+λ bottom
+# expression_type:
+# The expressions of a computation graph: a call, a new, or a decode, their arguments expressions.
+. ( λ tuple
+    . tuple
+    λ on_call on_new on_decode
+    . ( λ fix open
+        . fix
+        λ expression
+        . ( (λc n d. c open λ. fix λa. ((λh t _ k. k h t) expression a + λn _. n))
+          + (λc n d. n open open λ. fix λa. ((λh t _ k. k h t) expression a + λn _. n))
+          + λc n d. d open
+          )
+      )
+      ((λx f. f λ. x x f) λx f. f λ. x x f)
+      ((λx. x x) λx. x x)
+      on_call
+      on_new
+      on_decode
+  )
+λ expression_type
+# arguments_type:
+# The Scott lists (prelude/list) of expressions.
+. ( λ tuple
+    . tuple
+    λ on_nil on_cons
+    . (λx f. f λ. x x f)
+      (λx f. f λ. x x f)
+      (λa. ((λh t _ k. k h t) expression_type a + λn _. n))
+      on_nil
+      on_cons
+  )
+λ arguments_type
+# output_alphabet:
+# The outputs: an answer, open, or an expression.
+. ( λ tuple
+    . tuple
+    λ on_finish on_run
+    . ((λf r. f ((λx. x x) λx. x x)) + λf r. r expression_type) on_finish on_run
+  )
+λ output_alphabet
+# moore_state_type:
+# The pairs of an output of the alphabet and a transition, open: one step of the machine.
+. (λtuple. tuple λk. k output_alphabet ((λx. x x) λx. x x))
+λ moore_state_type
+# symbols:
+# The symbols of a method, its owner, name and descriptor, each a list of UTF-8 bytes.
+. (λtuple. tuple λowner name descriptor s. s owner name descriptor)
+λ symbols
+# symbols_type:
+# The criterion of symbols.
+. (λtuple. tuple λs. s bits_8_list_type bits_8_list_type bits_8_list_type)
+λ symbols_type
+# method_symbols:
+# The symbols a method's CBOR array literal spells, λk. k ["owner", "name", "descriptor"], read in the term: the host
+# reads no bit of a literal. A literal that is no array of three text strings has no symbols.
+. ( λ tuple
+    . tuple
+    λ method
+    . method
+    λ
+    . list_from_cbor text_from_cbor
+    λ read
+    . read top
+    λ owner after_owner
+    . after_owner top
+    λ name after_name
+    . after_name top
+    λ descriptor after_descriptor
+    . after_descriptor (symbols owner name descriptor) λ_ _. top
+  )
+λ method_symbols
+. export bottom expression_type arguments_type output_alphabet moore_state_type symbols symbols_type method_symbols

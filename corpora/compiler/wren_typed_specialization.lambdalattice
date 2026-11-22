@@ -1,0 +1,128 @@
+# The rewriting of wren_typed_block's typed member toward a first-order
+# program: its lets of the typed
+# versions reduced by beta, so that each call of a let-bound recursion is a
+# term of its own, and each recursion specialized at its call by the static
+# argument transformation. Compiled with wren_typed_block, whose defines
+# these lemmas name. The typed versions' unfoldings into the natives are the
+# module wren_typed_unfolded.
+#
+# Termination of this module's saturation, derived and not proved:
+# - wren_static_argument_fixpoint matches an application of
+#   wren_fixpoint_by_value to a body of three parameters whose recursive
+#   calls pass the third unchanged, applied to two arguments. Its right side
+#   holds two recursions: the specialized one has a body of two parameters,
+#   and the typed branch's body calls its recursion with two filtered
+#   arguments, not with the third parameter unchanged. Neither is that
+#   shape. So the instances are at most the matching applications in the
+#   input graph.
+# - Each let lemma merges a let of a typed version, (λx. M x) T, with M T.
+#   It adds one application node over two existing classes into the let's
+#   own class, and no class. The instances are at most the classes holding
+#   a closure times the nine typed names (eight and the recursion).
+# - wren_typed_branch_identity merges a marked member with the member and
+#   adds no node.
+# The classes are those of the input and the static argument instances'
+# right sides, and those are bounded as above.
+
+# A let of a typed version, `(λx. B) T`, is B with T for x. The left side's
+# `X^(M @ X)` is the class of M holding a closure, so the side is M T, and
+# the right side M T, the β rule reading the application. Only lets of the
+# typed versions are reduced: the untyped member's lets, and every other
+# application, are not read by beta. By η.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "wren_typed_block") "wren_typed_block")
+λ wren_fixpoint_by_value wren_typed_branch wren_typed_zero wren_typed_even wren_typed_odd wren_typed_bitwise_or wren_typed_maximum wren_typed_minimum wren_typed_plus
+. omega (omega (omega (omega corpora "library") "binary") "natural")
+λ _ _ _ _ binary_set
+. omega (omega (omega (omega corpora "library") "native_types") "boolean")
+λ true _ _ _
+. export
+λ _ rewriting _ _
+. rewriting
+λ _ lemmas _
+. lemmas
+  # static_arguments' lemma on wren_fixpoint_by_value, equal to prelude's
+  # fixpoint by η and noinline, so that the typed member keeps its recursions as
+  # applications of it.
+  #
+  # Sound by Definition 14, its sides ≃_O under every substitution, as
+  # static_arguments' static_argument_fixpoint is: section 18.1 on paper,
+  # and the completeness
+  # of section 20 proved in Lean (ContextualPreorder.completeness); a named
+  # axiom citing 18.1 until a Lean proof of it replaces it. The typed branch
+  # itself is ⊢ (section 18.4).
+  #
+  # The right side is the choice of the specialized recursion and its typed
+  # branch, whose recursive calls, arguments and result are filtered by the
+  # canonical naturals: the typed branch refines the specialized recursion, ⊢
+  # by the argument of section 17 (a filter refines, application is monotone
+  # in each position, so the typed body refines the body at every t, and its
+  # fixpoint the fixpoint; the marker is the identity), so the choice equals
+  # the specialized recursion. On the right side the wrapper λa.λb. (t (a ∥ P)
+  # (b ∥ P)) ∥ P is reduced into K's body at each recursive call. The branch is
+  # written here, where the original recursion is matched once, and not as a
+  # lemma on any recursion of three holes, which would match its own typed
+  # branch again.
+  ( λ s
+    . s
+      (λk. k "wren_static_argument_fixpoint")
+      (λx_0 x_1 x_2. wren_fixpoint_by_value (λx_3 x_4 x_5. x_0 (λx_6. x_3 x_6 x_5) x_4 x_5) x_1 x_2)
+      ( λ x_0 x_1 x_2
+        . ( λ
+            . wren_typed_branch
+            λ
+            . wren_fixpoint_by_value
+              ( λ x_3 x_4 x_5
+                . ( x_0
+                    (λx_6 x_7. (x_3 (x_6 ∥ binary_set true) (x_7 ∥ binary_set true) ∥ binary_set true))
+                    (x_4 ∥ binary_set true) x_2
+                    (x_5 ∥ binary_set true)
+                  ∥ binary_set true
+                  )
+              ) x_1
+          + wren_fixpoint_by_value (λx_3 x_4. x_0 x_3 x_4 x_2) x_1
+          )
+      ) λ_ md _. md λk. k "[static_argument_fixpoint](docs/design/gezi-set-equations-proofs.md)"
+  # The typed branch's marker is the identity, by δ and two β steps (its body
+  # is λx. (λy. y) x; proofs section 17), so a marked member is in one class
+  # with the member itself and the narrow blocks' extraction spells it without
+  # the marker. The backend reads no marker: it compiles a choice's first
+  # narrow member (`NarrowBlocks.chosenMember`).
+  + λ s
+    . s (λk. k "wren_typed_branch_identity") (λx_0. wren_typed_branch x_0) (λx_0. x_0) λ_ md _. md λk. k "[wren_typed_branch_identity](docs/design/gezi-set-equations-proofs.md)"
+  + λ s
+    . s
+      (λk. k "wren_typed_let_fixpoint")
+      (λx_0 x_1. (λx_2. x_0 x_2) λ. wren_fixpoint_by_value x_1)
+      (λx_0 x_1. x_0 λ. wren_fixpoint_by_value x_1) λ_ md _. md λk. k "[wren_typed_let](docs/design/gezi-set-equations-proofs.md)"
+  + λ s
+    . s
+      (λk. k "wren_typed_let_fixpoint_name")
+      (λx_0. (λx_1. x_0 x_1) wren_fixpoint_by_value)
+      (λx_0. x_0 wren_fixpoint_by_value) λ_ md _. md λk. k "[wren_typed_let](docs/design/gezi-set-equations-proofs.md)"
+  + λ s
+    . s
+      (λk. k "wren_typed_let_bitwise_or")
+      (λx_0. (λx_1. x_0 x_1) wren_typed_bitwise_or)
+      (λx_0. x_0 wren_typed_bitwise_or) λ_ md _. md λk. k "[wren_typed_let](docs/design/gezi-set-equations-proofs.md)"
+  + λ s
+    . s
+      (λk. k "wren_typed_let_minimum")
+      (λx_0. (λx_1. x_0 x_1) wren_typed_minimum)
+      (λx_0. x_0 wren_typed_minimum) λ_ md _. md λk. k "[wren_typed_let](docs/design/gezi-set-equations-proofs.md)"
+  + λ s
+    . s
+      (λk. k "wren_typed_let_maximum")
+      (λx_0. (λx_1. x_0 x_1) wren_typed_maximum)
+      (λx_0. x_0 wren_typed_maximum) λ_ md _. md λk. k "[wren_typed_let](docs/design/gezi-set-equations-proofs.md)"
+  + λ s
+    . s (λk. k "wren_typed_let_plus") (λx_0. (λx_1. x_0 x_1) wren_typed_plus) (λx_0. x_0 wren_typed_plus) λ_ md _. md λk. k "[wren_typed_let](docs/design/gezi-set-equations-proofs.md)"
+  + λ s
+    . s (λk. k "wren_typed_let_odd") (λx_0. (λx_1. x_0 x_1) wren_typed_odd) (λx_0. x_0 wren_typed_odd) λ_ md _. md λk. k "[wren_typed_let](docs/design/gezi-set-equations-proofs.md)"
+  + λ s
+    . s (λk. k "wren_typed_let_even") (λx_0. (λx_1. x_0 x_1) wren_typed_even) (λx_0. x_0 wren_typed_even) λ_ md _. md λk. k "[wren_typed_let](docs/design/gezi-set-equations-proofs.md)"
+  + λ s
+    . s (λk. k "wren_typed_let_zero") (λx_0. (λx_1. x_0 x_1) wren_typed_zero) (λx_0. x_0 wren_typed_zero) λ_ md _. md λk. k "[wren_typed_let](docs/design/gezi-set-equations-proofs.md)"
+  )

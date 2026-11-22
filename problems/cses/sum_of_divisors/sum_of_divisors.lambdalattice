@@ -1,0 +1,68 @@
+# sum_of_divisors:
+# CSES 1082, Sum of Divisors (https://cses.fi/problemset/task/1082), in our own
+# words: for each i from 1 to n, add up the positive integers that divide i, and
+# add those totals up for all i, modulo 10^9 + 7. The input is a binary natural
+# (corpora/library/binary/natural) n >= 1, and the answer a binary natural. Part of
+# the CSES port's third batch.
+#
+# THE PROGRAM, written by the definition: for each i, the divisors are
+# found by trying every number d from 1 to i and keeping those with i mod d = 0, and their
+# sum is added to a running total over the i; the total is reduced modulo
+# 10^9 + 7. The reading takes about n^2 / 2 divisions; the replacement the family asks
+# for is the sum over d of d times floor(n / d), which is constant over runs of d where
+# floor(n / d) does not change, so about the square root of n runs, summed in closed
+# form, on fixed-width integers modulo 10^9 + 7.
+#
+# DEFINITION 14: the program P, the point's term, is built of λ and application
+# only: its text holds no top, no choice, no parallel and no literal (the modulus
+# and the numerals are written with binary_zero, binary_even and binary_odd). It
+# β-reduces to V, the canonical binary numeral of the answer: every recursion
+# ends, since the walk over the divisors consumes the bounded gap i - d, the walk over
+# the numbers consumes the bounded gap n - i, and binary_modulo consumes the bits of
+# its number; the branches that a Scott boolean discards are never read.
+# ../common/binary_modular's binary_modulo, which writes no top, is called with
+# d >= 1 and with the positive modulus only. So ⊢_β P = V, and P ≃_O V by the soundness of the derivable
+# equations for the contextual preorder of Definition 14 (Lean
+# `ContextualPreorder.contextualEquivalenceOfDerivableLatticeEta`): V is an
+# answer, P ⊑_O V. No other closed βη normal form W has P ⊑_O W: then V ⊑_O W,
+# while Böhm's theorem gives a pure context that takes V to λx y. x and W to
+# λx y. y, and applying both to λa. a and Ω makes the first solvable and the
+# second not.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "fixpoint")
+λ fixpoint
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "natural")
+λ binary_zero binary_even binary_odd _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "arithmetic")
+λ merge_binary_increment merge_binary_plus _ merge_binary_equality
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "order")
+λ binary_less_than _ _
+. omega (omega (omega (omega (omega gezi "problems") "cses") "common") "binary_modular")
+λ _ _ _ binary_modulo
+. (λtuple. tuple λ. binary_odd λ. binary_odd λ. binary_odd λ. binary_even λ. binary_even λ. binary_even λ. binary_even λ. binary_even λ. binary_even λ. binary_odd λ. binary_even λ. binary_odd λ. binary_even λ. binary_even λ. binary_odd λ. binary_odd λ. binary_even λ. binary_odd λ. binary_even λ. binary_odd λ. binary_odd λ. binary_even λ. binary_even λ. binary_odd λ. binary_odd λ. binary_odd λ. binary_even λ. binary_odd λ. binary_odd λ. binary_odd binary_zero)
+λ modulus
+. (λtuple. tuple (binary_odd binary_zero))
+λ one
+. ( λ tuple
+    . tuple
+    λ number
+    . fixpoint
+      ( λ self divisor sum
+        . binary_less_than number divisor sum (self (merge_binary_increment divisor) (merge_binary_equality (binary_modulo number divisor) binary_zero (merge_binary_plus sum divisor) sum))
+      ) one binary_zero
+  )
+λ divisor_sum
+. ( λ tuple
+    . tuple
+    λ limit
+    . fixpoint
+      ( λ self number sum
+        . binary_less_than limit number sum (self (merge_binary_increment number) (merge_binary_plus sum (divisor_sum number)))
+      ) one binary_zero
+  )
+λ total_of_divisor_sums
+. (λtuple. tuple λlimit. binary_modulo (total_of_divisor_sums limit) modulus)
+λ sum_of_divisors
+. export sum_of_divisors

@@ -1,0 +1,9 @@
+#   The body `natural_at_least` hands its fixpoint.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega gezi "problems") "prelude_clauses") "true")
+λ true
+. omega (omega (omega (omega gezi "problems") "prelude_clauses") "false")
+λ false
+. export λself m n. n true λn1. m false λm1. self m1 n1

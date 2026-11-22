@@ -1,0 +1,50 @@
+# Lemmas of prelude's constructors and functions on the parallel filters.
+# A filter is the parallel of a term with a type: the defines filter_nat
+# and filter_boolean of parallel_types, for the naturals and for the booleans,
+# whose type boolean_type is the choice true + false. The module is compiled with prelude and parallel_types, whose
+# names it uses: the modules compiled together are one namespace.
+#
+# Every lemma here is a theorem of λ-lattice-unit-η (CONTRIBUTING.md,
+# "Terms"); each declaration cites its paper proof. None needs induction,
+# and none rests on a conjecture. The contracts with no known derivation
+# without induction are not here: the own
+# contracts of unary and natural_double, typed instead through the typed
+# branch of nat_fold (filtered_recursion_naturals.pl), and those of natural_equal,
+# natural_at_least and natural_difference (prelude.pl's TODO).
+
+# The constructors pass their filters. true and zero are one term, the
+# address of λλ.1, so true_filtered is also filter_boolean @ zero = zero.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "parallel_types") "natural")
+λ _ nat_fold filter_nat _
+. omega (omega (omega (omega corpora "library") "prelude") "natural")
+λ zero successor unary _ _ _ _
+. omega (omega (omega (omega corpora "library") "parallel_types") "boolean")
+λ _ filter_boolean
+. omega (omega (omega (omega corpora "library") "prelude") "boolean")
+λ true false _ _
+. omega (omega (omega (omega corpora "library") "prelude") "combinators")
+λ _ _ compose _ _ _ _
+. export
+λ _ rewriting _ _
+. rewriting
+λ _ lemmas _
+. lemmas
+  # unary is the structural recursion it unfolds to (beta), so it has the
+  # typed branch nat_fold_filtered @ zero @ successor, by
+  # nat_fold_filtered_branch and nat_fold_filtered_contract of
+  # filtered_recursion_naturals.pl, as natural_double has by natural_double_as_fold.
+  ( λ s
+    . s (λk. k "unary_as_fold") unary (nat_fold zero successor) λ_ md _. md λk. k "[unary_as_fold](docs/design/gezi-set-equations-proofs.md)"
+  # A filter after the same filter is redundant.
+  + λ s
+    . s (λk. k "filter_nat_idempotent") (compose filter_nat filter_nat) filter_nat λ_ md _. md λk. k "[filter_nat_idempotent](docs/design/gezi-set-equations-proofs.md)"
+  + λ s
+    . s (λk. k "false_filtered") (filter_boolean false) false λ_ md _. md λk. k "[false_filtered](docs/design/gezi-set-equations-proofs.md)"
+  + λ s
+    . s (λk. k "true_filtered") (filter_boolean true) true λ_ md _. md λk. k "[true_filtered](docs/design/gezi-set-equations-proofs.md)"
+  + λ s
+    . s (λk. k "zero_filtered") (filter_nat zero) zero λ_ md _. md λk. k "[zero_filtered](docs/design/gezi-set-equations-proofs.md)"
+  )

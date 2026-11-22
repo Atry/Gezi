@@ -1,0 +1,6 @@
+λ export
+. (λtuple. tuple λn _. n)
+λ none
+. (λtuple. tuple λx _ s. s x)
+λ some
+. export none some

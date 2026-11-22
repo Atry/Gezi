@@ -1,0 +1,54 @@
+# Types written as parallels: the
+# type of the naturals is the choice nat_type, and filter_nat x is x ∥ nat_type,
+# meant to pass exactly the canonical numerals N with x ⊑_O N.
+# Under the λ-lattice laws and the unit law (CONTRIBUTING.md, "Terms"),
+# x ∥ nat_type ⊑_O N only when x ⊑_O N and nat_type ⊑_O N, and the closed
+# βη normal forms N with nat_type ⊑_O N are exactly the numerals, by a
+# paper proof.
+#
+# A contract says that the output filter is redundant after the input
+# filter, as an equation between closed point-free terms, in two forms:
+#
+#   basic:    compose filter_nat (compose f filter_nat)
+#               = compose f filter_nat
+#   chained:  Rest^(compose filter_nat (compose f (compose filter_nat Rest)))
+#               = Rest^(compose f (compose filter_nat Rest))
+#
+# where Rest stands for the inner part of a composition chain. Every lemma
+# here is a theorem of λ-lattice-unit-η; each declaration cites its paper
+# proof. None of them rests on a conjecture.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "prelude") "combinators")
+λ _ _ compose _ _ _ _
+. omega (omega (omega (omega corpora "library") "parallel_types") "natural")
+λ _ nat_fold filter_nat _
+. omega (omega (omega (omega corpora "library") "prelude") "natural")
+λ zero successor _ natural_double _ _ _
+. export
+λ _ rewriting _ _
+. rewriting
+λ _ lemmas _
+. lemmas
+  # TODO: the contracts of natural_double, basic and chained, stood here
+  # (git show 3d03f10a5:lambda_jit/corpora/standard_library/share_types.pl).
+  # They need natural_double (x ∥ nat_type) ≤ nat_type, which needs induction
+  # over the numerals, and ⊢_{λ-lattice-unit-η} does not derive it.
+  # natural_double is typed through its typed branch instead:
+  # natural_double_as_fold below and nat_fold_filtered_branch of
+  # filtered_recursion_naturals.pl.
+  # natural_double is the structural recursion it unfolds to (beta).
+  ( λ s
+    . s (λk. k "natural_double_as_fold") natural_double (nat_fold zero λ. compose successor successor) λ_ md _. md λk. k "[natural_double_as_fold](docs/design/gezi-set-equations-proofs.md)"
+  + λ s
+    . s
+      (λk. k "successor_filtered_chained")
+      (λx_0. compose filter_nat λ. compose successor λ. compose filter_nat x_0)
+      (λx_0. compose successor λ. compose filter_nat x_0) λ_ md _. md λk. k "[successor_filtered_chained](docs/design/gezi-set-equations-proofs.md)"
+  + λ s
+    . s
+      (λk. k "successor_filtered")
+      (compose filter_nat λ. compose successor filter_nat)
+      (compose successor filter_nat) λ_ md _. md λk. k "[successor_filtered](docs/design/gezi-set-equations-proofs.md)"
+  )

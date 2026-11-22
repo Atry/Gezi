@@ -1,0 +1,341 @@
+# ?Point, ?Kind, ?Template, ?Proof
+# +Point, +Template, -Test
+# +Point, +Template, -Program, -Expected
+# THE CLAIMS OF THE HARD CORPUS: for every
+# point, the test programs published with it, each `scored` (lambda beta
+# plus T = \x. x is held consistent) or `trap` (it is held not to be),
+# with its PROOF, `proved(Class)`, whose argument is the class's below
+# applied to the construction named at the point's fact, or
+# `conjecture(Class)`, a claim believed and not proved, scored as usual
+# and open to a refutation.
+#
+# THE TEMPLATES. A claim names its test by a TEMPLATE; `claim_test/3`
+# builds the test program, one surface lambda term, over the point's
+# term M, the surface term its `contest_hard` predicate gives. With y, y1,
+# y2 free and a the argument the judge applies the test to (the witness):
+#
+#     boolean(true)             \a. M a y
+#     boolean(false)            \a. M y a
+#     natural(Count)            \a. test(Count, M, a), where
+#                               test(0, N, a) = N a y and
+#                               test(K + 1, N, a) = N y (\p. test(K, p, a))
+#     member(Index, Certificate)
+#                               \a. M (\i. \w. Selected), Selected the
+#                               member Index of Certificate applied so
+#                               that it returns a: member(1, natural) is
+#                               i a (the identity member), member(2,
+#                               natural) is w y1 y2 a (\a. \b. \c. c),
+#                               member(2, stream) is w y1 a y2
+#                               (\a. \b. \c. b)
+#
+# The encodings are the prelude's: true = \t. \f. t, false = \t. \f. f,
+# zero = \z. \s. z, successor n = \z. \s. s n; the certificates are
+# H22's (`contest_hard_clauses.pl`): natural = \sel. sel (\x. x) (\a. \b.
+# \c. c), stream = \sel. sel (\x. bad) (\a. \b. \c. b).
+#
+# FINITE HEAD, proved. M reduces to the intended value V (a finite
+# derivation, certified by a least-solution reading or by the
+# argument at the fact). The scored test is V's template: it reduces to
+# \a. a (for a numeral, each level applies the successor branch to the
+# predecessor, and zero's branch returns a), so T = \x. x by beta, and
+# lambda beta is consistent (Church-Rosser). The traps are the other
+# boolean, or the numerals one above and one below: they reduce to
+# \a. y (true's test on false, false's on true, and the numeral one
+# above, whose last level meets zero's first branch) or to
+# \a. y (\z. \s. z) (the numeral one below, whose last level meets a
+# successor under zero's test), beta eta normal forms distinct from
+# \x. x, so T = \x. x is refuted by Boehm's theorem, whose separation
+# uses beta alone and so refutes it in lambda beta.
+#
+# SCORED FINITE HEAD, proved (`scored_finite_head/3`). A finite head as above, but the point poses
+# its scored templates only, each proved by the argument at the fact, and
+# no trap. A point several of whose values are intended uses it, one
+# scored template each: a
+# trie union whose pairwise sum is {0, 1, 2} poses natural(0), natural(1)
+# and natural(2), and its self-equality both booleans.
+#
+# NO YIELD, proved (`no_yield_trap/3`, a point with merges). Each
+# template's test yields nothing: by the trap pattern of the extension
+# with records, every term reachable from the test is missing in
+# head or has a merge in head position, shown with a per-point set
+# of states in the document the argument names; the judgment is the empty
+# disjunction, false. Every template is a trap; the point has no scored
+# claim.
+#
+# NO YIELD, conjectured (`no_yield_conjecture/3`, a point in lambda with
+# sets). Each template's test is held to yield nothing, for the reason
+# written at the point, which is not proved: every template is a trap, a
+# CONJECTURE. A proof moves the point to
+# `no_yield_trap/3`.
+#
+# CYCLE. M is a fixed point: M = C[M] by beta, C the point's
+# construction, which applies M's value.
+#
+# - BOTH BOOLEANS (`or c false`, `and c true`): C[true] = true and
+#   C[false] = false by beta. Scored: both boolean tests, CONJECTURES:
+#   that M = true (or M = false) is consistent with lambda beta is
+#   not proved (M is unsolvable; not every unsolvable term is easy).
+# - FALSE ONLY (H15 `and c false`, H29, H30): C[false] = false, and
+#   C[true] is a normal form distinct from true (false for H15 and H29,
+#   \p. \q. true or \p. \q. \r. \s. true for H30). Scored: boolean(false),
+#   a CONJECTURE as above, except on H29's and H30's five points, where
+#   it is PROVED (`conjecture_proved/3`), as is H15's. Trap:
+#   boolean(true), PROVED, with no eta: the test's closed equation
+#   \y. \a. M a y = \y. \a. a, applied to P and Q, gives M P Q = P for
+#   all closed P and Q. With it C[M] reduces to a closed normal form N
+#   other than true: M false false = false for H15 and H29's and_false,
+#   M false M = false for if_false, M true M = true and then
+#   true false false = false for and_or, M A false = A for H30 (A is
+#   \p. \q. true for the two cycle, \p. \q. \r. \s. true for the three
+#   cycle). The fixed point gives M = N, and the closed equation becomes,
+#   by beta, \y. \a. N a y = \y. \a. a, whose sides are distinct beta
+#   normal forms (\y. \a. y; for H30 \y. \a. true and
+#   \y. \a. \r. \s. true), refuted by Boehm's theorem.
+# - CERTIFICATE MEMBER (H22 symbol, H24 pair): assumed for the judgment,
+#   the natural certificate is given back. Scored: member(1, natural),
+#   member(2, natural) and member(2, stream), all PROVED
+#   (certificate_collapse, `gezi/doc/proofs/certificate_ghost_solutions.md`,
+#   2026-09-28): for every closed normal W, lambda beta
+#   eta plus M = \sel. sel (\x. x) W is consistent, and the natural and
+#   the stream certificate are two such values; the judgment reads only
+#   the first member of what it gives back.
+# - REJECTS CERTIFICATE (H22's twin): the judgment satisfies
+#   J T = (J T) (\i. \w. w). Traps: member(2, natural) and member(2,
+#   stream), CONJECTURES: a certificate would equal its own second member,
+#   which neither does; a proof from the member tests alone is not
+#   written.
+#
+# A cycle that hands its value on without applying it is solved by every
+# closed abstraction; such points carry no claim and are retired
+# (`contest_hard_answers.pl`). Points not listed here have no claims and
+# are not scored as claims.
+
+#!  scored_finite_head(?Point, ?Templates, ?Argument)
+#
+#   A point whose claims are the scored claims Templates only, each proved
+#   by the finite head Argument argues, and no trap: a point several of whose
+#   values are intended (a merge yields each), or one whose traps
+#   wait for a lemma.
+#   Multifile; no clause here.
+#
+# Each text is from_cbor of a string literal, a Scott list of bytes,
+# imported from corpora/library/text/cbor. FIXME: the import projects "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. export
+λ
+. cons
+  ( λ _unread_finite_head
+    . _unread_finite_head (text "game_subtraction_win")
+    λ
+    . text "win n recurses only on n - k with 1 =< k =< n, a smaller numeral, so the weak head evaluation ends"
+  )
+λ
+. cons
+  ( λ _unread_finite_head
+    . _unread_finite_head (text "game_subtraction_lose")
+    λ
+    . text "win n recurses only on n - k with 1 =< k =< n, a smaller numeral, so the weak head evaluation ends"
+  )
+λ
+. cons
+  ( λ _unread_finite_head
+    . _unread_finite_head (text "jit_hot_body_count_down")
+    λ
+    . text "the loop applies itself to the predecessor of the Church numeral 800, a smaller numeral each time, and its body's static chain (an identity tower of height 40) reduces to the identity in finitely many steps, so the weak head evaluation ends at true after 800 iterations; tabling(weak_head) read true (contest_hard_baseline.pl)"
+  )
+λ
+. cons
+  ( λ _unread_finite_head
+    . _unread_finite_head (text "jit_hot_combinator_count_down")
+    λ
+    . text "the loop applies itself to the predecessor of the Church numeral 800, a smaller numeral each time, and its body's static chain (an S K K tower of height 20) reduces to the identity in finitely many steps, so the weak head evaluation ends at true after 800 iterations; tabling(weak_head) read true (contest_hard_baseline.pl)"
+  )
+λ
+. cons
+  ( λ _unread_finite_head
+    . _unread_finite_head (text "jit_hot_compose_count_down")
+    λ
+    . text "the loop applies itself to the predecessor of the Church numeral 800, a smaller numeral each time, and its body's static chain (a composition chain of 30 identities) reduces to the identity in finitely many steps, so the weak head evaluation ends at true after 800 iterations; tabling(weak_head) read true (contest_hard_baseline.pl)"
+  )
+λ
+. cons
+  ( λ _unread_finite_head
+    . _unread_finite_head (text "coarsen_reused_stream")
+    λ
+    . text "the loop counts the numeral 600 down, each round reading element 400 of a stream whose every cell is 1 (the constant stream with finitely many cells of 1 consed in front), a finite nth, so the weak head evaluation ends at true; tabling(weak_head) read true at 1 GB (contest_hard_baseline.pl)"
+  )
+#   the former JIT arena: each
+#   text names the JIT arena's own reference reading, the baseline
+#   tabling(weak_head)'s CPU milliseconds recorded at the point's fact in
+#   contest_jit_answers.pl before the merge.
+λ
+. cons
+  ( λ _unread_finite_head
+    . _unread_finite_head (text "input_independent_stretch")
+    λ
+    . text "tabling(weak_head) read the intended head, a finite weak head reduction to it (the JIT arena's reference, contest_jit_answers.pl: 1465 ms)"
+  )
+λ
+. cons
+  ( λ _unread_finite_head
+    . _unread_finite_head (text "jit_hot_body_count_down_3200")
+    λ
+    . text "tabling(weak_head) read the intended head, a finite weak head reduction to it (the JIT arena's reference, contest_jit_answers.pl: 2175 ms)"
+  )
+λ
+. cons
+  ( λ _unread_finite_head
+    . _unread_finite_head (text "jit_hot_combinator_count_down_3200")
+    λ
+    . text "tabling(weak_head) read the intended head, a finite weak head reduction to it (the JIT arena's reference, contest_jit_answers.pl: 3947 ms)"
+  )
+λ
+. cons
+  ( λ _unread_finite_head
+    . _unread_finite_head (text "argument_used_twice_16")
+    λ
+    . text "tabling(weak_head) read the intended head, a finite weak head reduction to it (the JIT arena's reference, contest_jit_answers.pl: 19 ms)"
+  )
+λ
+. cons
+  ( λ _unread_finite_head
+    . _unread_finite_head (text "argument_used_twice_24")
+    λ
+    . text "tabling(weak_head) read the intended head, a finite weak head reduction to it (the JIT arena's reference, contest_jit_answers.pl: 18 ms)"
+  )
+λ
+. cons
+  ( λ _unread_finite_head
+    . _unread_finite_head (text "edit_distance_6")
+    λ
+    . text "tabling(weak_head) read the intended head, a finite weak head reduction to it (the JIT arena's reference, contest_jit_answers.pl: 49 ms)"
+  )
+λ
+. cons
+  ( λ _unread_finite_head
+    . _unread_finite_head (text "edit_distance_8")
+    λ
+    . text "tabling(weak_head) read the intended head, a finite weak head reduction to it (the JIT arena's reference, contest_jit_answers.pl: 48 ms)"
+  )
+λ
+. cons
+  ( λ _unread_finite_head
+    . _unread_finite_head (text "lasso_floyd_cycle_start_120")
+    λ
+    . text "tabling(weak_head) read the intended head, a finite weak head reduction to it (the JIT arena's reference, contest_jit_answers.pl: 1101 ms)"
+  )
+λ
+. cons
+  ( λ _unread_finite_head
+    . _unread_finite_head (text "lasso_visited_cycle_start_60")
+    λ
+    . text "tabling(weak_head) read the intended head, a finite weak head reduction to it (the JIT arena's reference, contest_jit_answers.pl: 2362 ms)"
+  )
+λ
+. cons
+  ( λ _unread_finite_head
+    . _unread_finite_head (text "regex_matches_8")
+    λ
+    . text "tabling(weak_head) read the intended head, a finite weak head reduction to it (the JIT arena's reference, contest_jit_answers.pl: 712 ms)"
+  )
+λ
+. cons
+  ( λ _unread_finite_head
+    . _unread_finite_head (text "regex_rejects_medium")
+    λ
+    . text "tabling(weak_head) read the intended head, a finite weak head reduction to it (the JIT arena's reference, contest_jit_answers.pl: 436 ms)"
+  )
+λ
+. cons
+  ( λ _unread_finite_head
+    . _unread_finite_head (text "stream_nth_naturals_by_map_1600")
+    λ
+    . text "tabling(weak_head) read the intended head, a finite weak head reduction to it (the JIT arena's reference, contest_jit_answers.pl: 532 ms)"
+  )
+λ
+. cons
+  ( λ _unread_finite_head
+    . _unread_finite_head (text "lasso_visited_cycle_start_medium")
+    λ
+    . text "tabling(weak_head) read the intended head, a finite weak head reduction to it (the JIT arena's reference, contest_jit_answers.pl: 90 ms)"
+  )
+λ
+. cons
+  ( λ _unread_finite_head
+    . _unread_finite_head (text "acyclic_floyd_has_cycle_medium")
+    λ
+    . text "tabling(weak_head) read the intended head, a finite weak head reduction to it (the JIT arena's reference, contest_jit_answers.pl: 16 ms)"
+  )
+λ
+. cons
+  ( λ _unread_finite_head
+    . _unread_finite_head (text "type_this_superclass")
+    λ
+    . text "tabling(weak_head) read the intended head, a finite weak head reduction to it (the JIT arena's reference, contest_jit_answers.pl: 6 ms)"
+  )
+λ
+. cons
+  ( λ _unread_finite_head
+    . _unread_finite_head (text "acyclic_ends_medium")
+    λ
+    . text "tabling(weak_head) read the intended head, a finite weak head reduction to it (the JIT arena's reference, contest_jit_answers.pl: 5 ms)"
+  )
+λ
+. cons
+  ( λ _unread_finite_head
+    . _unread_finite_head (text "proof_infinite_finite_list")
+    λ
+    . text "tabling(weak_head) read the intended head, a finite weak head reduction to it (the JIT arena's reference, contest_jit_answers.pl: 3 ms)"
+  )
+λ
+. cons
+  ( λ _unread_finite_head
+    . _unread_finite_head (text "reverse_of_three")
+    λ
+    . text "tabling(weak_head) read the intended head, a finite weak head reduction to it (the JIT arena's reference, contest_jit_answers.pl: 2 ms)"
+  )
+λ
+. cons
+  ( λ _unread_finite_head
+    . _unread_finite_head (text "length_of_eight")
+    λ
+    . text "tabling(weak_head) read the intended head, a finite weak head reduction to it (the JIT arena's reference, contest_jit_answers.pl: 2 ms)"
+  )
+λ
+. cons
+  ( λ _unread_finite_head
+    . _unread_finite_head (text "lasso_ends_unrolled")
+    λ
+    . text "tabling(weak_head) read the intended head, a finite weak head reduction to it (the JIT arena's reference, contest_jit_answers.pl: 4 ms)"
+  )
+λ
+. cons
+  ( λ _unread_finite_head
+    . _unread_finite_head (text "stream_all_one_unrolled")
+    λ
+    . text "tabling(weak_head) read the intended head, a finite weak head reduction to it (the JIT arena's reference, contest_jit_answers.pl: 4 ms)"
+  )
+λ
+. cons
+  ( λ _unread_finite_head
+    . _unread_finite_head (text "regex_all_prefixes_unrolled")
+    λ
+    . text "tabling(weak_head) read the intended head, a finite weak head reduction to it (the JIT arena's reference, contest_jit_answers.pl: 27 ms)"
+  )
+λ
+. cons
+  ( λ _unread_finite_head
+    . _unread_finite_head (text "type_self_record_unrolled")
+    λ
+    . text "tabling(weak_head) read the intended head, a finite weak head reduction to it (the JIT arena's reference, contest_jit_answers.pl: 25 ms)"
+  ) nil

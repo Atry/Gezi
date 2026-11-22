@@ -1,0 +1,168 @@
+# Reachability written as a choice, no answer when the target is not found.
+#
+# A family of the hard corpus, lambda with sets, where the definitional
+# spelling itself does not halt under weak-head reduction, not merely runs
+# slowly, and where no answer is written as the empty choice, never as false:
+# the empty choice is always sound.
+#
+# THE PROGRAM. Reachability is written by its definition as a choice, with
+# a step budget (EmptySetReachability in gezi/contest-corpora):
+#
+#     reach d v = is_target v + d top (\p. walk p v)
+#     walk p v  = the choice of reach p u over the successors u of v
+#                 (top for a node without successors)
+#
+# where is_target v is the Church true at the target and top (no answer,
+# corpora/library/top) at every other node. Nothing in the program says in
+# which order the members are tried: depth first or breadth first is the
+# reader's choice. The test reads the Church Boolean of reach at the start.
+# Without the budget a walk round a cycle, or down an infinite branch, reads
+# ⊥ in DdLP96's reading (a choice is a meet and Y the least fixed point), the
+# whole choice with it, and every closed βη normal form, both Booleans
+# included, would be an answer.
+#
+# Two classes of graph:
+# - CYCLIC, finite: the two rings and the ring with chords (MergeGraph.graph,
+#   EmptySetReachability.cyclicGraphTerm); the budget is the node count n.
+# - INFINITE: the infinite binary tree. A node is the Scott list of the
+#   branch bits taken from the root, the last bit taken first; the root is
+#   nil. Its successors are the node with the bit 0 consed on and the node
+#   with the bit 1 consed on, in the order `zero_first` or `one_first`, or
+#   only one of them (`without(Bit)` drops the Bit branch). is_target
+#   compares the node with a fixed list of bits by Boolean list equality.
+#   The budget is the target's depth (EmptySetReachability.infiniteTreeTerm).
+#
+# THE CLAIMS, with their proofs, under Definition 14
+# (doc/proofs/reduction_series_answers.md): top ≃_O 0, so the program has the
+# answers of the one with 0 in top's place, whose reductions terminate (the budget falls
+# at every walk). Its answers are those of its selections, the terms got by
+# choosing one member at every choice (the selection theorem), and a choice holding 0
+# offers no member. A selection either chooses is_target at some node it
+# reached by the walks chosen before, or chooses walks until the budget is
+# spent or a node has no successor, where it meets 0 and is no selection.
+#
+# SCORED CLAIM, boolean(true), on a program whose target t is reachable
+# from the start s within the budget (the reference:
+# MergeGraph.reachable, breadth-first search, or
+# EmptySetReachability.treeReachable). PROOF. Take a path
+# s = v0 -> v1 -> ... -> vk = t, k < n on a finite graph, k the target's
+# depth on the tree. Choose the walk at v0, ..., v(k-1), each time the
+# successor v(i+1), and is_target at vk; the selection reduces to the Church
+# true, so true is an answer.
+#
+# TRAP CLAIMS, boolean(true) and boolean(false), on a program whose target t
+# is NOT reachable from s (EmptySetReachability.cutGraph, or the tree's
+# without(Bit)). PROOF. A selection that chooses is_target at a node v
+# reached from s has v ≠ t, and is_target v is 0 there, so it is no
+# selection; every other one meets 0 as above. So the program has no
+# answer and neither Boolean is an answer.
+#
+# WHY THE TARGET IS UNREACHABLE in the trap programs (EmptySetReachability.cutGraph), each one
+# edge removed:
+# - two rings: the bridge from ring A's last node to ring B's first node is
+#   removed. Every other edge of ring A stays in ring A, so from node 0
+#   only ring A is reachable, and the target is ring B's last node.
+# - a ring with chords: the edge from the node before the last to the last
+#   (the target) is removed. The other edges enter a node i from i + 1 (the
+#   chord back) or from i - 1 (forward) or node 0 from the last; no chord
+#   enters the last node, since no node follows it. So no edge enters the
+#   target, which is not the start.
+# - the infinite tree without(Bit): every node reachable from the root is a
+#   list of the other bit only, and the target list holds Bit.
+#
+# TARGET ALGORITHMS, the specific known algorithms the problem targets, each
+# with its prior work:
+# - cyclic graphs: search with a set of visited nodes, in a purely
+#   functional program (D. J. King, J. Launchbury, Structuring depth-first
+#   search algorithms in Haskell, POPL 1995, doi:10.1145/199448.199530;
+#   M. Erwig, Inductive graphs and functional graph algorithms, JFP 2001,
+#   doi:10.1017/S0956796801004075), and tabled evaluation (W. Chen,
+#   D. S. Warren, Tabled Evaluation with Delaying for General Logic Programs,
+#   J. ACM 1996, doi:10.1145/227595.227597);
+# - the infinite tree: breadth-first search, or depth-first iterative
+#   deepening, complete on a finitely branching graph (R. E. Korf,
+#   Depth-first iterative-deepening: An optimal admissible tree search,
+#   Artificial Intelligence 1985, doi:10.1016/0004-3702(85)90084-0).
+#
+# READINGS AND SIZES, on the budgeted program (a probe of
+# 2026-11-12, a scratch test not committed, contest-framework.slice, CPUs 0
+# and 1, load about 6; the steps of `NormalForms.normalForms` within
+# 20,000,000, the family's 10 s): two rings of 24, weak_head 36,601 steps
+# and tabling(weak_head) 19,930; two rings of 80, weak_head 367,841, tabling
+# out of tables at 112,418; ring with chords of 48, weak_head out of steps,
+# tabling 94,470; of 128, both stopped (weak_head out of steps, tabling out
+# of tables at 128,606); the cut two rings of 24, no answer, 15,597 and
+# 7,405; the cut ring with chords of 48, weak_head out of steps, tabling no
+# answer in 93,775; the tree of depth 12, weak_head 1,780,190, tabling out of
+# tables at about 123,000. So each class keeps a point a reference reading
+# reads and one it does not, and the sizes stay. The public CONTROL point
+# puts the target on the depth-first path. The sizes and target paths of the
+# scored infinite points and of the traps are not published.
+# LIMITS: the family's, 10 s, 256 MB, 256 MB.
+
+#   THE PUBLIC POINTS: point(?Point, ?Graph).
+#
+# The graph is a constructor of empty_set_reachability/graph, cyclic or
+# tree; the shape of a cyclic graph is a constructor of schema/graph_shape,
+# two_rings or chord_ring; a tree's order is a constructor of
+# empty_set_reachability/order, zero_first or one_first, and its branches
+# one of empty_set_reachability/branches, both or without with its bit.
+# Each other text is from_cbor of a string literal, a Scott list of bytes,
+# imported from corpora/library/text/cbor. Each number is from_cbor of an
+# integer literal, a Scott integer, imported from corpora/library/integer/cbor.
+# FIXME: the imports project "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λx. x)
+λ integer
+. omega (omega (omega (omega gezi "problems") "schema") "graph_shape")
+λ two_rings chord_ring
+. omega (omega (omega (omega gezi "problems") "empty_set_reachability") "graph")
+λ cyclic tree
+. omega (omega (omega (omega gezi "problems") "empty_set_reachability") "order")
+λ zero_first one_first
+. omega (omega (omega (omega gezi "problems") "empty_set_reachability") "branches")
+λ both without
+. export
+λ
+. cons (λ_point. _point (text "empty_set_two_rings_small") λ. cyclic two_rings λ. integer 24)
+λ
+. cons (λ_point. _point (text "empty_set_two_rings_large") λ. cyclic two_rings λ. integer 80)
+λ
+. cons (λ_point. _point (text "empty_set_chord_ring_small") λ. cyclic chord_ring λ. integer 48)
+λ
+. cons (λ_point. _point (text "empty_set_chord_ring_large") λ. cyclic chord_ring λ. integer 128)
+λ
+. cons
+  ( λ _point
+    . _point (text "empty_set_tree_on_depth_first_path")
+    λ
+    . tree one_first both
+    λ
+    . cons (integer 1)
+    λ
+    . cons (integer 1)
+    λ
+    . cons (integer 1)
+    λ
+    . cons (integer 1)
+    λ
+    . cons (integer 1)
+    λ
+    . cons (integer 1)
+    λ
+    . cons (integer 1)
+    λ
+    . cons (integer 1) λ. cons (integer 1) λ. cons (integer 1) λ. cons (integer 1) λ. cons (integer 1) nil
+  ) nil

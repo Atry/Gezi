@@ -1,0 +1,101 @@
+# POINTS: a catalogued code closed over captures
+# that are not the definitional ones. A closure is its code and
+# its captures, and the same code over another capture is another
+# function; a replacement keyed by the code's address must check every
+# capture, or fall back when one is not the definitional one. Written as
+# traps, points of the boolean format of
+# contest_hidden_fourth.pl: the scored claim is the definitional
+# boolean, the trap the one a replacement that ignores the captures
+# answers, the proof the finite head class with the derivation at the
+# fact.
+#
+# - hidden_capture_equal_self_K_N: natural_equal's generator (the
+#   prelude's `fixpoint @ Generator`) closed over a bounded Self, S_K N N
+#   with S_0 = \a. \b. false and S_K = Generator S_(K-1), N > K. Its
+#   inner code is the catalogue's natural_equal inner code with another
+#   Self. S_K N N unfolds K times to S_0 (N-K) (N-K) = false. A
+#   replacement that reads real equality answers true.
+# - hidden_capture_times_plus_A_B: the label-free times body closed over
+#   a plus that answers zero for every pair, applied to A = 2^k and
+#   B > 0, tested for zero. Its innermost code is the catalogue's
+#   merge_binary_times address with another Plus. The definitional times
+#   doubles k times and then answers the fake sum, zero, so the product
+#   is zero and the test true. A replacement that reads real
+#   multiplication answers 2^k B > 0, false.
+#
+# The sizes reach the native code (measured: at K >= 3 and
+# A >= 64 the lazy JIT enters the code natively and a replacement is
+# asked; below, none is).
+#
+# Readings at main 81bc1856c, 2026-09-28: under weak_head
+# and tabling(weak_head) every scored claim is answered within 6 ms and
+# every trap fails. Under native_replacements(native_solved(
+# lazily_specialised([extent(8), key(shape), entry(native)], weak_head)))
+# every trap succeeds (a false positive) and every scored claim fails;
+# so does a setting that names the replacements, on the
+# two natural_equal points.
+#
+# TARGET ALGORITHMS, the specific known algorithms the problem targets, each
+# with its prior work:
+# - recognising catalogued code by the content address of its normal form,
+#   as hash-consing shares equal terms: J.-C. Filliâtre, S. Conchon,
+#   Type-Safe Modular Hash-Consing, ML Workshop 2006,
+#   doi:10.1145/1159876.1159880.
+# - a closure is its code and its captures, the representation a replacement
+#   must inspect before it trusts the code's address: J. C. Reynolds,
+#   Definitional Interpreters for Higher-Order Programming Languages,
+#   Higher-Order and Symbolic Computation 1998, doi:10.1023/A:1010027404223.
+# - replacing recognised code by a native implementation is a rewrite by a
+#   library law, applied only where its side condition (the domain check)
+#   holds: R. Tate, M. Stepp, Z. Tatlock, S. Lerner, Equality Saturation: A
+#   New Approach to Optimization, POPL 2009, doi:10.1145/1480881.1480915.
+
+#
+# The value is a constructor of schema/intended_value, here `boolean` of a
+# Church Boolean of corpora/library/prelude/boolean. Each other text is
+# from_cbor of a string literal, a Scott list of bytes, imported from
+# corpora/library/text/cbor. FIXME: the imports project "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "boolean")
+λ true false _ _
+. omega (omega (omega (omega gezi "problems") "schema") "intended_value")
+λ boolean _ _ _
+. export
+λ
+. cons
+  ( λ _capture_trap
+    . _capture_trap (text "hidden_capture_equal_self_three_five") (boolean false)
+    λ
+    . text "S_3 5 5 unfolds natural_equal's generator three times, each step taking both numerals to their predecessors, to S_0 2 2 = (\\a. \\b. false) 2 2 = false"
+  )
+λ
+. cons
+  ( λ _capture_trap
+    . _capture_trap (text "hidden_capture_equal_self_ten_twelve") (boolean false)
+    λ
+    . text "S_10 12 12 unfolds natural_equal's generator ten times, each step taking both numerals to their predecessors, to S_0 2 2 = (\\a. \\b. false) 2 2 = false"
+  )
+λ
+. cons
+  ( λ _capture_trap
+    . _capture_trap (text "hidden_capture_times_plus_sixty_four_three") (boolean true)
+    λ
+    . text "times 64 3 with a plus that answers zero doubles six times (64 = even^6 (odd zero)) and on the odd bit answers plus 3 (...) = zero; double of zero is zero, so the product is zero and the test true"
+  )
+λ
+. cons
+  ( λ _capture_trap
+    . _capture_trap (text "hidden_capture_times_plus_one_thousand_twenty_four_five") (boolean true)
+    λ
+    . text "times 1024 5 with a plus that answers zero doubles ten times (1024 = even^10 (odd zero)) and on the odd bit answers plus 5 (...) = zero; double of zero is zero, so the product is zero and the test true"
+  ) nil

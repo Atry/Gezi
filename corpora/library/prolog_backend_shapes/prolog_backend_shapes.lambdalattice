@@ -1,0 +1,50 @@
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega corpora "library") "top")
+λ top
+# candidate:
+# candidate r c is in the class of a type c that is a candidate for the
+# representation whose filter is r; a term of the zero universe, the empty
+# choice.
+. (λtuple. tuple λr c. (r ∥ top ∥ (c ∥ top) ∥ top))
+λ candidate
+# contract_at:
+# contract_at t f is the contract of the function f at its type t: f itself,
+# whatever t is; the lemmas of prolog_backend_shapes write in the class of
+# contract_at t the closures that take f and filter its arguments and its
+# result by the representations t's candidacies name, one layer of t for
+# each lemma instance.
+. (λtuple. tuple λt f. f)
+λ contract_at
+# domain_candidate:
+# The marker of a function type c whose domain is a candidate for the
+# representation whose filter is r, one node in the class however many
+# function types it holds; a term of the zero universe, top up to contextual
+# equivalence.
+. (λtuple. tuple λr c. (r ∥ (c ∥ top ∥ top) ∥ top))
+λ domain_candidate
+# function_candidate:
+# The marker of a function type c whose domain is a candidate for the
+# representation whose filter is r and whose range is one for the
+# representation whose filter is s; a term of the zero universe, the empty
+# choice.
+. (λtuple. tuple λr s c. (r ∥ s ∥ (c ∥ top) ∥ top))
+λ function_candidate
+# item_candidate:
+# item_candidate r c is in the class of a type c that is a candidate for the
+# representation whose filter is r, one whose values a list's items may be:
+# the naturals and the booleans (a list that may be an item is marked by
+# list_item_candidate instead); a term of the zero universe, the empty
+# choice.
+. (λtuple. tuple λr c. (r ∥ (c ∥ top) ∥ (top ∥ top)))
+λ item_candidate
+# list_item_candidate:
+# list_item_candidate r c is in the class of a type c of a list cell from
+# which a cell whose item is an item candidate for r is reached through
+# tails, that cell included: such a list may be the item of a list, one
+# level of nesting; a term of the zero universe, top up to contextual
+# equivalence.
+. (λtuple. tuple λr c. (r ∥ top ∥ top ∥ (c ∥ top) ∥ top))
+λ list_item_candidate
+. export candidate contract_at domain_candidate function_candidate item_candidate list_item_candidate

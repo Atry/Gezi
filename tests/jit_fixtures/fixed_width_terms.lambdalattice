@@ -1,0 +1,33 @@
+# The fixed-width operations FixedWidthLawTest applies (gezi.jit.FixedWidthLawTest), each
+# imported from its own file of corpora/library/fixed_width and exported at its position of the
+# file's Scott tuple, whose names the host keeps in gezi.standardlibrary.TermTables.fixedWidthTerms.
+# Only that test reads these terms; no framework code reads them. The naturals, booleans and word
+# constructors the test writes its operands with are fields of library_terms.lambdalattice.
+# FIXME: the imports project "corpora" off the variable gezi, the name https://github.com/Atry/private-overlay/issues/1924
+# of the project root's own directory; they break if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "fixed_width") "word_arithmetic")
+λ _ word_add _ word_subtract word_negate word_of_natural
+. omega (omega (omega (omega (omega gezi "corpora") "library") "fixed_width") "word_multiplication")
+λ _ _ word_multiply
+. omega (omega (omega (omega (omega gezi "corpora") "library") "fixed_width") "word_comparison")
+λ word_equal word_less_than
+. omega (omega (omega (omega (omega gezi "corpora") "library") "fixed_width") "word_representation")
+λ _ _ _ _ _ word_to_natural
+. omega (omega (omega (omega (omega gezi "corpora") "library") "fixed_width") "int16_arithmetic")
+λ int16_add int16_subtract int16_multiply int16_negate
+. omega (omega (omega (omega (omega gezi "corpora") "library") "fixed_width") "int16_comparison")
+λ int16_equal int16_less_than
+. omega (omega (omega (omega (omega gezi "corpora") "library") "fixed_width") "int16_representation")
+λ _ _ int16_of_natural int16_to_natural
+. omega (omega (omega (omega (omega gezi "corpora") "library") "fixed_width") "int32_arithmetic")
+λ int32_add int32_subtract int32_multiply int32_negate
+. omega (omega (omega (omega (omega gezi "corpora") "library") "fixed_width") "int32_comparison")
+λ int32_equal int32_less_than
+. omega (omega (omega (omega (omega gezi "corpora") "library") "fixed_width") "int32_representation")
+λ _ _ int32_of_natural int32_to_natural
+. export
+λ s
+. s int32_of_natural int32_to_natural int32_less_than int32_equal int32_negate int32_multiply int32_subtract int32_add int16_of_natural int16_to_natural int16_less_than int16_equal int16_negate int16_multiply int16_subtract int16_add word_of_natural word_to_natural word_less_than word_equal word_negate word_multiply word_subtract word_add

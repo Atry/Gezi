@@ -1,0 +1,79 @@
+package gezi.jit
+
+import gezi.saturation.StopSignal
+import hedgehog.Gen
+import gezi.strategies.BaselineRounds
+import hedgehog.Range
+import hedgehog.Result
+import hedgehog.core.SuccessCount
+import gezi.strategies.DispatchStrategies
+import gezi.strategies.Schedule
+import gezi.strategies.StrategyTesting
+import gezi.frontend.Term
+import gezi.generatedinputs.HoasGenerators
+import gezi.hotspot.baselines.BaselineCaches
+import gezi.ir.Instruction
+import gezi.generatedinputs.GeneratedProperties
+
+/** The law of `CompilationStrategy.refinement`: the dispatch refines a
+  * test's output by the strategy's refinement, so that a refinement that
+  * keeps the output gives the schedule's output itself, and the dispatch
+  * cache keeps the two refinements of one test apart. Its purpose is to
+  * catch a dispatch that ignores the refinement an entry gave, or answers
+  * one refinement's term from the cache for another. The inputs are closed
+  * terms of `HoasGenerators.openTermOver` of at most twelve nodes over the
+  * native route library's terms (`JitTesting.nativeRouteLeaves`); the
+  * library is `NativesTesting.nativesOn`, the Prolog backend's preset with
+  * closure_application and occurrence_erasure, and the type check's round is
+  * the rounds fixture's `prolog_backend_type_check`, the preset's type-check
+  * round (native typing is enabled through the preset only).
+  */
+class RefinementReplacementLawTest extends GeneratedProperties:
+
+  // Measured 2026-11-16 on 2 CPUs (contest-lean.slice, CPUs 10,11, nice 10), the 1-minute load 9 to 22 over the run, every deadline raised to 600 s: the slowest test of RefinementReplacementLawTest, "the dispatch refines by the strategy's refinement", takes 14.979 s; the bound is 1.5 times that rounded up to 5 s.
+  // FIXME: this suite exceeds the 3 s default with no reason yet; its slow tests are to be made fast. https://github.com/Atry/private-overlay/issues/1925
+  override val munitTimeout: scala.concurrent.duration.Duration = scala.concurrent.duration.Duration(25, "s")
+
+  /** The natives-on library, its facts, the schedule and the generators' leaves, forced before the first test and not charged to it (FailFastSuite). */
+  override def sharedFixtures: Vector[scala.concurrent.Future[Unit] => Any] =
+    Vector(_ => library, _ => facts, _ => schedule, _ => JitTesting.nativeRouteLeaves)
+
+  private lazy val library = NativesTesting.nativesOn
+
+  private lazy val facts = BackendFacts.of(library)
+
+  private lazy val schedule = BaselineRounds.nativeRouteSchedule(
+    library,
+    StrategyTesting.round("prolog_backend_type_check"),
+    300
+  )
+
+  /** A refinement that keeps the output as it is. */
+  private object Kept extends OutputRefinement:
+    def refined(facts: BackendFacts, output: Instruction): Instruction = output
+
+  private def closedProgram: Gen[Term] =
+    for
+      nodes <- Gen.int(Range.linear(1, 12))
+      open <- HoasGenerators.openTermOver(0, nodes, JitTesting.nativeRouteLeaves)
+    yield open(Vector.empty)
+
+  stoppableProperty("the dispatch refines by the strategy's refinement", _.copy(testLimit = SuccessCount(10))) { stopped =>
+    for program <- closedProgram.forAll
+    yield
+      val input = StrategyTesting.programInput(library, program)
+      val Vector(output) = Schedule.run(library.index, Vector(input), schedule, StopSignal.completedWith(stopped)).outputs: @unchecked
+      val kept = CompilationStrategy(DispatchStrategies.fallback, schedule, Kept)
+      val cache = BaselineCaches.provider()
+      val first = StrategyDispatch.dispatched(kept, input, facts, cache, StopSignal.completedWith(stopped))
+      val standard = CompilationStrategy(DispatchStrategies.fallback, schedule)
+      val second = StrategyDispatch.dispatched(standard, input, facts, cache, StopSignal.completedWith(stopped))
+      val standardRefined = Refinement(facts).refined(output)
+      Result.all(
+        List(
+          Result.diff(first.refined, output)(_ == _),
+          Result.diff(second.refined, standardRefined)(_ == _),
+          Result.diff((first.scheduleRan, second.scheduleRan), (true, true))(_ == _)
+        )
+      )
+  }

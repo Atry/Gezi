@@ -1,0 +1,6 @@
+# The published list of the built-in rules a round may enable (gezi.ir.BuiltInRule): beta, the β rule.
+# A Scott sum whose constructors are the tuple's fields, in the order of the
+# enum's cases; an entry.lambdalattice imports this file and writes a
+# constructor, and EntryData reads which alternative it takes by structure
+# (gezi.contest.entry.EntryData, THE OPTIONS AS SCOTT CONSTRUCTORS).
+λ export. export λbeta. beta

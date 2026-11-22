@@ -1,0 +1,8 @@
+# The slack of a point of visit_point: a Scott sum of two constructors, in
+# order: isolated, the trap whose last node loses its edges and which takes
+# the budget of the connected seven, and added, whose one field is the
+# amount added to the shortest length to make the budget (a decimal text, 0
+# or negative). Read by its position
+# (gezi.contest.corpora.reductions.Hidden37VisitAll, slack, into
+# Hidden37VisitAll.Slack).
+λ export. export (λisolated added. isolated) λamount isolated added. added amount

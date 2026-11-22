@@ -1,0 +1,141 @@
+# +Point, -Surface
+#   * <module> The set-free series: an identity that holds only on data
+#
+# A family of the set-free series on reverse eta at data, which is a premise
+# with its proof, and which grammar compression must therefore support.
+# A point is a closed pure lambda program, no set in it, whose answer is one
+# binary numeral.
+#
+# THE PROGRAM applies a function n times to a binary numeral x:
+# repeat n f x = n x (\p. f (repeat p f x)), n a unary numeral, repeat tied by
+# the prelude's fixpoint. f is written by the program itself, not taken from
+# the attractor library, so that recognising a library function does not
+# answer it:
+# - REBUILD: f takes a numeral apart by its constructors and builds it again,
+#   zero to zero, even h to even (f h), odd h to odd (f h). On every binary
+#   numeral f is the identity, by induction on the numeral; on a term that is
+#   no numeral it is not (f (\x. x) is no \x. x). So f = \x. x holds under the
+#   premise that its argument is a numeral, the data eta of the typing
+#   plan's first step, and with it the program is x. Without it, weak_head
+#   rebuilds x n times as the decoding reads it, about n times its bits.
+# - NEAR MISS, a proved trap for simplification by shape: f exchanges the
+#   even and odd constructors at every level, the complement of every bit.
+#   It is no identity: with n odd the program's normal form is the
+#   complement of x, and an answer x is outside S(P).
+# - INVOLUTION: f is the complement, applied an even number of times. The
+#   complement composed with itself is the identity on every binary numeral
+#   (by induction on the numeral) and not on other terms, so the program is x
+#   under the premise that x is a numeral and the lemma that the complement
+#   is an involution. The rebuild's near miss, the complement applied an odd
+#   number of times, is its control.
+# - UNIT LAW: f is \acc. plus acc zero, plus the attractor merge_binary_plus.
+#   plus acc zero reduces to acc on every canonical binary numeral (by
+#   induction on acc: 0 + 0 = 0, 2h + 0 = 2(h + 0), 2h + 1 + 0 = 2(h + 0) + 1)
+#   and not on other terms, so the program is x under the same premise. Its
+#   NEAR MISS is \acc. plus acc one, whose program is x + n.
+# The involution and the unit law were added on 2026-09-30 (the design
+# document, family 4).
+# Each point has a DIRECT and a RESPELLED twin
+# (contest_attractors:spelled_surface/3).
+#
+# TARGET ALGORITHMS, the specific known algorithms the problem targets, each
+# with its prior work:
+# - positive supercompilation, which propagates the constructor a variable
+#   was matched against into the branch and folds a repeated configuration:
+#   M. H. Sørensen, R. Glück, N. D. Jones, A Positive Supercompiler, J.
+#   Funct. Program. 1996, doi:10.1017/S0956796800002008;
+# - proving the equivalence of two terms, here f and the identity on
+#   numerals, by supercompiling both: I. Klyuchnikov, S. Romanenko, Proving
+#   the Equivalence of Higher-Order Terms by Means of Supercompilation,
+#   PSI 2009, LNCS 2010, doi:10.1007/978-3-642-11486-1_17;
+# - finding and proving inductive lemmas about recursive functions on
+#   inductive data: K. Claessen, M. Johansson, D. Rosén, N. Smallbone,
+#   Automating Inductive Proofs Using Theory Exploration, CADE 2013,
+#   doi:10.1007/978-3-642-38574-2_27; E. Singher, S. Itzhaky, Theory
+#   Exploration Powered by Deductive Synthesis, CAV 2021,
+#   doi:10.1007/978-3-030-81688-9_6.
+#
+# THE SNAPSHOT is the tree of x for a rebuild, an involution and a unit law
+# point, the complement of x's tree for the rebuild's near miss (n odd), and
+# the tree of x + n for the unit law's near miss. PROOF. The program is pure, so S(P) = {N} for
+# its normal form N. repeat n f x reduces to
+# f (f (... (f x))), n applications, by induction on n. By induction on the
+# numeral, the rebuild f applied to a canonical numeral reduces to that
+# numeral, and the complement to the numeral with every even and odd
+# exchanged; the complement is an involution, so n odd applications give
+# the complement once. Both are Scott numerals, normal forms; the complement
+# of x differs from x wherever x has a bit, so the near miss's normal form
+# is not x. The involution's n even applications give x, and the
+# unit law's n applications of plus acc zero give x by the induction above;
+# its near miss gives x + n by n applications of plus acc one on canonical
+# numerals (merge_binary_plus is binary addition, the attractor's reference).
+# LIMITS: the reduction family's, 10 s, 256 MB, 256 MB.
+
+#   rebuild_point(?Point, ?Function, ?Spelling, ?Times, ?Number)
+#
+# The spelling is a constructor of schema/spelling, direct or respelled.
+# Each other text is from_cbor of a string literal, a Scott list of bytes,
+# imported from corpora/library/text/cbor. Each number is from_cbor of an
+# integer literal, a Scott integer, imported from corpora/library/integer/cbor.
+# FIXME: the imports project "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λx. x)
+λ integer
+. omega (omega (omega (omega gezi "problems") "schema") "spelling")
+λ direct respelled
+. export
+λ
+. cons
+  ( λ _rebuild_point
+    . _rebuild_point (text "set_free_rebuild_small_direct") (text "rebuild") direct (integer 3) λ. integer 45
+  )
+λ
+. cons
+  ( λ _rebuild_point
+    . _rebuild_point (text "set_free_rebuild_small_respelled") (text "rebuild") respelled (integer 3) λ. integer 45
+  )
+λ
+. cons
+  ( λ _rebuild_point
+    . _rebuild_point (text "set_free_rebuild_small_near_miss") (text "complement") direct (integer 3) λ. integer 45
+  )
+λ
+. cons
+  ( λ _rebuild_point
+    . _rebuild_point (text "set_free_involution_small_direct") (text "complement") direct (integer 4) λ. integer 45
+  )
+λ
+. cons
+  ( λ _rebuild_point
+    . _rebuild_point
+      (text "set_free_involution_small_respelled")
+      (text "complement") respelled
+      (integer 4) λ. integer 45
+  )
+λ
+. cons
+  ( λ _rebuild_point
+    . _rebuild_point (text "set_free_unit_small_direct") (text "unit") direct (integer 3) λ. integer 45
+  )
+λ
+. cons
+  ( λ _rebuild_point
+    . _rebuild_point (text "set_free_unit_small_respelled") (text "unit") respelled (integer 3) λ. integer 45
+  )
+λ
+. cons
+  ( λ _rebuild_point
+    . _rebuild_point (text "set_free_unit_small_near_miss") (text "unit_near") direct (integer 3) λ. integer 45
+  ) nil

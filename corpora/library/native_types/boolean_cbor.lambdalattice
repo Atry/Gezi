@@ -1,0 +1,48 @@
+# Booleans read from and written to CBOR's simple values false (0xf4) and
+# true (0xf5).
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega corpora "library") "top")
+λ top
+. omega (omega (omega (omega corpora "library") "native_types") "boolean")
+λ true false _ _
+. (λtuple. tuple λt e. t)
+λ one_bit
+. (λtuple. tuple λt e. e)
+λ zero_bit
+. (λtuple. tuple λrest bit. bit rest top)
+λ one_expected
+. (λtuple. tuple λrest bit. bit top rest)
+λ zero_expected
+# from_cbor k: 0xf5 or 0xf4, whose last bit is the boolean.
+. ( λ tuple
+    . tuple
+    λ k
+    . one_expected
+    λ
+    . one_expected
+    λ
+    . one_expected
+    λ
+    . one_expected
+    λ
+    . zero_expected
+    λ
+    . one_expected
+    λ
+    . zero_expected λb. b (k true) λ. k false
+  )
+λ from_cbor
+# to_cbor v f z: 0xf5 for true, 0xf4 for false.
+. ( λ tuple
+    . tuple
+    λ v f z
+    . f one_bit
+    λ
+    . f one_bit
+    λ
+    . f one_bit λ. f one_bit λ. f zero_bit λ. f one_bit λ. f zero_bit λ. v (f one_bit z) λ. f zero_bit z
+  )
+λ to_cbor
+. export from_cbor to_cbor

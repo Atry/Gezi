@@ -1,0 +1,2 @@
+binary_even_restored: λh. binary_even h = λh z e o. e h
+binary_odd_restored: λh. binary_odd h = λh z e o. o h

@@ -1,0 +1,15 @@
+# integer_nonnegative:
+# The integers of any size over the binary naturals of ../binary:
+# integer_nonnegative n is the integer n and integer_negative_successor n the
+# integer -(n + 1), n a canonical binary natural, so that every integer has one
+# term and there is no negative zero. A number literal's value is
+# ./cbor's from_cbor (plan trace-sqlite D10).
+λ export
+. (λtuple. tuple λn p _. p n)
+λ integer_nonnegative
+# integer_negative_successor:
+# The integer -(n + 1) of a canonical binary natural n; see
+# integer_nonnegative.
+. (λtuple. tuple λn _ q. q n)
+λ integer_negative_successor
+. export integer_nonnegative integer_negative_successor

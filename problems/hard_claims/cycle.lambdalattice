@@ -1,0 +1,133 @@
+#!  cycle(?Point, ?Class, ?Construction)
+#
+#   Class is `both_booleans`, `false_only`, `certificate_member` or
+#   `rejects_certificate`; Construction names the cycle.
+#   H2, H19: `subtype`, `and (find field) (every rest)` over the fields,
+#   the recursive field's subtype in an `and` whose other conjunct is
+#   `true`; `false` is `and`'s.
+#
+# Each text is from_cbor of a string literal, a Scott list of bytes,
+# imported from corpora/library/text/cbor. FIXME: the import projects "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. export
+λ
+. cons
+  ( λ _cycle
+    . _cycle (text "type_periods_subtype_small") (text "both_booleans") λ. text "subtype: and true value; and's false"
+  )
+λ
+. cons
+  ( λ _cycle
+    . _cycle (text "type_periods_subtype_large") (text "both_booleans") λ. text "subtype: and true value; and's false"
+  )
+λ
+. cons
+  ( λ _cycle
+    . _cycle (text "type_dead_index_subtype") (text "both_booleans") λ. text "subtype: and true value; and's false"
+  )
+λ
+. cons
+  ( λ _cycle
+    . _cycle (text "type_recomputed_index_subtype") (text "both_booleans") λ. text "subtype: and true value; and's false"
+  )
+#   H4, H5, H14: `safe`, `or (safe successor) (any rest)` over one
+#   successor, `any nil` being `false`: `or value false`, which maps true
+#   to true and false to false; `false` is FalseEnd.
+λ
+. cons
+  ( λ _cycle
+    . _cycle (text "safety_escape_behind_traps") (text "both_booleans") λ. text "safe: or value false; FalseEnd"
+  )
+λ
+. cons
+  ( λ _cycle
+    . _cycle (text "path_rebuilt_by_identity") (text "both_booleans") λ. text "safe: or value false; FalseEnd"
+  )
+λ
+. cons
+  ( λ _cycle
+    . _cycle (text "path_rebuilt_by_plus_minus_small") (text "both_booleans") λ. text "safe: or value false; FalseEnd"
+  )
+λ
+. cons
+  ( λ _cycle
+    . _cycle (text "path_rebuilt_by_plus_minus_tiny") (text "both_booleans") λ. text "safe: or value false; FalseEnd"
+  )
+λ
+. cons
+  ( λ _cycle
+    . _cycle (text "path_eta_expanded") (text "both_booleans") λ. text "safe: or value false; FalseEnd"
+  )
+#   H15: `same`, left first, right leaves 5 and 6: `and value (same leaf5
+#   leaf6)`, the second conjunct `false`.
+λ
+. cons
+  ( λ _cycle
+    . _cycle (text "tree_same_left_first_differ_right") (text "false_only") λ. text "same, left first: and value false"
+  )
+#   H22.
+λ
+. cons
+  ( λ _cycle
+    . _cycle (text "typing_natural_symbol") (text "certificate_member") λ. text "J symbol: the certificate is given back; the stream one makes it J T, T of value bad"
+  )
+λ
+. cons
+  ( λ _cycle
+    . _cycle (text "typing_natural_pair") (text "certificate_member")
+    λ
+    . text "J a: the certificate is given back through a and b; the stream one makes it J T, T of value bad"
+  )
+λ
+. cons
+  ( λ _cycle
+    . _cycle (text "self_application_flip_cycle") (text "flip_cycle") λ. text "W W with W = \\p. FLIP (p p) I FLIP D: M = M FLIP I D"
+  )
+λ
+. cons
+  ( λ _cycle
+    . _cycle (text "typing_natural_returns_bad") (text "rejects_certificate")
+    λ
+    . text "J member equals J T, T of value bad, and J T = (J T) (\\i. \\w. w): a certificate would equal its second member"
+  )
+#   H29 (its family comment in contest_hard_clauses.pl).
+λ
+. cons
+  ( λ _cycle
+    . _cycle (text "probe_cycle_and_false") (text "false_only") λ. text "x = x false false: false is given back, true is not"
+  )
+λ
+. cons
+  ( λ _cycle
+    . _cycle (text "probe_cycle_if_false") (text "false_only") λ. text "x = x false x: false is given back, true is not"
+  )
+λ
+. cons
+  ( λ _cycle
+    . _cycle (text "probe_cycle_and_or") (text "false_only") λ. text "x = (x true x) false false: false is given back, true is not"
+  )
+#   H30 (its family comment in contest_hard_clauses.pl).
+λ
+. cons
+  ( λ _cycle
+    . _cycle (text "value_map_two_cycle") (text "false_only")
+    λ
+    . text "x = x (\\p. \\q. true) false: false is given back; true goes to \\p. \\q. true and back to true, never to itself"
+  )
+λ
+. cons
+  ( λ _cycle
+    . _cycle (text "value_map_three_cycle") (text "false_only")
+    λ
+    . text "x = x (\\p. \\q. \\r. \\s. true) false: false is given back; true is on a cycle of length three, never given back itself"
+  ) nil

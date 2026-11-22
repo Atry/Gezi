@@ -1,0 +1,30 @@
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "prelude") "fixpoint")
+λ fixpoint
+. omega (omega (omega (omega corpora "library") "prelude") "natural")
+λ zero successor _ _ _ _ _
+. omega (omega (omega (omega corpora "library") "prelude") "combinators")
+λ _ _ compose _ _ _ _
+# nat_type:
+# The type of the Scott naturals as a choice: the closed βη normal forms N
+# with nat_type ⊑_O N are exactly the numerals, and x ∥ nat_type ⊑_O N
+# only when x ⊑_O N and nat_type ⊑_O N
+# (paper proofs, not yet in Lean).
+. (λtuple. tuple λ. fixpoint λn. (successor n + zero))
+λ nat_type
+# nat_fold:
+# Structural recursion over a Scott natural, with no filter:
+# nat_fold z s n is s (s (... (s z))), n times.
+. (λtuple. tuple λz s. fixpoint λself n. n z λp. s λ. self p)
+λ nat_fold
+# filter_nat:
+# The filter of the naturals: λx. x ∥ nat_type.
+. (λtuple. tuple λx. (x ∥ nat_type))
+λ filter_nat
+# nat_fold_filtered:
+# Structural recursion with the base and every step filtered by nat_type.
+. (λtuple. tuple λz s. nat_fold (filter_nat z) λ. compose filter_nat λ. compose s filter_nat)
+λ nat_fold_filtered
+. export nat_type nat_fold filter_nat nat_fold_filtered

@@ -1,0 +1,56 @@
+# The base problems of the CSES families repeated_cses_binomial_coefficients_*: queries of two integers a >= b >= 0, the answer the number
+# of b-element subsets of an a-element set, modulo 10^9 + 7.
+#
+# THE ANSWER of each row is the problem's definition computed exhaustively by
+# a brute-force script of it (enumerating the walks, subsets, divisors or
+# elements, 2026-11-21), not by the efficient algorithm. PROOF: the program of the problem's
+# file follows the definition, and its header argues under Definition 14 that
+# its one normal form is that answer; the data are finite and small. The inputs
+# are our own, no CSES test data.
+#
+#   binomial_coefficients_point(?Point, ?Queries, ?Result)
+#
+# Queries is a Scott list (corpora/library/prelude/list) of pairs (corpora/library/prelude/pair) of integers
+# (corpora/library/integer/cbor); Result is a Scott list of integers. Every value is below 10^9 + 7, since the
+# program enumerates the subsets.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λvalue. value)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λvalue. value)
+λ integer
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "pair")
+λ pair _ _
+. export
+λ
+. cons
+  ( λ _binomial_coefficients_point
+    . _binomial_coefficients_point (text "cses_binomial_coefficients_choose_none_and_all") (cons (pair (integer 4) (integer 0)) λ. cons (pair (integer 4) (integer 4)) λ. cons (pair (integer 0) (integer 0)) λ. nil) λ. cons (integer 1) λ. cons (integer 1) λ. cons (integer 1) λ. nil
+  )
+λ
+. cons
+  ( λ _binomial_coefficients_point
+    . _binomial_coefficients_point (text "cses_binomial_coefficients_middle_of_row_five") (cons (pair (integer 5) (integer 2)) λ. cons (pair (integer 5) (integer 3)) λ. nil) λ. cons (integer 10) λ. cons (integer 10) λ. nil
+  )
+λ
+. cons
+  ( λ _binomial_coefficients_point
+    . _binomial_coefficients_point (text "cses_binomial_coefficients_central_of_ten") (cons (pair (integer 10) (integer 5)) λ. nil) λ. cons (integer 252) λ. nil
+  )
+λ
+. cons
+  ( λ _binomial_coefficients_point
+    . _binomial_coefficients_point (text "cses_binomial_coefficients_choose_one") (cons (pair (integer 7) (integer 1)) λ. cons (pair (integer 6) (integer 1)) λ. nil) λ. cons (integer 7) λ. cons (integer 6) λ. nil
+  )
+λ
+. cons
+  ( λ _binomial_coefficients_point
+    . _binomial_coefficients_point (text "cses_binomial_coefficients_larger_row") (cons (pair (integer 8) (integer 4)) λ. cons (pair (integer 6) (integer 2)) λ. nil) λ. cons (integer 70) λ. cons (integer 15) λ. nil
+  ) nil

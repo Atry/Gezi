@@ -1,0 +1,24 @@
+#   ==== 4. greatest-fixed-point type systems ====
+#   EQUI-RECURSIVE TYPES AS CYCLIC VALUES. A type is Scott data with four
+#   constructors: top, a base type named by a natural (0 is Nat, 1 is Bool,
+#   7 and 8 are abstract types), a function type, and a record, a Scott list
+#   of fields `pair label type` with natural labels. A recursive type is a
+#   fixpoint.
+#
+#   SUBTYPING IS CHECKED WITHOUT AN ASSUMPTION SET:
+#
+#       s <: top
+#       base k <: base k
+#       sa -> sr <: ta -> tr   when ta <: sa and sr <: tr
+#       record sf <: record tf when every field l : t of tf has l : s in sf
+#                              with s <: t
+#
+#   the conjunctions evaluated left first. On cyclic types the check comes
+#   back to a pair it is already checking, and runs forever when no field
+#   fails first: that is the pair the coinductive (Amadio and Cardelli)
+#   check would assume, and the greatest fixed point says it is a subtype.
+#   So a true subtyping of recursive types has no head, read `failed` by a
+#   tabled evaluation whose keys come back, and a false one answers `false`
+#   when its failing field is checked before the recursive one; the field
+#   orders below are chosen so.
+λ export. export λx_0 x_1 x_2 x_3. x_0

@@ -1,0 +1,199 @@
+# sample 0
+arguments ; binders ; head outside true; bit read Literal(h'9fff') at 7
+=>
+(λt. t λ. (λf. (λx. f λ. x x) λx. f λ. x x) λf x. (f ∥ x)) λ$merkle$ddf202ce f. f λf_2. f_2 (λy. y $merkle$ddf202ce λt. t $merkle$ddf202ce λt_2. t_2 (λt_3. t_3 (λx. x (λx_2. x_2 (λx_3. x_3 (λf_3. f_3 (λy_2. y_2 (λy_3. y_3 (λt_4. t_4 (λx_4. x_4 (λy_4. y_4 (λy_5. y_5 (λf_4. f_4 f_3 $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce
+
+# sample 1
+arguments ; binders ; head outside true; bit read Literal(h'80') at 7
+=>
+(λt. t λ. (λf. (λt_2. f λ. t_2 t_2) λy. f λ. y y) λt_2 x. (t_2 ∥ x)) λ$merkle$ddf202ce f. f λf_2. f_2 (λx. x $merkle$ddf202ce λf_3. f_3 $merkle$ddf202ce λt. t $merkle$ddf202ce λt_2. t_2 $merkle$ddf202ce λf_4. f_4 $merkle$ddf202ce λf_5. f_5 $merkle$ddf202ce λx_2. x_2 $merkle$ddf202ce f_2) $merkle$ddf202ce
+
+# sample 2
+arguments ; binders ; head outside false; bit read Literal(h'd81ea0') at 11
+=>
+(λt. t λ. (λf. (λx. f λ. x x) λx. f λ. x x) λf x. (f ∥ x)) λ$merkle$ddf202ce. library_name λf. f (λy. y (λx. x $merkle$ddf202ce λy_2. y_2 (λt. t (λy_3. y_3 $merkle$ddf202ce λt_2. t_2 $merkle$ddf202ce λt_3. t_3 $merkle$ddf202ce λy_4. y_4 $merkle$ddf202ce λy_5. y_5 $merkle$ddf202ce λf_2. f_2 $merkle$ddf202ce λt_4. t_4 (λt_5. t_5 (λx_2. x_2 (λt_6. t_6 (λx_3. x_3 $merkle$ddf202ce λx_4. x_4 (λx_5. x_5 $merkle$ddf202ce λy_6. y_6 (λf_3. f_3 $merkle$ddf202ce λt_7. t_7 $merkle$ddf202ce λt_8. t_8 $merkle$ddf202ce λf_4. f_4 $merkle$ddf202ce λy_7. y_7 $merkle$ddf202ce t_5) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce
+
+# sample 3
+arguments ; binders ; head outside false; bit read Literal(h'9fff') at 6
+=>
+(λt. t λ. (λf. (λx. f λ. x x) λx. f λ. x x) λf y. (f ∥ y)) λ$merkle$ddf202ce. library_name λf. f (λy. y $merkle$ddf202ce λx. x $merkle$ddf202ce λt. t (λx_2. x_2 (λx_3. x_3 (λx_4. x_4 (λx_5. x_5 (λt_2. t_2 (λf_2. f_2 (λy_2. y_2 (λt_3. t_3 (λt_4. t_4 (λx_6. x_6 (λx_7. x_7 (λt_5. t_5 f_2 $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce
+
+# sample 4
+arguments ; binders ; head outside true; bit read none
+=>
+λf. f
+
+# sample 5
+arguments ; binders ; head outside true; bit read Literal(h'9fff') at 12
+=>
+(λt. t λ. (λf. (λy. f λ. y y) λy. f λ. y y) λf y. (f ∥ y)) λ$merkle$ddf202ce f. f λf_2. f_2 (λy. y $merkle$ddf202ce λt. t $merkle$ddf202ce λt_2. t_2 (λx. x (λx_2. x_2 (λf_3. f_3 (λy_2. y_2 (λx_3. x_3 (λt_3. t_3 (λt_4. t_4 (λy_3. y_3 (λy_4. y_4 (λy_5. y_5 (λf_4. f_4 (λt_5. t_5 t_2 $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce
+
+# sample 6
+arguments ; binders ; head outside true; bit read none
+=>
+λf. f
+
+# sample 7
+arguments ; binders ; head outside false; bit read Literal(h'60') at 3
+=>
+(λt. t λ. (λf. (λx. f λ. x x) λx. f λ. x x) λx f. (x ∥ f)) λ$merkle$ddf202ce. library_name λf. f $merkle$ddf202ce λx. x (λf_2. f_2 (λf_3. f_3 $merkle$ddf202ce λy. y $merkle$ddf202ce λy_2. y_2 $merkle$ddf202ce λy_3. y_3 $merkle$ddf202ce λt. t $merkle$ddf202ce y) $merkle$ddf202ce) $merkle$ddf202ce
+
+# sample 8
+arguments ; binders ; head outside true; bit read none
+=>
+λf. f
+
+# sample 9
+arguments ; binders ; head outside false; bit read none
+=>
+library_name
+
+# sample 10
+arguments ; binders ; head outside false; bit read Literal(h'fbc0e5366177560f84') at 20
+=>
+(λt. t λ. (λf. (λx. f λ. x x) λx. f λ. x x) λf x. (f ∥ x)) λ$merkle$ddf202ce. library_name λf. f (λy. y (λx. x (λf_2. f_2 (λx_2. x_2 (λx_3. x_3 $merkle$ddf202ce λx_4. x_4 (λt. t (λy_2. y_2 (λx_5. x_5 (λf_3. f_3 $merkle$ddf202ce λt_2. t_2 $merkle$ddf202ce λx_6. x_6 $merkle$ddf202ce λx_7. x_7 $merkle$ddf202ce λf_4. f_4 $merkle$ddf202ce λf_5. f_5 $merkle$ddf202ce λt_3. t_3 (λx_8. x_8 (λy_3. y_3 (λt_4. t_4 $merkle$ddf202ce λt_5. t_5 $merkle$ddf202ce λt_6. t_6 (λf_6. f_6 $merkle$ddf202ce λt_7. t_7 (λx_9. x_9 $merkle$ddf202ce λt_8. t_8 $merkle$ddf202ce λy_4. y_4 (λf_7. f_7 (λy_5. y_5 $merkle$ddf202ce λx_10. x_10 (λt_9. t_9 (λf_8. f_8 $merkle$ddf202ce λt_10. t_10 $merkle$ddf202ce λt_11. t_11 (λt_12. t_12 (λt_13. t_13 $merkle$ddf202ce λy_6. y_6 $merkle$ddf202ce λf_9. f_9 $merkle$ddf202ce λy_7. y_7 $merkle$ddf202ce λt_14. t_14 (λt_15. t_15 $merkle$ddf202ce λy_8. y_8 (λt_16. t_16 (λy_9. y_9 (λy_10. y_10 $merkle$ddf202ce λy_11. y_11 (λx_11. x_11 (λx_12. x_12 (λf_10. f_10 $merkle$ddf202ce λf_11. f_11 (λt_17. t_17 $merkle$ddf202ce λt_18. t_18 (λx_13. x_13 $merkle$ddf202ce λx_14. x_14 (λx_15. x_15 (λy_12. y_12 $merkle$ddf202ce λt_19. t_19 $merkle$ddf202ce λx_16. x_16 $merkle$ddf202ce λx_17. x_17 $merkle$ddf202ce λf_12. f_12 $merkle$ddf202ce λf_13. f_13 (λf_14. f_14 (λt_20. t_20 (λf_15. f_15 (λf_16. f_16 (λt_21. t_21 $merkle$ddf202ce λx_18. x_18 $merkle$ddf202ce λt_22. t_22 $merkle$ddf202ce λy_13. y_13 $merkle$ddf202ce λf_17. f_17 (λx_19. x_19 $merkle$ddf202ce λf_18. f_18 $merkle$ddf202ce t_18) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce
+
+# sample 11
+arguments ; binders ; head outside false; bit read none
+=>
+library_name
+
+# sample 12
+arguments ; binders ; head outside true; bit read none
+=>
+λf. f
+
+# sample 13
+arguments ; binders ; head outside true; bit read none
+=>
+λf. f
+
+# sample 14
+arguments ; binders ; head outside true; bit read none
+=>
+λf. f
+
+# sample 15
+arguments ; binders ; head outside false; bit read none
+=>
+library_name
+
+# sample 16
+arguments ; binders ; head outside true; bit read none
+=>
+λf. f
+
+# sample 17
+arguments ; binders ; head outside true; bit read Literal(h'1b2f47004a88418b54') at 62
+=>
+(λt. t λ. (λf. (λx. f λ. x x) λx. f λ. x x) λf x. (f ∥ x)) λ$merkle$ddf202ce f. f λf_2. f_2 $merkle$ddf202ce λt. t $merkle$ddf202ce λf_3. f_3 $merkle$ddf202ce λy. y (λy_2. y_2 (λf_4. f_4 $merkle$ddf202ce λf_5. f_5 (λf_6. f_6 (λx. x $merkle$ddf202ce λy_3. y_3 $merkle$ddf202ce λx_2. x_2 (λf_7. f_7 $merkle$ddf202ce λx_3. x_3 (λt_2. t_2 (λf_8. f_8 (λy_4. y_4 (λy_5. y_5 $merkle$ddf202ce λy_6. y_6 (λy_7. y_7 $merkle$ddf202ce λf_9. f_9 $merkle$ddf202ce λx_4. x_4 $merkle$ddf202ce λf_10. f_10 (λt_3. t_3 (λx_5. x_5 (λy_8. y_8 $merkle$ddf202ce λf_11. f_11 $merkle$ddf202ce λy_9. y_9 $merkle$ddf202ce λx_6. x_6 $merkle$ddf202ce λf_12. f_12 $merkle$ddf202ce λx_7. x_7 $merkle$ddf202ce λf_13. f_13 $merkle$ddf202ce λf_14. f_14 $merkle$ddf202ce λf_15. f_15 $merkle$ddf202ce λf_16. f_16 (λf_17. f_17 $merkle$ddf202ce λy_10. y_10 $merkle$ddf202ce λf_18. f_18 (λy_11. y_11 $merkle$ddf202ce λx_8. x_8 (λx_9. x_9 $merkle$ddf202ce λf_19. f_19 (λt_4. t_4 $merkle$ddf202ce λx_10. x_10 $merkle$ddf202ce λx_11. x_11 $merkle$ddf202ce λt_5. t_5 (λf_20. f_20 $merkle$ddf202ce λf_21. f_21 $merkle$ddf202ce λy_12. y_12 $merkle$ddf202ce λt_6. t_6 $merkle$ddf202ce λx_12. x_12 (λf_22. f_22 $merkle$ddf202ce λt_7. t_7 $merkle$ddf202ce λf_23. f_23 $merkle$ddf202ce λt_8. t_8 $merkle$ddf202ce λx_13. x_13 $merkle$ddf202ce λf_24. f_24 (λx_14. x_14 (λt_9. t_9 $merkle$ddf202ce λx_15. x_15 $merkle$ddf202ce λy_13. y_13 $merkle$ddf202ce λt_10. t_10 (λx_16. x_16 $merkle$ddf202ce λx_17. x_17 (λt_11. t_11 (λf_25. f_25 $merkle$ddf202ce λx_18. x_18 (λf_26. f_26 $merkle$ddf202ce λx_19. x_19 (λy_14. y_14 $merkle$ddf202ce λy_15. y_15 (λf_27. f_27 $merkle$ddf202ce λf_28. f_28 $merkle$ddf202ce y_3) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce
+
+# sample 18
+arguments ; binders ; head outside true; bit read none
+=>
+λf. f
+
+# sample 19
+arguments ; binders ; head outside false; bit read none
+=>
+library_name
+
+# sample 20
+arguments Literal(h'9f80ff'); binders Literal(h'c250288d5cd67dd02b180000000000000000'); head outside true; bit read Literal(h'a1c25010cabb303adee1a4000000000000000000') at 90
+=>
+(λt. t λ. (λf. (λx. f λ. x x) λx. f λ. x x) λf x. (f ∥ x)) λ$merkle$ddf202ce f 53903116663897645920650928181867446272. f [_ []] λf_2. f_2 (λf_3. f_3 $merkle$ddf202ce λt. t (λf_4. f_4 $merkle$ddf202ce λt_2. t_2 $merkle$ddf202ce λt_3. t_3 $merkle$ddf202ce λy. y $merkle$ddf202ce λy_2. y_2 (λf_5. f_5 (λx. x (λx_2. x_2 $merkle$ddf202ce λf_6. f_6 $merkle$ddf202ce λx_3. x_3 $merkle$ddf202ce λt_4. t_4 $merkle$ddf202ce λx_4. x_4 (λf_7. f_7 $merkle$ddf202ce λt_5. t_5 $merkle$ddf202ce λy_3. y_3 (λx_5. x_5 $merkle$ddf202ce λx_6. x_6 (λy_4. y_4 $merkle$ddf202ce λf_8. f_8 $merkle$ddf202ce λt_6. t_6 $merkle$ddf202ce λy_5. y_5 $merkle$ddf202ce λy_6. y_6 $merkle$ddf202ce λy_7. y_7 $merkle$ddf202ce λx_7. x_7 $merkle$ddf202ce λt_7. t_7 (λt_8. t_8 $merkle$ddf202ce λf_9. f_9 $merkle$ddf202ce λt_9. t_9 $merkle$ddf202ce λy_8. y_8 $merkle$ddf202ce λf_10. f_10 (λx_8. x_8 (λf_11. f_11 $merkle$ddf202ce λx_9. x_9 $merkle$ddf202ce λf_12. f_12 (λx_10. x_10 $merkle$ddf202ce λt_10. t_10 (λf_13. f_13 $merkle$ddf202ce λt_11. t_11 (λt_12. t_12 $merkle$ddf202ce λx_11. x_11 (λy_9. y_9 (λx_12. x_12 (λf_14. f_14 $merkle$ddf202ce λx_13. x_13 (λy_10. y_10 (λf_15. f_15 $merkle$ddf202ce λf_16. f_16 $merkle$ddf202ce λy_11. y_11 (λy_12. y_12 (λt_13. t_13 $merkle$ddf202ce λt_14. t_14 $merkle$ddf202ce λx_14. x_14 $merkle$ddf202ce λx_15. x_15 $merkle$ddf202ce λf_17. f_17 $merkle$ddf202ce λt_15. t_15 $merkle$ddf202ce λf_18. f_18 (λy_13. y_13 (λt_16. t_16 (λy_14. y_14 $merkle$ddf202ce λf_19. f_19 (λy_15. y_15 $merkle$ddf202ce λf_20. f_20 (λy_16. y_16 (λx_16. x_16 $merkle$ddf202ce λy_17. y_17 (λy_18. y_18 (λt_17. t_17 (λy_19. y_19 (λf_21. f_21 $merkle$ddf202ce λf_22. f_22 (λx_17. x_17 (λx_18. x_18 (λt_18. t_18 $merkle$ddf202ce λt_19. t_19 $merkle$ddf202ce λf_23. f_23 $merkle$ddf202ce λy_20. y_20 $merkle$ddf202ce λt_20. t_20 (λf_24. f_24 (λf_25. f_25 $merkle$ddf202ce λx_19. x_19 (λy_21. y_21 $merkle$ddf202ce λy_22. y_22 $merkle$ddf202ce λy_23. y_23 (λy_24. y_24 $merkle$ddf202ce λf_26. f_26 $merkle$ddf202ce λf_27. f_27 $merkle$ddf202ce λx_20. x_20 $merkle$ddf202ce λf_28. f_28 $merkle$ddf202ce λx_21. x_21 $merkle$ddf202ce λf_29. f_29 $merkle$ddf202ce λx_22. x_22 $merkle$ddf202ce λt_21. t_21 $merkle$ddf202ce λx_23. x_23 $merkle$ddf202ce λt_22. t_22 $merkle$ddf202ce λy_25. y_25 $merkle$ddf202ce λx_24. x_24 $merkle$ddf202ce λt_23. t_23 $merkle$ddf202ce λy_26. y_26 $merkle$ddf202ce λt_24. t_24 $merkle$ddf202ce λf_30. f_30 $merkle$ddf202ce λy_27. y_27 $merkle$ddf202ce λt_25. t_25 $merkle$ddf202ce λf_31. f_31 $merkle$ddf202ce λt_26. t_26 $merkle$ddf202ce λy_28. y_28 $merkle$ddf202ce λy_29. y_29 $merkle$ddf202ce λt_27. t_27 $merkle$ddf202ce λy_30. y_30 $merkle$ddf202ce λy_31. y_31 $merkle$ddf202ce λx_25. x_25 $merkle$ddf202ce λt_28. t_28 $merkle$ddf202ce λt_29. t_29 $merkle$ddf202ce λx_26. x_26 $merkle$ddf202ce λf_32. f_32 $merkle$ddf202ce λt_30. t_30 $merkle$ddf202ce λx_27. x_27 $merkle$ddf202ce λf_33. f_33 $merkle$ddf202ce λt_31. t_31 $merkle$ddf202ce λt_32. t_32 $merkle$ddf202ce λf_34. f_34 $merkle$ddf202ce λf_35. f_35 $merkle$ddf202ce λf_36. f_36 $merkle$ddf202ce λf_37. f_37 $merkle$ddf202ce λt_33. t_33 $merkle$ddf202ce λy_32. y_32 $merkle$ddf202ce λx_28. x_28 $merkle$ddf202ce λy_33. y_33 $merkle$ddf202ce λf_38. f_38 $merkle$ddf202ce λt_34. t_34 $merkle$ddf202ce λx_29. x_29 $merkle$ddf202ce λy_34. y_34 $merkle$ddf202ce λy_35. y_35 $merkle$ddf202ce λy_36. y_36 $merkle$ddf202ce λy_37. y_37 $merkle$ddf202ce λt_35. t_35 $merkle$ddf202ce λy_38. y_38 $merkle$ddf202ce λt_36. t_36 $merkle$ddf202ce λt_37. t_37 $merkle$ddf202ce λx_30. x_30 $merkle$ddf202ce λy_39. y_39 $merkle$ddf202ce λf_39. f_39 $merkle$ddf202ce λy_40. y_40 $merkle$ddf202ce λf_40. f_40 $merkle$ddf202ce λy_41. y_41 $merkle$ddf202ce λy_42. y_42 $merkle$ddf202ce λt_38. t_38 $merkle$ddf202ce λy_43. y_43 $merkle$ddf202ce λx_31. x_31 $merkle$ddf202ce λx_32. x_32 $merkle$ddf202ce λx_33. x_33 $merkle$ddf202ce λx_34. x_34 $merkle$ddf202ce λt_39. t_39 $merkle$ddf202ce λt_40. t_40 $merkle$ddf202ce λx_35. x_35 $merkle$ddf202ce λx_36. x_36 $merkle$ddf202ce λy_44. y_44 $merkle$ddf202ce λt_41. t_41 $merkle$ddf202ce t_17) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce
+
+# sample 21
+arguments ; binders Literal(h'6161'); head outside true; bit read none
+=>
+λf "a". f
+
+# sample 22
+arguments Literal(h'c25021ddc810cc70cbc50000000000000000'); binders ; head outside false; bit read none
+=>
+library_name 45016079279481055243800901171151896576
+
+# sample 23
+arguments Literal(h'fb4113d8d9181a7c44'); binders Literal(h'a1f500'); head outside false; bit read Literal(h'd81e60') at 3
+=>
+(λt. t λ. (λf. (λx. f λ. x x) λx. f λ. x x) λf x. (f ∥ x)) λ$merkle$ddf202ce {true: 0}. library_name 325174.27353853383 λt. t (λx. x (λt_2. t_2 $merkle$ddf202ce λy. y (λt_3. t_3 (λx_2. x_2 $merkle$ddf202ce λy_2. y_2 $merkle$ddf202ce λy_3. y_3 $merkle$ddf202ce λf. f $merkle$ddf202ce λf_2. f_2 $merkle$ddf202ce λf_3. f_3 $merkle$ddf202ce λf_4. f_4 (λy_4. y_4 (λf_5. f_5 (λy_5. y_5 (λy_6. y_6 $merkle$ddf202ce λy_7. y_7 $merkle$ddf202ce λx_3. x_3 (λy_8. y_8 (λy_9. y_9 $merkle$ddf202ce λf_6. f_6 $merkle$ddf202ce λy_10. y_10 $merkle$ddf202ce λt_4. t_4 $merkle$ddf202ce λx_4. x_4 $merkle$ddf202ce f_6) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce
+
+# sample 24
+arguments Literal(h'3b2983bb99f705f1ec'); binders ; head outside true; bit read none
+=>
+λf. f -2991440847452893677
+
+# sample 25
+arguments ; binders Literal(h'9fc25011af08d4d8c9e6d10000000000000000ff'); head outside false; bit read none
+=>
+λ[_ 23505707001327293122574165024071221248]. library_name
+
+# sample 26
+arguments Literal(h'9fff'); binders Literal(h'c2500ba2d8f628e28f3c0000000000000000'); head outside true; bit read none
+=>
+λf 15467060547972377980900842410820501504. f [_ ]
+
+# sample 27
+arguments ; binders Literal(h'9fff'); head outside false; bit read none
+=>
+λ[_ ]. library_name
+
+# sample 28
+arguments ; binders ; head outside true; bit read none
+=>
+λf. f
+
+# sample 29
+arguments ; binders Literal(h'f7'); head outside false; bit read Literal(h'9fff') at 11
+=>
+(λt. t λ. (λf. (λx. f λ. x x) λx. f λ. x x) λf x. (f ∥ x)) λ$merkle$ddf202ce f. f (λf_2. f_2 (λy. y (λf_3. f_3 (λx. x $merkle$ddf202ce λt. t (λt_2. t_2 (λy_2. y_2 (library_name λt_3. t_3 (λx_2. x_2 $merkle$ddf202ce λf_4. f_4 $merkle$ddf202ce λx_3. x_3 (λy_3. y_3 (λf_5. f_5 (λf_6. f_6 (λf_7. f_7 (λx_4. x_4 (λt_4. t_4 (λx_5. x_5 (λy_4. y_4 (λt_5. t_5 (λx_6. x_6 (λf_8. f_8 (λx_7. x_7 y_3 $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce
+
+# sample 30
+arguments Literal(h'80'); binders ; head outside false; bit read none
+=>
+library_name []
+
+# sample 31
+arguments ; binders Literal(h'f6'); head outside true; bit read Literal(h'c2501939661c60d84e780000000000000000') at 29
+=>
+(λt. t λ. (λf. (λx. f λ. x x) λx. f λ. x x) λf x. (f ∥ x)) λ$merkle$ddf202ce f f_2. f_2 (λt. t (λy. y (λf_3. f_3 (λt_2. t_2 $merkle$ddf202ce λx. x (λt_3. t_3 (λx_2. x_2 $merkle$ddf202ce λ. f λf_4. f_4 (λy_2. y_2 (λx_3. x_3 $merkle$ddf202ce λy_3. y_3 $merkle$ddf202ce λy_4. y_4 $merkle$ddf202ce λy_5. y_5 $merkle$ddf202ce λy_6. y_6 (λt_4. t_4 $merkle$ddf202ce λy_7. y_7 $merkle$ddf202ce λf_5. f_5 (λy_8. y_8 $merkle$ddf202ce λy_9. y_9 (λy_10. y_10 $merkle$ddf202ce λt_5. t_5 $merkle$ddf202ce λt_6. t_6 $merkle$ddf202ce λt_7. t_7 $merkle$ddf202ce λy_11. y_11 $merkle$ddf202ce λx_4. x_4 $merkle$ddf202ce λf_6. f_6 $merkle$ddf202ce λf_7. f_7 (λy_12. y_12 (λy_13. y_13 $merkle$ddf202ce λx_5. x_5 $merkle$ddf202ce λf_8. f_8 (λf_9. f_9 $merkle$ddf202ce λf_10. f_10 $merkle$ddf202ce λx_6. x_6 (λt_8. t_8 (λt_9. t_9 (λt_10. t_10 $merkle$ddf202ce λy_14. y_14 $merkle$ddf202ce λt_11. t_11 (λf_11. f_11 $merkle$ddf202ce λx_7. x_7 (λy_15. y_15 (λx_8. x_8 $merkle$ddf202ce λy_16. y_16 $merkle$ddf202ce λt_12. t_12 (λx_9. x_9 (λy_17. y_17 $merkle$ddf202ce λy_18. y_18 $merkle$ddf202ce λf_12. f_12 $merkle$ddf202ce λx_10. x_10 $merkle$ddf202ce λy_19. y_19 (λt_13. t_13 (λy_20. y_20 (λt_14. t_14 $merkle$ddf202ce λt_15. t_15 $merkle$ddf202ce λy_21. y_21 $merkle$ddf202ce λx_11. x_11 (λx_12. x_12 (λt_16. t_16 $merkle$ddf202ce λy_22. y_22 $merkle$ddf202ce λx_13. x_13 $merkle$ddf202ce λy_23. y_23 $merkle$ddf202ce λt_17. t_17 $merkle$ddf202ce λf_13. f_13 (λy_24. y_24 (λy_25. y_25 $merkle$ddf202ce λy_26. y_26 (λt_18. t_18 (λf_14. f_14 $merkle$ddf202ce λt_19. t_19 $merkle$ddf202ce λx_14. x_14 $merkle$ddf202ce λf_15. f_15 $merkle$ddf202ce λx_15. x_15 (λt_20. t_20 $merkle$ddf202ce λf_16. f_16 $merkle$ddf202ce λx_16. x_16 (λf_17. f_17 (λy_27. y_27 (λt_21. t_21 $merkle$ddf202ce λt_22. t_22 $merkle$ddf202ce λy_28. y_28 (λt_23. t_23 (λy_29. y_29 (λx_17. x_17 (λf_18. f_18 $merkle$ddf202ce λx_18. x_18 $merkle$ddf202ce λf_19. f_19 $merkle$ddf202ce λf_20. f_20 $merkle$ddf202ce λy_30. y_30 $merkle$ddf202ce λx_19. x_19 $merkle$ddf202ce λy_31. y_31 $merkle$ddf202ce λx_20. x_20 $merkle$ddf202ce λt_24. t_24 $merkle$ddf202ce λx_21. x_21 $merkle$ddf202ce λy_32. y_32 $merkle$ddf202ce λx_22. x_22 $merkle$ddf202ce λf_21. f_21 $merkle$ddf202ce λx_23. x_23 $merkle$ddf202ce λy_33. y_33 $merkle$ddf202ce λt_25. t_25 $merkle$ddf202ce λf_22. f_22 $merkle$ddf202ce λx_24. x_24 $merkle$ddf202ce λf_23. f_23 $merkle$ddf202ce λy_34. y_34 $merkle$ddf202ce λf_24. f_24 $merkle$ddf202ce λf_25. f_25 $merkle$ddf202ce λy_35. y_35 $merkle$ddf202ce λy_36. y_36 $merkle$ddf202ce λx_25. x_25 $merkle$ddf202ce λy_37. y_37 $merkle$ddf202ce λt_26. t_26 $merkle$ddf202ce λt_27. t_27 $merkle$ddf202ce λf_26. f_26 $merkle$ddf202ce λt_28. t_28 $merkle$ddf202ce λf_27. f_27 $merkle$ddf202ce λt_29. t_29 $merkle$ddf202ce λx_26. x_26 $merkle$ddf202ce λf_28. f_28 $merkle$ddf202ce λt_30. t_30 $merkle$ddf202ce λt_31. t_31 $merkle$ddf202ce λx_27. x_27 $merkle$ddf202ce λy_38. y_38 $merkle$ddf202ce λy_39. y_39 $merkle$ddf202ce λx_28. x_28 $merkle$ddf202ce λt_32. t_32 $merkle$ddf202ce λf_29. f_29 $merkle$ddf202ce λf_30. f_30 $merkle$ddf202ce λx_29. x_29 $merkle$ddf202ce λf_31. f_31 $merkle$ddf202ce λf_32. f_32 $merkle$ddf202ce λx_30. x_30 $merkle$ddf202ce λf_33. f_33 $merkle$ddf202ce λf_34. f_34 $merkle$ddf202ce λt_33. t_33 $merkle$ddf202ce λx_31. x_31 $merkle$ddf202ce λf_35. f_35 $merkle$ddf202ce λt_34. t_34 $merkle$ddf202ce λx_32. x_32 $merkle$ddf202ce λt_35. t_35 $merkle$ddf202ce λx_33. x_33 $merkle$ddf202ce λx_34. x_34 $merkle$ddf202ce λt_36. t_36 $merkle$ddf202ce λf_36. f_36 $merkle$ddf202ce λy_40. y_40 $merkle$ddf202ce λx_35. x_35 $merkle$ddf202ce λt_37. t_37 $merkle$ddf202ce λf_37. f_37 $merkle$ddf202ce λx_36. x_36 $merkle$ddf202ce λy_41. y_41 $merkle$ddf202ce λt_38. t_38 $merkle$ddf202ce λx_37. x_37 $merkle$ddf202ce y_38) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce
+
+# sample 32
+arguments ; binders ; head outside false; bit read Literal(h'80') at 3
+=>
+(λt. t λ. (λf. (λy. f λ. y y) λf_2. f λ. f_2 f_2) λx f. (x ∥ f)) λ$merkle$ddf202ce. library_name λf. f (λy. y $merkle$ddf202ce λx. x $merkle$ddf202ce λt. t $merkle$ddf202ce λt_2. t_2 $merkle$ddf202ce λx_2. x_2 $merkle$ddf202ce λt_3. t_3 $merkle$ddf202ce λt_4. t_4 $merkle$ddf202ce t_2) $merkle$ddf202ce
+
+# sample 33
+arguments Literal(h'80'); binders ; head outside false; bit read none
+=>
+library_name []
+
+# sample 34
+arguments ; binders Literal(h'3b33a19673aed8f9f4'); head outside true; bit read none
+=>
+λf -3720420190783601141. f
+
+# sample 35
+arguments ; binders Literal(h'80'); head outside false; bit read none
+=>
+λ[]. library_name
+
+# sample 36
+arguments Literal(h'c250312c341def4196df0000000000000000'); binders Literal(h'9ff7ff'); head outside true; bit read none
+=>
+λf [_ undefined]. f 65361689912198722982642504467654639616
+
+# sample 37
+arguments Literal(h'c250680b242f3643505c0000000000000000'); binders ; head outside false; bit read none
+=>
+library_name 138297560734338071563154796945128554496
+
+# sample 38
+arguments Literal(h'c350579150ea1216f9a8ffffffffffffffff'); binders Literal(h'9f63796a78f7ff'); head outside true; bit read Literal(h'41df') at 10
+=>
+(λt. t λ. (λx. (λf. x λ. f f) λf. x λ. f f) λf x. (f ∥ x)) λ$merkle$ddf202ce f [_ "yjx", undefined]. f -116397359815532056951826764958976180224 λf_2. f_2 $merkle$ddf202ce λt. t (λf_3. f_3 $merkle$ddf202ce λx. x $merkle$ddf202ce λx_2. x_2 $merkle$ddf202ce λy. y $merkle$ddf202ce λy_2. y_2 $merkle$ddf202ce λy_3. y_3 (λy_4. y_4 (λy_5. y_5 (λf_4. f_4 $merkle$ddf202ce λy_6. y_6 (λt_2. t_2 (λf_5. f_5 (λy_7. y_7 (λx_3. x_3 y $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce) $merkle$ddf202ce
+
+# sample 39
+arguments Literal(h'a1f700'); binders Literal(h'9fc3503238a72f28b440cdffffffffffffffffa066717377617276ff'); head outside false; bit read none
+=>
+λ[_ -66755559312048505063641345737883648000, {}, "qswarv"]. library_name {undefined: 0}

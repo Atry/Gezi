@@ -1,0 +1,231 @@
+# Shape lemmas for the canonical binary naturals, enabled with the type
+# check beside hindley_milner_unions and prolog_backend_shapes, after
+# prolog_backend_shapes' shapes of the naturals and the booleans: a structure
+# of three alternatives, the first with no field and the other two with one
+# field each, is a candidate for `binary_set true`, the filter whose members
+# the family binary_natural holds at the parameter true (binary_prolog_backend,
+# `native_specialization(binary_natural)` on binary_set), and so are its two
+# fields. Every other lemma that writes typed versions and contracts is
+# prolog_backend_shapes', one for every representation, so this module adds
+# the shape of one representation only: a new representation adds attractors
+# and repellers, never lemmas. The
+# candidacy is positive, read from one layer, with no closed-world step: a
+# value of the shape that is no canonical binary natural (a leading zero,
+# binary_even binary_zero) is filtered out by `binary_set true` and its
+# typed version's fallback takes the untyped path, as prolog_backend_shapes
+# says of a candidate whose values are not the representation's.
+#
+# The schemes of four operations of the module binary, as
+# native_arithmetic_unions writes double's: each takes two binary naturals and
+# gives one, B below the recursive type of the three alternatives.
+#
+# Each lemma states its soundness claim above it, after the section of the
+# paper proof its declaration cites. Used together with the natives of the four operations
+# (binary_operations_wren_backend).
+
+# Sound by the section zero_universe: both sides equal 0 for every
+# substitution, by Lemma Z of that proof, since structure and candidate
+# applied to all their arguments are each 0, whatever the arguments.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "hindley_milner_unions") "shapes")
+λ structure alternative no_alternative field no_field recursive_type
+. omega (omega (omega (omega corpora "library") "prolog_backend_shapes") "prolog_backend_shapes")
+λ candidate _ _ _ _ _
+. omega (omega (omega (omega corpora "library") "binary") "natural")
+λ _ _ _ _ binary_set
+. omega (omega (omega (omega corpora "library") "native_types") "boolean")
+λ true _ _ _
+. omega (omega (omega (omega corpora "library") "hindley_milner_unions") "judgments")
+λ _ _ unify
+. omega (omega (omega (omega corpora "library") "binary") "arithmetic")
+λ _ merge_binary_plus _ _
+. omega (omega (omega (omega corpora "library") "hindley_milner_unions") "types")
+λ function_type _ _ zero_universe_scheme _
+. omega (omega (omega (omega corpora "library") "binary") "order")
+λ _ binary_maximum binary_minimum
+. omega (omega (omega (omega corpora "library") "binary") "binary_bitwise_or")
+λ binary_bitwise_or
+. export
+λ _ rewriting _ _
+. rewriting
+λ _ lemmas _
+. lemmas
+  # The four schemes below are sound by the section absorption: each is
+  # Name = [Name, Name ∥ (zero_universe_scheme S)], equation 6
+  # (M + (M ∥ N) = M) read right to left, with M the define and N the scheme,
+  # whatever the scheme says; so each lemma's soundness needs no claim about the define's
+  # body, as unions_double_scheme's does not. What the native computes is
+  # claimed in binary_operations_wren_backend and BinaryNaturalNatives.
+  ( λ s
+    . s
+      (λk. k "binary_wren_bitwise_or_scheme") binary_bitwise_or
+      ( binary_bitwise_or
+      ∥ λ
+        . zero_universe_scheme
+        λ
+        . function_type
+          ( λ
+            . recursive_type
+            λ x_0
+            . structure
+            λ
+            . alternative no_field λ. alternative (field x_0 no_field) λ. alternative (field x_0 no_field) no_alternative
+          )
+        λ
+        . function_type
+          ( λ
+            . recursive_type
+            λ x_0
+            . structure
+            λ
+            . alternative no_field λ. alternative (field x_0 no_field) λ. alternative (field x_0 no_field) no_alternative
+          )
+        λ
+        . recursive_type
+        λ x_0
+        . structure
+        λ
+        . alternative no_field λ. alternative (field x_0 no_field) λ. alternative (field x_0 no_field) no_alternative
+      + binary_bitwise_or
+      ) λ_ md _. md λk. k "[absorption](docs/design/gezi-hindley-milner-unions-proofs.md#absorption)"
+  + λ s
+    . s
+      (λk. k "binary_wren_minimum_scheme") binary_minimum
+      ( binary_minimum
+      ∥ λ
+        . zero_universe_scheme
+        λ
+        . function_type
+          ( λ
+            . recursive_type
+            λ x_0
+            . structure
+            λ
+            . alternative no_field λ. alternative (field x_0 no_field) λ. alternative (field x_0 no_field) no_alternative
+          )
+        λ
+        . function_type
+          ( λ
+            . recursive_type
+            λ x_0
+            . structure
+            λ
+            . alternative no_field λ. alternative (field x_0 no_field) λ. alternative (field x_0 no_field) no_alternative
+          )
+        λ
+        . recursive_type
+        λ x_0
+        . structure
+        λ
+        . alternative no_field λ. alternative (field x_0 no_field) λ. alternative (field x_0 no_field) no_alternative
+      + binary_minimum
+      ) λ_ md _. md λk. k "[absorption](docs/design/gezi-hindley-milner-unions-proofs.md#absorption)"
+  + λ s
+    . s
+      (λk. k "binary_wren_maximum_scheme") binary_maximum
+      ( binary_maximum
+      ∥ λ
+        . zero_universe_scheme
+        λ
+        . function_type
+          ( λ
+            . recursive_type
+            λ x_0
+            . structure
+            λ
+            . alternative no_field λ. alternative (field x_0 no_field) λ. alternative (field x_0 no_field) no_alternative
+          )
+        λ
+        . function_type
+          ( λ
+            . recursive_type
+            λ x_0
+            . structure
+            λ
+            . alternative no_field λ. alternative (field x_0 no_field) λ. alternative (field x_0 no_field) no_alternative
+          )
+        λ
+        . recursive_type
+        λ x_0
+        . structure
+        λ
+        . alternative no_field λ. alternative (field x_0 no_field) λ. alternative (field x_0 no_field) no_alternative
+      + binary_maximum
+      ) λ_ md _. md λk. k "[absorption](docs/design/gezi-hindley-milner-unions-proofs.md#absorption)"
+  + λ s
+    . s
+      (λk. k "binary_wren_plus_scheme") merge_binary_plus
+      ( merge_binary_plus
+      ∥ λ
+        . zero_universe_scheme
+        λ
+        . function_type
+          ( λ
+            . recursive_type
+            λ x_0
+            . structure
+            λ
+            . alternative no_field λ. alternative (field x_0 no_field) λ. alternative (field x_0 no_field) no_alternative
+          )
+        λ
+        . function_type
+          ( λ
+            . recursive_type
+            λ x_0
+            . structure
+            λ
+            . alternative no_field λ. alternative (field x_0 no_field) λ. alternative (field x_0 no_field) no_alternative
+          )
+        λ
+        . recursive_type
+        λ x_0
+        . structure
+        λ
+        . alternative no_field λ. alternative (field x_0 no_field) λ. alternative (field x_0 no_field) no_alternative
+      + merge_binary_plus
+      ) λ_ md _. md λk. k "[absorption](docs/design/gezi-hindley-milner-unions-proofs.md#absorption)"
+  # Sound by the section zero_universe: the left side is candidate applied to
+  # all its arguments, 0 by Lemma Z; the right side is a choice of three terms,
+  # candidate and twice unify applied to all their arguments, each 0 by Lemma
+  # Z, and 0 + 0 + 0 = 0 by the unit law. N and M occur only as arguments, so
+  # the equation holds for every substitution, as prolog_backend_shapes'
+  # field candidacy of the naturals does.
+  + λ s
+    . s
+      (λk. k "binary_wren_shapes_field_candidate")
+      ( λ x_0 x_1 x_2
+        . candidate (binary_set true)
+        λ
+        . structure
+        λ
+        . alternative x_0 λ. alternative (field x_1 no_field) λ. alternative (field x_2 no_field) no_alternative
+      )
+      ( λ x_0 x_1 x_2
+        . ( unify x_2 λ. candidate (binary_set true) x_2
+          + unify x_1 λ. candidate (binary_set true) x_1
+          + λ
+            . candidate (binary_set true)
+            λ
+            . structure
+            λ
+            . alternative x_0 λ. alternative (field x_1 no_field) λ. alternative (field x_2 no_field) no_alternative
+          )
+      ) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+  + λ s
+    . s
+      (λk. k "binary_wren_shapes_candidate")
+      ( λ x_0 x_1 x_2
+        . structure
+        λ
+        . alternative x_0 λ. alternative (field x_1 no_field) λ. alternative (field x_2 no_field) no_alternative
+      )
+      ( λ x_0 x_1 x_2
+        . candidate (binary_set true)
+        λ
+        . structure
+        λ
+        . alternative x_0 λ. alternative (field x_1 no_field) λ. alternative (field x_2 no_field) no_alternative
+      ) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+  )

@@ -1,0 +1,51 @@
+# The typed branch of the fewest digit steps: a call of the function a program
+# writes by the definition equals the choice of itself and the typed version at a
+# filtered operand, for every operand, by monotonicity alone, by the paper proof its
+# declaration cites. That function is the IR term plover_digit_steps itself, so no
+# lemma folds it.
+#
+# The typed version is a noinline leaf, so the lemma never matches inside its own
+# right side. Termination of this module's saturation, derived and not proved: the
+# left sides' instances are the program's own subterms of those shapes, and the right
+# sides add only an application of a term already there to the leaf, the typed leaf and
+# a filter of an operand already there.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "binary") "natural")
+λ _ _ _ _ binary_set
+. omega (omega (omega (omega corpora "library") "native_types") "boolean")
+λ true _ _ _
+. omega (omega (omega (omega corpora "library") "plover_compositions") "plover_digit_steps")
+λ plover_digit_steps plover_typed_digit_steps
+. export
+  ( λ _ rewriting _ _
+    . rewriting
+    λ _ _ leaves
+    . leaves (λkey. key plover_digit_steps + λkey. key plover_typed_digit_steps)
+  + λ _ _ _ backend
+    . backend
+    λ _ natives _ _ _ _
+    . natives (λ binding. binding plover_typed_digit_steps λkey. key "plover_digit_steps")
+  + λ _ rewriting _ _
+    . rewriting
+    λ _ lemmas _
+    . lemmas
+      # A program binds the function once and calls it at each site. The let
+      # is an instance of the β rule.
+      ( λ lemma
+        . lemma
+          (λkey. key "plover_digit_steps_let")
+          (λ body. (λ function. body function) plover_digit_steps)
+          (λ body. body plover_digit_steps)
+        λ _ metadata _
+        . metadata λkey. key "[plover_digit_steps_let](docs/design/gezi-plover-ordered-compositions-proofs.md)"
+      + λ lemma
+        . lemma
+          (λkey. key "plover_digit_steps_branch")
+          (λ number. plover_digit_steps number)
+          (λ number. (plover_digit_steps number + plover_typed_digit_steps (number ∥ binary_set true)))
+        λ _ metadata _
+        . metadata λkey. key "[plover_digit_steps_branch](docs/design/gezi-plover-ordered-compositions-proofs.md)"
+      )
+  )

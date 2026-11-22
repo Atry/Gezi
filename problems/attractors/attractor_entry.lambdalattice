@@ -1,0 +1,353 @@
+# ?Name, ?Kind, ?Function
+# +Name, +Spelling, -Surface
+# +Name, -Address
+# -Library
+# ?Name, ?Type
+# ?Name, ?Position, ?Type
+# +Name, +Spelling, -Surface
+# +Term, -Surface
+# +Spelling, +Surface, -Spelled
+#   * <module> The attractor library: the one catalogue of the published functions
+#
+# A proposal of 2026-09-30, on the stack of grammar compression with
+# noinline attractors, then recursive typing, then compilation. An
+# ATTRACTOR is a non-inline function of the library, a closed beta eta
+# normal form, recognised by its content address once a setting has
+# compressed a program (beta, eta and their reverses): the criterion is the
+# code's content address.
+#
+# ONE CATALOGUE, ONE ADDRESS. This module is the catalogue of APIs, the
+# only one. Its address is the
+# content address of the attractor's beta eta normal form, attractor_address/2.
+# The reasons for this address over the code name of the closure a term
+# reduces to under weak_head (`doc/contest_api_catalogue.pl`, api_address/2):
+# - it depends on no evaluation strategy: two spellings of one function with
+#   a normal form have one normal form (confluence), whatever reduction
+#   reached it;
+# - it is the address the call restoration library already uses
+#   (prolog/gezi/call_restoration.pl);
+# - a recursive function has no normal form as a whole, so its old address
+#   named whichever closure weak_head happened to reach; here it is the
+#   normal form of its body (below), which is fixed.
+# `doc/contest_api_catalogue.pl` and its addresses are DEPRECATED.
+# INCOMPATIBILITY: a layer that keys a replacement by api_address/2,
+# merge_api_address/2 or inheritance_api_addresses/2 moves to
+# attractor_address/2; the entries keep the old catalogue's names, so the
+# move is a change of address only. The inheritance calculus entries
+# (inheritance_api/5) are not carried over: their programs hold labels,
+# which the judgment no longer has.
+#
+# THE ENTRIES, `attractor(Name, Kind, Function)`, in the order of
+# definition, a later one written with earlier ones:
+# - Kind is `constructor` for a Scott constructor, or
+#   `function(Dependencies, Recursion)`, Dependencies the entries themselves;
+# - Function is the de Bruijn term (`lambda/1`, `apply/2`, `variable/1`),
+#   the beta eta normal form of the entry's source (attractor_source/2),
+#   stored in corpora/contest_attractor_normal_forms.pl, which
+#   doc/contest_attractor_normal_forms.pl generates with the normaliser
+#   prolog/gezi/old_corpora/beta_eta_normalisation.pl.
+# A function has a native implementation when attractor_reference/3 of
+# prolog/gezi/old_corpora/attractor_references.pl has a clause for it.
+#
+# THE API DECLARATIONS ONLY. This file holds the entries, their sources,
+# their normal forms, their spellings, their addresses and the types of the
+# native references' arguments and results.
+# The native references and the normaliser are reference implementations in
+# prolog/gezi/, which this file does not load.
+#
+# RECURSION. A recursive function has no normal form as a whole, so the
+# library holds the normal form of its body, with its dependencies d1 ... dj,
+# the functions of Dependencies, as leading parameters:
+#
+#     T = \d1 ... \dj. \self. \a1 ... \ak. B
+#
+# - `self_application`: the function is F = T D (T D), B calling it as
+#   `self self`; the binary arithmetic of corpora/contest_merge_dynamic.pl is
+#   written this way (multiplication's doubling, a beta redex there, is
+#   contracted here);
+# - `fixpoint`: the function is F = Y (T D), Y the prelude's fixpoint
+#   combinator, B calling it as `self`; the prelude's recursive functions are
+#   written this way (corpora/prelude_clauses.pl);
+# - `none`: a function that does not recur, F = T D.
+# Y has no normal form and is no attractor: it is how a `fixpoint` function
+# is tied, function_surface/3.
+#
+# THE LIBRARY in the call restoration library's format is attractor_library/1: `Name-Function` in
+# the order of definition.
+#
+# SPELLINGS. attractor_surface(Name, Spelling, Surface) builds a fresh
+# surface term of Function. `direct` is Function itself. `respelled` has the
+# same beta eta class, built by reverse beta steps only: every application
+# whose head is a variable, x A1 ... An, is written ((\z. z) x) A1 ... An, so
+# that no closure of the respelled term has the attractor's code and a
+# forward beta step at each such head gives Function back.
+
+#   attractor_entry(?Name, ?Kind), in the order of definition, each entry
+#   bound by name (entry_<name>) before the table, so that a function's
+#   dependencies are the entries themselves, not their names.
+#
+# The kind is a constructor of attractors/kind, constructor or function, a
+# function's recursion a constructor of attractors/recursion, none,
+# self_application or fixpoint. The name is a text for the host, which
+# looks an attractor up by it (functionSurface; names pointing out of the
+# mixin tree). Each other text is from_cbor of a string
+# literal, a Scott list of bytes, imported from corpora/library/text/cbor.
+# FIXME: the imports project "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. omega (omega (omega (omega gezi "problems") "attractors") "kind")
+λ constructor function
+. omega (omega (omega (omega gezi "problems") "attractors") "recursion")
+λ none self_application fixpoint
+. (λtuple. tuple λ_attractor_entry. _attractor_entry (text "identity") λ. function nil none)
+λ entry_identity
+. (λtuple. tuple λ_attractor_entry. _attractor_entry (text "konstant") λ. function nil none)
+λ entry_konstant
+. (λtuple. tuple λ_attractor_entry. _attractor_entry (text "true") constructor)
+λ entry_true
+. (λtuple. tuple λ_attractor_entry. _attractor_entry (text "false") constructor)
+λ entry_false
+. (λtuple. tuple λ_attractor_entry. _attractor_entry (text "or") λ. function nil none)
+λ entry_or
+. (λtuple. tuple λ_attractor_entry. _attractor_entry (text "pair") constructor)
+λ entry_pair
+. (λtuple. tuple λ_attractor_entry. _attractor_entry (text "first") λ. function nil none)
+λ entry_first
+. (λtuple. tuple λ_attractor_entry. _attractor_entry (text "second") λ. function nil none)
+λ entry_second
+. (λtuple. tuple λ_attractor_entry. _attractor_entry (text "zero") constructor)
+λ entry_zero
+. (λtuple. tuple λ_attractor_entry. _attractor_entry (text "successor") constructor)
+λ entry_successor
+. (λtuple. tuple λ_attractor_entry. _attractor_entry (text "natural_equal") λ. function nil fixpoint)
+λ entry_natural_equal
+. (λtuple. tuple λ_attractor_entry. _attractor_entry (text "natural_at_least") λ. function nil fixpoint)
+λ entry_natural_at_least
+. ( λ tuple
+    . tuple λ_attractor_entry. _attractor_entry (text "natural_difference") λ. function nil fixpoint
+  )
+λ entry_natural_difference
+. (λtuple. tuple λ_attractor_entry. _attractor_entry (text "natural_double") λ. function nil fixpoint)
+λ entry_natural_double
+. (λtuple. tuple λ_attractor_entry. _attractor_entry (text "nil") constructor)
+λ entry_nil
+. (λtuple. tuple λ_attractor_entry. _attractor_entry (text "cons") constructor)
+λ entry_cons
+. (λtuple. tuple λ_attractor_entry. _attractor_entry (text "append") λ. function nil fixpoint)
+λ entry_append
+. (λtuple. tuple λ_attractor_entry. _attractor_entry (text "map") λ. function nil fixpoint)
+λ entry_map
+. (λtuple. tuple λ_attractor_entry. _attractor_entry (text "length") λ. function nil fixpoint)
+λ entry_length
+. ( λ tuple
+    . tuple
+    λ _attractor_entry
+    . _attractor_entry (text "depth_first") λ. function (cons entry_append nil) fixpoint
+  )
+λ entry_depth_first
+. (λtuple. tuple λ_attractor_entry. _attractor_entry (text "filter") λ. function nil fixpoint)
+λ entry_filter
+. ( λ tuple
+    . tuple
+    λ _attractor_entry
+    . _attractor_entry (text "binary_to_unary") λ. function (cons entry_natural_double nil) fixpoint
+  )
+λ entry_binary_to_unary
+. (λtuple. tuple λ_attractor_entry. _attractor_entry (text "binary_increment") λ. function nil fixpoint)
+λ entry_binary_increment
+. ( λ tuple
+    . tuple
+    λ _attractor_entry
+    . _attractor_entry (text "unary_to_binary") λ. function (cons entry_binary_increment nil) fixpoint
+  )
+λ entry_unary_to_binary
+. (λtuple. tuple λ_attractor_entry. _attractor_entry (text "absorbing") λ. function nil fixpoint)
+λ entry_absorbing
+. (λtuple. tuple λ_attractor_entry. _attractor_entry (text "binary_zero") constructor)
+λ entry_binary_zero
+. (λtuple. tuple λ_attractor_entry. _attractor_entry (text "binary_even") constructor)
+λ entry_binary_even
+. (λtuple. tuple λ_attractor_entry. _attractor_entry (text "binary_odd") constructor)
+λ entry_binary_odd
+. ( λ tuple
+    . tuple λ_attractor_entry. _attractor_entry (text "merge_binary_increment") λ. function nil self_application
+  )
+λ entry_merge_binary_increment
+. ( λ tuple
+    . tuple
+    λ _attractor_entry
+    . _attractor_entry (text "merge_binary_plus") λ. function (cons entry_merge_binary_increment nil) self_application
+  )
+λ entry_merge_binary_plus
+. ( λ tuple
+    . tuple
+    λ _attractor_entry
+    . _attractor_entry (text "merge_binary_times") λ. function (cons entry_merge_binary_plus nil) self_application
+  )
+λ entry_merge_binary_times
+. ( λ tuple
+    . tuple λ_attractor_entry. _attractor_entry (text "merge_binary_equality") λ. function nil self_application
+  )
+λ entry_merge_binary_equality
+. (λtuple. tuple λ_attractor_entry. _attractor_entry (text "merge_symbols_equal") λ. function nil none)
+λ entry_merge_symbols_equal
+#   The standard library, in the order of Haskell's Prelude and Data.List:
+#   one entry, one address, for every element type, since the content
+#   address of a higher-order function such as map or flatmap does not depend
+#   on the element type.
+. (λtuple. tuple λ_attractor_entry. _attractor_entry (text "not") λ. function nil none)
+λ entry_not
+. (λtuple. tuple λ_attractor_entry. _attractor_entry (text "and") λ. function nil none)
+λ entry_and
+#   The two remaining connectives of corpora/contest_tautology.pl, so that
+#   a quantified circuit is read by content address.
+. (λtuple. tuple λ_attractor_entry. _attractor_entry (text "exclusive") λ. function nil none)
+λ entry_exclusive
+. (λtuple. tuple λ_attractor_entry. _attractor_entry (text "every_assignment") λ. function nil none)
+λ entry_every_assignment
+. (λtuple. tuple λ_attractor_entry. _attractor_entry (text "none") constructor)
+λ entry_none
+. (λtuple. tuple λ_attractor_entry. _attractor_entry (text "some") constructor)
+λ entry_some
+. (λtuple. tuple λ_attractor_entry. _attractor_entry (text "foldr") λ. function nil fixpoint)
+λ entry_foldr
+. (λtuple. tuple λ_attractor_entry. _attractor_entry (text "foldl") λ. function nil fixpoint)
+λ entry_foldl
+. ( λ tuple
+    . tuple λ_attractor_entry. _attractor_entry (text "reverse") λ. function (cons entry_foldl nil) none
+  )
+λ entry_reverse
+. ( λ tuple
+    . tuple
+    λ _attractor_entry
+    . _attractor_entry (text "concat") λ. function (cons entry_foldr λ. cons entry_append nil) none
+  )
+λ entry_concat
+. ( λ tuple
+    . tuple
+    λ _attractor_entry
+    . _attractor_entry (text "flat_map") λ. function (cons entry_concat λ. cons entry_map nil) none
+  )
+λ entry_flat_map
+. (λtuple. tuple λ_attractor_entry. _attractor_entry (text "zip") λ. function nil fixpoint)
+λ entry_zip
+. (λtuple. tuple λ_attractor_entry. _attractor_entry (text "bit_set_member") λ. function nil fixpoint)
+λ entry_bit_set_member
+. (λtuple. tuple λ_attractor_entry. _attractor_entry (text "bit_set_insert") λ. function nil fixpoint)
+λ entry_bit_set_insert
+. (λtuple. tuple λ_attractor_entry. _attractor_entry (text "bit_set_full") λ. function nil fixpoint)
+λ entry_bit_set_full
+. (λtuple. tuple λ_attractor_entry. _attractor_entry (text "bits_prefix") λ. function nil fixpoint)
+λ entry_bits_prefix
+. (λtuple. tuple λ_attractor_entry. _attractor_entry (text "bit_set_union") λ. function nil fixpoint)
+λ entry_bit_set_union
+. export
+λ
+. cons entry_identity
+λ
+. cons entry_konstant
+λ
+. cons entry_true
+λ
+. cons entry_false
+λ
+. cons entry_or
+λ
+. cons entry_pair
+λ
+. cons entry_first
+λ
+. cons entry_second
+λ
+. cons entry_zero
+λ
+. cons entry_successor
+λ
+. cons entry_natural_equal
+λ
+. cons entry_natural_at_least
+λ
+. cons entry_natural_difference
+λ
+. cons entry_natural_double
+λ
+. cons entry_nil
+λ
+. cons entry_cons
+λ
+. cons entry_append
+λ
+. cons entry_map
+λ
+. cons entry_length
+λ
+. cons entry_depth_first
+λ
+. cons entry_filter
+λ
+. cons entry_binary_to_unary
+λ
+. cons entry_binary_increment
+λ
+. cons entry_unary_to_binary
+λ
+. cons entry_absorbing
+λ
+. cons entry_binary_zero
+λ
+. cons entry_binary_even
+λ
+. cons entry_binary_odd
+λ
+. cons entry_merge_binary_increment
+λ
+. cons entry_merge_binary_plus
+λ
+. cons entry_merge_binary_times
+λ
+. cons entry_merge_binary_equality
+λ
+. cons entry_merge_symbols_equal
+λ
+. cons entry_not
+λ
+. cons entry_and
+λ
+. cons entry_exclusive
+λ
+. cons entry_every_assignment
+λ
+. cons entry_none
+λ
+. cons entry_some
+λ
+. cons entry_foldr
+λ
+. cons entry_foldl
+λ
+. cons entry_reverse
+λ
+. cons entry_concat
+λ
+. cons entry_flat_map
+λ
+. cons entry_zip
+λ
+. cons entry_bit_set_member
+λ
+. cons entry_bit_set_insert
+λ
+. cons entry_bit_set_full
+λ
+. cons entry_bits_prefix
+λ
+. cons entry_bit_set_union nil

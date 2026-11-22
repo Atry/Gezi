@@ -1,0 +1,15 @@
+# The published list of the kinds of a lemma's proof (gezi.standardlibrary.LemmaProof): munit, the full name of a
+# munit suite that checks the lemma; md, a Markdown link to the document that proves it; tex, a TeX citation; each of
+# one field, a trie of a string literal.
+# A Scott sum whose constructors are the tuple's fields, in the order of the enum's cases, read by position
+# (LemmaProof.ofAlternative). A knowledge file writes a constructor, imported from this file or written closed (the
+# two are one term), as the last field of a member of its slot lemmas, and KnowledgeFileReading reads which
+# alternative it takes by structure, never by a name: the host reads no string.
+λ export
+. (λtuple. tuple λsuite munit md tex. munit suite)
+λ munit
+. (λtuple. tuple λlink munit md tex. md link)
+λ md
+. (λtuple. tuple λcitation munit md tex. tex citation)
+λ tex
+. export munit md tex

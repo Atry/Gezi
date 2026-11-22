@@ -1,0 +1,62 @@
+# The base problems of the CSES families repeated_cses_coin_combinations_ordered_*: a few coin values and a sum x, the answer the number of
+# ordered ways, two sequences of coins that differ in order being different ways, modulo 10^9 + 7. One row has coins
+# that permute (4, 1, 3), where the unordered count differs, and two have no way at all.
+#
+# THE ANSWER of each row is the problem's definition computed exhaustively by a
+# brute-force script (2026-11-21), which enumerates every candidate the problem's
+# statement describes. PROOF: the program of the problem's file follows the
+# definition, and its header argues under Definition 14 that its one normal form
+# is that answer; the data are finite and within the family's bottom rungs, which
+# the reference reading answers. The inputs are the author's own, no CSES test
+# data.
+#
+#   coin_combinations_ordered_point(?Point, ?Coins, ?Sum, ?Result)
+#
+# Coins is a Scott list (corpora/library/prelude/list) of integers and Sum an integer, each from_cbor of an integer
+# literal (corpora/library/integer/cbor); Result is such an integer, the count modulo 10^9 + 7 (every count here is
+# below the modulus, so the reduction is not exercised: the enumeration the definition asks for cannot reach a count
+# above 10^9 + 7).
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λvalue. value)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λvalue. value)
+λ integer
+. export
+λ
+. cons
+  ( λ _coin_combinations_ordered_point
+    . _coin_combinations_ordered_point (text "cses_coin_combinations_ordered_two_three_five") (cons (integer 2) λ. cons (integer 3) λ. cons (integer 5) λ. nil) (integer 9) λ. integer 8
+  )
+λ
+. cons
+  ( λ _coin_combinations_ordered_point
+    . _coin_combinations_ordered_point (text "cses_coin_combinations_ordered_ones_and_twos") (cons (integer 1) λ. cons (integer 2) λ. nil) (integer 4) λ. integer 5
+  )
+λ
+. cons
+  ( λ _coin_combinations_ordered_point
+    . _coin_combinations_ordered_point (text "cses_coin_combinations_ordered_no_way") (cons (integer 3) λ. nil) (integer 7) λ. integer 0
+  )
+λ
+. cons
+  ( λ _coin_combinations_ordered_point
+    . _coin_combinations_ordered_point (text "cses_coin_combinations_ordered_one_coin_exact") (cons (integer 5) λ. nil) (integer 5) λ. integer 1
+  )
+λ
+. cons
+  ( λ _coin_combinations_ordered_point
+    . _coin_combinations_ordered_point (text "cses_coin_combinations_ordered_order_matters") (cons (integer 4) λ. cons (integer 1) λ. cons (integer 3) λ. nil) (integer 6) λ. integer 9
+  )
+λ
+. cons
+  ( λ _coin_combinations_ordered_point
+    . _coin_combinations_ordered_point (text "cses_coin_combinations_ordered_odd_target_even_coins") (cons (integer 2) λ. cons (integer 4) λ. nil) (integer 5) λ. integer 0
+  ) nil

@@ -1,0 +1,12 @@
+# The value of an intended answer (answers/intended,
+# hard_answers/hard_intended, infinite_members/infinite_point,
+# api_capture_traps/capture_trap, leading_zero_traps/leading_zero_point): a
+# Scott sum of four constructors, in order: boolean, whose one field is a
+# Church Boolean of corpora/library/prelude/boolean; natural, whose one field
+# is the count; certificate, whose one field is the certificate's name; and
+# none. Read by its position (gezi.contest.corpora.claims.IntendedValue).
+λ export
+. export
+  (λvalue boolean natural certificate none. boolean value)
+  (λcount boolean natural certificate none. natural count)
+  (λname boolean natural certificate none. certificate name) λboolean natural certificate none. none

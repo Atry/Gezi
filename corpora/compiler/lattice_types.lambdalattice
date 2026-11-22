@@ -1,0 +1,61 @@
+# Types beyond Hindley-Milner, written with the choice and the parallel:
+# a choice of types is a union type, and applying a function to the choice
+# of its inputs gives the choice of its outputs; a parallel of types is an
+# intersection type. Equations of this kind exist, and a derivation of each needs lemma instances at classes that
+# are no position of the equation, which the greedy descent never visits.
+#
+# Every lemma here is a theorem of λ-lattice-unit-η: the two distribution
+# laws are the binary instances of equations (8) and (9) on the IR's choice
+# and parallel layers (CONTRIBUTING.md, "Terms"), and the other three are
+# beta laws of defines. Each lemma's declaration cites its proof on paper.
+# A choice of more than two members needs a law of its own arity; none is
+# declared, since no example needs one.
+
+# Equation (8), a choice of two members in function position: (M + N) P = M P + N P.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "prelude") "pair")
+λ pair _ _
+. omega (omega (omega (omega corpora "library") "lattice_types") "self_apply")
+λ self_apply
+. omega (omega (omega (omega corpora "library") "prelude") "combinators")
+λ identity _ _ _ _ _ _
+. export
+λ _ rewriting _ _
+. rewriting
+λ _ lemmas _
+. lemmas
+  # The beta law of identity, the statement of prelude's identity_applied
+  # (one address, two names), declared here as well so that the examples can
+  # enable this module without prelude's lemmas: matched outside the
+  # positions, natural_equal_zero_zero from right to left plants
+  # natural_equal zero zero in the class of true, and
+  # natural_equal_successor_successor from right to left then adds
+  # natural_equal (successor m) (successor n) for every natural_equal m n
+  # there, a new binding each time: with prelude's lemmas enabled, example C
+  # spends its budget of 64 there under both strategies, 1 instance of the
+  # one and 63 of the other (the section's readings). The e-graph interns an
+  # application whose argument an ignored hole drops (true x y, false x y,
+  # konstant x y) as identity applied to what remains, so this law is also
+  # their beta law.
+  # FIXME (2026-10-04): this lemma duplicates prelude's identity_applied, a https://github.com/Atry/private-overlay/issues/2010
+  # workaround for the granularity of the option lemma_modules, which enables
+  # whole modules. Candidate fixes: move the beta laws of the generic
+  # combinators (identity_applied, apply_to_applied, compose_applied) out of
+  # prelude into a module of their own that the examples enable, or keep
+  # prelude's natural_equal lemmas out of a run by a finer option.
+  ( λ s
+    . s (λk. k "identity_returns_its_argument") (λx_0. identity x_0) (λx_0. x_0) λ_ md _. md λk. k "[identity_returns_its_argument](docs/design/gezi-normality-measure.md)"
+  # The beta law of self_apply: self_apply x is x x.
+  + λ s
+    . s (λk. k "self_apply_applied") (λx_0. self_apply x_0) (λx_0. x_0 x_0) λ_ md _. md λk. k "[self_apply_applied](docs/design/gezi-normality-measure.md)"
+  # The beta law of pair: pair l r p is p l r.
+  + λ s
+    . s (λk. k "pair_applied") (λx_0 x_1 x_2. pair x_0 x_1 x_2) (λx_0 x_1 x_2. x_2 x_0 x_1) λ_ md _. md λk. k "[pair_applied](docs/design/gezi-normality-measure.md)"
+  # Equation (9), a parallel in function position: (M ∥ N) P = M P ∥ N P.
+  + λ s
+    . s (λk. k "parallel_applied") (λx_0 x_1 x_2. (x_0 ∥ x_1) x_2) (λx_0 x_1 x_2. (x_0 x_2 ∥ x_1 x_2)) λ_ md _. md λk. k "[parallel_applied](docs/design/gezi-normality-measure.md)"
+  + λ s
+    . s (λk. k "choice_applied") (λx_0 x_1 x_2. (x_1 + x_0) x_2) (λx_0 x_1 x_2. (x_1 x_2 + x_0 x_2)) λ_ md _. md λk. k "[choice_applied](docs/design/gezi-normality-measure.md)"
+  )

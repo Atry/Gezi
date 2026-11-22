@@ -1,0 +1,74 @@
+# The typed versions of wren_typed_block unfolded into the natives under
+# their filters, moved unchanged from wren_typed_specialization so that they
+# can run as a round of their own.
+# Compiled with wren_typed_block, whose defines these lemmas name, and with
+# binary, whose defines their right sides name.
+#
+# Termination of this module's saturation, derived and not proved: each
+# lemma's left side is a typed version (wren_typed_plus, wren_typed_maximum,
+# wren_typed_minimum, wren_typed_even, wren_typed_odd, wren_typed_bitwise_or)
+# applied to as many arguments as it has places, and its right side holds
+# no typed version, only binary's defines, filters and the left side's
+# metavariables. So an instance adds nodes over classes the match already
+# had, plus a bounded number of fresh ones (the native's application and
+# its filters), and it creates no new match of any lemma here. The
+# instances are at most the applications of typed versions in the input
+# graph, a set the input fixes.
+
+# The typed versions unfolded into the natives under their filters, by δ and
+# β on wren_typed_block's defines and native_types' arrow, λd.λr.λf.λx.
+# (f (x ∥ d)) ∥ r (proofs section 19). Applied inside a body opened at
+# eigenvariables (HigherOrderSaturator's openings), they make every
+# operation of a site's function a native call whose operands and result
+# are filtered.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "wren_typed_block") "wren_typed_block")
+λ _ _ _ wren_typed_even wren_typed_odd wren_typed_bitwise_or wren_typed_maximum wren_typed_minimum wren_typed_plus
+. omega (omega (omega (omega corpora "library") "binary") "arithmetic")
+λ _ merge_binary_plus _ _
+. omega (omega (omega (omega corpora "library") "binary") "natural")
+λ _ binary_even binary_odd _ binary_set
+. omega (omega (omega (omega corpora "library") "native_types") "boolean")
+λ true false _ _
+. omega (omega (omega (omega corpora "library") "binary") "order")
+λ _ binary_maximum binary_minimum
+. omega (omega (omega (omega corpora "library") "binary") "binary_bitwise_or")
+λ binary_bitwise_or
+. export
+λ _ rewriting _ _
+. rewriting
+λ _ lemmas _
+. lemmas
+  ( λ s
+    . s
+      (λk. k "wren_typed_bitwise_or_unfolded")
+      (λx_0 x_1. wren_typed_bitwise_or x_0 x_1)
+      (λx_0 x_1. (binary_bitwise_or (x_0 ∥ binary_set true) (x_1 ∥ binary_set true) ∥ binary_set true)) λ_ md _. md λk. k "[wren_typed_unfolded](docs/design/gezi-set-equations-proofs.md)"
+  + λ s
+    . s
+      (λk. k "wren_typed_odd_unfolded")
+      (λx_0. wren_typed_odd x_0)
+      (λx_0. (binary_odd (x_0 ∥ binary_set true) ∥ binary_set false)) λ_ md _. md λk. k "[wren_typed_unfolded](docs/design/gezi-set-equations-proofs.md)"
+  + λ s
+    . s
+      (λk. k "wren_typed_even_unfolded")
+      (λx_0. wren_typed_even x_0)
+      (λx_0. (binary_even (x_0 ∥ binary_set false) ∥ binary_set false)) λ_ md _. md λk. k "[wren_typed_unfolded](docs/design/gezi-set-equations-proofs.md)"
+  + λ s
+    . s
+      (λk. k "wren_typed_minimum_unfolded")
+      (λx_0 x_1. wren_typed_minimum x_0 x_1)
+      (λx_0 x_1. (binary_minimum (x_0 ∥ binary_set true) (x_1 ∥ binary_set true) ∥ binary_set true)) λ_ md _. md λk. k "[wren_typed_unfolded](docs/design/gezi-set-equations-proofs.md)"
+  + λ s
+    . s
+      (λk. k "wren_typed_maximum_unfolded")
+      (λx_0 x_1. wren_typed_maximum x_0 x_1)
+      (λx_0 x_1. (binary_maximum (x_0 ∥ binary_set true) (x_1 ∥ binary_set true) ∥ binary_set true)) λ_ md _. md λk. k "[wren_typed_unfolded](docs/design/gezi-set-equations-proofs.md)"
+  + λ s
+    . s
+      (λk. k "wren_typed_plus_unfolded")
+      (λx_0 x_1. wren_typed_plus x_0 x_1)
+      (λx_0 x_1. (merge_binary_plus (x_0 ∥ binary_set true) (x_1 ∥ binary_set true) ∥ binary_set true)) λ_ md _. md λk. k "[wren_typed_unfolded](docs/design/gezi-set-equations-proofs.md)"
+  )

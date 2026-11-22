@@ -1,0 +1,18 @@
+# MIXINv2's Builtin/NumberIsZero.mixin.yaml (the package mixinv2-library),
+# desugared to the literal partial-function mixin encoding, a
+# definition `L : V` written `λ"L" L. V`: after the key, a class whose self is
+# named by the label. A lexical reference [a, w…] reads
+# off the self of the nearest enclosing scope that writes a, a qualified one
+# [S, ~, w…] off the self S, and an inherited mixin is applied to the
+# inheritor's self. top is written out, the term of corpora/library/top.lambdalattice.
+# The names NumberIsZero, Builtin and mixin_builtin are the selves the directory tree
+# binds. Written by a translator, a scratch prototype of that desugaring.
+# FIXME: once the .mixin.yaml front end (#1520) reads MIXINv2's YAML, read https://github.com/Atry/private-overlay/issues/1520
+# that YAML and delete this file.
+(λ"NumberFactory" NumberFactory. ( (λ"Zero" Zero. NumberFactory NumberFactory "Product" Zero)
++ (λ"Product" Product. ( (λ"Equal" Equal. ( (λ"other" other. NumberFactory NumberFactory "Product" other)
++ (λ"equal" equal. NumberIsZero NumberIsZero "Boolean" equal)))
++ (λ"IsZero" IsZero. ( (λ"_equalZero" _equalZero. ( Product Product "Equal" _equalZero
++ (λ"other" other. NumberFactory NumberFactory "Zero" other)))
++ (λ"isZero" isZero. (λo. o o "equal") (IsZero IsZero "_equalZero") isZero)))))))
++ (λo. o o "BooleanData") (mixin_builtin mixin_builtin "Builtin") NumberIsZero

@@ -1,0 +1,34 @@
+# The knowledge of LeanStatementsNativeRouteTest, the native route's lemmas
+# without a backend's preset (gezi.standardlibrary.LibraryFiles.compiled):
+# native_types, native_arithmetic, hindley_milner_unions,
+# native_arithmetic_unions, occurrence_erasure, closure_application and
+# prolog_backend_shapes, their choice the one field of this file's tuple, a
+# term of this file and not a choice the host assembles from paths.
+# FIXME: the imports project "corpora" off the variable gezi, the name https://github.com/Atry/private-overlay/issues/1924
+# of the project root's own directory; they break if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega gezi "corpora") "compiler") "native_types")
+λ native_types
+. omega (omega (omega (omega gezi "corpora") "compiler") "native_arithmetic")
+λ native_arithmetic
+. omega (omega (omega (omega gezi "corpora") "compiler") "hindley_milner_unions")
+λ hindley_milner_unions
+. omega (omega (omega (omega gezi "corpora") "compiler") "native_arithmetic_unions")
+λ native_arithmetic_unions
+. omega (omega (omega (omega gezi "corpora") "compiler") "occurrence_erasure")
+λ occurrence_erasure
+. omega (omega (omega (omega gezi "corpora") "compiler") "closure_application")
+λ closure_application
+. omega (omega (omega (omega gezi "corpora") "compiler") "prolog_backend_shapes")
+λ prolog_backend_shapes
+. export
+  ( prolog_backend_shapes
+  + closure_application
+  + occurrence_erasure
+  + native_arithmetic_unions
+  + hindley_milner_unions
+  + native_arithmetic
+  + native_types
+  )

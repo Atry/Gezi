@@ -1,0 +1,58 @@
+# The Prolog backend's preset: the backend and the native typing of the types
+# it represents, enabled together as one module (CONTRIBUTING.md, "Efficiency by design, with native structures"):
+# a native typing serves only where the backend represents the type.
+#
+# A typing module is a knowledge file whose lemmas write a filter `x ∥ T`, T
+# a type the backend represents natively, or derive such filters: the
+# schemes of native_types (`zero + (zero ∥ nat_type)` and the others) and of
+# native_arithmetic, and the type check of hindley_milner_unions and
+# native_arithmetic_unions. The backend is prolog_backend (the codecs of
+# nat_type and boolean_type), native_arithmetic_prolog_backend (the natives
+# of double and even) and prolog_backend_shapes (the candidacy of the
+# representations, the typed versions and their contracts). An entry
+# enables native typing only through a preset, never by importing a typing
+# module of its own.
+# TODO: a law over the tree's lambdalattice files checks that no file but a
+# preset imports a module a preset imports; it is committed with the test
+# fixtures converted to the presets.
+#
+# prolog_backend_preset              the knowledge a library is compiled from
+# prolog_backend_type_check          the knowledge of the type-check round,
+#                                    the backend's shapes always with it, so
+#                                    that no round enables the type check
+#                                    without them
+#
+# closure_application and occurrence_erasure type no native type and are not
+# part of the preset: an entry lists them beside it.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega corpora "compiler") "native_types")
+λ native_types
+. omega (omega (omega corpora "compiler") "native_arithmetic")
+λ native_arithmetic
+. omega (omega (omega corpora "compiler") "hindley_milner_unions")
+λ hindley_milner_unions
+. omega (omega (omega corpora "compiler") "native_arithmetic_unions")
+λ native_arithmetic_unions
+. omega (omega (omega corpora "compiler") "prolog_backend")
+λ prolog_backend
+. omega (omega (omega corpora "compiler") "native_arithmetic_prolog_backend")
+λ native_arithmetic_prolog_backend
+. omega (omega (omega corpora "compiler") "prolog_backend_shapes")
+λ prolog_backend_shapes
+. ( λ tuple
+    . tuple
+      ( prolog_backend_shapes
+      + native_arithmetic_prolog_backend
+      + prolog_backend
+      + native_arithmetic_unions
+      + hindley_milner_unions
+      + native_arithmetic
+      + native_types
+      )
+  )
+λ prolog_backend_preset
+. (λtuple. tuple (prolog_backend_shapes + native_arithmetic_unions + hindley_milner_unions))
+λ prolog_backend_type_check
+. export prolog_backend_preset prolog_backend_type_check

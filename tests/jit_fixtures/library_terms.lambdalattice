@@ -1,0 +1,36 @@
+# The library terms the JIT's tests build their programs from
+# (gezi.jit.JitTesting.libraryTerm), each imported from its own file of
+# corpora/library and exported at its position of the file's Scott tuple,
+# whose names the host keeps in gezi.standardlibrary.TermTables.jitLibraryTerms.
+# Only the JIT's tests and the fixpoint runs
+# (gezi.strategies.OpentheoryArticleFixpointRunsTest) read these terms; no
+# framework code reads them.
+# FIXME: the imports project "corpora" off the variable gezi, the name https://github.com/Atry/private-overlay/issues/1924
+# of the project root's own directory; they break if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "native_types") "natural")
+λ zero successor nat_fold nat_type
+. omega (omega (omega (omega (omega gezi "corpora") "library") "native_types") "boolean")
+λ true false boolean_type boolean_not
+. omega (omega (omega (omega (omega gezi "corpora") "library") "native_types") "list")
+λ nil cons list_fold list_type
+. omega (omega (omega (omega (omega gezi "corpora") "library") "native_types") "combinators")
+λ identity konstant compose
+. omega (omega (omega (omega (omega gezi "corpora") "library") "native_types") "fixpoint")
+λ fixpoint
+. omega
+  (omega (omega (omega (omega gezi "corpora") "library") "native_arithmetic") "native_arithmetic")
+λ double even
+. omega (omega (omega (omega (omega gezi "corpora") "library") "fixed_width") "word_representation")
+λ word_end word_cell _ _ word_type _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "fixed_width") "int16_representation")
+λ _ int16_type _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "natural")
+λ binary_zero binary_even binary_odd _ binary_set
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "arithmetic")
+λ merge_binary_increment _ _ _
+. export
+λ s
+. s merge_binary_increment binary_odd binary_even binary_zero binary_set int16_type word_end word_cell word_type even double compose fixpoint konstant identity list_fold list_type cons nil boolean_not boolean_type false true nat_type nat_fold successor zero

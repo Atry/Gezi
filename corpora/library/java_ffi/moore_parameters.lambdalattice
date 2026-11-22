@@ -1,0 +1,13 @@
+# The parameters of the executor module that runs FFI programs (gezi.contest.modules.moore.MooreModule), which an entry writes after the module's selector: a tuple read
+# by position, the criterion of a state, the function that reads a method's symbols, their criterion, and the criteria
+# of the JVM's value types by width.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "native_types") "boolean")
+λ _ _ boolean_type _
+. omega (omega (omega (omega corpora "library") "java_ffi") "bits")
+λ _ bits_8_type _ bits_16_type _ bits_32_type _ bits_64_type
+. omega (omega (omega (omega corpora "library") "java_ffi") "moore_types")
+λ _ _ _ _ moore_state_type _ symbols_type method_symbols
+. export λs. s moore_state_type method_symbols symbols_type boolean_type bits_8_type bits_16_type bits_32_type bits_64_type

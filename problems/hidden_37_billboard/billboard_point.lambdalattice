@@ -1,0 +1,162 @@
+# +Rods, -Term
+# +Rods, -Heights
+# +Rods, -Heights
+# ?Point, ?Count, ?Seed, ?Kind
+#   * <module> The tallest billboard
+#
+# THE PROBLEM (LeetCode 956, "Tallest Billboard"): rods of given lengths; each
+# rod is welded into the left support, into the right support, or left out.
+# Which heights can the two supports share? The tallest of them is the
+# LeetCode answer.
+#
+# The program writes top (corpora/library/top) where the pseudo-code and the
+# argument below write {}, the empty choice of the calculus that still has
+# it; doc/proofs/reduction_series_answers.md carries the argument over to
+# Definition 14, and the generator is the family's Scala object in
+# gezi/contest-corpora.
+#
+# THE PROGRAM, written by the definition, the lengths binary numerals and the
+# sums by the prelude's merge_binary_plus and merge_binary_equality (the API
+# of round-37-directions.md):
+#
+#     go = Y (\self. \rods. \l. \r.
+#               rods (equal l r l {})
+#                    (\x. \rest. { self rest l r,
+#                                  self rest (plus x l) r,
+#                                  self rest l (plus x r) }))
+#     program = go Rods 0 0
+#
+# Directions: B (merging by value: 3^n choices, but the state is the rest of
+# the rods and the two sums, and many choices give one pair of sums); G (the
+# sums are binary numerals computed by the prelude's arithmetic); and the
+# regression direction 2 of that list (the same sum
+# reaches a state through different spellings, plus x (plus y l) and
+# plus y (plus x l), so a table keyed by the spelling does not merge them).
+#
+# THE SNAPSHOT. S(P) is the set of the binary numerals of the heights h such
+# that two disjoint sets of rods each sum to h: billboard_heights/2 (0 is
+# always one, both supports empty).
+#
+# THE LEMMAS, on the definitions of the library functions (contest_attractors
+# attractor_source/2), not on their native references. ⟦n⟧ is the canonical
+# Scott binary numeral of n, Z, E(h), O(h) and ⟦·⟧ as in gezi/doc/
+# proofs/certificate_extension_scott_binary_arithmetic.md (at c6187c905);
+# binary/2 builds exactly ⟦n⟧, so the rods and the two zeros are canonical.
+# - (Y) fixpoint F =β F (fixpoint F), two β steps.
+# - (Plus) plus ⟦n⟧ ⟦m⟧ =β ⟦n + m⟧. This is Lemma C.2 of that document.
+#   Its terms are the library's: merge_binary_plus is (λi. PB[i]) Inc′
+#   ((λi. PB[i]) Inc′), each copy one β step from PB[Inc′], and Inc′ is
+#   IB′ IB′, IB′ the document's IB with ⟦1⟧ spelled odd zero, one β step
+#   from O(Z) = ⟦1⟧; binary_even h and binary_odd h are one β step from E(h)
+#   and O(h). So the library's plus is β-equal to the document's Plus, and
+#   the lemma carries over.
+# - (Equal) equal ⟦n⟧ ⟦m⟧ =β true when n = m and false otherwise. equal is
+#   EB EB with EB = λs.λa.λb. a (b T (λ_.F) (λ_.F))
+#   (λh1. b F (λk1. s s h1 k1) (λ_.F)) (λh2. b F (λ_.F) (λk2. s s h2 k2)),
+#   T and F the Booleans true and false, so equal a b →β a (b T ..) (..) (..)
+#   and a canonical numeral selects its branch. By induction on n. n = 0: ⟦m⟧ T (λ_.F) (λ_.F) is T for m = 0
+#   and F for m > 0. n = 2h, h > 0: m = 0 gives F; m = 2k, k > 0, gives
+#   equal ⟦h⟧ ⟦k⟧, by induction (h < n) true exactly when h = k, that is
+#   n = m; m odd gives F, and n ≠ m. n = 2h + 1 is the mirror case. The
+#   induction uses canonicity: E(⟦k⟧) has k > 0, so an even numeral is never
+#   equal to zero, which E(Z) would be.
+# - (Empty) If U →* {} by β and η steps, no pure term is reached from U by
+#   →c steps. Every →c step keeps U →* {}: a β or η step by confluence, {}
+#   being normal; a member replacement of a set s by Lemma 2a of
+#   certificate_meta_lemmas.md, which replays U →* {} to {} with the
+#   descendants of s replaced, and {} is no descendant of s, s having a
+#   member and descendants keeping the number of members. A pure term
+#   reduces only to pure terms, and {} is not pure.
+#
+# PROOF, with ⟦·⟧, D, S and Th and Lemma 2b of
+# gezi/doc/proofs/certificate_meta_lemmas.md.
+# - (⊇) For disjoint L and R of equal sum h, choose at each rod the branch
+#   that puts it where it belongs: by (Y), finitely many steps and member
+#   replacements reach equal l r l {} with l =β ⟦ΣL⟧ and r =β ⟦ΣR⟧, by
+#   (Plus) and induction on the rods placed. By (Equal) that term is β-equal
+#   to T l {} and so to ⟦h⟧, pure and normal: ⟦h⟧ is in its meaning (equal
+#   terms, Lemma 2b.2) and so in ⟦P⟧ (P →c* it, Lemma 2b.2).
+# - (⊆) By Lemma 2b.3 every yield equals a pure term P reaches by a finite
+#   sequence σ. P's only sets are the triples written above and {}; σ
+#   removes a triple by a member and {} never. So a pure term is reached only
+#   at the end of the rods, each rod placed once, through equal l r l {},
+#   l =β ⟦ΣL⟧ and r =β ⟦ΣR⟧ (Plus), L and R the rods placed left and right.
+#   If ΣL ≠ ΣR that term is β-equal to false l {} (Equal) and so reduces to
+#   {}, and no pure term is reached from it (Empty). If ΣL = ΣR = h, it is
+#   β-equal to ⟦h⟧, and so is the pure term reached: the yield is ⟦h⟧, h a
+#   height of the snapshot.
+#
+# THE SUBTASKS AND THE TRAPS: billboard_point/4 below. The traps: rods of
+# distinct powers of two, whose subset sums are all distinct, so the only
+# height is 0 (a setting that merges the states too eagerly, for example by
+# the difference of the sums alone, answers other heights); and a near miss,
+# the rods of a subtask with one rod lengthened by one, whose snapshot
+# excludes that subtask's tallest height (checked where the point is made).
+#
+# TARGET ALGORITHM: the dynamic programme over the difference of the two
+# sums, each difference keeping its set of left sums as a bit set (the
+# reference native_heights/2); tabled evaluation keyed by the value of the
+# sums (W. Chen, D. S. Warren, J. ACM 1996, doi:10.1145/227595.227597).
+
+#   THE SUBTASKS: billboard_point(?Point, ?Count, ?Seed, ?Kind), Count rods
+#   of lengths 1 to 20 from a linear congruential sequence of Seed; the
+#   traps' rods are made by point_rods/2. Sized by a probe of
+#   2026-09-30 (CPUs 0-7, 512 MB stack and table, the machine shared), each
+#   reading equal to its snapshot: tabling(weak_head) reads six rods (5
+#   heights, the tallest 19) in 816 ms and nine (28 heights, the tallest 57)
+#   in 14782 ms, and is stopped at 60 s on twelve (50 heights) and so on
+#   twenty (98 heights, the tallest 98); the traps read in 2719 ms (powers
+#   of two, the one height 0) and 11545 ms (the near miss, 20 heights, the
+#   tallest 55, so 57 is excluded). The native reference native_heights/2
+#   agrees on every point, in 1 to 98 ms.
+#
+# Each text is from_cbor of a string literal, a Scott list of bytes,
+# imported from corpora/library/text/cbor. Each number is from_cbor of an
+# integer literal, a Scott integer, imported from corpora/library/integer/cbor.
+# FIXME: the imports project "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λx. x)
+λ integer
+. export
+λ
+. cons
+  ( λ _billboard_point
+    . _billboard_point (text "hidden_37_billboard_six") (integer 6) (integer 3) λ. text "subtask"
+  )
+λ
+. cons
+  ( λ _billboard_point
+    . _billboard_point (text "hidden_37_billboard_nine") (integer 9) (integer 5) λ. text "subtask"
+  )
+λ
+. cons
+  ( λ _billboard_point
+    . _billboard_point (text "hidden_37_billboard_twelve") (integer 12) (integer 7) λ. text "subtask"
+  )
+λ
+. cons
+  ( λ _billboard_point
+    . _billboard_point (text "hidden_37_billboard_twenty") (integer 20) (integer 11) λ. text "subtask"
+  )
+λ
+. cons
+  ( λ _billboard_point
+    . _billboard_point (text "hidden_37_billboard_trap_powers") (integer 7) (integer 0) λ. text "trap"
+  )
+λ
+. cons
+  ( λ _billboard_point
+    . _billboard_point (text "hidden_37_billboard_trap_near_miss") (integer 9) (integer 5) λ. text "trap"
+  ) nil

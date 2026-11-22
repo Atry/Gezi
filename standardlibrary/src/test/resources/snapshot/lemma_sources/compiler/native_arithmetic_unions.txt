@@ -1,0 +1,18 @@
+unions_double_scheme: double = double
+      ∥ λ
+        . zero_universe_scheme
+        λ
+        . function_type
+          ( recursive_type λx_0. structure λ. alternative no_field λ. alternative (field x_0 no_field) no_alternative
+          )
+        λ
+        . recursive_type λx_0. structure λ. alternative no_field λ. alternative (field x_0 no_field) no_alternative
+      + double
+unions_even_scheme: even = even
+      ∥ λ
+        . zero_universe_scheme
+        λ
+        . function_type
+          ( recursive_type λx_0. structure λ. alternative no_field λ. alternative (field x_0 no_field) no_alternative
+          ) λ. structure λ. alternative no_field λ. alternative no_field no_alternative
+      + even

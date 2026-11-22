@@ -1,0 +1,32 @@
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega corpora "library") "top")
+λ top
+# function_type:
+# The type of the functions from d to r in the zero universe: the empty
+# choice; noinline.
+. (λtuple. tuple λd r. (top ∥ top))
+λ function_type
+# closure_type:
+# The type t of a closure whose body read at its parameter is b, in the
+# zero universe: top up to contextual equivalence; noinline.
+. (λtuple. tuple λt b. (top ∥ top + top))
+λ closure_type
+# scheme:
+# A polymorphic scheme in the zero universe, g the type function over the
+# quantified type: top up to contextual equivalence; noinline.
+. (λtuple. tuple λg. (top + top))
+λ scheme
+# zero_universe_scheme:
+# The scheme of a library name in the zero universe, s, the marker of
+# the judgment that gives it: top up to contextual equivalence; noinline.
+. (λtuple. tuple λs. (top ∥ top ∥ (top ∥ top)))
+λ zero_universe_scheme
+# instance_variable:
+# The type variable that instantiates the scheme function g at the
+# occurrence o, or the type of the parameter of the closure o when g is
+# o: top up to contextual equivalence; noinline.
+. (λtuple. tuple λo g. (top + top))
+λ instance_variable
+. export function_type closure_type scheme zero_universe_scheme instance_variable

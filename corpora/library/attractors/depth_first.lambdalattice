@@ -1,0 +1,18 @@
+#   Depth-first search with an explicit stack and no visited set:
+#   depth_first successors goal stack is false on the empty stack, true when
+#   the goal holds at the top node, and otherwise searches the top node's
+#   successors pushed onto the rest.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "prelude") "fixpoint")
+λ fixpoint
+. omega (omega (omega (omega corpora "library") "prelude") "boolean")
+λ true false _ _
+. omega (omega (omega (omega corpora "library") "prelude") "list")
+λ _ _ append _ _
+. export
+λ
+. fixpoint
+λ self successors goal stack
+. stack false λn rest. goal n true λ. self successors goal λ. append (successors n) rest

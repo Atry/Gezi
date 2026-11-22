@@ -1,0 +1,66 @@
+# The base problems of the CSES families repeated_cses_grid_paths_*: small grids of free squares and traps, the answer the number
+# of right and down paths from the top left to the bottom right square that avoid every trap, modulo 10^9 + 7. Rows
+# include a trap at the start or at the end (zero paths), a blocked diagonal and a trap in the middle.
+#
+# THE ANSWER of each row is the problem's definition computed exhaustively by a
+# brute-force script (2026-11-21), which enumerates every candidate the problem's
+# statement describes. PROOF: the program of the problem's file follows the
+# definition, and its header argues under Definition 14 that its one normal form
+# is that answer; the data are finite and within the family's bottom rungs, which
+# the reference reading answers. The inputs are the author's own, no CSES test
+# data.
+#
+#   grid_paths_point(?Point, ?Grid, ?Result)
+#
+# Grid is a Scott list (corpora/library/prelude/list) of rows, each a Scott list of Scott booleans, true for a free
+# square and false for a trap (λthen_branch else_branch. then_branch, λthen_branch else_branch. else_branch); Result is an integer from_cbor of an integer literal
+# (corpora/library/integer/cbor), the count modulo 10^9 + 7 (every count here is below the modulus).
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λvalue. value)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λvalue. value)
+λ integer
+. export
+λ
+. cons
+  ( λ _grid_paths_point
+    . _grid_paths_point (text "cses_grid_paths_single_free_square") (cons (cons (λthen_branch else_branch. then_branch) λ. nil) λ. nil) λ. integer 1
+  )
+λ
+. cons
+  ( λ _grid_paths_point
+    . _grid_paths_point (text "cses_grid_paths_single_trap") (cons (cons (λthen_branch else_branch. else_branch) λ. nil) λ. nil) λ. integer 0
+  )
+λ
+. cons
+  ( λ _grid_paths_point
+    . _grid_paths_point (text "cses_grid_paths_two_by_two_free") (cons (cons (λthen_branch else_branch. then_branch) λ. cons (λthen_branch else_branch. then_branch) λ. nil) λ. cons (cons (λthen_branch else_branch. then_branch) λ. cons (λthen_branch else_branch. then_branch) λ. nil) λ. nil) λ. integer 2
+  )
+λ
+. cons
+  ( λ _grid_paths_point
+    . _grid_paths_point (text "cses_grid_paths_blocked_diagonal") (cons (cons (λthen_branch else_branch. then_branch) λ. cons (λthen_branch else_branch. else_branch) λ. nil) λ. cons (cons (λthen_branch else_branch. else_branch) λ. cons (λthen_branch else_branch. then_branch) λ. nil) λ. nil) λ. integer 0
+  )
+λ
+. cons
+  ( λ _grid_paths_point
+    . _grid_paths_point (text "cses_grid_paths_center_trap") (cons (cons (λthen_branch else_branch. then_branch) λ. cons (λthen_branch else_branch. then_branch) λ. cons (λthen_branch else_branch. then_branch) λ. nil) λ. cons (cons (λthen_branch else_branch. then_branch) λ. cons (λthen_branch else_branch. else_branch) λ. cons (λthen_branch else_branch. then_branch) λ. nil) λ. cons (cons (λthen_branch else_branch. then_branch) λ. cons (λthen_branch else_branch. then_branch) λ. cons (λthen_branch else_branch. then_branch) λ. nil) λ. nil) λ. integer 2
+  )
+λ
+. cons
+  ( λ _grid_paths_point
+    . _grid_paths_point (text "cses_grid_paths_target_trap") (cons (cons (λthen_branch else_branch. then_branch) λ. cons (λthen_branch else_branch. then_branch) λ. nil) λ. cons (cons (λthen_branch else_branch. then_branch) λ. cons (λthen_branch else_branch. else_branch) λ. nil) λ. nil) λ. integer 0
+  )
+λ
+. cons
+  ( λ _grid_paths_point
+    . _grid_paths_point (text "cses_grid_paths_two_by_three_free") (cons (cons (λthen_branch else_branch. then_branch) λ. cons (λthen_branch else_branch. then_branch) λ. cons (λthen_branch else_branch. then_branch) λ. nil) λ. cons (cons (λthen_branch else_branch. then_branch) λ. cons (λthen_branch else_branch. then_branch) λ. cons (λthen_branch else_branch. then_branch) λ. nil) λ. nil) λ. integer 3
+  ) nil

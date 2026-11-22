@@ -1,0 +1,93 @@
+# An entry, read as the generic entry reads entry.lambdalattice
+# (gezi.contest.entry.EntryData.at), that chooses the test executor module of
+# contest-entry's tests (gezi.contest.entry.TestExecutorModule,
+# ExecutorModuleLawTest) by importing its selector file, test_executor, and
+# writing the term it gives as the executor's selector: the selector the
+# entry imports and the one the module registers are to be one interned
+# instruction. Its parameters are a tuple of one integer, 7, which the module
+# reads by structure. It has no round, its backend's knowledge is top, and its
+# other options are the fixture entry's (contest-entries-fixture).
+# FIXME: the imports project "corpora" and "tests" off the variable gezi, the https://github.com/Atry/private-overlay/issues/1924
+# name of the project root's own directory; they break if that directory is
+# renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil _ _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "checkpoints")
+λ profitable _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "lookahead")
+λ lazily _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "native_blocks")
+λ no_native_blocks
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "application")
+λ by_layer _ _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "continuation")
+λ substituted_continuations _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "parallel")
+λ both_sides _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "table_sharing")
+λ local_tables _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "table_retention")
+λ _ no_tables_kept _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "instance_retention")
+λ generations _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "dispatch")
+λ fallback
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "implementation")
+λ closure
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "granularity")
+λ predicate_per_code
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "executor")
+λ _ module
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "compilation_place")
+λ upfront_compilation _
+. omega (omega (omega (omega gezi "tests") "executor_module_fixtures") "test_executor")
+λ test_executor
+. omega (omega (omega (omega gezi "corpora") "library") "top")
+λ top
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λx. x)
+λ integer_literal
+. export
+λ s
+. s nil
+λ s
+. s top
+λ jit instances reading execution
+. ( λ
+    . jit
+    λ dispatch implementation granularity native_blocks budget trial
+    . ( dispatch fallback
+      + implementation closure
+      + granularity predicate_per_code
+      + native_blocks no_native_blocks
+      + budget λ. integer_literal 10000
+      + trial λ. integer_literal 1024
+      )
+  + λ
+    . instances
+    λ instance_table instance_retention checkpoints lookahead
+    . ( instance_table λt f. t
+      + instance_retention λ. generations λ. integer_literal 524288
+      + checkpoints profitable
+      + lookahead lazily
+      )
+  + λ
+    . reading
+    λ application table_sharing table_retention continuation parallel
+    . ( application by_layer
+      + table_sharing local_tables
+      + table_retention no_tables_kept
+      + continuation substituted_continuations
+      + parallel both_sides
+      )
+  + λ
+    . execution
+    λ executor compilation_place
+    . ( executor λ. module test_executor λs. s λ. integer_literal 7
+      + compilation_place upfront_compilation
+      )
+  )

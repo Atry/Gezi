@@ -1,0 +1,113 @@
+# The library of the native route's HM baseline: its
+# defines are the lambdalattice files of the directory native_types/, and a
+# define is its body alone, a term evaluation reads as the library function.
+# A constant whose type HM takes from a declaration has its scheme in the
+# lemma Name_scheme below, Name = Name + (Name ∥ T), sound by absorption for
+# every T: HM's initial environment, written into the term by an instance of
+# the lemma in the base graph. A polymorphic scheme is `forall F`, F a type
+# function (hindley_milner_unions writes the schemes again in its zero
+# universe), and the class of a polymorphic name holds its scheme
+# alone: the constructors are Scott encodings under the marker `$constructor`,
+# the polymorphic functions identity, konstant, compose and fixpoint are
+# under the marker `$generic`, and the folds are fixpoints. zero, true and nil
+# have one body, so one class, which their three schemes all judge. The front
+# end tags each occurrence of a library name in a program with $name and each
+# closure with $closure, the tags built of tag_origin and tag_next (the four
+# front end entries name_marker, closure_marker, tag_origin and tag_next; the
+# host tags only with a marker whose erasure lemma, occurrence_erasure's, the
+# library has). Not compiled together with prelude, which declares some
+# of the same names.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "native_types") "natural")
+λ zero successor nat_fold nat_type
+. omega (omega (omega (omega corpora "library") "native_types") "type_operators")
+λ arrow forall parameter
+. omega (omega (omega (omega corpora "library") "native_types") "boolean")
+λ true false boolean_type boolean_not
+. omega (omega (omega (omega corpora "library") "native_types") "list")
+λ nil cons list_fold list_type
+. omega (omega (omega (omega corpora "library") "native_types") "combinators")
+λ identity konstant compose
+. omega (omega (omega (omega corpora "library") "native_types") "fixpoint")
+λ fixpoint
+. omega (omega (omega (omega corpora "library") "native_types") "markers")
+λ $generic $constructor $name $closure
+. omega (omega (omega (omega corpora "library") "native_types") "tags")
+λ tag_origin tag_next
+. export
+  ( λ_ _ properties_slot _. properties_slot λ_ _ _ _ _ _ _ tag_next_slot. tag_next_slot λk. k tag_next
+  + λ _ _ properties_slot _
+    . properties_slot λ_ _ _ _ _ _ tag_origin_slot _. tag_origin_slot λk. k tag_origin
+  + λ _ _ properties_slot _
+    . properties_slot λ_ _ _ _ _ closure_marker_slot _ _. closure_marker_slot λk. k $closure
+  + λ_ _ properties_slot _. properties_slot λ_ _ _ _ name_marker_slot _ _ _. name_marker_slot λk. k $name
+  + λ _ rewriting_slot _ _
+    . rewriting_slot
+    λ _ _ leaves_slot
+    . leaves_slot
+      ( λk. k list_type
+      + λk. k boolean_type
+      + λk. k nat_type
+      + λk. k arrow
+      + λk. k forall
+      + λk. k $closure
+      + λk. k parameter
+      + λk. k tag_next
+      + λk. k tag_origin
+      + λk. k $name
+      + λk. k $generic
+      + λk. k $constructor
+      )
+  + λ _ rewriting_slot _ _
+    . rewriting_slot
+    λ _ lemmas_slot _
+    . lemmas_slot
+      # The schemes of the declared constants: Name = Name + (Name ∥ T), absorption.
+      ( λ s
+        . s
+          (λk. k "list_fold_scheme") list_fold
+          ( list_fold
+          ∥ forall λx_0. forall λx_1. arrow x_1 λ. arrow (arrow x_0 λ. arrow x_1 x_1) λ. arrow (list_type x_0) x_1
+          + list_fold
+          ) λ_ md_slot _. md_slot λk. k "[absorption](docs/design/gezi-native-route-engine.md)"
+      + λ s
+        . s
+          (λk. k "nat_fold_scheme") nat_fold
+          (nat_fold ∥ forall λx_0. arrow x_0 λ. arrow (arrow x_0 x_0) λ. arrow nat_type x_0 + nat_fold) λ_ md_slot _. md_slot λk. k "[absorption](docs/design/gezi-native-route-engine.md)"
+      + λ s
+        . s (λk. k "fixpoint_scheme") fixpoint (fixpoint ∥ forall λx_0. arrow (arrow x_0 x_0) x_0 + fixpoint) λ_ md_slot _. md_slot λk. k "[absorption](docs/design/gezi-native-route-engine.md)"
+      + λ s
+        . s
+          (λk. k "compose_scheme") compose
+          ( compose
+          ∥ forall λx_0. forall λx_1. forall λx_2. arrow (arrow x_1 x_2) λ. arrow (arrow x_0 x_1) λ. arrow x_0 x_2
+          + compose
+          ) λ_ md_slot _. md_slot λk. k "[absorption](docs/design/gezi-native-route-engine.md)"
+      + λ s
+        . s
+          (λk. k "konstant_scheme") konstant
+          (konstant ∥ forall λx_0. forall λx_1. arrow x_0 λ. arrow x_1 x_0 + konstant) λ_ md_slot _. md_slot λk. k "[absorption](docs/design/gezi-native-route-engine.md)"
+      + λ s
+        . s (λk. k "identity_scheme") identity (identity ∥ forall λx_0. arrow x_0 x_0 + identity) λ_ md_slot _. md_slot λk. k "[absorption](docs/design/gezi-native-route-engine.md)"
+      + λ s
+        . s
+          (λk. k "cons_scheme") cons
+          (cons ∥ forall λx_0. arrow x_0 λ. arrow (list_type x_0) λ. list_type x_0 + cons) λ_ md_slot _. md_slot λk. k "[absorption](docs/design/gezi-native-route-engine.md)"
+      + λ s
+        . s (λk. k "nil_scheme") nil (nil ∥ forall λx_0. list_type x_0 + nil) λ_ md_slot _. md_slot λk. k "[absorption](docs/design/gezi-native-route-engine.md)"
+      + λ s
+        . s
+          (λk. k "boolean_not_scheme") boolean_not
+          (boolean_not ∥ arrow boolean_type boolean_type + boolean_not) λ_ md_slot _. md_slot λk. k "[absorption](docs/design/gezi-native-route-engine.md)"
+      + λ s
+        . s (λk. k "false_scheme") false (false ∥ boolean_type + false) λ_ md_slot _. md_slot λk. k "[absorption](docs/design/gezi-native-route-engine.md)"
+      + λ s
+        . s (λk. k "true_scheme") true (true ∥ boolean_type + true) λ_ md_slot _. md_slot λk. k "[absorption](docs/design/gezi-native-route-engine.md)"
+      + λ s
+        . s (λk. k "successor_scheme") successor (successor ∥ arrow nat_type nat_type + successor) λ_ md_slot _. md_slot λk. k "[absorption](docs/design/gezi-native-route-engine.md)"
+      + λ s
+        . s (λk. k "zero_scheme") zero (zero ∥ nat_type + zero) λ_ md_slot _. md_slot λk. k "[absorption](docs/design/gezi-native-route-engine.md)"
+      )
+  )

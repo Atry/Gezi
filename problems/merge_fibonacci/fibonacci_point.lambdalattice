@@ -1,0 +1,90 @@
+# Fibonacci in lambda plus merge, with no label: scored points of the
+# label-free family.
+#
+# THE PROGRAM is the naive recursion, fib(0) = 0, fib(1) = 1 and
+# fib(n) = fib(n - 1) + fib(n - 2), on a Scott unary n with a binary
+# result, its addition the binary plus of contest_merge_dynamic.pl, let
+# bound once. The test compares fib(n) with a claimed binary numeral.
+#
+# THE QUESTION IT ASKS (2026-09-28): the labeled family
+# (contest_inheritance_fibonacci.pl) costs about 1.7 a step because its two
+# recursive calls spell n - 2 differently. Here n - 1 and n - 2 are
+# subterms of the one numeral n, so the calls are spelled the same, and a
+# reading that tables by spelling shares them.
+#
+# THE REFERENCE (reference_fibonacci/2) is the iteration, n additions of
+# numbers of O(n) bits, O(n^2): a doubling of n costs 4.
+#
+# READINGS (2026-09-28, CPU 3 under contest_limited.sh, a fresh process per
+# reading, the boolean(true) template, 10 s, 256 MB, 256 MB):
+# - weak_head: fib(10), fib(15) and fib(20) in 51, 491 and 5795 ms, about
+#   1.6 a step, exponential as the labeled family;
+# - tabling(weak_head): fib(20), 40, 80 and 160 in 50, 156, 599 and 3052
+#   ms, a doubling costing 3.1, 3.8 and 5.1 against the reference's 4;
+#   fib(320) stopped (7188 ms). The answer to the question: without labels,
+#   tabling shares the two calls, and the growth is polynomial;
+# - records_routed(record_interned(tabling(weak_head)), weak_head): fib(20)
+#   in 5759 ms and fib(40) stopped. A label-free program has no record,
+#   so the record reading reads it as weak_head does.
+# The sizes are 20, 40 and 80 (n, 2n and 4n), 160 at the edge and 320
+# beyond, and a wrong claim at 40, fib(40) = 102334155 with bit 25 flipped,
+# which the comparison reaches only after the 25 bits below it.
+# LIMITS: the family's, 10 s, 256 MB, 256 MB.
+#
+# TARGET ALGORITHMS, the specific known algorithms the problem targets, each
+# with its prior work:
+# - the iteration of the reference, reached from the recursive definition by
+#   remembering each fib(k) once: D. Michie, "Memo" Functions and Machine
+#   Learning, Nature 1968, doi:10.1038/218019a0.
+# - tabled evaluation: W. Chen, D. S. Warren, Tabled Evaluation with
+#   Delaying for General Logic Programs, J. ACM 1996,
+#   doi:10.1145/227595.227597.
+
+#   fibonacci_point(?Point, ?N, ?Claimed)
+#
+# Each text is from_cbor of a string literal, a Scott list of bytes,
+# imported from corpora/library/text/cbor. Each number is from_cbor of an
+# integer literal, a Scott integer, imported from corpora/library/integer/cbor.
+# FIXME: the imports project "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λx. x)
+λ integer
+. export
+λ
+. cons
+  (λ_fibonacci_point. _fibonacci_point (text "merge_fibonacci_twenty") (integer 20) λ. integer 6765)
+λ
+. cons
+  (λ_fibonacci_point. _fibonacci_point (text "merge_fibonacci_forty") (integer 40) λ. integer 102334155)
+λ
+. cons
+  ( λ _fibonacci_point
+    . _fibonacci_point (text "merge_fibonacci_forty_wrong") (integer 40) λ. integer 68779723
+  )
+λ
+. cons
+  ( λ _fibonacci_point
+    . _fibonacci_point (text "merge_fibonacci_eighty") (integer 80) λ. integer 23416728348467685
+  )
+λ
+. cons
+  ( λ _fibonacci_point
+    . _fibonacci_point (text "merge_fibonacci_one_hundred_sixty") (integer 160) λ. integer 1226132595394188293000174702095995
+  )
+λ
+. cons
+  ( λ _fibonacci_point
+    . _fibonacci_point (text "merge_fibonacci_three_hundred_twenty") (integer 320) λ. integer 3361707149818144672666187219454104827980338677164658343636350711365
+  ) nil

@@ -1,0 +1,179 @@
+# +Count, +Edges, +Budget, -Term
+# +Count, +Edges, +Budget, -Lengths
+# +Count, +Edges, -Length
+# ?Point, ?Count, ?Extra, ?Seed, ?Slack
+#   * <module> The shortest walk that visits every node
+#
+# THE PROBLEM (LeetCode 847, "Shortest Path Visiting All Nodes"): an
+# undirected graph; the least number of edges of a walk that visits every
+# node, starting anywhere, nodes and edges may be revisited. Asked as the set
+# of the lengths at most T of the walks that stop when they have first
+# visited every node; T is the least, so the set is that one number.
+#
+# The program writes top (corpora/library/top) where the pseudo-code and the
+# argument below write {}, the empty choice of the calculus that still has
+# it; doc/proofs/reduction_series_answers.md carries the argument over to
+# Definition 14, and the generator is the family's Scala object in
+# gezi/contest-corpora.
+#
+# THE PROGRAM, in continuation passing style, the visited nodes a bit set
+# (the prelude's bit_set_full, bit_set_insert; the API of
+# round-37-directions.md):
+#
+#     walk v c r k = full c (k r)
+#                      { r {} (\p. walk u (insert c u) p k) | u a neighbour of v }
+#     program      = { walk s (insert none s) T (\r. difference T r) | s a node }
+#
+# The neighbours of v are a nested case on the unary numeral v (the
+# program's own code), each branch the set of v's neighbours' steps.
+# Directions: A (the visited nodes as a bit set; a table keyed by the node,
+# the bit set and the budget is the search over (subset, node) pairs); C (the
+# graph has cycles, walks go round them, the budget bounds them); F (a trap
+# whose graph is disconnected has an empty snapshot for every budget).
+#
+# THE SNAPSHOT. S(P) is the set of the lengths at most T of the walks that
+# visit every node and stop at the first step at which they have:
+# visit_all_lengths/4 on small graphs. Every such walk has at least the least
+# length (shortest_visit_all/3, a breadth-first search over (subset, node)
+# pairs), so for T that least length S(P) is {T}, and for T one less it is
+# empty.
+#
+# THE LEMMAS, on the definitions of the library functions (contest_attractors
+# attractor_source/2 and the prelude), not on their native references.
+# ⌜n⌝ is the Scott unary numeral, ⌜0⌝ = λz.λs. z and ⌜n + 1⌝ = λz.λs. s ⌜n⌝;
+# true = λt.λf. t and false = λt.λf. f; a bit set is a Scott list of
+# Booleans, cons h t one β step from λn.λc. c h t, and none is the list of
+# N falses (none_collected/2), N the number of nodes. The lets of
+# numeral_lets/4 bind node 0 to ⌜0⌝ and node i + 1 to λz.λs. s (node i), so
+# after their β steps node i is ⌜i⌝ and the budgets are ⌜T⌝ (unary/2).
+# - (Y) fixpoint G =β G (fixpoint G), two β steps.
+# - (Case) numeral_case [C0, ..., Cm] v is v C0 (λp. numeral_case
+#   [C1, ..., Cm] p), so for v =β ⌜i⌝, i =< m, it is β-equal to Ci, by
+#   induction on i: ⌜0⌝ selects C0 and ⌜i + 1⌝ gives the case of ⌜i⌝ among
+#   the rest.
+# - (Insert) insert = Y (λs.λc.λi. c nil (λb.λrest. i (cons true rest)
+#   (λp. cons b (s rest p)))). For a bit set c of N elements and i < N,
+#   insert c ⌜i⌝ is β-equal to c with its element i made true, by induction
+#   on i: ⌜0⌝ gives cons true rest, and ⌜i + 1⌝ keeps the head and inserts i
+#   into the rest.
+# - (Full) full = Y (λs.λc. c true (λb.λrest. b (s rest) false)). For a bit
+#   set c of Booleans, full c =β true when every element is true and false
+#   otherwise, by induction on the list: nil gives true; cons b rest gives
+#   full rest when b is true and false when b is false.
+# - (Budget) r {} (λp. M) with r =β ⌜j⌝ is β-equal to {} when j = 0 and to
+#   M[p := ⌜j - 1⌝] when j > 0.
+# - (Difference) difference = Y (λs.λm.λn. n m (λn1. m ⌜0⌝ (λm1. s m1 n1))).
+#   By induction on n, difference ⌜m⌝ ⌜n⌝ =β ⌜m - n⌝ when m ≥ n: n = 0
+#   gives ⌜m⌝, and n = k + 1, m = j + 1 give difference ⌜j⌝ ⌜k⌝.
+# - (Empty) If U →* {} by β and η steps, no pure term is reached from U by
+#   →c steps. Every →c step keeps U →* {}: a β or η step by confluence, {}
+#   being normal; a member replacement of a set s by Lemma 2a of
+#   certificate_meta_lemmas.md, which replays U →* {} to {} with the
+#   descendants of s replaced, and {} is no descendant of s, s having a
+#   member and descendants keeping the number of members. A pure term
+#   reduces only to pure terms, and {} is not pure.
+#
+# By (Insert), along a walk v0, ..., vi the bit set is β-equal to the list
+# whose element u is true exactly when u is among v0..vi, and by (Full) full
+# of it is true exactly when the walk has visited every node.
+#
+# PROOF, with ⟦·⟧, D, S and Th and Lemma 2b of
+# gezi/doc/proofs/certificate_meta_lemmas.md.
+# - (⊇) For such a walk s = v0, v1, ..., vm with m =< T: choose the member of
+#   s at the head; unfold walk by (Y); at each vi, i < m, the walk has not
+#   yet visited every node, so full selects the neighbour set (Full), which
+#   is the case of vi (Case); choose the member of vi+1 and take the
+#   budget's successor case (Budget), the budget ⌜T - i⌝ with T - i > 0. At
+#   vm full selects k r (Full), r =β ⌜T - m⌝, and k r is
+#   difference ⌜T⌝ ⌜T - m⌝ =β ⌜m⌝ (Difference), pure and normal: ⌜m⌝ is in
+#   that term's meaning (equal terms, Lemma 2b.2) and so in ⟦P⟧ (Lemma
+#   2b.2).
+# - (⊆) By Lemma 2b.3 every yield equals a pure term P reaches by a finite
+#   sequence σ. P's sets are the outer set, the neighbour sets and {}; σ
+#   removes them only by members and {} never, and each chosen branch is the
+#   whole term, every call of walk being in tail position. Where the budget
+#   is ⌜0⌝ its case is β-equal to {} (Budget), and so is the case of a node
+#   with no neighbour (Case, an empty set of steps), and no pure term is
+#   reached from either (Empty). So a pure term is reached only along a walk
+#   from a start, each step to a neighbour (Case), paid by the budget's
+#   successor case (Budget), until the walk has first visited every node
+#   (Full, which selects k r only then); the term is then β-equal to
+#   difference ⌜T⌝ ⌜T - m⌝, m the walk's length, so to ⌜m⌝ (Difference),
+#   and m =< T.
+#
+# THE SUBTASKS AND THE TRAPS: visit_point/5 below; the graph is a random spanning
+# tree plus Extra random edges. The traps: T one less than the
+# least (empty), and a graph with an isolated node (empty for every T; a
+# setting that answers some length there is wrong).
+#
+# TARGET ALGORITHM: breadth-first search over the pairs of a subset and a
+# node, the subset a bitmask (M. Held, R. M. Karp, J. SIAM 1962,
+# doi:10.1137/0110015, for the subset states; R. Bellman, Quarterly of
+# Applied Mathematics 1958, doi:10.1090/qam/102435, whose recursion on unit
+# weights is the layered search).
+
+#   THE SUBTASKS: visit_point(?Point, ?Count, ?Extra, ?Seed, ?Slack), Count
+#   nodes on a random spanning tree plus Extra random edges, the budget the least
+#   length plus the Slack's amount; the Slack is a constructor of
+#   hidden_37_visit_all/slack, added with its amount, or isolated, the last
+#   node losing its edges.
+#   Sized by a probe of 2026-09-30 (CPUs 0-7, 1024 MB stack and
+#   table, the machine shared at load average 12), each reading equal to
+#   its snapshot: tabling(weak_head) reads five (the least length 6) in
+#   1169 ms and seven (8) in 38380 ms, and is stopped at 60 s on nine (11)
+#   and twelve (14); the traps read nothing, in 15027 ms (one short) and
+#   25261 ms (isolated). The native reference shortest_visit_all/3 answers
+#   every point in 27 ms or less.
+#
+# Each text is from_cbor of a string literal, a Scott list of bytes,
+# imported from corpora/library/text/cbor. Each number is from_cbor of an
+# integer literal, a Scott integer, imported from corpora/library/integer/cbor.
+# FIXME: the imports project "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λx. x)
+λ integer
+. omega (omega (omega (omega gezi "problems") "hidden_37_visit_all") "slack")
+λ isolated added
+. export
+λ
+. cons
+  ( λ _visit_point
+    . _visit_point (text "hidden_37_visit_all_five") (integer 5) (integer 0) (integer 2) λ. added λ. integer 0
+  )
+λ
+. cons
+  ( λ _visit_point
+    . _visit_point (text "hidden_37_visit_all_seven") (integer 7) (integer 1) (integer 3) λ. added λ. integer 0
+  )
+λ
+. cons
+  ( λ _visit_point
+    . _visit_point (text "hidden_37_visit_all_nine") (integer 9) (integer 1) (integer 7) λ. added λ. integer 0
+  )
+λ
+. cons
+  ( λ _visit_point
+    . _visit_point (text "hidden_37_visit_all_twelve") (integer 12) (integer 1) (integer 11) λ. added λ. integer 0
+  )
+λ
+. cons
+  ( λ _visit_point
+    . _visit_point (text "hidden_37_visit_all_trap_short") (integer 7) (integer 1) (integer 3) λ. added λ. integer -1
+  )
+λ
+. cons
+  ( λ _visit_point
+    . _visit_point (text "hidden_37_visit_all_trap_isolated") (integer 7) (integer 1) (integer 3) isolated
+  ) nil

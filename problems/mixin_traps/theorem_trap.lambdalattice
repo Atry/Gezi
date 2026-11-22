@@ -1,0 +1,172 @@
+# THE NO-YIELD TRAPS in the mixin encoding of inheritance
+# (corpora/contest_mixin_library.pl): points of the hard corpus, ported from
+# the sixteen no-yield traps of the labeled families (contest_inheritance.pl,
+# contest_inheritance_middle_traps.pl, contest_inheritance_theorem_traps.pl,
+# contest_inheritance_zero_traps.pl, contest_inheritance_periodic_traps.pl).
+# Each program is expected to yield nothing, so both booleans are traps.
+# The labeled proofs, state tables under the provision lemma of the labeled
+# calculus, do not carry over. The diamond's trap is proved by a finite
+# case analysis, and the other fifteen by the argument below: every
+# trap here is proved
+# (`no_yield_trap/3`).
+#
+# WHY A READ ENDS. A read o o c1 ... cW chooses a wrapper of o; a wrapper
+# of another slot applies the empty set [] to its body, and a term with []
+# at the head has no element to choose and no redex at the head, so no
+# reduction or choice makes it pure. A sequence of choices that reaches a
+# pure term therefore chooses, at every read it performs, a wrapper that
+# defines the slot read.
+#
+# REACHABILITY MISSES. The graphs of contest_mixin_claims.pl with one more
+# node z, which no edge enters; the test reads source.reachable.is_z.
+# Expected: no yield. z's class is in the module, but only the module slot
+# z reads it, and no class reads that slot, since no node has z as a
+# successor. The value of source.reachable is the union of the classes of
+# the source's successors and of their reachable, so a sequence of choices
+# either chooses a wrapper of the class of a node the source reaches,
+# which defines some is_x with x not z, or a marker, next, reachable or
+# two_hop other than is_z, and ends in [] at the head, or unfolds a
+# successor's reachable again. PROOF
+# (`doc/proofs/solo_mixin_reachability_misses.md`): the induction is
+# on the reads of a finite sequence of choices, not on the graph, so the
+# unbounded unfolding of the cycles needs no separate argument; the
+# elements the final is_z read can choose form a finite chain of
+# successors' classes and reachable unfoldings, and none is z's.
+# - rings of 3, 20 and 40 nodes from n0; the two rings, the ring with a
+#   chord and the ring with double successors from n0, and the lasso from
+#   t0.
+#
+# DIAMOND, a proved trap. The diamond a -> b, a -> c, b -> d, c -> d; the
+# test reads a.two_hop.is_a. PROOF: a sequence reaching a pure term chooses
+# a defining wrapper at every read (WHY A READ ENDS). Reading the module's
+# slot a chooses the wrapper of a's class; reading its two_hop chooses a's
+# two_hop wrapper, whose body is self.next.next; self.next chooses a's
+# next wrapper, whose body is the union of b's and c's classes, and .next
+# on it chooses b's or c's next wrapper, whose body is d's class in both.
+# The final read of is_a chooses a wrapper of d's class, whose wrappers
+# define is_d, reachable, next and two_hop, none of them is_a. So every
+# sequence ends in [] at the head, there are finitely many of them, and
+# the test yields nothing: each template's judgment is the empty
+# disjunction, false.
+#
+# TRUE-THEOREM SEARCHES (contest_reduction_mixin_theorems.pl's
+# counterexample search, which reads the Church true when the check holds
+# and otherwise the next round). Expected: no yield. Each round's check
+# computes the Church false, so the Boolean chooses the next round, which
+# reads the module's slots again; every such read, at a hierarchy of width
+# at least 2, spells empty sets that only its reduction discards
+# (a read of a hierarchy of width W spells W - 1 empty sets), so
+# no sequence reaches a pure term while a round remains to unfold. PROOF
+# (`doc/proofs/solo_mixin_true_theorem_searches.md`): from
+# WHY A READ ENDS and the library's one wrapper per class and
+# slot, the Booleans, numbers, equality, parity and residues denote what
+# they should; a finite sequence reaching a pure term would pass finitely
+# many rounds, each of whose checks denotes false, so the head keeps an
+# unresolved read of found, which WHY A READ ENDS rules out.
+# - successor_never_zero: for all n, n + 1 =/= 0, the check
+#   successor(n).equality(0). The successor's equality dispatches on 0's
+#   accept, whose zero case is false; n is not read.
+# - zero_never_successor: the check 0.equality(successor(n)); 0's equality
+#   dispatches on successor(n)'s accept, whose successor case is false.
+# - zero_then_successor_not_both_zero: for all n, not (n = 0 and n + 1 =
+#   0), the check (n.equality(0)).conjunction(successor(n).equality(0)).
+#   n = 0 holds at round 0 only, where the conjunction answers its other
+#   operand, successor(0) = 0, false; at every later round the receiver is
+#   false, whose conjunction is false. The labeled point read an is_zero
+#   slot, which MIXINv2's library has not; the library's equality with 0
+#   does not recurse, as is_zero did not.
+# - successor_then_zero_not_both_zero: the receiver successor(n).equality(0)
+#   is false at every round, and false's conjunction is false without
+#   reading n.
+# - twice_is_even, four_times_is_even: the search steps n by 2 (4) from 0
+#   and checks not n.even; every n it reaches is even, which the periodic
+#   class computes along n's predecessors, so the check is false.
+# - three_times_is_divisible, six_times_is_divisible: steps of 3 (6), the
+#   check not n.residue_zero; every n reached is 0 mod 3.
+#
+# LIMITS: the family's, 10 s, 256 MB, 256 MB.
+#
+# TARGET ALGORITHMS, the specific known algorithms the problem targets, each
+# with its prior work:
+# - reachability misses: a search with a set of visited nodes that exhausts
+#   the reachable nodes, as tabling completes its tables: W. Chen, D. S.
+#   Warren, Tabled Evaluation with Delaying for General Logic Programs, J.
+#   ACM 1996, doi:10.1145/227595.227597.
+# - true-theorem searches: proving the theorem by induction: K. Claessen, M.
+#   Johansson, D. Rosén, N. Smallbone, Automating Inductive Proofs Using
+#   Theory Exploration, CADE 2013, doi:10.1007/978-3-642-38574-2_27.
+
+#   theorem_trap(?Point, ?Proposition): Proposition a constructor of
+#   schema/proposition (over schema/natural_expression and
+#   schema/periodic_slot), read by its position.
+#
+# Each text is from_cbor of a string literal, a Scott list of bytes,
+# imported from corpora/library/text/cbor. Each number is from_cbor of an
+# integer literal, a Scott integer, imported from corpora/library/integer/cbor.
+# FIXME: the imports project "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λx. x)
+λ integer
+. omega (omega (omega (omega gezi "problems") "schema") "proposition")
+λ equal _ not_periodic both stepped
+. omega (omega (omega (omega gezi "problems") "schema") "natural_expression")
+λ self_number literal _ _ successor
+. omega (omega (omega (omega gezi "problems") "schema") "periodic_slot")
+λ residue_zero _ _ even
+. export
+λ
+. cons
+  ( λ _theorem_trap
+    . _theorem_trap (text "mixin_successor_never_zero") λ. equal (successor self_number) λ. literal λ. integer 0
+  )
+λ
+. cons
+  ( λ _theorem_trap
+    . _theorem_trap (text "mixin_zero_never_successor") λ. equal (literal λ. integer 0) λ. successor self_number
+  )
+λ
+. cons
+  ( λ _theorem_trap
+    . _theorem_trap (text "mixin_zero_then_successor_not_both_zero")
+    λ
+    . both (equal self_number λ. literal λ. integer 0) λ. equal (successor self_number) λ. literal λ. integer 0
+  )
+λ
+. cons
+  ( λ _theorem_trap
+    . _theorem_trap (text "mixin_successor_then_zero_not_both_zero")
+    λ
+    . both (equal (successor self_number) λ. literal λ. integer 0) λ. equal self_number λ. literal λ. integer 0
+  )
+λ
+. cons
+  ( λ _theorem_trap
+    . _theorem_trap (text "mixin_twice_is_even") λ. stepped (integer 2) λ. not_periodic even
+  )
+λ
+. cons
+  ( λ _theorem_trap
+    . _theorem_trap (text "mixin_four_times_is_even") λ. stepped (integer 4) λ. not_periodic even
+  )
+λ
+. cons
+  ( λ _theorem_trap
+    . _theorem_trap (text "mixin_three_times_is_divisible") λ. stepped (integer 3) λ. not_periodic residue_zero
+  )
+λ
+. cons
+  ( λ _theorem_trap
+    . _theorem_trap (text "mixin_six_times_is_divisible") λ. stepped (integer 6) λ. not_periodic residue_zero
+  ) nil

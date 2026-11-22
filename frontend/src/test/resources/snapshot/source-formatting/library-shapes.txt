@@ -1,0 +1,55 @@
+# A file's header.
+
+(λtuple. tuple λmixin. mixin mixin) λomega.
+# id:
+#   the identity.
+(λtuple. tuple (λx. x)) λid.
+
+# twice:
+#   twice f x = f (f x).
+(λtuple. tuple (λf. λx. f (f x))) λtwice.
+λtuple. tuple id twice
+
+=>
+# A file's header.
+
+λ
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+# id:
+#   the identity.
+. (λtuple. tuple λx. x)
+λ id
+
+# twice:
+#   twice f x = f (f x).
+. (λtuple. tuple λf x. f λ. f x)
+λ twice tuple
+. tuple id twice
+
+----
+λf. λx. f x (f 42 (λa. λb. a)) (λy. λ"k". λw. ((y w (f 42 (λa. λb. a))) + (λz. z) ∥ x))
+=>
+λ f x. f x (f 42 λa b. a) λy "k" w. (y w λ. f 42 λa b. a + λz. z ∥ x)
+
+----
+(λt. t λx. x) λ"md". λk. k "[absorption](docs/design/gezi-hindley-milner-unions-proofs.md#absorption)" 0x2a h'00ff'
+# trailing
+
+=>
+(λt. t λx. x) λ"md" k. k "[absorption](docs/design/gezi-hindley-milner-unions-proofs.md#absorption)" 0x2a h'00ff'
+# trailing
+
+----
+under natural_pairs library natural_pairs
+(λtuple. tuple λmixin. mixin mixin) λomega.
+omega (omega natural_pairs "pair") λpair.
+λtuple. tuple λx. x λl. λr. pair r l
+
+=>
+λ
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega natural_pairs "pair")
+λ pair tuple
+. tuple λx. x λl r. pair r l

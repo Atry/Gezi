@@ -1,0 +1,87 @@
+# trailing_zeros:
+# CSES 1618, Trailing Zeros (https://cses.fi/problemset/task/1618), in our own
+# words: the number n! of orderings of n different things ends in some number of
+# zeros when written in decimal; the number of those zeros. The input is a binary
+# natural (corpora/library/binary/natural) n >= 1, and the answer a binary
+# natural. Part of the CSES port's third batch.
+#
+# THE PROGRAM, written by the definition: n! is computed as the product 1 * 2 *
+# ... * n, and then divided by ten, its decimal digits found from the low end of the
+# binary numeral (ten_divmod, as `removing_digits` does), for as long as the remainder is zero,
+# counting the divisions. Its reading takes about n multiplications of numbers of
+# about n log n bits, then one division by ten per zero; the replacement the family asks
+# for is Legendre's formula, the zeros of n! being the sum of n / 5^k over k >= 1, about
+# log n steps on fixed-width integers.
+#
+# DEFINITION 14: the program P, the point's term, is built of λ and application
+# only: its text holds no top, no choice, no parallel and no literal (the ten is
+# written with binary_zero, binary_even and binary_odd). It β-reduces to V, the
+# canonical binary numeral of the answer: every recursion ends, since the
+# product consumes the bounded gap n - k, ten_divmod consumes a binary numeral,
+# and the counting of the zeros consumes a positive number (n! >= 1) that its quotient
+# by ten, taken only when the remainder is zero, makes smaller, so that it reaches a number with a
+# nonzero last digit, as every positive number does after finitely many zeros; the
+# branches that a Scott boolean discards are never read. binary_subtract, which writes no top
+# (../common/binary_modular), is asked only to subtract ten from a remainder that is
+# not below ten. So ⊢_β P = V, and P ≃_O V by the soundness of the derivable
+# equations for the contextual preorder of Definition 14 (Lean
+# `ContextualPreorder.contextualEquivalenceOfDerivableLatticeEta`): V is an
+# answer, P ⊑_O V. No other closed βη normal form W has P ⊑_O W: then V ⊑_O W,
+# while Böhm's theorem gives a pure context that takes V to λx y. x and W to
+# λx y. y, and applying both to λa. a and Ω makes the first solvable and the
+# second not.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "fixpoint")
+λ fixpoint
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "boolean")
+λ _ false _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "natural")
+λ binary_zero binary_even binary_odd _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "arithmetic")
+λ merge_binary_increment _ merge_binary_times _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "order")
+λ binary_less_than _ _
+. omega (omega (omega (omega (omega gezi "problems") "cses") "common") "binary_modular")
+λ binary_double binary_subtract _ _
+. (λtuple. tuple (binary_odd binary_zero))
+λ one
+. (λtuple. tuple (binary_even λ. binary_odd λ. binary_even λ. binary_odd binary_zero))
+λ ten
+. ( λ tuple
+    . tuple
+    λ quotient remainder continue
+    . binary_less_than remainder ten (continue (binary_double quotient) remainder) (continue (binary_odd quotient) (binary_subtract remainder ten false))
+  )
+λ settle
+. ( λ tuple
+    . tuple
+    λ. fixpoint
+    λ self natural
+    . natural (λcontinue. continue binary_zero binary_zero)
+      (λhalf continue. self half λquotient remainder. settle quotient (binary_double remainder) continue)
+      λhalf continue. self half λquotient remainder. settle quotient (binary_odd remainder) continue
+  )
+λ ten_divmod
+. ( λ tuple
+    . tuple
+    λ limit
+    . fixpoint
+      ( λ self factor product
+        . binary_less_than limit factor product (self (merge_binary_increment factor) (merge_binary_times product factor))
+      ) one one
+  )
+λ factorial
+. ( λ tuple
+    . tuple
+    λ. fixpoint
+    λ self number count
+    . ten_divmod number
+      λ quotient remainder
+      . remainder (self quotient (merge_binary_increment count)) (λ_. count) λ_. count
+  )
+λ zeros_of
+. (λtuple. tuple λlimit. zeros_of (factorial limit) binary_zero)
+λ trailing_zeros
+. export trailing_zeros

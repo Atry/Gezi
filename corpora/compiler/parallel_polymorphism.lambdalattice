@@ -1,0 +1,47 @@
+# A list is typed through the bottom instance of nil's type and a
+# choice-typed contract of cons. This module holds the bottom instance; the
+# contract of cons is cons_filtered_choice of choice_polymorphism.
+#
+# A constant whose type parameter only its use site fixes, nil, gets one
+# ground contract at the bottom instance of its type, list_type top, where top is
+# the library's top, the term that stands for no answer. A use site then needs no instance of nil's parameter,
+# only an upper bound: list_type top is below every list_type A by
+# monotonicity. The other lemma is the applied form of a point-free contract
+# already in the library, successor_filtered of parallel_types, so that it
+# matches terms written by application.
+#
+# Every lemma here is a theorem of λ-lattice-unit-η (CONTRIBUTING.md,
+# "Terms"); each declaration cites its paper proof. None uses induction. This module declares no define: it uses filter_by and
+# list_type (parallel_lists), filter_nat (parallel_types), successor and nil
+# (prelude), with which it is compiled.
+
+# The bottom instance of nil's type: nil is a list of elements of the empty
+# choice. Used from right to left, it adds the filter to the class of nil,
+# which is also the class of zero, true and konstant (one term).
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "parallel_lists") "parallel_lists")
+λ list_type _ _ filter_by
+. omega (omega (omega corpora "library") "top")
+λ top
+. omega (omega (omega (omega corpora "library") "prelude") "list")
+λ nil _ _ _ _
+. omega (omega (omega (omega corpora "library") "parallel_types") "natural")
+λ _ _ filter_nat _
+. omega (omega (omega (omega corpora "library") "prelude") "natural")
+λ _ successor _ _ _ _ _
+. export
+λ _ rewriting _ _
+. rewriting
+λ _ lemmas _
+. lemmas
+  # successor_filtered of parallel_types, applied to its argument.
+  ( λ s
+    . s
+      (λk. k "successor_filtered_applied")
+      (λx_0. filter_nat λ. successor λ. filter_nat x_0)
+      (λx_0. successor λ. filter_nat x_0) λ_ md _. md λk. k "[successor_filtered_applied](docs/design/gezi-set-equations-proofs.md)"
+  + λ s
+    . s (λk. k "nil_filtered_bottom") (filter_by (list_type top) nil) nil λ_ md _. md λk. k "[nil_filtered_bottom](docs/design/gezi-set-equations-proofs.md)"
+  )

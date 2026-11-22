@@ -1,0 +1,31 @@
+dice_combinations_point
+  cses_dice_combinations_sum_one: Site(1) => 1
+  cses_dice_combinations_sum_three: Site(3) => 4
+  cses_dice_combinations_sum_six: Site(6) => 32
+minimizing_coins_point
+  cses_minimizing_coins_two_three_seven: Site(Vector(2, 3),7) => some 3
+  cses_minimizing_coins_greedy_is_not_fewest: Site(Vector(1, 3, 4),6) => some 2
+  cses_minimizing_coins_one_coin_exact: Site(Vector(4),4) => some 1
+  cses_minimizing_coins_no_multiple: Site(Vector(3),8) => none
+  cses_minimizing_coins_odd_target_even_coins: Site(Vector(2, 4),5) => none
+message_route_point
+  cses_message_route_one_connection: Site(2,Vector((1,2))) => some 2
+  cses_message_route_two_islands: Site(4,Vector((1,2), (3,4))) => none
+  cses_message_route_two_equal_routes: Site(6,Vector((1,2), (2,3), (3,6), (1,4), (4,5), (5,6))) => some 4
+  cses_message_route_shortcut: Site(7,Vector((1,2), (2,3), (3,4), (4,5), (5,6), (6,7), (2,6))) => some 4
+  cses_message_route_first_computer_alone: Site(3,Vector((2,3))) => none
+counting_rooms_point
+  cses_counting_rooms_one_wall: Site(#) => 0
+  cses_counting_rooms_one_floor: Site(.) => 1
+  cses_counting_rooms_checkerboard: Site(.#./#.#/.#.) => 5
+  cses_counting_rooms_two_rooms: Site(..##/.#../##.#/....) => 2
+  cses_counting_rooms_all_floor: Site(..../..../..../....) => 1
+  cses_counting_rooms_two_by_four: Site(#.#./..##) => 2
+exponentiation_point
+  cses_exponentiation_zero_to_zero: Site(0,0) => 1
+  cses_exponentiation_zero_to_three: Site(0,3) => 0
+  cses_exponentiation_five_to_zero: Site(5,0) => 1
+  cses_exponentiation_one_to_seven: Site(1,7) => 1
+  cses_exponentiation_three_to_four: Site(3,4) => 81
+  cses_exponentiation_two_to_eight: Site(2,8) => 256
+  cses_exponentiation_seven_to_eight: Site(7,8) => 5764801

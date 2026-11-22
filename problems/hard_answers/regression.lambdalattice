@@ -1,0 +1,50 @@
+#   regression(?Point): a point read for regression only, not scored: a
+#   miss of any kind is a defect. First, five semantic traps.
+#
+# Each text is from_cbor of a string literal, a Scott list of bytes,
+# imported from corpora/library/text/cbor. FIXME: the import projects "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. export
+λ
+. cons (λ_regression. _regression λ. text "stream_unproductive_by_map_first")
+λ
+. cons (λ_regression. _regression λ. text "regex_inequivalent_even")
+λ
+. cons (λ_regression. _regression λ. text "series_product_refuted")
+#   Common material, so that a setting tuned for the hard cases stays usable
+#   on ordinary programs: the points of H21, and the plain walks and guards,
+#   moved back from retirement. Each is read within ten times untabled weak_head,
+#   so a runtime that is an order of magnitude slower than the
+#   lazy interpreter on an ordinary program misses it.
+λ
+. cons (λ_regression. _regression λ. text "common_length_of_map")
+λ
+. cons (λ_regression. _regression λ. text "common_append_length")
+λ
+. cons (λ_regression. _regression λ. text "common_reverse_twice")
+λ
+. cons (λ_regression. _regression λ. text "common_all_zero")
+λ
+. cons (λ_regression. _regression λ. text "acyclic_ends_with_count")
+λ
+. cons (λ_regression. _regression λ. text "acyclic_ends_with_flag")
+λ
+. cons (λ_regression. _regression λ. text "acyclic_ends_with_pair")
+λ
+. cons (λ_regression. _regression λ. text "acyclic_ends_with_reversed_list")
+λ
+. cons (λ_regression. _regression λ. text "acyclic_long_ends")
+λ
+. cons (λ_regression. _regression λ. text "omega_at_least_forty")
+λ
+. cons (λ_regression. _regression λ. text "sharing_conjunction_chain") nil

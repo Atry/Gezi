@@ -1,0 +1,103 @@
+# An object with two implementations of one method, in the mixin encoding
+# of inheritance (corpora/contest_mixin_library.pl): problems of the
+# reduction series whose answer is a finite set of binary naturals, asked
+# whole, as the set of their normal forms.
+#
+# THE CLASS has three slots, run, step and start, and is the set
+# {Base, Increment_1, ..., Increment_m}, Base = {Run, Start}:
+# - Run is the template method, run n accumulator = n accumulator
+#   (\p. run p (step accumulator)), which applies step n times to the
+#   accumulator without knowing where step comes from;
+# - Start is start = 0;
+# - Increment_i is step x = x + a_i, with the binary plus of
+#   contest_merge_dynamic.pl.
+# The object is {Base, Increment_1, ..., Increment_m}, and the program
+# reads run n start. Two mixins implement step, so step is their
+# union, and each call of step chooses again: two implementations of one
+# slot give two sets of answers, which is the intended meaning. The answers are the
+# sums of n increments, n a_1 .. n a_m: for the increments {1, 2}, the
+# n + 1 values n .. 2n, reached along 2^n paths.
+#
+# WHAT IT ASKS. The accumulator after k steps is spelled by the choices
+# that built it, (0 + 1) + 2 and (0 + 2) + 1 being two spellings of 3, so a
+# reading that shares only equal spellings follows every path, about 2 a
+# step, while one that folds the accumulators by value keeps k + 1 values
+# at step k: a dynamic programme over the reachable sums, which is what
+# the definitional program leaves to the implementation. The accumulator is used once on
+# every path, as the method body passes it on once, so the set of answers
+# is the set of sums and no product of two choices.
+#
+# THE SNAPSHOT is the set of those sums, each the canonical binary
+# numeral. PROOF that S(P) is the snapshot: every read of a hierarchy of width W >= 2
+# spells W - 1 empty sets [], which no choice removes and only the
+# reduction of the read discards, so a term in which an instance is still
+# to be unfolded holds []; a yield, which holds no set, is therefore
+# reached only along a choice sequence that ends every recursion, and run recurses on the unary numeral n, one level less at
+# each call whatever step chooses; each such end is a sum of n
+# increments, and its normal form is that sum's canonical numeral.
+#
+# READINGS (2026-09-29, a probe in a fresh process per reading,
+# every answer of lambda_jit_scott_decoding:decoded/4 collected, 10 s,
+# 256 MB, 256 MB, the increments {1, 2}): weak_head reads n = 2, 4, 6 and
+# 8 in 25, 123, 809 and 5313 ms and is stopped from 10; tabling(weak_head)
+# reads them in 16, 54, 225 and 1107 ms and n = 10 in 4648 ms, and is
+# stopped from 12: about 2.1 a step, the growth of the paths.
+# LIMITS: the family's, 10 s, 256 MB, 256 MB.
+
+#   problem(?Point, ?Count, ?Increments)
+#
+# Each text is from_cbor of a string literal, a Scott list of bytes,
+# imported from corpora/library/text/cbor. Each number is from_cbor of an
+# integer literal, a Scott integer, imported from corpora/library/integer/cbor.
+# FIXME: the imports project "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λx. x)
+λ integer
+. export
+λ
+. cons
+  ( λ _problem
+    . _problem (text "reduction_mixin_counter_eight") (integer 8) λ. cons (integer 1) λ. cons (integer 2) nil
+  )
+λ
+. cons
+  ( λ _problem
+    . _problem (text "reduction_mixin_counter_sixteen") (integer 16) λ. cons (integer 1) λ. cons (integer 2) nil
+  )
+λ
+. cons
+  ( λ _problem
+    . _problem (text "reduction_mixin_counter_thirty_two") (integer 32) λ. cons (integer 1) λ. cons (integer 2) nil
+  )
+λ
+. cons
+  ( λ _problem
+    . _problem (text "reduction_mixin_counter_sixty_four") (integer 64) λ. cons (integer 1) λ. cons (integer 2) nil
+  )
+λ
+. cons
+  ( λ _problem
+    . _problem (text "reduction_mixin_counter_three_increments_eight") (integer 8) λ. cons (integer 1) λ. cons (integer 2) λ. cons (integer 3) nil
+  )
+λ
+. cons
+  ( λ _problem
+    . _problem (text "reduction_mixin_counter_three_increments_sixteen") (integer 16) λ. cons (integer 1) λ. cons (integer 2) λ. cons (integer 3) nil
+  )
+λ
+. cons
+  ( λ _problem
+    . _problem (text "reduction_mixin_counter_three_increments_thirty_two") (integer 32) λ. cons (integer 1) λ. cons (integer 2) λ. cons (integer 3) nil
+  ) nil

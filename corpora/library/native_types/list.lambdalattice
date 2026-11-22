@@ -1,0 +1,29 @@
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "native_types") "markers")
+λ _ $constructor _ _
+. omega (omega (omega (omega corpora "library") "native_types") "fixpoint")
+λ fixpoint
+# nil:
+# The empty list; its scheme forall e. list_type e is the lemma nil_scheme of
+# native_types.pl.
+. (λtuple. tuple λ. $constructor λn c. n)
+λ nil
+# cons:
+# A list of a head and a tail; its scheme
+# forall e. e -> list_type e -> list_type e is the lemma cons_scheme of
+# native_types.pl.
+. (λtuple. tuple λ. $constructor λh t n c. c h t)
+λ cons
+# list_fold:
+# The fold over a list; its scheme
+# forall e. forall r. r -> (e -> r -> r) -> list_type e -> r is the lemma
+# list_fold_scheme of native_types.pl.
+. (λtuple. tuple λ. fixpoint λself n c l. l n λh t. c h λ. self n c t)
+λ list_fold
+# list_type:
+# The lists of elements of e.
+. (λtuple. tuple λe. fixpoint λl. ((λh t n c. c h t) e l + λn c. n))
+λ list_type
+. export nil cons list_fold list_type

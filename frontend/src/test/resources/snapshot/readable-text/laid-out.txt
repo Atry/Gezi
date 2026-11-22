@@ -1,0 +1,166 @@
+# sample 0
+λf. f library_name library_name
+=>
+λ f
+. f library_name library_name
+
+# sample 1
+λf. f library_name library_name
+=>
+λ f
+. f library_name library_name
+
+# sample 2
+(λt. t λ. (λy. library_name) library_name) λ$merkle$8c758258 f. f $merkle$8c758258 $merkle$8c758258
+=>
+λ
+. ( λ t
+    . t
+    λ
+    . (λy. library_name) library_name
+  )
+λ $merkle$8c758258 f
+. f $merkle$8c758258 $merkle$8c758258
+
+# sample 3
+λf. (λf_2. (λt. f_2 ∥ λx. f) + λt. (λt_2. t ∥ λy. f))
+=>
+λ f
+. ( λf_2. (λt. f_2 ∥ λx. f)
+  + λt. (λt_2. t ∥ λy. f)
+  )
+
+# sample 4
+λf. f library_name library_name
+=>
+λ f
+. f library_name library_name
+
+# sample 5
+(λt. t λ. library_name library_name) λlibrary_name$merkle$dd17ab9a. (λt. t λx. x) λ$merkle$fc082a46. (λt. t (library_name$merkle$dd17ab9a $merkle$fc082a46 ∥ library_name $merkle$fc082a46 + library_name λ. library_name$merkle$dd17ab9a library_name)) λ$merkle$625146ed f. f $merkle$625146ed $merkle$625146ed
+=>
+λ
+. ( λ t
+    . t
+    λ
+    . library_name library_name
+  )
+λ library_name$merkle$dd17ab9a
+. (λt. t λx. x)
+λ $merkle$fc082a46
+. ( λ t
+    . t
+      ( library_name$merkle$dd17ab9a $merkle$fc082a46
+      ∥ library_name $merkle$fc082a46
+      + λ
+        . library_name
+        λ
+        . library_name$merkle$dd17ab9a library_name
+      )
+  )
+λ $merkle$625146ed f
+. f $merkle$625146ed $merkle$625146ed
+
+# sample 6
+(λt. t λf. library_name λ. library_name (library_name ∥ λy. library_name)) λ$merkle$1f6b9943 f. f $merkle$1f6b9943 $merkle$1f6b9943
+=>
+λ
+. ( λ t
+    . t
+    λ f
+    . library_name
+    λ
+    . library_name
+      ( library_name
+      ∥ λy. library_name
+      )
+  )
+λ $merkle$1f6b9943 f
+. f $merkle$1f6b9943 $merkle$1f6b9943
+
+# sample 7
+(λt. t λf. (λx. (f ∥ f ∥ library_name library_name) + (λy. library_name y) λ. f library_name ∥ (λx. f) f)) λ$merkle$a7314d46 f. f $merkle$a7314d46 $merkle$a7314d46
+=>
+λ
+. ( λ t
+    . t
+    λ f
+    . ( λ x
+        . ( f
+          ∥ f
+          ∥ library_name library_name
+          )
+      + (λy. library_name y) λ. f library_name
+      ∥ (λx. f) f
+      )
+  )
+λ $merkle$a7314d46 f
+. f $merkle$a7314d46 $merkle$a7314d46
+
+# sample 8
+λf. f library_name library_name
+=>
+λ f
+. f library_name library_name
+
+# sample 9
+(λt. t λ. library_name library_name) λlibrary_name$merkle$dd17ab9a. (λt. t λf. f) λ$merkle$fc082a46. (library_name ∥ (library_name$merkle$dd17ab9a + (library_name + library_name + library_name) + library_name$merkle$dd17ab9a)) (library_name$merkle$dd17ab9a library_name$merkle$dd17ab9a + $merkle$fc082a46 $merkle$fc082a46 + library_name)
+=>
+λ
+. ( λ t
+    . t
+    λ
+    . library_name library_name
+  )
+λ library_name$merkle$dd17ab9a
+. (λt. t λf. f)
+λ $merkle$fc082a46
+. ( library_name
+  ∥ ( library_name$merkle$dd17ab9a
+    + ( library_name
+      + library_name
+      + library_name
+      )
+    + library_name$merkle$dd17ab9a
+    )
+  )
+  ( library_name$merkle$dd17ab9a library_name$merkle$dd17ab9a
+  + $merkle$fc082a46 $merkle$fc082a46
+  + library_name
+  )
+
+# sample 10
+(λt. t λf. (λy. (y + y y) + (f ∥ f))) λ$merkle$f603bd6c. ($merkle$f603bd6c ∥ $merkle$f603bd6c)
+=>
+λ
+. ( λ t
+    . t
+    λ f
+    . (λy. (y + y y) + (f ∥ f))
+  )
+λ $merkle$f603bd6c
+. ( $merkle$f603bd6c
+  ∥ $merkle$f603bd6c
+  )
+
+# sample 11
+(λt. t λf. f) λ$merkle$fc082a46 f. (λt. $merkle$fc082a46 λy. (λf_2. (f_2 + f_2) ∥ f f)) ($merkle$fc082a46 library_name λ. library_name library_name (library_name ∥ library_name) ∥ λt y. t library_name λ. library_name t)
+=>
+λ
+. (λt. t λf. f)
+λ $merkle$fc082a46 f
+. ( λ t
+    . $merkle$fc082a46
+    λ y
+    . (λf_2. (f_2 + f_2) ∥ f f)
+  )
+  ( λ
+    . $merkle$fc082a46 library_name
+    λ
+    . library_name library_name
+      ( library_name
+      ∥ library_name
+      )
+  ∥ λ t y
+    . t library_name λ. library_name t
+  )

@@ -1,0 +1,67 @@
+# sample 0
+d/
+d/s.lambdalatticerecord: λx_0. x_0
+d/x/
+d/x/t.lambdalatticerecord: λx_0. x_0
+d/x/k.lambdalattice: λx_0. x_0
+d/x/j.lambdalatticerecord: λx_0. x_0
+d/x/.n.lambdalattice: λ
+d/x/r0.lambdalattice: λx_0. x_0
+d/x/r0.lambdalatticerecord: λx_0. x_0
+d/i.pl: :- module(
+=>
+{d = λx_0. {s = λx_1. x_1, x = λx_1. {j = λx_2. x_2, k = λx_2. x_2, r0 = λx_2. x_2, r0 = λx_2. x_2, t = λx_2. x_2}}}
+
+# sample 1
+s/
+s/q/
+s/zh/
+s/o.lambdalattice: λx_0. x_0
+s/a_.pl: :- module(
+s/r00.lambdalattice: λx_0. λx_1. λx_2. λx_3. x_3
+s/r00/
+s/r00/b.lambdalatticerecord: λx_0. λx_1. x_1
+=>
+{s = λx_0. {o = λx_1. x_1, q = λx_1. {}, r00 = λx_1. {b = λx_2. λx_3. x_3}, r00 = λx_1. λx_2. λx_3. λx_4. x_4, zh = λx_1. {}}}
+
+# sample 2
+tze/
+tze/r_.lambdalattice: λx_0. x_0 x_0
+tze/rd.lambdalattice: λx_0. x_0
+tze/f.lambdalatticerecord: λx_0. x_0
+tze/r00.lambdalatticerecord: λx_0. x_0 (λx_1. x_1)
+tze/r00/
+tze/r00/plm.lambdalatticerecord: λx_0. x_0
+=>
+{tze = λx_0. {f = λx_1. x_1, r00 = λx_1. {plm = λx_2. x_2}, r00 = λx_1. x_1 (λx_2. x_2), r_ = λx_1. x_1 x_1, rd = λx_1. x_1}}
+
+# sample 3
+rvc2/
+rvc2/bxp.lambdalattice: λx_0. x_0
+rvc2/u9.lambdalatticerecord: λx_0. λx_1. λx_2. λx_3. x_2
+rvc2/h.lambdalatticerecord: λx_0. x_0
+rvc2/r000.lambdalattice: λx_0. x_0
+rvc2/r000/
+rvc2/r000/mg_.lambdalattice: λx_0. x_0
+rvc2/r0000.lambdalattice: λx_0. x_0
+rvc2/r0000.lambdalatticerecord: λx_0. x_0
+=>
+{rvc2 = λx_0. {bxp = λx_1. x_1, h = λx_1. x_1, r000 = λx_1. {mg_ = λx_2. x_2}, r000 = λx_1. x_1, r0000 = λx_1. x_1, r0000 = λx_1. x_1, u9 = λx_1. λx_2. λx_3. λx_4. x_3}}
+
+# sample 4
+k/
+k/f0fog.lambdalatticerecord: λx_0. x_0 (x_0 (x_0 (λx_1. x_0 (λx_2. x_1)) (λx_1. λx_2. λx_3. x_2)) (λx_1. x_1)) (x_0 (λx_1. x_1) x_0)
+k/wdhn.pl: :- module(
+k/r00000.lambdalattice: λx_0. x_0
+k/r00000.lambdalatticerecord: λx_0. x_0 (x_0 (λx_1. x_0 x_1 (λx_2. λx_3. x_1 (λx_4. x_1 x_1))) (x_0 x_0))
+=>
+{k = λx_0. {f0fog = λx_1. x_1 (x_1 (x_1 (λx_2. x_1 (λx_3. x_2)) (λx_2. λx_3. λx_4. x_3)) (λx_2. x_2)) (x_1 (λx_2. x_2) x_1), r00000 = λx_1. x_1, r00000 = λx_1. x_1 (x_1 (λx_2. x_1 x_2 (λx_3. λx_4. x_2 (λx_5. x_2 x_2))) (x_1 x_1))}}
+
+# sample 5
+ykw7t/
+ykw7t/a.lambdalatticerecord: λx_0. x_0 (x_0 (λx_1. x_0)) (λx_1. λx_2. λx_3. x_3) (λx_1. λx_2. x_1)
+ykw7t/t.lambdalatticerecord: λx_0. x_0 (x_0 x_0 (λx_1. λx_2. x_2 x_0 (x_1 x_0) x_0)) x_0
+ykw7t/x1pk_.lambdalatticerecord: λx_0. x_0
+ykw7t/r00000.lambdalattice: ./x1pk_
+=>
+{ykw7t = λx_0. {a = λx_1. x_1 (x_1 (λx_2. x_1)) (λx_2. λx_3. λx_4. x_4) (λx_2. λx_3. x_2), r00000 = (x_0 x_0).x1pk_, t = λx_1. x_1 (x_1 x_1 (λx_2. λx_3. x_3 x_1 (x_2 x_1) x_1)) x_1, x1pk_ = λx_1. x_1}}

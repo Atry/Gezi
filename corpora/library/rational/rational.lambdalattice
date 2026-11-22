@@ -1,0 +1,7 @@
+# The rationals: rational n d is the pair λk. k n d, n / d, n an integer of
+# ../integer and d a canonical binary natural of ../binary that is at least 1
+# and shares no factor with n. A decimal literal's elements are in lowest
+# terms (plan trace-sqlite D11): 0.5 and 0.50 are one rational, and 2.0 is
+# rational 2 1, not the integer 2. Arithmetic that builds a rational must
+# reduce it; the term does not enforce it.
+λ export. export λn d k. k n d

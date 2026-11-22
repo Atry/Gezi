@@ -1,0 +1,28 @@
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "prelude") "fixpoint")
+λ fixpoint
+. (λtuple. tuple λx. x)
+λ identity
+. (λtuple. tuple λk _. k)
+λ konstant
+. (λtuple. tuple λf g x. f λ. g x)
+λ compose
+# flip:
+# flip f y x is f x y: the first two arguments of f exchanged.
+. (λtuple. tuple λf y x. f x y)
+λ flip
+# apply_to:
+# apply_to a f is f a: an argument waiting for the function it is given to.
+. (λtuple. tuple λa f. f a)
+λ apply_to
+# contract:
+# A contract (D3): F's argument asserted at A and its result at B.
+. (λtuple. tuple λa b f x. b λ. f λ. a x)
+λ contract
+# absorbing:
+# The absorbing term: applied to any argument it reduces to itself.
+. (λtuple. tuple λ. fixpoint λself _. self)
+λ absorbing
+. export identity konstant compose flip apply_to contract absorbing

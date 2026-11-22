@@ -1,0 +1,158 @@
+# The typing of a recursion's arguments: a
+# recursion applied to arguments whose classes are typed, x + (x ∥ T) (the
+# first filters' convention, wren_first_filters), gets a typed branch in
+# which each of its parameters is filtered where its body reads it. One fixed
+# set of lemmas, whatever the arity: the filters are an object-level list
+# that wren_recursion_typing's combinators walk, and every metavariable of a
+# right side occurs on its left, so the filters are read from the term and
+# never chosen.
+#
+# wren_recursion_enter puts the typed branch beside a recursion applied to
+# one typed argument; wren_recursion_extend puts the next beside each
+# application of a class holding a typed branch to one more typed argument;
+# nine of the others unfold the combinators on the closed lists those two build,
+# so that the typed branch becomes wren_fixpoint_by_value (λt. λa1 … λan.
+# G t (a1 ∥ T1) … (an ∥ Tn)) applied to the filtered arguments, which the β
+# rule of the round inlines. Each declaration cites its paper proof.
+#
+# A round uses every usable direction of a lemma, so no side may be a shape
+# that a program's own terms take: its backward direction would match them
+# all. The lists these lemmas build are of wren_nil and wren_cons, the
+# combinators' own constructors, not the library's nil and cons;
+# wren_applied_to_cons writes K X as the β-redex (λk. k X) K, which the
+# round's β rule contracts, so that its backward direction matches only the
+# redexes its forward direction made, not every application; and
+# wren_applied_to_nil ends the walk on the marker, wren_applied_to K wren_nil
+# = wren_recursion_branch K, since a bare K would match every class. Measured
+# 2026-11-21 (one round of these with wren_first_filters and
+# wren_typed_block's leaves on repeated_library_edit_distances_small, whose
+# programs build library lists): with the library's nil and cons, the round
+# hit its cap of 10000 instances, 29583 of them wren_appended_cons backward,
+# 19602 forward, 7 wren_appended_nil backward and 3 forward.
+#
+# Termination, derived and not proved: enter matches an application of
+# fixpoint to a typed argument in the input, and its right side applies
+# fixpoint to nothing new; extend matches an application whose function
+# class holds a typed branch and whose argument is typed, and its right side
+# adds no such application, so each application of the input's spine above an
+# enter is matched once for each typed branch its function class holds; the
+# unfoldings consume the closed lists, whose length is the spine's.
+# FIXME (2026-11-21): this argument covers the forward directions only. A https://github.com/Atry/private-overlay/issues/2012
+# round also uses every usable backward direction (the standard orientation
+# compiler), and no argument bounds what the backward unfoldings add. Measured
+# 2026-11-21 (a round of these with wren_first_filters and wren_typed_block's
+# leaves, then a second, on repeated_library_edit_distances_small direct, seed
+# 20261116): at R = 1 enter matched once and extend three times, and the first
+# round reached its fixed point at 302 instances, 17 of them backward
+# directions of these lemmas; at R = 4 enter matched four times and extend
+# nine, and it reached its fixed point at 1089 instances, 44 of them backward
+# directions of these lemmas.
+# The second round added none in either.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "native_types") "fixpoint")
+λ fixpoint
+. omega (omega (omega (omega corpora "library") "wren_typed_block") "wren_typed_block")
+λ wren_fixpoint_by_value _ _ _ _ _ _ _ _
+. omega (omega (omega (omega corpora "library") "wren_recursion_typing") "wren_recursion_typing")
+λ wren_nil wren_cons wren_with_inputs wren_typed_fixpoint wren_applied_to wren_appended wren_apply wren_recursion_branch
+. export
+  ( λ _ rewriting _ _
+    . rewriting
+    λ _ _ leaves
+    . leaves
+      ( λk. k wren_with_inputs
+      + λk. k wren_typed_fixpoint
+      + λk. k wren_applied_to
+      + λk. k wren_appended
+      + λk. k wren_apply
+      + λk. k wren_recursion_branch
+      )
+  + λ _ rewriting _ _
+    . rewriting
+    λ _ lemmas _
+    . lemmas
+      # A let of a recursion, (λx. B) (fixpoint G), is B with fixpoint G for
+      # x, so that the recursion's applications in B are terms enter can
+      # match: a program's own redexes are not read by the β rule, only the
+      # applications a lemma's side writes, here x_0's (wren_typed_let of
+      # wren_typed_specialization, for the native fixpoint). By β.
+      ( λ s
+        . s
+          (λk. k "wren_recursion_let")
+          (λx_0 x_1. (λx_2. x_0 x_2) λ. fixpoint x_1)
+          (λx_0 x_1. x_0 λ. fixpoint x_1) λ_ md _. md λk. k "[unfoldings](docs/design/gezi-recursion-typing-proofs.md#unfoldings)"
+      # A recursion applied to one typed argument has the typed branch that
+      # filters its first parameter.
+      + λ s
+        . s
+          (λk. k "wren_recursion_enter")
+          (λx_0 x_1 x_2. fixpoint x_0 (x_1 ∥ x_2 + x_1))
+          ( λ x_0 x_1 x_2
+            . ( wren_recursion_branch (wren_applied_to (wren_typed_fixpoint x_0 (wren_cons x_2 wren_nil)) (wren_cons (x_1 ∥ x_2) wren_nil))
+              + fixpoint x_0 (x_1 ∥ x_2 + x_1)
+              )
+          ) λ_ md _. md λk. k "[wren_recursion_enter](docs/design/gezi-recursion-typing-proofs.md#wren_recursion_enter)"
+      # A class holding a typed branch, applied to one more typed argument, has
+      # the typed branch that filters one more parameter.
+      + λ s
+        . s
+          (λk. k "wren_recursion_extend")
+          ( λ x_0 x_1 x_2 x_3 x_4 x_5
+            . (wren_recursion_branch (wren_applied_to (wren_typed_fixpoint x_1 x_2) x_3) + x_0) (x_4 ∥ x_5 + x_4)
+          )
+          ( λ x_0 x_1 x_2 x_3 x_4 x_5
+            . ( wren_recursion_branch (wren_applied_to (wren_typed_fixpoint x_1 (wren_appended x_2 x_5)) (wren_appended x_3 (x_4 ∥ x_5)))
+              + (wren_recursion_branch (wren_applied_to (wren_typed_fixpoint x_1 x_2) x_3) + x_0) (x_4 ∥ x_5 + x_4)
+              )
+          ) λ_ md _. md λk. k "[wren_recursion_extend](docs/design/gezi-recursion-typing-proofs.md#wren_recursion_extend)"
+      + λ s
+        . s
+          (λk. k "wren_typed_fixpoint_unfolding")
+          (λx_0 x_1. wren_typed_fixpoint x_0 x_1)
+          (λx_0 x_1. wren_fixpoint_by_value λx_2. wren_with_inputs x_1 (wren_apply x_0 x_2))
+          λ_ md _. md λk. k "[unfoldings](docs/design/gezi-recursion-typing-proofs.md#unfoldings)"
+      + λ s
+        . s (λk. k "wren_with_inputs_nil") (λx_0. wren_with_inputs wren_nil x_0) (λx_0. x_0)
+          λ_ md _. md λk. k "[unfoldings](docs/design/gezi-recursion-typing-proofs.md#unfoldings)"
+      + λ s
+        . s
+          (λk. k "wren_with_inputs_cons")
+          (λx_0 x_1 x_2. wren_with_inputs (wren_cons x_0 x_1) x_2)
+          (λx_0 x_1 x_2 x_3. wren_with_inputs x_1 (wren_apply x_2 (x_3 ∥ x_0)))
+          λ_ md _. md λk. k "[unfoldings](docs/design/gezi-recursion-typing-proofs.md#unfoldings)"
+      # An application of a closure, written where the round's β rule reads
+      # it: the right side applies a function metavariable, which the left
+      # side reads as a closure. Its backward side, an application of two
+      # metavariables, is not rigid and never used. By β.
+      + λ s
+        . s
+          (λk. k "wren_apply_closure")
+          (λx_0 x_1. wren_apply (λx_2. x_0 x_2) x_1)
+          (λx_0 x_1. x_0 x_1)
+          λ_ md _. md λk. k "[unfoldings](docs/design/gezi-recursion-typing-proofs.md#unfoldings)"
+      # The marker of a typed branch is its member. By β.
+      + λ s
+        . s (λk. k "wren_recursion_branch_identity") (λx_0. wren_recursion_branch x_0) (λx_0. x_0)
+          λ_ md _. md λk. k "[unfoldings](docs/design/gezi-recursion-typing-proofs.md#unfoldings)"
+      + λ s
+        . s (λk. k "wren_applied_to_nil") (λx_0. wren_applied_to x_0 wren_nil) (λx_0. wren_recursion_branch x_0)
+          λ_ md _. md λk. k "[unfoldings](docs/design/gezi-recursion-typing-proofs.md#unfoldings)"
+      + λ s
+        . s
+          (λk. k "wren_applied_to_cons")
+          (λx_0 x_1 x_2. wren_applied_to x_0 (wren_cons x_1 x_2))
+          (λx_0 x_1 x_2. wren_applied_to ((λk. k x_1) x_0) x_2)
+          λ_ md _. md λk. k "[unfoldings](docs/design/gezi-recursion-typing-proofs.md#unfoldings)"
+      + λ s
+        . s (λk. k "wren_appended_nil") (λx_0. wren_appended wren_nil x_0) (λx_0. wren_cons x_0 wren_nil)
+          λ_ md _. md λk. k "[unfoldings](docs/design/gezi-recursion-typing-proofs.md#unfoldings)"
+      + λ s
+        . s
+          (λk. k "wren_appended_cons")
+          (λx_0 x_1 x_2. wren_appended (wren_cons x_0 x_1) x_2)
+          (λx_0 x_1 x_2. wren_cons x_0 (wren_appended x_1 x_2))
+          λ_ md _. md λk. k "[unfoldings](docs/design/gezi-recursion-typing-proofs.md#unfoldings)"
+      )
+  )

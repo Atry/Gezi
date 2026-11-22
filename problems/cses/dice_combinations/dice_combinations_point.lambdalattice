@@ -1,0 +1,45 @@
+# The base problems of the CSES families repeated_cses_dice_combinations_*: small sums n, the
+# answer the count of sequences of faces 1 to 6 summing to n, modulo 10^9 + 7.
+#
+# THE ANSWER of each row is the problem's definition computed exhaustively
+# (2026-11-21), and CsesSolutions (the family's native solver)
+# gives the same. PROOF: the program of the problem's file follows the
+# definition, and its header argues under Definition 14 that its one normal
+# form is that answer; the data are finite and within the family's bottom
+# rungs, which the reference reading answers. The inputs are our own,
+# no CSES test data.
+#
+#   dice_combinations_point(?Point, ?Sum, ?Result)
+#
+# Each number is from_cbor of an integer literal, a Scott integer, imported
+# from corpora/library/integer/cbor; each name is from_cbor of a string
+# literal, imported from corpora/library/text/cbor.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λvalue. value)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λvalue. value)
+λ integer
+. export
+λ
+. cons
+  ( λ _dice_combinations_point
+    . _dice_combinations_point (text "cses_dice_combinations_sum_one") (integer 1) λ. integer 1
+  )
+λ
+. cons
+  ( λ _dice_combinations_point
+    . _dice_combinations_point (text "cses_dice_combinations_sum_three") (integer 3) λ. integer 4
+  )
+λ
+. cons
+  ( λ _dice_combinations_point
+    . _dice_combinations_point (text "cses_dice_combinations_sum_six") (integer 6) λ. integer 32
+  ) nil

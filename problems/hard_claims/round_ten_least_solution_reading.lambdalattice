@@ -1,0 +1,90 @@
+# ?Point, ?Setting
+# round_ten_least_solution_reading(Point, Setting): for each point, the first
+# line of the archived round-10 reading log of the hard corpus that records the
+# point's intended head as matched ("head matches") under a setting whose reading
+# is a least solution: weak_head, memoised(weak_head), tabling(weak_head),
+# tail_memo_solved(weak_head) or memo_solved(weak_head). One row per point,
+# sorted by point.
+#
+# Each text is from_cbor of a string literal, a Scott list of bytes,
+# imported from corpora/library/text/cbor. FIXME: the import projects "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. export
+λ
+. cons (λ_round_ten_least_solution_reading. _round_ten_least_solution_reading (text "acyclic_ends_carrying_junk") λ. text "weak_head")
+λ
+. cons (λ_round_ten_least_solution_reading. _round_ten_least_solution_reading (text "acyclic_ends_with_count") λ. text "weak_head")
+λ
+. cons (λ_round_ten_least_solution_reading. _round_ten_least_solution_reading (text "acyclic_ends_with_flag") λ. text "weak_head")
+λ
+. cons (λ_round_ten_least_solution_reading. _round_ten_least_solution_reading (text "acyclic_ends_with_pair") λ. text "weak_head")
+λ
+. cons (λ_round_ten_least_solution_reading. _round_ten_least_solution_reading (text "acyclic_ends_with_reversed_list") λ. text "weak_head")
+λ
+. cons (λ_round_ten_least_solution_reading. _round_ten_least_solution_reading (text "acyclic_long_ends") λ. text "weak_head")
+λ
+. cons (λ_round_ten_least_solution_reading. _round_ten_least_solution_reading (text "coins_twenty") λ. text "weak_head")
+λ
+. cons (λ_round_ten_least_solution_reading. _round_ten_least_solution_reading (text "coins_twenty_wrong_count") λ. text "weak_head")
+λ
+. cons (λ_round_ten_least_solution_reading. _round_ten_least_solution_reading (text "coins_unrolled") λ. text "weak_head")
+λ
+. cons (λ_round_ten_least_solution_reading. _round_ten_least_solution_reading (text "common_all_zero") λ. text "weak_head")
+λ
+. cons (λ_round_ten_least_solution_reading. _round_ten_least_solution_reading (text "common_append_length") λ. text "weak_head")
+λ
+. cons (λ_round_ten_least_solution_reading. _round_ten_least_solution_reading (text "common_length_of_map") λ. text "weak_head")
+λ
+. cons (λ_round_ten_least_solution_reading. _round_ten_least_solution_reading (text "common_reverse_twice") λ. text "weak_head")
+λ
+. cons (λ_round_ten_least_solution_reading. _round_ten_least_solution_reading (text "congruential_reachable") λ. text "memoised(weak_head)")
+λ
+. cons (λ_round_ten_least_solution_reading. _round_ten_least_solution_reading (text "fibonacci_parity_nth") λ. text "memoised(weak_head)")
+λ
+. cons (λ_round_ten_least_solution_reading. _round_ten_least_solution_reading (text "game_subtraction_medium") λ. text "memoised(weak_head)")
+λ
+. cons (λ_round_ten_least_solution_reading. _round_ten_least_solution_reading (text "game_subtraction_unrolled") λ. text "weak_head")
+λ
+. cons (λ_round_ten_least_solution_reading. _round_ten_least_solution_reading (text "jit_accumulating_parameter") λ. text "weak_head")
+λ
+. cons (λ_round_ten_least_solution_reading. _round_ten_least_solution_reading (text "jit_hot_count_down") λ. text "weak_head")
+λ
+. cons (λ_round_ten_least_solution_reading. _round_ten_least_solution_reading (text "jit_many_codes") λ. text "weak_head")
+λ
+. cons (λ_round_ten_least_solution_reading. _round_ten_least_solution_reading (text "omega_at_least_forty") λ. text "weak_head")
+λ
+. cons (λ_round_ten_least_solution_reading. _round_ten_least_solution_reading (text "omega_not_forty") λ. text "weak_head")
+λ
+. cons (λ_round_ten_least_solution_reading. _round_ten_least_solution_reading (text "regex_inequivalent_even") λ. text "weak_head")
+λ
+. cons (λ_round_ten_least_solution_reading. _round_ten_least_solution_reading (text "repmin_sum_large") λ. text "memoised(weak_head)")
+λ
+. cons (λ_round_ten_least_solution_reading. _round_ten_least_solution_reading (text "repmin_sum_small") λ. text "weak_head")
+λ
+. cons (λ_round_ten_least_solution_reading. _round_ten_least_solution_reading (text "safety_diamond_trapped") λ. text "memoised(weak_head)")
+λ
+. cons (λ_round_ten_least_solution_reading. _round_ten_least_solution_reading (text "series_product_refuted") λ. text "weak_head")
+λ
+. cons (λ_round_ten_least_solution_reading. _round_ten_least_solution_reading (text "sharing_conjunction_chain") λ. text "memoised(weak_head)")
+λ
+. cons (λ_round_ten_least_solution_reading. _round_ten_least_solution_reading (text "stream_periods_differ_large") λ. text "weak_head")
+λ
+. cons (λ_round_ten_least_solution_reading. _round_ten_least_solution_reading (text "stream_unproductive_by_map_first") λ. text "weak_head")
+λ
+. cons (λ_round_ten_least_solution_reading. _round_ten_least_solution_reading (text "suite_palindrome") λ. text "weak_head")
+λ
+. cons (λ_round_ten_least_solution_reading. _round_ten_least_solution_reading (text "suite_regex_a_n_b_n") λ. text "memoised(weak_head)")
+λ
+. cons (λ_round_ten_least_solution_reading. _round_ten_least_solution_reading (text "type_periods_not_subtype") λ. text "weak_head")
+λ
+. cons (λ_round_ten_least_solution_reading. _round_ten_least_solution_reading (text "type_periods_subtype_unrolled") λ. text "weak_head") nil

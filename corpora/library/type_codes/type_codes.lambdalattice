@@ -1,0 +1,25 @@
+λ export
+. (λtuple. tuple λx y _ _ a. a x y)
+λ arrow_code
+. (λtuple. tuple λ_ b _. b)
+λ boolean_code
+# nat_code:
+# Types as data: the type codes nat_code, boolean_code and arrow_code @ X @ Y
+# (type_codes/), for generic lemmas whose metavariables range over types.
+#
+# TODO: the denotation `assertion` of a code, the kind `assert_type` and the
+# arrow guard `assert_arrow` (files under type_codes/), with the kind facts
+# nat_code_type and boolean_code_type and the delta lemmas
+# assertion_of_nat_code and assertion_of_boolean_code, stood in the knowledge
+# file compiler/type_codes, deleted with it. They
+# mapped the codes to the continuation-passing guards assert_nat and
+# assert_boolean, which are deleted. Nothing replaces them until the design
+# of generic contracts decides whether a code denotes a parallel filter.
+# Read them back with
+# `git show 5f88e32fe:lambda_jit/corpora/standard_library/type_codes.pl` and
+# the files under type_codes/ at the same commit; the conditional
+# lemma compose_typed, deleted earlier, reads back with
+# `git show 6c167174e:lambda_jit/corpora/standard_library/type_codes.pl`.
+. (λtuple. tuple λn _ _. n)
+λ nat_code
+. export arrow_code boolean_code nat_code

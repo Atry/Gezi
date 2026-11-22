@@ -1,0 +1,239 @@
+# The fewest obstacles removed to cross a grid.
+#
+# THE PROBLEM (LeetCode 2290, "Minimum Obstacle Removal to Reach Corner"): a
+# grid of free cells and obstacles; walking from the top left corner to the
+# bottom right one by steps up, down, left and right, how few obstacles must
+# be removed? Asked as the set of the numbers at most K of the obstacles
+# entered by the walks between the corners; K is the fewest, so the set is
+# that one number.
+#
+# THE PROGRAM, in continuation passing style, the continuation the first
+# parameter; a cell is the prelude's pair of two unary numerals, the row and
+# the column; with the prelude's pair, first, second, natural_equal,
+# natural_at_least, natural_difference, successor, and, bit_set_member
+# (Hidden37Obstacles.obstaclesTerm in gezi/contest-corpora); top is no
+# answer (corpora/library/top); + is the choice:
+#
+#     nth     = Y (\self. \xs. \n. xs nil (\h. \t. n h (\m. self t m)))
+#     blocked = \r. \c. bit_set_member (nth Grid r) c
+#     moves   = \r. \c. \f. r top (\m. f m c)
+#                         + at_least LastRow (successor r) (f (successor r) c) top
+#                         + c top (\m. f r m)
+#                         + at_least LastColumn (successor c) (f r (successor c)) top
+#     goal    = \p. and (equal (first p) LastRow) (equal (second p) LastColumn)
+#     pred    = Y (\self. \n. n zero (\h. odd (self h)) (\h. h zero (\_. even h) (\_. even h)))
+#     go      = Y (\self. \k. \e. \s. \p.
+#                  goal p (k e) top
+#                  + (\a. s top (\_. a) (\_. a))
+#                      ((\s'. p (\r. \c. moves r c (\r'. \c'.
+#                         blocked r' c' (e top (\d. self k d s' (pair r' c')))
+#                                       (self k e s' (pair r' c'))))) (pred s)))
+#     program = go (\e. difference K e) K S (pair 0 0)
+#
+# Grid is a Scott list of rows, each a Scott list of Booleans, true for an
+# obstacle; the corners are free. S, the step budget, is the number of
+# states, the cells times K + 1, written as a canonical binary numeral
+# (zero, even, odd; pred is its predecessor), and each move spends one step.
+# Without the budget a walk round the free cells reads ⊥ in DdLP96's
+# reading (a choice is a meet and Y the least fixed point), the whole
+# choice with it, and every closed βη normal form would be an answer.
+# Directions: C (the grid's cycles; a reading that merges the states reads
+# each once); F (a trap whose budget is one short: the walks find nothing,
+# and the right answer is no normal form); D (the prelude's first, second, natural_equal, bit_set_member, the
+# last behind a wrapper of the program); G (the budget); and the
+# regression directions 3 (the nodes of a visited set search are pairs of
+# numerals, not numerals) and 5 (the recursion takes its continuation first,
+# and the steps are made by a closure, moves, that calls back its argument).
+#
+# THE SNAPSHOT. The states are the pairs of a cell and the removals left.
+# From (x, e): x the bottom right corner answers K - e; a step to a free
+# neighbour y goes to (y, e), and a step to an obstacle y to (y, e - 1) when
+# e > 0. The program's answers are the numerals of the
+# answers of the states reachable from the top left corner with K left
+# (Hidden37Obstacles.removalCounts, a search of that finite graph). Every
+# answer is at least the fewest removals (Hidden37Obstacles.fewestRemovals),
+# so for K the fewest the answers are {K}, and for K one less there is none.
+#
+# THE LEMMAS, on the definitions of the functions (problems/attractors and
+# the prelude), not on their native references.
+# ⌜n⌝ is the Scott unary numeral, ⌜0⌝ = λz.λs. z and ⌜n + 1⌝ = λz.λs. s ⌜n⌝,
+# which unary/2 builds exactly, and successor n is one β step from
+# λz.λs. s n; true = λt.λf. t and false = λt.λf. f; pair a b →β λf. f a b,
+# first = λp. p (λl.λ_. l) and second = λp. p (λ_.λr. r), so first
+# (pair a b) =β a and second (pair a b) =β b; a row is a Scott list of
+# Booleans, the grid a Scott list of rows.
+# - (Y) fixpoint G =β G (fixpoint G), two β steps.
+# - (Equal) equal = Y (λs.λm.λn. m (n true (λ_. false))
+#   (λm1. n false (λn1. s m1 n1))). By induction on m, equal ⌜m⌝ ⌜n⌝ =β
+#   true when m = n and false otherwise.
+# - (AtLeast) at_least = Y (λs.λm.λn. n true (λn1. m false (λm1. s m1 n1))).
+#   By induction on n, at_least ⌜m⌝ ⌜n⌝ =β true when m >= n and false
+#   otherwise.
+# - (And) and a b = a b false: and true b =β b, and false b =β false.
+# - (Nth) nth [x0, ..., xm] ⌜i⌝ =β xi for i =< m, by induction on i.
+# - (Member) bit_set_member = Y (λs.λset.λi. set false (λb.λrest. i b
+#   (λp. s rest p))). bit_set_member [b0, ..., bm] ⌜i⌝ =β bi for i =< m,
+#   by induction on i. So blocked ⌜r⌝ ⌜c⌝ =β true exactly when the cell
+#   (r, c) of the grid is an obstacle.
+# - (Moves) moves ⌜r⌝ ⌜c⌝ f is β-equal to a choice of four members, in which
+#   the member of each neighbour (r', c') of (r, c) inside the grid is
+#   β-equal to f ⌜r'⌝ ⌜c'⌝, and every other member to top (a zero coordinate
+#   selects top, and at_least selects top past the last row or column).
+# - (Budget) e top (λd. M) with e =β ⌜j⌝ is β-equal to top when j = 0 and to
+#   M[d := ⌜j - 1⌝] when j > 0.
+# - (Steps) on a canonical binary numeral s > 0, pred s is the canonical
+#   numeral of s - 1 (by induction on the digits: pred (2h) = 2 pred(h) + 1
+#   for h ≥ 1, pred (2h + 1) = 2h, zero when h is), and s top (λ_. a) (λ_. a)
+#   is top when s is zero and a otherwise.
+# - (Difference) difference ⌜m⌝ ⌜n⌝ =β ⌜m - n⌝ when m >= n (the induction
+#   of the prelude's definition, as in the other problems of this group).
+#
+# So go k e s p, with p =β pair ⌜r⌝ ⌜c⌝, e =β ⌜j⌝ and s the binary numeral of
+# t, is β-equal to a choice of two members: the first is β-equal to k e when
+# (r, c) is the bottom right corner (Equal, And) and to top otherwise; the
+# second is top when t = 0 and otherwise the choice of Moves, whose member for
+# a neighbour (r', c') is β-equal to go k e s' (pair ⌜r'⌝ ⌜c'⌝), s' the
+# numeral of t - 1, when it is free, and when it is an obstacle to top if
+# j = 0 and to go k ⌜j - 1⌝ s' (pair ⌜r'⌝ ⌜c'⌝) if j > 0 (Member, Budget,
+# Steps).
+#
+# PROOF, under Definition 14 (doc/proofs/reduction_series_answers.md): top ≃_O 0, so the
+# program has the answers of the one with 0 in top's place, whose reductions terminate (the step budget
+# falls at every move). Its answers are those of its selections, the terms got
+# by choosing one member at every choice (the selection theorem), and a choice holding 0
+# offers no member.
+# - (⊇) Take a path in the graph of the states from (corner, K) to (bottom
+#   right, e); a shortest one has fewer steps than there are states, so it
+#   fits in the budget S. Choose, at each state, the move of the next step,
+#   and at the end the first member: the selection reduces to
+#   k ⌜e⌝ = difference ⌜K⌝ ⌜e⌝ =β ⌜K - e⌝ (Difference).
+# - (⊆) A selection follows moves to neighbours inside the grid, an obstacle
+#   paid by a removal, while steps are left, and either chooses the first
+#   member at the bottom right corner, reducing to ⌜K - e⌝ for a reachable
+#   state (bottom right, e), or meets 0 (the first member elsewhere, a move
+#   off the grid, an obstacle with no removal left, the step budget spent)
+#   and is no selection. So every answer is the answer of a
+#   reachable state.
+#
+# THE SUBTASKS AND THE TRAPS: obstacles_point/6 below. The traps take the
+# budget one short of the fewest, so they have no answer: a reading that
+# answers some number there is wrong, and one that does not merge the states
+# follows every walk within the step budget, exponentially many.
+# Hidden37ObstaclesReadingTest checks the tabled weak head against
+# Hidden37Obstacles.removalCounts on every grid of two rows and two or three
+# columns at every budget from 0 to 2.
+#
+# TARGET ALGORITHM: the search over the pairs of a cell and the removals,
+# with a visited set, or Dijkstra's algorithm on the grid with the cost of
+# entering an obstacle 1 and of a free cell 0 (E. W. Dijkstra, A Note on Two
+# Problems in Connexion with Graphs, Numer. Math. 1959,
+# doi:10.1007/BF01386390); tabled evaluation keyed by the value of the cell
+# and the budget (W. Chen, D. S. Warren, J. ACM 1996,
+# doi:10.1145/227595.227597).
+
+#   THE SUBTASKS: obstacles_point(?Point, ?Rows, ?Columns, ?Seed, ?Slack,
+#   ?Kind): a Rows by Columns grid, each cell an obstacle with probability
+#   three in five from a linear congruential sequence of Seed, the corners
+#   free; the budget the fewest removals plus Slack.
+#   Read on the budgeted program (a probe of 2026-11-12, a
+#   scratch test not committed, contest-framework.slice, CPUs 0 and 1;
+#   the steps of `NormalForms.normalForms` within 20,000,000):
+#   tabling(weak_head) reads four by five (the fewest 3) in 20,356 steps
+#   and runs out of tables at about 110,000 steps on twenty, thirty two,
+#   forty eight and sixty four; weak_head runs out of steps on all five;
+#   the trap of four reads no answer in 58,517 (weak_head) and 2,977
+#   (tabling), and the trap of twenty is read by neither. The step budget
+#   is part of the state a reading's table keys on, so a table keyed by the
+#   spelling merges two states only at the same steps left, which is why
+#   the tabled reading stops at twenty where it read forty eight on the
+#   unbudgeted program (2026-09-30). The sizes stay (2026-11-12):
+#   the references are the native removalCounts, not readings, and the
+#   large grids ask a reading to merge the states by value, which is the
+#   family's question. The native reference answers every point in
+#   milliseconds.
+#
+# Each text is from_cbor of a string literal, a Scott list of bytes,
+# imported from corpora/library/text/cbor. Each number is from_cbor of an
+# integer literal, a Scott integer, imported from corpora/library/integer/cbor.
+# FIXME: the imports project "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λx. x)
+λ integer
+. export
+λ
+. cons
+  ( λ _obstacles_point
+    . _obstacles_point (text "hidden_37_obstacles_four") (integer 4) (integer 5) (integer 4) (integer 0) λ. text "subtask"
+  )
+λ
+. cons
+  ( λ _obstacles_point
+    . _obstacles_point
+      (text "hidden_37_obstacles_twenty")
+      (integer 20)
+      (integer 20)
+      (integer 2)
+      (integer 0) λ. text "subtask"
+  )
+λ
+. cons
+  ( λ _obstacles_point
+    . _obstacles_point
+      (text "hidden_37_obstacles_thirty_two")
+      (integer 32)
+      (integer 32)
+      (integer 3)
+      (integer 0) λ. text "subtask"
+  )
+λ
+. cons
+  ( λ _obstacles_point
+    . _obstacles_point
+      (text "hidden_37_obstacles_forty_eight")
+      (integer 48)
+      (integer 48)
+      (integer 5)
+      (integer 0) λ. text "subtask"
+  )
+λ
+. cons
+  ( λ _obstacles_point
+    . _obstacles_point
+      (text "hidden_37_obstacles_sixty_four")
+      (integer 64)
+      (integer 64)
+      (integer 7)
+      (integer 0) λ. text "subtask"
+  )
+λ
+. cons
+  ( λ _obstacles_point
+    . _obstacles_point
+      (text "hidden_37_obstacles_trap_four")
+      (integer 4)
+      (integer 5)
+      (integer 4)
+      (integer -1) λ. text "trap"
+  )
+λ
+. cons
+  ( λ _obstacles_point
+    . _obstacles_point
+      (text "hidden_37_obstacles_trap_twenty")
+      (integer 20)
+      (integer 20)
+      (integer 2)
+      (integer -1) λ. text "trap"
+  ) nil

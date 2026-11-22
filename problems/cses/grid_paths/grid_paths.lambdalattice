@@ -1,0 +1,79 @@
+# grid_paths:
+# CSES 1638, Grid Paths I (https://cses.fi/problemset/task/1638), in our own
+# words: a square grid whose squares are free or traps; the number of ways to go
+# from the top left square to the bottom right square by steps right and down
+# that never enter a trap (zero when either end is a trap), modulo 10^9 + 7. The
+# input is the grid as a Scott list of rows, each a Scott list of Scott
+# booleans, true for a free square, false for a trap. Part of the CSES port's
+# second batch.
+#
+# THE PROGRAM, written by the definition: the list of all paths from the top
+# left square of a grid is built (none when that square is a trap, the empty path
+# when the grid is that one square, otherwise each path of the grid without its
+# first row with a step down put in front, and each path of the grid without its
+# first column with a step right put in front, a step being a Scott boolean), and
+# its length is counted in binary and reduced modulo 10^9 + 7. Its reading is
+# exponential in the grid even under tabling, since the paths themselves are built
+# and counted; the replacement the family asks for is the dynamic program
+# ways(row, column) = ways(row - 1, column) + ways(row, column - 1) over the squares, on fixed-width
+# integers modulo 10^9 + 7.
+#
+# DEFINITION 14: the program P, the point's term, is built of λ and application
+# only: its text holds no top, no choice, no parallel and no literal (the modulus
+# and the numerals are written with binary_zero, binary_even and binary_odd). It
+# β-reduces to V, the canonical binary numeral of the answer: every recursion
+# ends, since paths consumes the grid, a finite list of finite lists that loses a
+# row or a column at each call, and every other recursion consumes a finite list
+# or a binary numeral. So the β reduction reaches V; the branches that a Scott
+# boolean discards are never read. ../common/binary_modular's binary_modulo, which
+# writes no top, is called with the positive modulus only. So ⊢_β P = V, and
+# P ≃_O V by the soundness of the derivable equations for the contextual preorder
+# of Definition 14 (Lean
+# `ContextualPreorder.contextualEquivalenceOfDerivableLatticeEta`): V is an
+# answer, P ⊑_O V. No other closed βη normal form W has P ⊑_O W: then V ⊑_O W,
+# while Böhm's theorem gives a pure context that takes V to λx y. x and W to
+# λx y. y, and applying both to λa. a and Ω makes the first solvable and the
+# second not.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "fixpoint")
+λ fixpoint
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "boolean")
+λ true false _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons append map _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "natural")
+λ binary_zero binary_even binary_odd _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "arithmetic")
+λ merge_binary_increment _ _ _
+. omega (omega (omega (omega (omega gezi "problems") "cses") "common") "binary_modular")
+λ _ _ _ binary_modulo
+. (λtuple. tuple λ. binary_odd λ. binary_odd λ. binary_odd λ. binary_even λ. binary_even λ. binary_even λ. binary_even λ. binary_even λ. binary_even λ. binary_odd λ. binary_even λ. binary_odd λ. binary_even λ. binary_even λ. binary_odd λ. binary_odd λ. binary_even λ. binary_odd λ. binary_even λ. binary_odd λ. binary_odd λ. binary_even λ. binary_even λ. binary_odd λ. binary_odd λ. binary_odd λ. binary_even λ. binary_odd λ. binary_odd λ. binary_odd binary_zero)
+λ modulus
+. ( λ tuple
+    . tuple λ. fixpoint λself count items. items count λ_ tail. self (merge_binary_increment count) tail
+  )
+λ count_from
+. ( λ tuple
+    . tuple
+    λ. fixpoint
+    λ self rows
+    . rows nil
+      λ row others
+      . row nil
+        λ free rest
+        . free
+          ( ( λ down right
+              . others
+                (rest (cons nil nil) λ_ _. right)
+                λ_ _. append down λ. right
+            )
+            ( others nil λ_ _. map (cons true) λ. self others )
+            ( rest nil λ_ _. map (cons false) λ. self λ. map (λgrid_row. grid_row nil λ_ tail. tail) rows )
+          ) nil
+  )
+λ paths
+. (λtuple. tuple λrows. binary_modulo (count_from binary_zero λ. paths rows) modulus)
+λ grid_paths
+. export grid_paths

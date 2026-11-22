@@ -1,0 +1,8 @@
+# The recursion of a point or twin of common_subsequence_point and
+# common_subsequence_twin: a Scott sum of two constructors, in order:
+# longest_common_subsequence, whose match adds one to the recursion over
+# both tails, and near, whose match does not count. Read by its position
+# (gezi.contest.corpora.reductions.SetFreeDynamic, recursion, into
+# SetFreeDynamic.Recursion).
+λ export
+. export (λlongest_common_subsequence near. longest_common_subsequence) λlongest_common_subsequence near. near

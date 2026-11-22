@@ -1,0 +1,12 @@
+height 1: 1 bindings, 82 characters
+height 2: 2 bindings, 161 characters
+height 3: 3 bindings, 236 characters
+height 4: 4 bindings, 311 characters
+height 5: 5 bindings, 390 characters
+height 6: 6 bindings, 471 characters
+height 7: 7 bindings, 554 characters
+height 8: 8 bindings, 631 characters
+height 9: 9 bindings, 706 characters
+height 10: 10 bindings, 781 characters
+height 11: 11 bindings, 864 characters
+height 12: 12 bindings, 945 characters

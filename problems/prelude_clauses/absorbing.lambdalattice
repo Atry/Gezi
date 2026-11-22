@@ -1,0 +1,10 @@
+#   The absorbing term `fixpoint @ (\self. \_. self)`: an abstraction that,
+#   applied to any argument, reduces to itself.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega gezi "problems") "prelude_clauses") "fixpoint")
+λ fixpoint
+. omega (omega (omega (omega gezi "problems") "prelude_clauses") "absorbing_body")
+λ absorbing_body
+. export λ. fixpoint absorbing_body

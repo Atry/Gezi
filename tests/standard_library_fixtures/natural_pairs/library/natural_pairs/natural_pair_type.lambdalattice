@@ -1,0 +1,7 @@
+# The pairs of naturals.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega natural_pairs "nat_type")
+λ nat_type
+. export λp. p nat_type nat_type

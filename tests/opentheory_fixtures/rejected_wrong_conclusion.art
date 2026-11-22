@@ -1,0 +1,168 @@
+# An OpenTheory article (format version 6, https://www.gilith.com/opentheory/article.html)
+# that the reader must reject. It is accepted_choice_commutativity_instance.art beside it,
+# whose header explains the encoding, up to the last block: the proof derives
+#   |- choice (choice x y) y = choice y (choice x y)
+# and thm claims
+#   |- choice (choice x y) y = y
+# instead. The claim would also equate every term with the empty choice: with y the empty
+# choice, the commutativity of the choice and its unit law, empty + M = M, turn it into
+# x = the empty choice.
+6
+version
+# key 0: the type term
+"LambdaJit.term"
+typeOp
+nil
+opType
+0
+def
+pop
+# key 1: the function space type operator ->
+"->"
+typeOp
+1
+def
+pop
+# key 2: the constant term LambdaJit.choice : term -> (term -> term); constTerm pops the
+# type and then the constant, so the constant is pushed first
+"LambdaJit.choice"
+const
+1
+ref
+0
+ref
+1
+ref
+0
+ref
+0
+ref
+nil
+cons
+cons
+opType
+nil
+cons
+cons
+opType
+constTerm
+2
+def
+pop
+# keys 3 and 4: the variables x : term and y : term
+"x"
+0
+ref
+var
+3
+def
+pop
+"y"
+0
+ref
+var
+4
+def
+pop
+# key 5: the term choice x y
+2
+ref
+3
+ref
+varTerm
+appTerm
+4
+ref
+varTerm
+appTerm
+5
+def
+pop
+# key 6: the equality constant = at the type term -> (term -> bool)
+"="
+const
+1
+ref
+0
+ref
+1
+remove
+0
+remove
+"bool"
+typeOp
+nil
+opType
+nil
+cons
+cons
+opType
+nil
+cons
+cons
+opType
+constTerm
+6
+def
+pop
+# key 7: the axiom |- choice x y = choice y x; axiom pops the conclusion and then the list of
+# hypotheses, here empty
+nil
+6
+ref
+5
+ref
+appTerm
+2
+ref
+4
+ref
+varTerm
+appTerm
+3
+ref
+varTerm
+appTerm
+appTerm
+axiom
+7
+def
+pop
+# subst pops the theorem and then the substitution, a list of the type variable
+# instantiation (empty) and the term variable instantiation [x := choice x y]
+nil
+3
+remove
+5
+ref
+nil
+cons
+cons
+nil
+cons
+nil
+cons
+cons
+7
+remove
+subst
+# thm claims choice (choice x y) y = y, which is not the theorem on the stack, so the reader
+# stops here with an error
+nil
+6
+remove
+2
+remove
+5
+remove
+appTerm
+4
+ref
+varTerm
+appTerm
+appTerm
+4
+remove
+varTerm
+appTerm
+thm

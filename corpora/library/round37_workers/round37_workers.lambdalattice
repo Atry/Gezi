@@ -1,0 +1,32 @@
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "prelude") "fixpoint")
+λ fixpoint
+. omega (omega (omega (omega corpora "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega corpora "library") "prelude") "natural")
+λ _ _ unary _ _ natural_at_least natural_difference
+. omega (omega (omega corpora "library") "top")
+λ top
+# unary_list:
+#   A finite list of unary numerals, the jobs and the times left.
+. (λtuple. tuple λ. fixpoint λself l. l nil λh t. cons (unary h) λ. self t)
+λ unary_list
+. ( λ tuple
+    . tuple
+    λ
+    . fixpoint
+    λ self caps j f
+    . caps top
+    λ c others
+    . ( self others j λrest. f λ. cons c rest
+      + natural_at_least c j (f λ. cons (natural_difference c j) others) top
+      )
+  )
+λ workers_assign
+. ( λ tuple
+    . tuple λ. fixpoint λself jobs caps k. jobs (k caps) λj rest. workers_assign caps j λnext. self rest next k
+  )
+λ workers_place
+. export unary_list workers_assign workers_place

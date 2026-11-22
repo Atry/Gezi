@@ -1,0 +1,77 @@
+# The lemmas and natives of the DSL's module `prelude`; its defines are the
+# lambdalattice files of the directory prelude/, one define per file: the problems' own functions,
+# their constructors, and the combinators they are written with. A problem
+# module, not knowledge.
+#
+# Every lemma's proof is metadata, a constructor of
+# backend_vocabulary/proof_kinds (a munit suite that checks the lemma, or a
+# citation of a paper proof), which the compiler does not read. Each equation
+# of a recursive function is an equation lemma, with the same interface as
+# every lemma: compiling a function's equations as rows would need the
+# constructors grouped by type, which is type knowledge in the host.
+
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "prelude") "natural")
+λ zero successor _ natural_double natural_equal natural_at_least natural_difference
+. omega (omega (omega (omega corpora "library") "prelude") "boolean")
+λ true false _ _
+. omega (omega (omega (omega corpora "library") "prelude") "combinators")
+λ identity _ compose _ apply_to _ _
+. export
+λ _ rewriting _ _
+. rewriting
+λ _ lemmas _
+. lemmas
+  # ---- the beta laws of the combinators ----
+  ( λ s
+    . s (λk. k "compose_applied") (λx_0 x_1 x_2. compose x_0 x_1 x_2) (λx_0 x_1 x_2. x_0 λ. x_1 x_2) λmunit _ _. munit λk. k "gezi.standardlibrary.StandardLibraryLemmasTest"
+  + λ s
+    . s (λk. k "identity_applied") (λx_0. identity x_0) (λx_0. x_0) λmunit _ _. munit λk. k "gezi.standardlibrary.StandardLibraryLemmasTest"
+  + λ s
+    . s (λk. k "apply_to_applied") (λx_0 x_1. apply_to x_0 x_1) (λx_0 x_1. x_1 x_0) λmunit _ _. munit λk. k "gezi.standardlibrary.StandardLibraryLemmasTest"
+  # ---- the rows of the recursive functions, one equation lemma each ----
+  + λ s
+    . s
+      (λk. k "natural_double_successor")
+      (λx_0. natural_double λ. successor x_0)
+      (λx_0. successor λ. successor λ. natural_double x_0) λmunit _ _. munit λk. k "gezi.standardlibrary.StandardLibraryLemmasTest"
+  + λ s
+    . s (λk. k "natural_double_zero") (natural_double zero) zero λmunit _ _. munit λk. k "gezi.standardlibrary.StandardLibraryLemmasTest"
+  + λ s
+    . s
+      (λk. k "natural_difference_successor_successor")
+      (λx_0 x_1. natural_difference (successor x_0) λ. successor x_1)
+      (λx_0 x_1. natural_difference x_0 x_1) λmunit _ _. munit λk. k "gezi.standardlibrary.StandardLibraryLemmasTest"
+  + λ s
+    . s
+      (λk. k "natural_difference_zero_successor")
+      (λx_0. natural_difference zero λ. successor x_0)
+      (λx_0. zero) λmunit _ _. munit λk. k "gezi.standardlibrary.StandardLibraryLemmasTest"
+  + λ s
+    . s (λk. k "natural_difference_zero") (λx_0. natural_difference x_0 zero) (λx_0. x_0) λmunit _ _. munit λk. k "gezi.standardlibrary.StandardLibraryLemmasTest"
+  + λ s
+    . s
+      (λk. k "natural_at_least_successor_successor")
+      (λx_0 x_1. natural_at_least (successor x_0) λ. successor x_1)
+      (λx_0 x_1. natural_at_least x_0 x_1) λmunit _ _. munit λk. k "gezi.standardlibrary.StandardLibraryLemmasTest"
+  + λ s
+    . s
+      (λk. k "natural_at_least_zero_successor")
+      (λx_0. natural_at_least zero λ. successor x_0)
+      (λx_0. false) λmunit _ _. munit λk. k "gezi.standardlibrary.StandardLibraryLemmasTest"
+  + λ s
+    . s (λk. k "natural_at_least_zero") (λx_0. natural_at_least x_0 zero) (λx_0. true) λmunit _ _. munit λk. k "gezi.standardlibrary.StandardLibraryLemmasTest"
+  + λ s
+    . s
+      (λk. k "natural_equal_successor_successor")
+      (λx_0 x_1. natural_equal (successor x_0) λ. successor x_1)
+      (λx_0 x_1. natural_equal x_0 x_1) λmunit _ _. munit λk. k "gezi.standardlibrary.StandardLibraryLemmasTest"
+  + λ s
+    . s (λk. k "natural_equal_successor_zero") (λx_0. natural_equal (successor x_0) zero) (λx_0. false) λmunit _ _. munit λk. k "gezi.standardlibrary.StandardLibraryLemmasTest"
+  + λ s
+    . s (λk. k "natural_equal_zero_successor") (λx_0. natural_equal zero λ. successor x_0) (λx_0. false) λmunit _ _. munit λk. k "gezi.standardlibrary.StandardLibraryLemmasTest"
+  + λ s
+    . s (λk. k "natural_equal_zero_zero") (natural_equal zero zero) true λmunit _ _. munit λk. k "gezi.standardlibrary.StandardLibraryLemmasTest"
+  )

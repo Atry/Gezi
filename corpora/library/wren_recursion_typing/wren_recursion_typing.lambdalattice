@@ -1,0 +1,52 @@
+# The combinators of the typing of a recursion's arguments: the filters of a
+# recursion's parameters are an object-level list, walked by combinators, so
+# that one fixed set of lemmas types a recursion of any arity: an arity is a
+# term, and no family of lemmas is generated. Each is a
+# noinline leaf of wren_recursion_typing's knowledge, unfolded only by its
+# lemmas, on the closed lists the enter and extend lemmas build.
+#
+# wren_nil, wren_cons: the Scott list constructors of those lists, the
+# library's nil and cons without their constructor tag and with an η-redex in
+# the body, so that no program's list and no other define shares their
+# handles: a round uses every usable direction of a lemma, and a backward
+# unfolding whose side is a list would otherwise match every list a program
+# builds.
+# wren_with_inputs Ts K: K with its parameters filtered in order by the
+# filters Ts; wren_with_inputs wren_nil K = K and wren_with_inputs
+# (wren_cons T Rest) K = λa. wren_with_inputs Rest (K (a ∥ T)).
+# wren_typed_fixpoint G Ts: the recursion of the body G, by value, with its
+# first parameters filtered by Ts where the body reads them.
+# wren_applied_to K Xs: K applied to the members of Xs in order.
+# wren_appended Xs Y: Xs with Y added at its end.
+# wren_apply K X: K applied to X, a marker that the lemma
+# wren_apply_closure turns into the application K X where K's class holds a
+# closure, the application the β rule then reads.
+# wren_recursion_branch M: M, the marker of a typed branch these lemmas
+# write, so that no side is a bare metavariable; wren_recursion_branch_identity
+# unites it with M.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "native_types") "fixpoint")
+λ fixpoint
+. omega (omega (omega (omega corpora "library") "wren_typed_block") "wren_typed_block")
+λ wren_fixpoint_by_value _ _ _ _ _ _ _ _
+. (λtuple. tuple λn. (λy. y) λc. n)
+λ wren_nil
+. (λtuple. tuple λh t. (λy. y) λn c. c h t)
+λ wren_cons
+. (λtuple. tuple λ. fixpoint λwith_inputs filters k. filters k λfilter rest argument. with_inputs rest (k (argument ∥ filter)))
+λ wren_with_inputs
+. (λtuple. tuple λbody filters. wren_fixpoint_by_value λself. wren_with_inputs filters (body self))
+λ wren_typed_fixpoint
+. (λtuple. tuple λ. fixpoint λapplied_to k arguments. arguments k λargument rest. applied_to (k argument) rest)
+λ wren_applied_to
+. ( λ tuple
+    . tuple λ. fixpoint λappended members last. members (wren_cons last wren_nil) λmember rest. wren_cons member (appended rest last)
+  )
+λ wren_appended
+. (λtuple. tuple λk. (λy. y) λx. k x)
+λ wren_apply
+. (λtuple. tuple λx. (λy. y) ((λy. y) x))
+λ wren_recursion_branch
+. export wren_nil wren_cons wren_with_inputs wren_typed_fixpoint wren_applied_to wren_appended wren_apply wren_recursion_branch

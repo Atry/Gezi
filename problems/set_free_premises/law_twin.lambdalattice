@@ -1,0 +1,32 @@
+#   law_twin(?Law, ?Twin, ?Function, ?Spelling)
+#
+# The law is a constructor of set_free_premises/law, involution or unit;
+# the spelling is a constructor of schema/spelling, direct or respelled.
+# Each other text is from_cbor of a string literal, a Scott list of bytes,
+# imported from corpora/library/text/cbor. FIXME: the imports project "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. omega (omega (omega (omega gezi "problems") "schema") "spelling")
+λ direct respelled
+. omega (omega (omega (omega gezi "problems") "set_free_premises") "law")
+λ involution unit
+. export
+λ
+. cons (λ_law_twin. _law_twin involution (text "direct") (text "complement") direct)
+λ
+. cons (λ_law_twin. _law_twin involution (text "respelled") (text "complement") respelled)
+λ
+. cons (λ_law_twin. _law_twin unit (text "direct") (text "unit") direct)
+λ
+. cons (λ_law_twin. _law_twin unit (text "respelled") (text "unit") respelled)
+λ
+. cons (λ_law_twin. _law_twin unit (text "near_miss") (text "unit_near") direct) nil

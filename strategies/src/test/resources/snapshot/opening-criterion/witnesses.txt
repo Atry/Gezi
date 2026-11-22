@@ -1,0 +1,39 @@
+# sample 0
+a0 (a1 b1) in λz. (((λw. w) z) + (λh1. λh2. λh3. λh4. h4 h3 h2 h1) (λx_0. x_0) z)
+=>
+default Some(0), narrower Some(0)
+
+# sample 1
+a0 (a1 + b1) in λz. ((z + z) ∥ (λh1. λh2. λh3. λh4. h4 h3 h2 h1) (λx_0. (x_0 + x_0 ∥ λx_1. x_1)) z)
+=>
+default Some(4), narrower Some(4)
+
+# sample 2
+a0 (a1 + b1) in λz. ((z + z) ∥ (λh1. λh2. λh3. λh4. h4 h3 h2 h1) (λx_0. x_0) z)
+=>
+default Some(4), narrower Some(4)
+
+# sample 3
+a0 (a1 b1) in λz. (((λw. w) z) + (λh1. λh2. λh3. λh4. h4 h3 h2 h1) (λx_0. λx_1. x_1 x_0 (λx_2. (x_0 ∥ x_1)) x_1) z)
+=>
+default Some(0), narrower Some(0)
+
+# sample 4
+a0 (a1 + b1) in λz. ((z + z) ∥ (λh1. λh2. λh3. λh4. h4 h3 h2 h1) (λx_0. λx_1. ((x_1 ∥ x_0) (x_1 ∥ x_0) ∥ (x_1 ∥ x_0) (x_1 ∥ x_0) + ((x_1 ∥ x_0) (x_1 ∥ x_0) ∥ (x_1 ∥ x_0) (x_1 ∥ x_0)))) z)
+=>
+default Some(4), narrower Some(4)
+
+# sample 5
+a0 (a1 + b1) in λz. ((z + z) ∥ (λh1. λh2. λh3. λh4. h4 h3 h2 h1) (λx_0. x_0) z)
+=>
+default Some(4), narrower Some(4)
+
+# sample 6
+a0 (a1 + b1) in λz. ((z + z) ∥ (λh1. λh2. λh3. λh4. h4 h3 h2 h1) (λx_0. x_0 (λx_1. (x_1 + (x_0 + x_1) ∥ (x_1 + (x_0 + x_1))))) z)
+=>
+default Some(4), narrower Some(4)
+
+# sample 7
+a0 (a1 + b1) in λz. ((z + z) ∥ (λh1. λh2. λh3. λh4. h4 h3 h2 h1) (λx_0. x_0) z)
+=>
+default Some(4), narrower Some(4)

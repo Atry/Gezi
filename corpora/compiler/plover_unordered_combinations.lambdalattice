@@ -1,0 +1,81 @@
+# The typed branch of the unordered combinations: a program that counts, modulo a
+# modulus, the ways to reach a target with items written by the definition equals
+# the choice of itself and the typed version at filtered operands, for every items,
+# target and modulus, by monotonicity alone, by the paper proof its declaration cites.
+#
+# This module adds the recognition of the recursion and the branch. The let and the
+# call of a counting function, and the lists restored for a block's literals, are the
+# lemmas of plover_ordered_compositions, whose metavariable for the recursion takes
+# this one as well, so a round enables the two modules together.
+#
+# The typed version is a noinline leaf, so the lemma never matches inside its own
+# right side. Termination of this module's saturation, derived and not proved: the
+# left sides' instances are the program's own subterms of those shapes, and the right
+# sides add only the attractor, the leaf and filters of operands already there.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "prelude") "fixpoint")
+λ fixpoint
+. omega (omega (omega (omega corpora "library") "prelude") "list")
+λ nil cons append map _
+. omega (omega (omega (omega corpora "library") "binary") "natural")
+λ binary_zero _ _ _ binary_set
+. omega (omega (omega (omega corpora "library") "binary") "arithmetic")
+λ _ merge_binary_plus _ merge_binary_equality
+. omega (omega (omega (omega corpora "library") "binary") "order")
+λ binary_less_than _ _
+. omega (omega (omega (omega corpora "library") "native_types") "list")
+λ _ _ _ list_type
+. omega (omega (omega (omega corpora "library") "native_types") "boolean")
+λ true false _ _
+. omega (omega (omega (omega corpora "library") "plover_compositions") "plover_compositions")
+λ _ plover_count_from plover_binary_modulo _ _ _
+. omega (omega (omega (omega corpora "library") "plover_compositions") "plover_combinations")
+λ plover_combination_sequences _ plover_typed_combinations
+. export
+  ( λ _ rewriting _ _
+    . rewriting
+    λ _ _ leaves
+    . leaves (λkey. key plover_combination_sequences + λkey. key plover_typed_combinations)
+  + λ _ _ _ backend
+    . backend
+    λ _ natives _ _ _ _
+    . natives (λ binding. binding plover_typed_combinations λkey. key "plover_unordered_combinations")
+  + λ _ rewriting _ _
+    . rewriting
+    λ _ lemmas _
+    . lemmas
+      # The recursion with the items fixed by the program: the left side
+      # has two binders and the right side one, so items is the lemma's one
+      # metavariable and target the binder of an object lambda.
+      ( λ lemma
+        . lemma
+          (λkey. key "plover_combination_sequences_folded")
+          ( λ items target
+            . fixpoint
+              ( λ self suffix partial_sum
+                . binary_less_than target partial_sum nil
+                λ. merge_binary_equality partial_sum target (cons nil nil)
+                λ. fixpoint
+                  ( λ along rest
+                    . rest nil λcoin later. append (map (cons coin) λ. self rest λ. merge_binary_plus partial_sum coin) λ. along later
+                  ) suffix
+              ) items binary_zero
+          )
+          (λ items. plover_combination_sequences items)
+        λ _ metadata _
+        . metadata λkey. key "[plover_combination_sequences_folded](docs/design/gezi-plover-ordered-compositions-proofs.md)"
+      + λ lemma
+        . lemma
+          (λkey. key "plover_combinations_branch")
+          (λ items target modulus. plover_binary_modulo (plover_count_from binary_zero λ. plover_combination_sequences items target) modulus)
+          ( λ items target modulus
+            . ( plover_binary_modulo (plover_count_from binary_zero λ. plover_combination_sequences items target) modulus
+              + plover_typed_combinations (items ∥ list_type (binary_set false)) (target ∥ binary_set true) (modulus ∥ binary_set false)
+              )
+          )
+        λ _ metadata _
+        . metadata λkey. key "[plover_combinations_branch](docs/design/gezi-plover-ordered-compositions-proofs.md)"
+      )
+  )

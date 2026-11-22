@@ -1,0 +1,26 @@
+# The erasure of the occurrence tags: the round after the type check, whose input is the type check's
+# output, reads $name t x as x and $closure t c as c, so that its extraction
+# spells the typed program without the tags the front end put on the program's
+# occurrences (lambda_jit_surface, OCCURRENCES). Enabled with native_types,
+# which declares $name and $closure, in a round of its own: during the type check
+# the tags keep the occurrences apart.
+
+# $name t x = x: $name's definition in native_types/markers,
+# λt x. (λ"$name" v. v) "$name" x, and the β rule.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "native_types") "markers")
+λ _ _ $name $closure
+. export
+λ _ rewriting _ _
+. rewriting
+λ _ lemmas _
+. lemmas
+  # $closure t c = c: $closure's definition in native_types/markers,
+  # λt c. (λ"$closure" v. v) "$closure" c, and the β rule.
+  ( λ s
+    . s (λk. k "occurrence_closure_erased") (λx_0 x_1. $closure x_0 x_1) (λx_0 x_1. x_1) λ_ md _. md λk. k "[occurrence_erased](docs/design/gezi-native-route-engine.md)"
+  + λ s
+    . s (λk. k "occurrence_name_erased") (λx_0 x_1. $name x_0 x_1) (λx_0 x_1. x_1) λ_ md _. md λk. k "[occurrence_erased](docs/design/gezi-native-route-engine.md)"
+  )

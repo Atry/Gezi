@@ -1,0 +1,5 @@
+#   closure_body(+Step, +Exists, +And, -Body): \self. \x. \z. [step x z,
+#   exists (\y. and (step x y) (self self y z))], the least relation that
+#   holds on Step and is closed under composing Step with it.
+λ export
+. export λx_0 x_1 x_2 x_3 x_4 x_5. (x_1 λx_6. x_2 (x_0 x_4 x_6) λ. x_3 x_3 x_6 x_5 + x_0 x_4 x_5)

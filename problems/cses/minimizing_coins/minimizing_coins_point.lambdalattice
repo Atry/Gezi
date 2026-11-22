@@ -1,0 +1,59 @@
+# The base problems of the CSES families repeated_cses_minimizing_coins_*: a few coin values
+# and a target x, the answer the fewest coins summing to x, or none. One row
+# is a set where the greedy choice of the largest coin is not the fewest
+# (1, 3, 4 for 6), and two have no such coins.
+#
+# THE ANSWER of each row is the problem's definition computed exhaustively
+# (2026-11-21), and CsesSolutions (the family's native solver)
+# gives the same. PROOF: the program of the problem's file follows the
+# definition, and its header argues under Definition 14 that its one normal
+# form is that answer; the data are finite and within the family's bottom
+# rungs, which the reference reading answers. The inputs are our own,
+# no CSES test data.
+#
+#   minimizing_coins_point(?Point, ?Coins, ?Target, ?Result)
+#
+# Coins is a Scott list (corpora/library/prelude/list) of integers, each
+# from_cbor of an integer literal (corpora/library/integer/cbor); Result is a
+# Scott option of corpora/library/attractors/option, none or some k.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λvalue. value)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λvalue. value)
+λ integer
+. omega (omega (omega (omega (omega gezi "corpora") "library") "attractors") "option")
+λ none some
+. export
+λ
+. cons
+  ( λ _minimizing_coins_point
+    . _minimizing_coins_point (text "cses_minimizing_coins_two_three_seven") (cons (integer 2) λ. cons (integer 3) λ. nil) (integer 7) λ. some (integer 3)
+  )
+λ
+. cons
+  ( λ _minimizing_coins_point
+    . _minimizing_coins_point (text "cses_minimizing_coins_greedy_is_not_fewest") (cons (integer 1) λ. cons (integer 3) λ. cons (integer 4) λ. nil) (integer 6) λ. some (integer 2)
+  )
+λ
+. cons
+  ( λ _minimizing_coins_point
+    . _minimizing_coins_point (text "cses_minimizing_coins_one_coin_exact") (cons (integer 4) λ. nil) (integer 4) λ. some (integer 1)
+  )
+λ
+. cons
+  ( λ _minimizing_coins_point
+    . _minimizing_coins_point (text "cses_minimizing_coins_no_multiple") (cons (integer 3) λ. nil) (integer 8) λ. none
+  )
+λ
+. cons
+  ( λ _minimizing_coins_point
+    . _minimizing_coins_point (text "cses_minimizing_coins_odd_target_even_coins") (cons (integer 2) λ. cons (integer 4) λ. nil) (integer 5) λ. none
+  ) nil

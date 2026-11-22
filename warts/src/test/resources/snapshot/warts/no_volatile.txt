@@ -1,0 +1,2 @@
+Error planted.scala:2:16 marking "@volatile var planted = 0": [wartremover:NoVolatile] @volatile is disabled
+1 error found

@@ -1,0 +1,117 @@
+# DECISIONS THAT PASS THEIR ANSWER TO CONTINUATIONS (purpose
+# definedness).
+#
+# Every point is M = Y G with G = \x. \t. \f. B: a decision written in
+# continuation passing style, which delivers its answer by calling the
+# continuation t (true) or f (false), and on a cycle calls itself again in
+# tail position with the continuations rebuilt. M is an abstraction, and
+# the body of M t f is a term with the free variables t and f that never
+# reaches an abstraction or a variable at its head.
+#
+# WHY THE PUBLISHED PROOFS DO NOT APPLY AS THEY STAND. Every conjecture
+# proved so far (fixpoint, comparison, safety, subtype, certificate and
+# respelled collapse, `contest_hard_claims.pl`) is an instance of the
+# collapse lemma (`doc/proofs/false_only_small_cycles.md`, section 2): a
+# set S of CLOSED terms with V the only abstraction in S, collapsed onto
+# V. Here M itself is an abstraction other than V, and the terms that
+# loop are M A B with the continuations A and B inside them, rebuilt on
+# every lap, so the equation to be shown consistent is one about M applied
+# to every pair of continuations, not about one closed term.
+#
+# The claims, the tests of `contest_hard_claims.pl`: boolean(true) is
+# `\a. M a y`, boolean(false) is `\a. M y a`.
+#
+# TRAPS, PROVED (class continuation_rebuilt). A claim M = V, with the
+# continuation V selects rebuilt by R on every lap, is refuted as follows.
+# The closed equation of boolean(true) gives M P Q = P for all P and Q
+# (substitution into `\y. \a. M a y = \y. \a. a`); and M P Q =beta
+# M (R P) Q by one lap, so P = R P for every P. Taking P = I = \x. x
+# gives I = R I, two distinct beta eta normal forms for each R below
+# (`\v. I` and `\s. s I I`), refuted by Boehm's theorem. boolean(false)
+# with f rebuilt is the same argument on the second argument.
+#
+# SCORED CLAIMS, CONJECTURES. For each scored claim M = V, one lap maps
+# V to V: G V =beta eta V (with V = true or false and the continuations
+# it ignores rebuilt, or rebuilt only up to eta, or its answer fed back
+# to it). A proof that lambda beta eta plus M = V is consistent proves
+# the claim. Whether "Y G = V is consistent whenever G V =beta eta V and
+# V is a normal form" holds in general is not known; the points are
+# claims of single instances.
+#
+# - continuation_true_constant: x = \t. \f. x (\v. t) f.
+#   boolean(false) conjecture; boolean(true) trap, R = \p. \v. p.
+# - continuation_true_pair: x = \t. \f. x (\s. s t t) f.
+#   boolean(false) conjecture; boolean(true) trap, R = \p. \s. s p p.
+# - continuation_false_constant: x = \t. \f. x t (\v. f).
+#   boolean(true) conjecture; boolean(false) trap, R = \p. \v. p.
+# - continuation_true_eta: x = \t. \f. x (\u. t u) f. Both Booleans
+#   conjectures: \u. t u =eta t, so a lap maps true to true in lambda
+#   beta eta.
+# - continuation_nested_true: x = \t. \f. x (x t f) f. Both Booleans
+#   conjectures: the answer of the inner call becomes the true
+#   continuation of the outer one.
+# - continuation_nested_false: x = \t. \f. x t (x t f). Both Booleans
+#   conjectures, the answer fed to the false continuation.
+#
+# Measured (2026-09-29, main at e8485ed46 with this file,
+# `doc/contest_trap_check.sh` over the six points with ten entries and
+# tabling(weak_head), each point at its limits below, on CPUs 6 and 7):
+# of the 132 readings,
+# none succeeded (75 failed, 57 stopped), and no setting proved a trap.
+#
+# TARGET ALGORITHMS, the specific known algorithms the problem targets, each
+# with its prior work:
+# - proving that lambda beta eta plus an equation is consistent by adding it
+#   as a reduction rule and showing the union confluent: J. Kuper, On the
+#   Jacopini Technique, Information and Computation 1997,
+#   doi:10.1006/inco.1997.2655.
+# - refuting the traps by Böhm's theorem: H. P. Barendregt, The Lambda
+#   Calculus: Its Syntax and Semantics, North-Holland 1984 (Böhm's theorem).
+
+#   continuation_body(+Point, +Self, +True, +False, -Body): the body of G
+#   under \x. \t. \f., x being Self.
+#
+# Each text is from_cbor of a string literal, a Scott list of bytes,
+# imported from corpora/library/text/cbor. FIXME: the import projects "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. export
+λ
+. cons
+  ( λ _continuation_body
+    . _continuation_body (text "continuation_true_constant") (text "Self") (text "True") (text "False") λx_0 x_1 x_2. x_0 (λx_3. x_1) x_2
+  )
+λ
+. cons
+  ( λ _continuation_body
+    . _continuation_body (text "continuation_true_pair") (text "Self") (text "True") (text "False") λx_0 x_1 x_2. x_0 (λx_3. x_3 x_1 x_1) x_2
+  )
+λ
+. cons
+  ( λ _continuation_body
+    . _continuation_body (text "continuation_false_constant") (text "Self") (text "True") (text "False") λx_0 x_1 x_2. x_0 x_1 λx_3. x_2
+  )
+λ
+. cons
+  ( λ _continuation_body
+    . _continuation_body (text "continuation_true_eta") (text "Self") (text "True") (text "False") λx_0 x_1 x_2. x_0 (λx_3. x_1 x_3) x_2
+  )
+λ
+. cons
+  ( λ _continuation_body
+    . _continuation_body (text "continuation_nested_true") (text "Self") (text "True") (text "False") λx_0 x_1 x_2. x_0 (x_0 x_1 x_2) x_2
+  )
+λ
+. cons
+  ( λ _continuation_body
+    . _continuation_body (text "continuation_nested_false") (text "Self") (text "True") (text "False") λx_0 x_1 x_2. x_0 x_1 λ. x_0 x_1 x_2
+  ) nil

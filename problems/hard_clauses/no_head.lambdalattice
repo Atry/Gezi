@@ -1,0 +1,1 @@
+λ export. export λ. (λx_0. x_0 x_0) λx_0. x_0 x_0

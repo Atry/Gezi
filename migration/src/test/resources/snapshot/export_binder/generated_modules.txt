@@ -1,0 +1,537 @@
+# sample 0
+λtuple. tuple
+
+  (λx_0.
+x_0)
+=>
+λ export
+. export
+
+λ x_0
+. x_0
+
+
+# sample 1
+λtuple. tuple
+(λx_0.
+x_0 # a remark
+x_0)
+=>
+λ export
+. export
+λ x_0
+. x_0
+  # a remark
+  x_0
+
+
+# sample 2
+λtuple.  tuple  (λx_0.  x_0
+x_0
+
+  x_0)
+=>
+λ export
+. export
+λ x_0
+. x_0 x_0 x_0
+
+
+# sample 3
+λtuple. tuple  (λx_0.
+λx_1. x_0
+
+  (x_0  x_1 +
+λx_2. # a remark
+x_2))
+=>
+λ export
+. export
+λ x_0 x_1
+. x_0
+
+  ( x_0 x_1
+  + λ x_2
+    # a remark
+    . x_2
+  )
+
+
+# sample 4
+λtuple.
+
+  tuple
+
+  (λx_0. x_0 x_0
+
+  (x_0 # a remark
+∥
+
+  (x_0
+∥ x_0)))
+=>
+λ export
+
+. export
+
+λ x_0
+. x_0 x_0
+
+  ( x_0
+  # a remark
+
+  ∥ ( x_0
+    ∥ x_0
+    )
+  )
+
+
+# sample 5
+λtuple.  tuple
+# a remark
+  (λx_0.
+# a remark
+  (x_0
++ # a remark
+(x_0
++
+# a remark
+  x_0)  (x_0
+# a remark
+  x_0)))
+=>
+λ export
+. export
+# a remark
+λ x_0
+# a remark
+. ( x_0
+  # a remark
+  + λ
+    . ( x_0
+      # a remark
+      + x_0
+      )
+    λ
+    . x_0
+      # a remark
+      x_0
+  )
+
+
+# sample 6
+λ.  (λtuple.
+tuple (λx_0. λx_1. # a remark
+(x_0  x_1
+
+  (λx_2.
+x_0)
+
+  ((λx_2. # a remark
+x_2)
+
+  (x_1  x_0)) # a remark
+∥ (x_1  ∥
+x_1))))
+λx0 tuple.  tuple
+# a remark
+  x0
+=>
+λ export
+. ( λ tuple
+    . tuple
+    λ x_0 x_1
+    # a remark
+    . ( λ
+        . x_0 x_1
+
+          ( λ x_2
+            . x_0
+          )
+
+        λ
+        . ( λ x_2
+            # a remark
+            . x_2
+          )
+
+        λ
+        . x_1 x_0
+      # a remark
+      ∥ ( x_1
+        ∥ x_1
+        )
+      )
+  )
+λ x0
+. export
+  # a remark
+  x0
+
+
+# sample 7
+λ.  (λtuple.  tuple (λx_0.
+(λx_1.
+
+  (x_0
+
+  x_1 # a remark
+∥
+
+  λx_2. x_1)) # a remark
+x_0
+((x_0
+# a remark
+  ∥ # a remark
+x_0)
+# a remark
+  (x_0
+
+  x_0) # a remark
+(λx_1.  λx_2.
+(x_1
++  x_2 + x_0))))) # a remark
+λx0
+
+  tuple. # a remark
+tuple
+# a remark
+  x0
+(λx_0.
+# a remark
+  (λx_1. (x_1 # a remark
+x_1 # a remark
+(x_1
++ # a remark
+x_1)
+
+  ∥
+
+  (x_1
++
+x_0
+
+  +  x_0))  ∥ # a remark
+x_0))
+=>
+λ export
+. ( λ tuple
+    . tuple
+    λ x_0
+    . ( λ x_1
+
+        . ( x_0 x_1
+          # a remark
+
+          ∥ λx_2. x_1
+          )
+      )
+      # a remark
+      x_0
+    λ
+    . ( x_0
+      # a remark
+      # a remark
+      ∥ x_0
+      )
+      # a remark
+      ( x_0 x_0
+      )
+    # a remark
+    λ x_1 x_2
+    . ( x_1
+      + x_2
+      + x_0
+      )
+  )
+# a remark
+λ x0
+
+# a remark
+. export
+  # a remark
+  x0
+λ x_0
+# a remark
+. ( λ x_1
+    . ( x_1
+        # a remark
+        x_1
+        # a remark
+        ( x_1
+        # a remark
+        + x_1
+        )
+
+      ∥ ( x_1
+        + x_0
+
+        + x_0
+        )
+      )
+  # a remark
+  ∥ x_0
+  )
+
+
+# sample 8
+λ.
+# a remark
+  (λtuple.
+# a remark
+  tuple # a remark
+(λx_0.  x_0))
+# a remark
+  λx0
+
+  tuple. # a remark
+tuple x0
+=>
+λ export
+# a remark
+. ( λ tuple
+    # a remark
+    . tuple
+    # a remark
+    λ x_0. x_0
+  )
+# a remark
+λ x0
+
+# a remark
+. export x0
+
+
+# sample 9
+λ.  (λtuple.
+tuple
+# a remark
+  (λx_0. # a remark
+λx_1.  λx_2. x_2))
+
+  λx0  tuple.
+tuple
+
+  x0
+=>
+λ export
+. ( λ tuple
+    . tuple
+    # a remark
+    λ x_0
+      # a remark
+      x_1 x_2
+    . x_2
+  )
+
+λ x0
+. export x0
+
+
+# sample 10
+λtuple.
+tuple # a remark
+(λx_0. # a remark
+(x_0
+# a remark
+  ∥
+# a remark
+  x_0)) # a remark
+(λx_0.
+# a remark
+  λx_1.
+λx_2.
+(x_1
+∥
+# a remark
+  x_1) # a remark
+(λx_3.
+(x_0 # a remark
++
+
+  x_2 # a remark
++
+# a remark
+  x_3))  ((λx_3. # a remark
+x_2 # a remark
+x_2)
+(x_1
+# a remark
+  +
+x_1
++  x_1))  x_2)
+=>
+λ export
+. export
+  # a remark
+  ( λ x_0
+    # a remark
+    . ( x_0
+      # a remark
+      # a remark
+      ∥ x_0
+      )
+  )
+# a remark
+λ x_0
+  # a remark
+  x_1 x_2
+. ( x_1
+  # a remark
+  ∥ x_1
+  )
+  # a remark
+  ( λ x_3
+    . ( x_0
+      # a remark
+
+      + x_2
+      # a remark
+      # a remark
+      + x_3
+      )
+  )
+  ( ( λ x_3
+      # a remark
+      . x_2
+        # a remark
+        x_2
+    )
+    ( x_1
+    # a remark
+    + x_1
+    + x_1
+    )
+  ) x_2
+
+
+# sample 11
+λ.
+# a remark
+  (λtuple.
+tuple  (λx_0. # a remark
+λx_1.  (λx_2.
+
+  (λx_3. # a remark
+x_1 x_1
+# a remark
+  +
+(x_2 +
+
+  x_1 +
+# a remark
+  x_1))
+# a remark
+  ∥  λx_2.
+# a remark
+  (λx_3.
+x_1  x_1
+# a remark
+  + (x_2
+# a remark
+  +
+
+  x_1 # a remark
++
+# a remark
+  x_1)))  ((x_0  +  x_1
+# a remark
+  +  x_1)
+
+  x_0
+
+  x_0)))  λx0.
+# a remark
+  (λtuple.  tuple
+# a remark
+  (λx_0. (x_0  +
+
+  x_0)))
+
+  λx1.
+(λtuple.
+# a remark
+  tuple
+(λx_0.
+
+  λx_1.
+
+  λx_2.
+
+  λx_3.
+x_1))  λx2 # a remark
+tuple.
+# a remark
+  tuple
+
+  x2  x2
+
+  x1
+=>
+λ export
+# a remark
+. ( λ tuple
+    . tuple
+    λ x_0
+      # a remark
+      x_1
+    . ( λ x_2
+
+        . ( λ x_3
+            # a remark
+            . x_1 x_1
+          # a remark
+          + ( x_2
+
+            + x_1
+            # a remark
+            + x_1
+            )
+          )
+      # a remark
+      ∥ λ x_2
+        # a remark
+        . ( λ x_3
+            . x_1 x_1
+          # a remark
+          + ( x_2
+            # a remark
+
+            + x_1
+            # a remark
+            # a remark
+            + x_1
+            )
+          )
+      )
+    λ
+    . ( x_0
+      + x_1
+      # a remark
+      + x_1
+      ) x_0 x_0
+  )
+λ x0
+# a remark
+. ( λ tuple
+    . tuple
+    # a remark
+    λ x_0
+    . ( x_0
+
+      + x_0
+      )
+  )
+
+λ x1
+. ( λ tuple
+    # a remark
+    . tuple
+    λ x_0 x_1 x_2 x_3
+    . x_1
+  )
+λ x2
+# a remark
+# a remark
+. export x2 x2 x1
+

@@ -1,0 +1,12 @@
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "prelude") "natural")
+λ _ _ unary _ _ _ _
+. (λtuple. tuple λdatum continuation. continuation datum)
+λ box
+. (λtuple. tuple λtype value. value λdatum. box λ. type datum)
+λ boxed
+. (λtuple. tuple λ. boxed unary)
+λ boxed_unary
+. export box boxed boxed_unary

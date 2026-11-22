@@ -1,0 +1,3 @@
+# The naturals: zero, and the successors of naturals, under Turing's fixed
+# point combinator.
+λ export. export λ. (λx f. f λ. x x f) (λx f. f λ. x x f) λn. ((λm z s. s m) n + λz s. z)

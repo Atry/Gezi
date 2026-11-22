@@ -1,0 +1,9 @@
+# The type of the booleans.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega backend_boolean_codec_unfit "library") "unfit_boolean_library") "true")
+λ true
+. omega (omega (omega (omega backend_boolean_codec_unfit "library") "unfit_boolean_library") "false")
+λ false
+. export (false + true)

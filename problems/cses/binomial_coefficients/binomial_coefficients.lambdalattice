@@ -1,0 +1,73 @@
+# binomial_coefficients:
+# CSES 1079, Binomial Coefficients (https://cses.fi/problemset/task/1079), in
+# our own words: for each query of two integers universe_size and subset_size with 0 <= subset_size <= universe_size, the
+# number of ways to choose subset_size items out of universe_size, modulo 10^9 + 7. The input is a
+# Scott list (corpora/library/prelude/list) of pairs
+# (corpora/library/prelude/pair) `pair universe_size subset_size` of binary naturals
+# (corpora/library/binary/natural) and the answer the Scott list of the
+# values, binary naturals. Part of the CSES port's second batch.
+#
+# THE PROGRAM, written by the definition: the list of all the subsets of
+# {1, ..., universe_size} with exactly subset_size elements is built, each a Scott list of its
+# elements (for subset_size = 0, the empty set alone; for universe_size = 0 and subset_size > 0, none; otherwise
+# the subsets without universe_size, from universe_size - 1, and the subsets with universe_size, universe_size put in front of
+# each subset of subset_size - 1 elements from universe_size - 1), its length is counted in binary and
+# reduced modulo 10^9 + 7. Its reading is exponential in universe_size, since the subsets
+# themselves are built and counted, so a row of the base table cannot exceed
+# 10^9 + 7 and the final reduction is tested only by the family's larger rungs;
+# the replacement the family asks for is factorials and their inverses modulo
+# 10^9 + 7, a table built once for all queries, then a constant number of
+# multiplications per query.
+#
+# DEFINITION 14: the program P, the point's term, is built of λ and application
+# only, with no top, no choice and no parallel. It β-reduces to V, the Scott list
+# of the canonical binary numerals of the values (the enumeration consumes universe_size, each
+# fold a finite list), and binary_subtract, which writes no top
+# (../common/binary_modular), is never asked for less than zero, since the
+# program subtracts one only from a positive universe_size and a positive subset_size (in the other
+# branches it is ignored and any canonical natural would do). So ⊢_β P = V, and
+# P ≃_O V by the soundness of the derivable equations for the contextual
+# preorder of Definition 14 (Lean
+# `ContextualPreorder.contextualEquivalenceOfDerivableLatticeEta`): V is an
+# answer, P ⊑_O V. No other closed βη normal form W has P ⊑_O W: then V ⊑_O W,
+# while Böhm's theorem gives a pure context that takes V to λx y. x and W to
+# λx y. y, and applying both to λa. a and Ω makes the first solvable and the
+# second not.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "fixpoint")
+λ fixpoint
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "boolean")
+λ _ false _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons append map _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "natural")
+λ binary_zero binary_even binary_odd _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "arithmetic")
+λ merge_binary_increment _ _ _
+. omega (omega (omega (omega (omega gezi "problems") "cses") "common") "binary_modular")
+λ _ binary_subtract _ binary_modulo
+. (λtuple. tuple λ. binary_odd λ. binary_odd λ. binary_odd λ. binary_even λ. binary_even λ. binary_even λ. binary_even λ. binary_even λ. binary_even λ. binary_odd λ. binary_even λ. binary_odd λ. binary_even λ. binary_even λ. binary_odd λ. binary_odd λ. binary_even λ. binary_odd λ. binary_even λ. binary_odd λ. binary_odd λ. binary_even λ. binary_even λ. binary_odd λ. binary_odd λ. binary_odd λ. binary_even λ. binary_odd λ. binary_odd λ. binary_odd binary_zero)
+λ modulus
+. (λtuple. tuple (binary_odd binary_zero))
+λ one
+. ( λ tuple
+    . tuple
+    λ. fixpoint
+    λ self universe_size subset_size
+    . ( λ more
+        . ( λ positive
+            . subset_size (cons nil nil) (λ_. positive) λ_. positive
+          ) (universe_size nil (λ_. more) λ_. more)
+      )
+      ( append (map (cons universe_size) (self (binary_subtract universe_size one false) (binary_subtract subset_size one false))) (self (binary_subtract universe_size one false) subset_size) )
+  )
+λ subsets
+. ( λ tuple
+    . tuple λ. fixpoint λself count items. items count λ_ tail. self (merge_binary_increment count) tail
+  )
+λ count_from
+. (λtuple. tuple λqueries. map (λquery. query λuniverse_size subset_size. binary_modulo (count_from binary_zero (subsets universe_size subset_size)) modulus) queries)
+λ binomial_coefficients
+. export binomial_coefficients

@@ -1,0 +1,2 @@
+Error planted.scala:2:13 marking "": [wartremover:NoJavaUtilMutableCollection] mutable java.util collection is disabled
+1 error found

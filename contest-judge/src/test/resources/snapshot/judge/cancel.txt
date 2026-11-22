@@ -1,0 +1,17 @@
+# sample 0
+honour: judgment judgment
+=>
+setup ready false none -
+point_0 stopped true returned probe_calls_before#0
+point_1 unknown false none probe_calls_before#1
+probe-1.stderr: RoundStarted FamilyStarted PointStarted PointFinished FamilyFinished FamilyStarted PointStarted PointFinished FamilyFinished RoundFinished
+
+# sample 1
+ignore: evaluation evaluation
+=>
+setup ready false none -
+point_0 stopped true killed -
+setup ready false none -
+point_1 stopped true killed -
+probe-1.stderr: RoundStarted FamilyStarted PointStarted
+probe-2.stderr: FamilyStarted PointStarted

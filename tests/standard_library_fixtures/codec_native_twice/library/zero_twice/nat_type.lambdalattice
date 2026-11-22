@@ -1,0 +1,9 @@
+# A type of naturals the two data families below are declared of.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega codec_native_twice "library") "zero_twice") "zero")
+λ zero
+. omega (omega (omega (omega codec_native_twice "library") "zero_twice") "successor")
+λ successor
+. export (successor zero + zero)

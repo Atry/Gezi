@@ -1,0 +1,46 @@
+# combinator_property(compose, associative) stands beside the lemma that
+# justifies it, between lemma clauses.
+
+# The beta laws of compose, flip and apply_to, each replayed by the gate
+# (tests/standard_library_lemmas.plt); the associativity of compose
+# justifies its combinator property. flip @ K @ M = Y^(K @ Y @ M)
+# post-applies M to K.
+
+# Beta laws, replayed by the gate.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "prelude") "combinators")
+λ _ _ compose flip apply_to _ _
+. export
+  ( λ _ _ properties _
+    . properties
+    λ _ associative _ _ _ _ _ _
+    . associative
+    # compose is associative, justified by the lemma above: strategies read a
+    # composition chain modulo associativity.
+    λ k
+    . k compose
+  + λ _ rewriting _ _
+    . rewriting
+    λ _ lemmas _
+    . lemmas
+      ( λ s
+        . s (λk. k "post_application_of_apply_to") (λx_0. flip apply_to x_0) (λx_0. x_0) λmunit _ _. munit λk. k "gezi.standardlibrary.StandardLibraryLemmasTest"
+      + λ s
+        . s
+          (λk. k "post_application_of_composition")
+          (λx_0 x_1 x_2. flip (compose x_0 x_1) x_2)
+          (λx_0 x_1 x_2. compose (flip x_0 x_2) x_1) λmunit _ _. munit λk. k "gezi.standardlibrary.StandardLibraryLemmasTest"
+      + λ s
+        . s
+          (λk. k "compose_as_post_application")
+          (λx_0 x_1. compose x_0 x_1)
+          (λx_0 x_1. flip (compose apply_to x_1) x_0) λmunit _ _. munit λk. k "gezi.standardlibrary.StandardLibraryLemmasTest"
+      + λ s
+        . s
+          (λk. k "compose_associative")
+          (λx_0 x_1 x_2. compose x_0 λ. compose x_1 x_2)
+          (λx_0 x_1 x_2. compose (compose x_0 x_1) x_2) λmunit _ _. munit λk. k "gezi.standardlibrary.StandardLibraryLemmasTest"
+      )
+  )

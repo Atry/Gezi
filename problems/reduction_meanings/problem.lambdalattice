@@ -1,0 +1,69 @@
+# One value with several meanings, in lambda plus merge: problems of the
+# reduction series where a reverse index of a knowledge base must give one
+# term more than one meaning (values whose one
+# term has several meanings, used by different APIs in one program).
+#
+# THE VALUE is \t. \f. t: the Church true, and the Scott unary zero
+# \z. \s. z, one term (lambda_jit_scott_decoding decodes it as true at
+# boolean and as zero at unary). The program let binds it once as True
+# and uses that one variable in both meanings:
+# - as a Boolean: is_even returns it, and the count's choice applies it;
+# - as the unary zero: the input numerals are built from it at run time,
+#   successor after successor, n is a literal on it, and the count starts
+#   from it.
+#
+# THE PROGRAM counts the even numbers among 0, 1, ..., n - 1:
+# - is_even = \self. \x. x True (\p. not (self self p)), not b = b False True;
+# - count = \self. \l. \acc. l acc (\h. \t. self self t ((is_even h)
+#   (successor acc) acc)), over a Scott list of the numerals;
+# - the answer, count list True, is the unary numeral ceil(n / 2), decoded
+#   at the type unary.
+# is_even of k takes k steps, so the program takes O(n^2) steps, and every
+# numeral shares its predecessors, so an index that confirms a value's
+# meanings once can answer every later read of it.
+#
+# THE PROBLEMS: n = 64, 128, 256 and 512. The translation of the program
+# to its root still grows faster than the program (a literal of depth n):
+# 433 ms at n = 256 and 7588 ms at 1024, so the sizes stop at 512.
+#
+# READINGS (2026-09-28, CPU 2 under contest_limited.sh, a fresh process per
+# reading, every answer of lambda_jit_scott_decoding:decoded/4 collected at
+# the type unary, 10 s, 256 MB, 256 MB), each answer the expected tree
+# where read:
+# - weak_head: 64, 128 and 256 in 195, 802 and 3295 ms, O(n^2), and 512
+#   stopped;
+# - tabling(weak_head): 64, 128, 256 and 512 in 33, 73, 168 and 281 ms,
+#   the tables sharing is_even of each numeral with the next.
+# These problems are not a frontier for tabling: they give a reverse index
+# a value it must read in two meanings.
+# LIMITS: the family's, 10 s, 256 MB, 256 MB.
+
+#
+# Each text is from_cbor of a string literal, a Scott list of bytes,
+# imported from corpora/library/text/cbor. Each number is from_cbor of an
+# integer literal, a Scott integer, imported from corpora/library/integer/cbor.
+# FIXME: the imports project "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λx. x)
+λ integer
+. export
+λ
+. cons (λ_problem. _problem (text "reduction_even_count_sixty_four") λ. integer 64)
+λ
+. cons (λ_problem. _problem (text "reduction_even_count_one_hundred_twenty_eight") λ. integer 128)
+λ
+. cons (λ_problem. _problem (text "reduction_even_count_two_hundred_fifty_six") λ. integer 256)
+λ
+. cons (λ_problem. _problem (text "reduction_even_count_five_hundred_twelve") λ. integer 512) nil

@@ -1,0 +1,16 @@
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "fixed_width") "word_comparison")
+λ word_equal word_less_than
+. omega (omega (omega (omega corpora "library") "fixed_width") "int32_representation")
+λ int32_width _ _ _
+# int32_equal:
+# word_equal at the width 32, a thin define naming the instance.
+. (λtuple. tuple λ. word_equal int32_width)
+λ int32_equal
+# int32_less_than:
+# word_less_than at the width 32, a thin define naming the instance.
+. (λtuple. tuple λ. word_less_than int32_width)
+λ int32_less_than
+. export int32_equal int32_less_than

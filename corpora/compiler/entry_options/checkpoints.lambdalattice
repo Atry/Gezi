@@ -1,0 +1,11 @@
+# The published list of the policies that decide which instances the JIT's instance table records (CheckpointOption): profitable, every instance whose code's table cost is not judged unprofitable; every_steps, a checkpoint once at least its interval of steps, its one field an integer, was spent since the last.
+# A Scott sum whose constructors are the tuple's fields, in the order of the
+# enum's cases; an entry.lambdalattice imports this file and writes a
+# constructor, and EntryData reads which alternative it takes by structure
+# (gezi.contest.entry.EntryData, THE OPTIONS AS SCOTT CONSTRUCTORS).
+λ export
+. (λtuple. tuple λprofitable every_steps. profitable)
+λ profitable
+. (λtuple. tuple λinterval profitable every_steps. every_steps interval)
+λ every_steps
+. export profitable every_steps

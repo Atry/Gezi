@@ -1,0 +1,35 @@
+# Backend facts for four operations of the module binary: each define
+# is bound to a native of the framework's standard set, implemented in
+# `gezi/jit/src/main/scala/gezi/jit/BinaryNaturalNatives.scala`,
+# which computes it on canonical binary naturals held as one integer each,
+# the family binary_natural of binary_prolog_backend's codec. Under the dispatch strategy fallback a
+# native fires only on operands already in the family's representation at
+# the parameter true (the canonical
+# naturals, built by the codec's constructor natives); any other call runs the
+# define's body. Each native's soundness claim: on two canonical binary
+# naturals, the define's body has one normal form, the canonical binary
+# natural the native encodes. merge_binary_plus: its file's three equations
+# with 0 + b = b and a + 0 = a; a binary_even is built only over h + k or
+# h + k + 1 with h and k positive, which is positive, so the result is
+# canonical. binary_maximum and binary_minimum: binary_less_than picks one
+# operand, canonical as given. binary_bitwise_or: its file's comment, which
+# states that the result is canonical.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "binary") "arithmetic")
+λ _ merge_binary_plus _ _
+. omega (omega (omega (omega corpora "library") "binary") "order")
+λ _ binary_maximum binary_minimum
+. omega (omega (omega (omega corpora "library") "binary") "binary_bitwise_or")
+λ binary_bitwise_or
+. export
+λ _ _ _ backend
+. backend
+λ _ natives _ _ _ _
+. natives
+  ( λs. s binary_bitwise_or λk. k "wren_binary_bitwise_or"
+  + λs. s binary_minimum λk. k "wren_binary_minimum"
+  + λs. s binary_maximum λk. k "wren_binary_maximum"
+  + λs. s merge_binary_plus λk. k "wren_binary_plus"
+  )

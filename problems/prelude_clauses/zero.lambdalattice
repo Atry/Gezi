@@ -1,0 +1,4 @@
+#   Scott naturals, and what a corpus asks of them: equality,
+#   `natural_at_least @ M @ N` for M >= N, `natural_difference @ M @ N` for
+#   M - N when M >= N, doubling.
+λ export. export λx_0 x_1. x_0

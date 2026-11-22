@@ -1,0 +1,20 @@
+# The terms of the trace showcase's Hindley-Milner page
+# (gezi.traceshowcase.ShowcasePages):
+# the judgment type_of, and the type the page's trace proves its program
+# compose boolean_not boolean_not has, a function from bool to bool, bool
+# being the zero universe's structure of two alternatives with no field; each
+# exported at its position of the file's Scott tuple, whose names the host
+# keeps in gezi.standardlibrary.TermTables.showcaseTerms. Only the showcase's
+# generator reads these terms; no framework code reads them.
+# FIXME: the imports project "corpora" off the variable gezi, the name https://github.com/Atry/private-overlay/issues/1924
+# of the project root's own directory; they break if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "hindley_milner_unions") "judgments")
+λ type_of _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "hindley_milner_unions") "shapes")
+λ structure alternative no_alternative _ no_field _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "hindley_milner_unions") "types")
+λ function_type _ _ _ _
+. (λbool. export λs. s type_of (function_type bool bool)) (structure (alternative no_field (alternative no_field no_alternative)))

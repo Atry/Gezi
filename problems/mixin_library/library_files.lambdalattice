@@ -1,0 +1,41 @@
+#
+# Each text is from_cbor of a string literal, a Scott list of bytes,
+# imported from corpora/library/text/cbor. FIXME: the import projects "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. export
+λ
+. cons
+  ( λ _library_files
+    . _library_files (text "natural")
+    λ
+    . cons (text "boolean_data")
+    λ
+    . cons (text "boolean_negation")
+    λ
+    . cons (text "boolean_and")
+    λ
+    . cons (text "boolean_equality")
+    λ
+    . cons (text "natural_data") λ. cons (text "natural_visitor") λ. cons (text "natural_plus") λ. cons (text "natural_equality") nil
+  )
+λ
+. cons
+  ( λ _library_files
+    . _library_files (text "binary")
+    λ
+    . cons (text "boolean_data")
+    λ
+    . cons (text "binary_increment")
+    λ
+    . cons (text "binary_visitor") λ. cons (text "binary_plus") λ. cons (text "binary_equality") λ. cons (text "binary_times") nil
+  ) nil

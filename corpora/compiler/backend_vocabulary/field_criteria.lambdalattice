@@ -1,0 +1,15 @@
+# The published list of the criteria of a constructor's field (gezi.standardlibrary.FieldCriterion): parameter, the
+# criterion's parameter of its one field, an integer; recursive, the family itself, of no field; closed, the closed
+# criterion of its one field, the list of the head term and its arguments.
+# A Scott sum whose constructors are the tuple's fields, in the order of the enum's cases, read by position. A
+# knowledge file writes a constructor, imported from this file or written closed (the two are one term), as an item
+# of the list of a member of its slot fields, and KnowledgeFileReading reads which alternative it takes by structure,
+# never by a name: the host reads no string.
+λ export
+. (λtuple. tuple λindex parameter recursive closed. parameter index)
+λ parameter
+. (λtuple. tuple λparameter recursive closed. recursive)
+λ recursive
+. (λtuple. tuple λterms parameter recursive closed. closed terms)
+λ closed
+. export parameter recursive closed

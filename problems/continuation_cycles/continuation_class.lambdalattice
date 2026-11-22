@@ -1,0 +1,44 @@
+#   continuation_class(?Point, ?Class)
+#
+# Each text is from_cbor of a string literal, a Scott list of bytes,
+# imported from corpora/library/text/cbor. FIXME: the import projects "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. export
+λ
+. cons
+  ( λ _continuation_class
+    . _continuation_class (text "continuation_true_constant") λ. text "continuation_true_rebuilt"
+  )
+λ
+. cons
+  ( λ _continuation_class
+    . _continuation_class (text "continuation_true_pair") λ. text "continuation_true_rebuilt"
+  )
+λ
+. cons
+  ( λ _continuation_class
+    . _continuation_class (text "continuation_false_constant") λ. text "continuation_false_rebuilt"
+  )
+λ
+. cons
+  (λ_continuation_class. _continuation_class (text "continuation_true_eta") λ. text "continuation_both")
+λ
+. cons
+  ( λ _continuation_class
+    . _continuation_class (text "continuation_nested_true") λ. text "continuation_both"
+  )
+λ
+. cons
+  ( λ _continuation_class
+    . _continuation_class (text "continuation_nested_false") λ. text "continuation_both"
+  ) nil

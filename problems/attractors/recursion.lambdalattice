@@ -1,0 +1,9 @@
+# The recursion of a function of attractors/kind: a Scott sum of three
+# constructors, in order: none, the function does not recur;
+# self_application, it recurs through its own copy applied to itself;
+# fixpoint, through the prelude's fixed point combinator. Read by its
+# position (gezi.contest.corpora.claims.Attractors, AttractorRecursion).
+λ export
+. export
+  (λnone self_application fixpoint. none)
+  (λnone self_application fixpoint. self_application) λnone self_application fixpoint. fixpoint

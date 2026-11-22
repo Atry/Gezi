@@ -1,0 +1,33 @@
+# The applied form of the contract list_fold_filtered_contract of
+# filtered_recursion_lists, so that it matches terms written by
+# application: a program that types the fold of a list of a choice of
+# types goes through it. Like the contract it applies, it
+# holds for every element type, output type, base and step. It is a module
+# of its own so that every lemma set is a union of whole modules: a
+# configuration enables it without the other lemmas on the filtered folds.
+#
+# The lemma is a theorem of λ-lattice-unit-η (CONTRIBUTING.md, "Terms");
+# its declaration cites the paper proof. It does
+# not use induction. This module declares no define: it uses filter_by,
+# list_type and list_fold_filtered (parallel_lists), with which it is
+# compiled.
+
+# list_fold_filtered_contract of filtered_recursion_lists, applied to its
+# argument: for every element type, output type, base and step.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "parallel_lists") "parallel_lists")
+λ list_type _ list_fold_filtered filter_by
+. export
+λ _ rewriting _ _
+. rewriting
+λ _ lemmas _
+. lemmas
+λ s
+. s
+  (λk. k "list_fold_filtered_contract_applied")
+  ( λ x_0 x_1 x_2 x_3 x_4
+    . filter_by x_1 λ. list_fold_filtered x_1 x_2 x_3 λ. filter_by (list_type x_0) x_4
+  )
+  (λx_0 x_1 x_2 x_3 x_4. list_fold_filtered x_1 x_2 x_3 λ. filter_by (list_type x_0) x_4) λ_ md _. md λk. k "[list_fold_filtered_contract_applied](docs/design/gezi-set-equations-proofs.md)"

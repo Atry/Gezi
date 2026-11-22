@@ -1,0 +1,5 @@
+# The shape of a point of datalog_point: a Scott sum of two constructors,
+# two rings joined by one edge (read by path) first, then a line (read by
+# reach), read by its position (gezi.contest.corpora.merges.MergeDatalog,
+# DatalogShape).
+λ export. export (λtwo_rings line. two_rings) λtwo_rings line. line

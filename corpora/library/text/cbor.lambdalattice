@@ -1,0 +1,47 @@
+# Texts read from and written to CBOR text strings (major type 3): the
+# library's text is a Scott list of its UTF-8 bytes, each the 8-tuple
+# λs. s b7 … b0 of its bits, high bit first. from_cbor
+# replaces from_literal: a string literal's value is `(from_cbor λx. x) "…"`.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega corpora "library") "top")
+λ top
+. omega (omega (omega (omega corpora "library") "prelude") "list")
+λ nil _ _ _ _
+. omega (omega (omega (omega corpora "library") "binary") "cbor")
+λ _ _ argument_read _ argument_written _
+. omega (omega (omega (omega corpora "library") "prelude") "list_cbor")
+λ _ _ items_read items_written
+. (λtuple. tuple λt e. t)
+λ one_bit
+. (λtuple. tuple λt e. e)
+λ zero_bit
+# tuple_read k: eight bits, the 8-tuple of a byte.
+. (λtuple. tuple λk b7 b6 b5 b4 b3 b2 b1 b0. k λs. s b7 b6 b5 b4 b3 b2 b1 b0)
+λ tuple_read
+# tuple_written byte f inner: the byte's eight bits folded over inner.
+. ( λ tuple
+    . tuple
+    λ byte f inner
+    . byte λb7 b6 b5 b4 b3 b2 b1 b0. f b7 λ. f b6 λ. f b5 λ. f b4 λ. f b3 λ. f b2 λ. f b1 λ. f b0 inner
+  )
+λ tuple_written
+# from_cbor k: a text string, its bytes as a Scott list of 8-tuples.
+. ( λ tuple
+    . tuple
+    λ k m2 m1 m0
+    . m2 top
+    λ
+    . m1
+      (m0 (argument_read λlength. items_read tuple_read length (λtail. tail) λprefix. k λ. prefix nil) top) top
+  )
+λ from_cbor
+# to_cbor text f z: the text string of the list of bytes.
+. ( λ tuple
+    . tuple
+    λ text f z
+    . items_written f tuple_written z text λlength payload. argument_written f zero_bit one_bit one_bit length payload
+  )
+λ to_cbor
+. export from_cbor to_cbor tuple_read tuple_written

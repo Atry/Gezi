@@ -1,0 +1,11 @@
+# The template of a claim (hard_claims/wrong_value, conjecture_proved,
+# template_body and cycle_claim, the cycle claims of certificate_cycles and
+# easy_terms, adder_tautologies/adder_point): a Scott sum of three
+# constructors, in order: boolean, whose one field is a Church Boolean of
+# corpora/library/prelude/boolean; natural, whose one field is the count;
+# member, whose two fields are the index and the certificate's name. Read by
+# its position (gezi.contest.corpora.claims.Template).
+λ export
+. export
+  (λvalue boolean natural member. boolean value)
+  (λcount boolean natural member. natural count) λindex certificate boolean natural member. member index certificate

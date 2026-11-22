@@ -1,0 +1,10 @@
+#   ==== H9. circular programs: Bird's repmin ====
+#   A TREE is Scott data, `leaf n` or `node l r`. REPMIN replaces every leaf
+#   by the minimum of the tree in one pass, a circular program: `go t m`
+#   returns the pair of t with every leaf replaced by m, and t's minimum,
+#   and `repmin t = let p = go t (snd p) in fst p`. It has a head only
+#   because the leaves are built without looking at m, the least fixed
+#   point of a lazy knot: a setting that evaluated m where it is passed
+#   would run into the knot. Call by name evaluates `snd p` again at every
+#   leaf read, and every such evaluation walks the whole tree.
+λ export. export λx_0 x_1 x_2. x_1 x_0

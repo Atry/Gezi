@@ -1,0 +1,56 @@
+# ?Point, ?Parameter, ?Size
+# ?Point, ?Limits
+# THE DRAWN SIZES OF THE SIZED POINTS, written by
+# doc/contest_draw.py from the seed 635cd92c0db70990d9823db72ec01807fd2c0dfdb7f9e57f50c9f6b016e455ee.
+
+#
+# Each text is from_cbor of a string literal, a Scott list of bytes,
+# imported from corpora/library/text/cbor. Each number is from_cbor of an
+# integer literal, a Scott integer, imported from corpora/library/integer/cbor.
+# FIXME: the imports project "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λx. x)
+λ integer
+. export
+λ
+. cons (λ_drawn_size. _drawn_size (text "argument_used_twice_16") (text "depth") λ. integer 15)
+λ
+. cons (λ_drawn_size. _drawn_size (text "argument_used_twice_24") (text "depth") λ. integer 23)
+λ
+. cons (λ_drawn_size. _drawn_size (text "jit_hot_body_count_down") (text "count") λ. integer 712)
+λ
+. cons
+  (λ_drawn_size. _drawn_size (text "jit_hot_body_count_down_3200") (text "count") λ. integer 2967)
+λ
+. cons
+  (λ_drawn_size. _drawn_size (text "jit_hot_combinator_count_down") (text "count") λ. integer 716)
+λ
+. cons
+  (λ_drawn_size. _drawn_size (text "jit_hot_combinator_count_down_3200") (text "count") λ. integer 2992)
+λ
+. cons (λ_drawn_size. _drawn_size (text "jit_hot_compose_count_down") (text "count") λ. integer 608)
+λ
+. cons (λ_drawn_size. _drawn_size (text "lasso_floyd_cycle_start_120") (text "cycle") λ. integer 107)
+λ
+. cons (λ_drawn_size. _drawn_size (text "lasso_floyd_cycle_start_120") (text "prefix") λ. integer 100)
+λ
+. cons (λ_drawn_size. _drawn_size (text "lasso_visited_cycle_start_60") (text "cycle") λ. integer 73)
+λ
+. cons (λ_drawn_size. _drawn_size (text "lasso_visited_cycle_start_60") (text "prefix") λ. integer 49)
+λ
+. cons (λ_drawn_size. _drawn_size (text "regex_matches_8") (text "n") λ. integer 8)
+λ
+. cons
+  (λ_drawn_size. _drawn_size (text "stream_nth_naturals_by_map_1600") (text "index") λ. integer 1706) nil

@@ -1,0 +1,5 @@
+weighted_paths_point
+  weighted_paths_sink_zero_steps: Site(0,Vector(5),Vector(Vector())) => 5
+  weighted_paths_sink_three_steps: Site(3,Vector(5),Vector(Vector())) => 458330
+  weighted_paths_diamond: Site(2,Vector(4, 3, 2, 1),Vector(Vector(2, 1), Vector(3), Vector(3), Vector())) => 427
+  weighted_paths_shared_chain: Site(5,Vector(4, 5, 6, 7, 999999999),Vector(Vector(1, 2), Vector(2, 3), Vector(3, 4), Vector(4), Vector())) => 253905581

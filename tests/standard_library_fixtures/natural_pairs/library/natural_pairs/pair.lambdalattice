@@ -1,0 +1,2 @@
+# The pair of l and r: applied to p, p l r.
+λ export. export λl r p. p l r

@@ -1,0 +1,24 @@
+# The library of the native block mechanism's laws
+# (gezi.interfacelaws.NativeBlockMechanismLaws): the one field of its tuple,
+# the knowledge the library is compiled from with the backend's checks: the
+# Prolog backend's preset (its backend and the native typing of the types it
+# represents, corpora/compiler/prolog_backend_preset.lambdalattice) with
+# closure_application and occurrence_erasure, which type no native type. Native
+# typing is enabled through the preset only
+# (CONTRIBUTING.md, "Efficiency by design, with native structures"). The
+# knowledge is a term of this file and not a choice the host assembles from
+# paths. The file is read by projection off
+# the tree whose visible subtree is Gezi's directory
+# (StandardLibrary.entryTerm), as an entry's entry.lambdalattice is.
+# FIXME: the imports project "corpora" off the variable gezi, the name https://github.com/Atry/private-overlay/issues/1924
+# of the project root's own directory; they break if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega gezi "corpora") "compiler") "prolog_backend_preset")
+λ prolog_backend_preset _
+. omega (omega (omega (omega gezi "corpora") "compiler") "closure_application")
+λ closure_application
+. omega (omega (omega (omega gezi "corpora") "compiler") "occurrence_erasure")
+λ occurrence_erasure
+. export (occurrence_erasure + closure_application + prolog_backend_preset)

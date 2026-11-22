@@ -1,0 +1,79 @@
+# message_route:
+# CSES 1667, Message Route (https://cses.fi/problemset/task/1667), in our own
+# words: computers 1 to computer_count joined by undirected connections, given as a list
+# of pairs; the fewest computers on a route from computer 1 to computer computer_count, or
+# none when there is no route. The answer is a Scott option: none = λwhen_none when_some. when_none,
+# some value = λwhen_none when_some. when_some value. CSES also prints one such route; a shortest route need
+# not be unique, so the problem asks for its length alone. Part of the CSES
+# port's first batch.
+#
+# THE PROGRAM, written by the definition: walks length computer holds when some walk of
+# exactly length connections leads from computer to computer_count, by its recursion on length (length = 0: computer is
+# computer_count; otherwise some connection at computer leads to a computer other_computer with walks (length - 1)
+# other_computer); the answer is the least length below computer_count with walks length 1, plus one, since a
+# shortest walk visits no computer twice and so has fewer than computer_count connections.
+# Under tabling the reading shares walks length computer for each length and computer, about computer_count connection_count
+# steps for connection_count connections; the replacement the family asks for is
+# breadth-first search, about computer_count + connection_count.
+#
+# DEFINITION 14: the program P, the point's term, is built of λ, application and
+# top, with no choice and no parallel outside top. It β-reduces to V, the Scott
+# option of the canonical numeral of the answer (the search consumes the bound computer_count
+# - length, walks consumes length, each fold a finite list): every top it holds (a bit of
+# a literal that no key expects) stands in a branch that a Scott boolean
+# discards, and binary_subtract, which writes no top (../common/binary_modular),
+# is never asked for less than zero, since the program subtracts only what is no
+# larger. So ⊢_β P = V, and P ≃_O V by the soundness of the derivable equations
+# for the contextual preorder of Definition 14 (Lean
+# `ContextualPreorder.contextualEquivalenceOfDerivableLatticeEta`): V is an
+# answer, P ⊑_O V. No other closed βη normal form W has P ⊑_O W: then V ⊑_O W,
+# while Böhm's theorem gives a pure context that takes V to λx y. x and W to
+# λx y. y, and applying both to λa. a and Ω makes the first solvable and the
+# second not.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "fixpoint")
+λ fixpoint
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "boolean")
+λ true false _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "natural")
+λ binary_zero _ binary_odd _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "arithmetic")
+λ merge_binary_increment _ _ merge_binary_equality
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "order")
+λ binary_less_than _ _
+. omega (omega (omega (omega (omega gezi "problems") "cses") "common") "binary_modular")
+λ _ binary_subtract _ _
+. (λtuple. tuple λwhen_none when_some. when_none)
+λ none
+. (λtuple. tuple λvalue when_none when_some. when_some value)
+λ some
+. ( λ tuple
+    . tuple
+    λ computer_count connections
+    . fixpoint
+    λ self length computer
+    . (λany. length (merge_binary_equality computer computer_count) (λ_. any connections) λ_. any connections)
+    λ
+    . fixpoint
+    λ any rest
+    . rest false
+    λ connection others
+    . connection
+    λ first_computer second_computer
+    . ( λ previous
+        . merge_binary_equality first_computer computer (self previous second_computer true λ. any others) λ. merge_binary_equality second_computer computer (self previous first_computer true λ. any others) λ. any others
+      ) λ. binary_subtract length (binary_odd binary_zero) false
+  )
+λ walks
+. ( λ tuple
+    . tuple
+    λ computer_count connections
+    . fixpoint
+      ( λ self length
+        . binary_less_than length computer_count (walks computer_count connections length (binary_odd binary_zero) (some λ. merge_binary_increment length) λ. self λ. merge_binary_increment length) none
+      ) binary_zero
+  )
+λ message_route
+. export message_route

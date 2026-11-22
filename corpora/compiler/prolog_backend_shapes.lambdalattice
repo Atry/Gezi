@@ -1,0 +1,411 @@
+# The Prolog backend's encodings, chosen by positive candidacy of one layer
+# of hindley_milner_unions' structures. A knowledge module of one backend, enabled with the type check when
+# the Prolog backend is: the backend represents natively the members of
+# nat_type, as big integers, and of boolean_type (prolog_backend.pl).
+#
+# A type is a CANDIDATE for a representation when its class holds
+# `candidate r` of it, r the filter whose members the representation holds.
+# A structure of two alternatives whose second has exactly one field is a
+# candidate for the naturals, whatever its first alternative, and its field
+# is one too: it is unified with its candidacy, and hindley_milner_unions'
+# unification unites them. A structure of two alternatives whose second has
+# no field is a candidate for the booleans. The layer read is the one that
+# tells the backend's representations apart (one field, no field), and a
+# cycle of any length through such layers, an infinite datum's type
+# included, is a candidate, read with no closed-world step: every lemma
+# here only adds, so that adding knowledge adds candidates and typed
+# versions and takes none away (CONTRIBUTING.md, "Soundness, monotonicity,
+# modularity, budgets": monotonicity in knowledge).
+#
+# A function type whose domain (and range) is a candidate gets a MARKER in
+# its class, one node by congruence for each representation however many
+# function types the class holds, so that a name's occurrences, which share
+# one class of types, meet each marker once and the typed versions stay
+# linear. The typed versions and the contracts are written where a marker
+# is, by lemmas whose left side requires it: a typed version f (x ∥ r)
+# where the domain is a candidate for r, and (f (x ∥ r)) ∥ s where the range
+# is one for s too; a contract λy. f y + (f (y ∥ r)) ∥ s where both are. A
+# class that is a candidate for two representations, in a program HM
+# rejects, gets the typed versions of both, and the extraction picks among
+# them by its ranks.
+#
+# The representation is an argument of the candidacy and of the markers, so
+# that only the shapes and the naturals' field are lemmas of one
+# representation, and every other lemma is one for every representation:
+# a fixed number of lemmas rules out lemmas for each type.
+#
+# Every equation of the zero universe has both sides top up to contextual
+# equivalence;
+# each typed version and contract is sound for every filter, as
+# hindley_milner_unions' were (the paper proofs their declarations cite).
+#
+# A class can be a candidate for a representation its values are not: a
+# program's own data that coincide with the library's in the layer read
+# here, a hand-written Either whose right has successor's body while its
+# left has a field, or a Maybe whose payload is no natural, which the
+# field's candidacy reaches. The typed versions filter such values by
+# nat_type, and each one's fallback point reads the value's heads once and
+# takes the untyped path, decoding nothing (lambda_jit_jit, A FALLBACK
+# POINT; measured 2026-10-29). Telling the other alternative apart would
+# need a closed-world step, which this module does not take. A dispatch strategy that rejects, which the
+# baseline does not offer, throws on the same values
+# (lambda_jit_baseline_dispatch_strategies).
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "hindley_milner_unions") "shapes")
+λ structure alternative no_alternative field no_field _
+. omega (omega (omega (omega corpora "library") "prolog_backend_shapes") "prolog_backend_shapes")
+λ candidate contract_at domain_candidate function_candidate item_candidate list_item_candidate
+. omega (omega (omega (omega corpora "library") "native_types") "natural")
+λ _ _ _ nat_type
+. omega (omega (omega (omega corpora "library") "native_types") "boolean")
+λ _ _ boolean_type _
+. omega (omega (omega (omega corpora "library") "hindley_milner_unions") "judgments")
+λ _ _ unify
+. omega (omega (omega (omega corpora "library") "native_types") "list")
+λ _ _ _ list_type
+. omega (omega (omega (omega corpora "library") "hindley_milner_unions") "types")
+λ function_type _ _ _ _
+. export
+  ( λ _ rewriting _ _
+    . rewriting
+    λ _ _ leaves
+    . leaves
+      ( λk. k contract_at
+      + λk. k function_candidate
+      + λk. k domain_candidate
+      + λk. k list_item_candidate
+      + λk. k item_candidate
+      + λk. k candidate
+      )
+  + λ _ rewriting _ _
+    . rewriting
+    λ _ lemmas _
+    . lemmas
+      # ---- the contracts of curried functions ----
+      #
+      # A function whose type's domain is a candidate for r and whose range g is a
+      # function type of a candidate domain is the closure λy. f y + k (f (y ∥ r)),
+      # k the range's contract contract_at g; contract_at g is λf. f for every g,
+      # so the closure's body is f y + f (y ∥ r), which is f y since
+      # f y ⊑ f (y ∥ r), and λy. f y is f by the η rule. contract_at of a
+      # function type is, one layer of the type for each instance, the closure
+      # that takes f and filters its argument by the domain's representation and
+      # its result by the range's: by the range's own contract at a function type
+      # of a candidate domain, by the range's filter at a candidate. The arity of
+      # a curried function is walked on its type, an object term, with no lemma
+      # for each arity.
+      #
+      # The closure is written as the redex (λk. λy. …) (contract_at g), which
+      # the β rule of the baseline's e-graph reads (a redex an added side writes),
+      # so that contract_at g is a node of the graph, where these lemmas write its
+      # closures, and a filling of the closure: applied to contract_at g, the
+      # thunk of two holes is united with its residual thunk λy. … whose k is
+      # filled (`gezi.saturation.Saturation.residualThunk`). Written inside
+      # the closure's body, contract_at, function_type and candidate were fillings
+      # of their own and g's term was built in the code, which no lemma reads
+      # (measured 2026-10-29: the type check of list_fold nil (λh. λt. cons
+      # (successor h) t) (cons zero (cons zero nil)) wrote no contract_at node).
+      ( λ s
+        . s
+          (λk. k "shapes_contract_at_curried")
+          ( λ x_0 x_1 x_2 x_3 x_4
+            . contract_at λ. function_type (candidate x_0 x_1) λ. function_type (candidate x_2 x_3) x_4
+          )
+          ( λ x_0 x_1 x_2 x_3 x_4
+            . (λx_5 x_6 x_7. (x_5 λ. x_6 (x_7 ∥ x_0) + x_6 x_7)) λ. contract_at λ. function_type (candidate x_2 x_3) x_4
+          )
+        λ _ md _
+        . md λk. k "[function_contract](docs/design/gezi-hindley-milner-unions-proofs.md#function_contract)"
+      + λ s
+        . s
+          (λk. k "shapes_contract_at_range")
+          (λx_0 x_1 x_2. contract_at λ. function_candidate x_0 x_1 x_2)
+          (λx_0 x_1 x_2 x_3 x_4. (x_3 (x_4 ∥ x_0) ∥ x_1 + x_3 x_4))
+        λ _ md _
+        . md λk. k "[function_contract](docs/design/gezi-hindley-milner-unions-proofs.md#function_contract)"
+      + λ s
+        . s
+          (λk. k "shapes_curried_contract")
+          ( λ x_0 x_1 x_2 x_3 x_4 x_5
+            . ( x_0
+              ∥ domain_candidate x_1 λ. function_type (candidate x_1 x_2) λ. function_type (candidate x_3 x_4) x_5
+              + x_0
+              )
+          )
+          ( λ x_0 x_1 x_2 x_3 x_4 x_5
+            . (λx_6 x_7. (x_6 λ. x_0 (x_7 ∥ x_1) + x_0 x_7)) λ. contract_at λ. function_type (candidate x_3 x_4) x_5
+          )
+        λ _ md _
+        . md λk. k "[function_contract](docs/design/gezi-hindley-milner-unions-proofs.md#function_contract)"
+      # ---- the contract where a marker of both is ----
+      #
+      # A function whose class of types holds a marker of both is its contract,
+      # the closure λy. f y + f (y ∥ r) ∥ s, whose body is f y, and λy. f y is f
+      # by the η rule (the paper proof function_contract).
+      + λ s
+        . s
+          (λk. k "shapes_contract")
+          (λx_0 x_1 x_2 x_3. (x_0 ∥ function_candidate x_1 x_2 x_3 + x_0))
+          (λx_0 x_1 x_2 x_3 x_4. (x_0 (x_4 ∥ x_1) ∥ x_2 + x_0 x_4))
+        λ _ md _
+        . md λk. k "[function_contract](docs/design/gezi-hindley-milner-unions-proofs.md#function_contract)"
+      # ---- typed versions where the markers are ----
+      #
+      # An application of a function whose class of types holds a marker has
+      # beside it its typed version: f (x ∥ r) for a domain marker, and
+      # (f (x ∥ r)) ∥ s for a marker of both. Sound for every filter:
+      # f x ⊑ f (x ∥ r) ∥ s
+      # (the paper proof typed_version).
+      + λ s
+        . s
+          (λk. k "shapes_typed_version_function")
+          (λx_0 x_1 x_2 x_3 x_4 x_5. (x_0 ∥ function_candidate x_2 x_3 x_4 + x_0) (x_1 ∥ x_5 + x_1))
+          ( λ x_0 x_1 x_2 x_3 x_4 x_5
+            . (x_0 (x_1 ∥ x_2) ∥ x_3 + (x_0 ∥ function_candidate x_2 x_3 x_4 + x_0) (x_1 ∥ x_5 + x_1))
+          ) λ_ md _. md λk. k "[typed_version](docs/design/gezi-hindley-milner-unions-proofs.md#typed_version)"
+      + λ s
+        . s
+          (λk. k "shapes_typed_version_domain")
+          (λx_0 x_1 x_2 x_3 x_4. (x_0 ∥ domain_candidate x_2 x_3 + x_0) (x_1 ∥ x_4 + x_1))
+          (λx_0 x_1 x_2 x_3 x_4. (x_0 (x_1 ∥ x_2) + (x_0 ∥ domain_candidate x_2 x_3 + x_0) (x_1 ∥ x_4 + x_1))) λ_ md _. md λk. k "[typed_version](docs/design/gezi-hindley-milner-unions-proofs.md#typed_version)"
+      # ---- the markers of function types ----
+      + λ s
+        . s
+          (λk. k "shapes_function_candidate")
+          (λx_0 x_1 x_2 x_3. function_type (candidate x_0 x_2) λ. candidate x_1 x_3)
+          ( λ x_0 x_1 x_2 x_3
+            . function_candidate x_0 x_1 λ. function_type (candidate x_0 x_2) λ. candidate x_1 x_3
+          ) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      + λ s
+        . s
+          (λk. k "shapes_domain_candidate")
+          (λx_0 x_1 x_2. function_type (candidate x_0 x_1) x_2)
+          (λx_0 x_1 x_2. domain_candidate x_0 λ. function_type (candidate x_0 x_1) x_2) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      # A unification with a candidacy unites it with the other side, as
+      # hindley_milner_unions' unify lemmas do for each kind of type.
+      + λ s
+        . s
+          (λk. k "shapes_unify_item_candidate_right")
+          (λx_0 x_1 x_2. unify x_1 λ. item_candidate x_0 x_2)
+          (λx_0 x_1 x_2. item_candidate x_0 x_2) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      + λ s
+        . s
+          (λk. k "shapes_unify_item_candidate_left")
+          (λx_0 x_1 x_2. unify (item_candidate x_0 x_1) x_2)
+          (λx_0 x_1 x_2. item_candidate x_0 x_1) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      + λ s
+        . s
+          (λk. k "shapes_unify_candidate_right")
+          (λx_0 x_1 x_2. unify x_1 λ. candidate x_0 x_2)
+          (λx_0 x_1 x_2. candidate x_0 x_2) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      + λ s
+        . s
+          (λk. k "shapes_unify_candidate_left")
+          (λx_0 x_1 x_2. unify (candidate x_0 x_1) x_2)
+          (λx_0 x_1 x_2. candidate x_0 x_1) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      # A structure of two alternatives whose second has exactly two fields, the
+      # first an item candidate for a representation r, is a candidate for the
+      # lists of r, whatever its first alternative, and so is such a structure
+      # whose second field, the tail, is a candidate for the lists of r. Its
+      # fields are unified with their candidacies as the naturals' field is, the
+      # head with r's and the tail with the lists of r's. A cell's type holds its
+      # own item's type and its tail's, so the cells of a list are not one class:
+      # every cell of a list one of whose items is an item candidate is a
+      # candidate, those from that item's cell toward nil because a candidate
+      # cell's tail is unified with the candidacy, those toward the list's head
+      # because a cell whose tail is a candidate is one, and so is each cell's
+      # item, whose own type only the other cells may fix (zero's second
+      # alternative is a type variable). A list none of whose items is an item
+      # candidate, a list of zeros alone, is a candidate for none; nor is a list
+      # of functions, since the filter list_type r must hold the items
+      # (prolog/gezi/list_codec.pl, WHY A DECODED LIST STANDS FOR THE
+      # FILTERED VALUE). A cell whose head is an item candidate for r holds
+      # list_item_candidate r, and so does a cell whose tail holds it, so that
+      # the first cell of such a list holds it, the cell whose type is the
+      # list's; a structure whose head holds it is a candidate for the lists of
+      # the lists of r: one level of nesting, the lemmas generic in r. So every
+      # cell of a list of lists one of whose inner lists has an item that is an
+      # item candidate is a candidate, and every cell of its inner lists. A list
+      # candidacy is never an item candidacy, so a clash that makes a structure
+      # its own head cannot nest list_type without end (see the item candidacy
+      # above).
+      # FIXME (2026-10-30): the nesting violates the rule that a new type adds https://github.com/Atry/private-overlay/issues/2011
+      # only attractors and repellers, never lemmas, and that a fixed number of
+      # lemmas rules out lemmas for each type: shapes_nested_list_candidate is a
+      # lemma for the second level only, and each further level would need a
+      # marker and lemmas of its own; no downgrade allows it. And
+      # a list of lists of lists is no candidate, so its outer list runs as a
+      # Scott closure, its inner lists in the representation; the requirement
+      # that a cooperative problem uses native representations everywhere is
+      # not met there, nor in a list
+      # none of whose items is an item candidate, at either level. The generic
+      # lemma, list_item_candidate r x = item_candidate (list_type r) x in place
+      # of shapes_nested_list_candidate, a fixed number of lemmas, builds every
+      # cell of a list of any depth natively on the programs HM types (measured
+      # 2026-10-30 on a scratch prototype: lists of depth 1 to 5 of successor
+      # zero, 1 to 5 cells by list_cons, fixed points at 139 to 451 instances,
+      # where this module builds 2 cells from depth 3 on), but breaks the rule
+      # that adding a module has no catastrophic effect on
+      # a program HM rejects whose clash makes a structure its own head: boolean_not
+      # (nat_fold zero successor (successor zero)), a fixed point at 778 instances
+      # in 0.33 seconds here, exhausts every budget, in 0.17, 0.67, 3.07 and
+      # 15.3 seconds at 250, 500, 1,000 and 2,000 instances, five times the time
+      # for twice the instances. The two rules conflict here. For the second, a lemma making the open shape of zero, true and nil
+      # an item candidate is wrong elsewhere: zero's and true's open structures
+      # join the one class of the booleans' or the naturals' closed type wherever
+      # a program passes them to boolean_not or nat_fold, and the extraction may
+      # then pick the wrong typed version (measured 2026-10-30 on a scratch
+      # prototype: cons true (cons false nil) built 1 of its 2 cells, where main
+      # 9d0360718 builds 2).
+      + λ s
+        . s
+          (λk. k "shapes_list_fields_candidate")
+          ( λ x_0 x_1 x_2 x_3
+            . candidate (list_type x_1) λ. structure λ. alternative x_0 λ. alternative (field x_2 λ. field x_3 no_field) no_alternative
+          )
+          ( λ x_0 x_1 x_2 x_3
+            . ( unify x_3 λ. candidate (list_type x_1) x_3
+              + unify x_2 λ. candidate x_1 x_2
+              + candidate (list_type x_1) λ. structure λ. alternative x_0 λ. alternative (field x_2 λ. field x_3 no_field) no_alternative
+              )
+          ) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      + λ s
+        . s
+          (λk. k "shapes_nested_list_candidate")
+          ( λ x_0 x_1 x_2 x_3
+            . structure
+            λ
+            . alternative x_0 λ. alternative (field (list_item_candidate x_1 x_2) λ. field x_3 no_field) no_alternative
+          )
+          ( λ x_0 x_1 x_2 x_3
+            . candidate (list_type λ. list_type x_1)
+            λ
+            . structure
+            λ
+            . alternative x_0 λ. alternative (field (list_item_candidate x_1 x_2) λ. field x_3 no_field) no_alternative
+          ) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      + λ s
+        . s
+          (λk. k "shapes_list_tail_item_candidate")
+          ( λ x_0 x_1 x_2 x_3
+            . structure
+            λ
+            . alternative x_0 λ. alternative (field x_2 λ. field (list_item_candidate x_1 x_3) no_field) no_alternative
+          )
+          ( λ x_0 x_1 x_2 x_3
+            . list_item_candidate x_1
+            λ
+            . structure
+            λ
+            . alternative x_0 λ. alternative (field x_2 λ. field (list_item_candidate x_1 x_3) no_field) no_alternative
+          ) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      + λ s
+        . s
+          (λk. k "shapes_list_item_candidate")
+          ( λ x_0 x_1 x_2 x_3
+            . structure
+            λ
+            . alternative x_0 λ. alternative (field (item_candidate x_1 x_2) λ. field x_3 no_field) no_alternative
+          )
+          ( λ x_0 x_1 x_2 x_3
+            . list_item_candidate x_1
+            λ
+            . structure
+            λ
+            . alternative x_0 λ. alternative (field (item_candidate x_1 x_2) λ. field x_3 no_field) no_alternative
+          ) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      + λ s
+        . s
+          (λk. k "shapes_list_cell_candidate")
+          ( λ x_0 x_1 x_2 x_3
+            . structure
+            λ
+            . alternative x_0 λ. alternative (field x_2 λ. field (candidate (list_type x_1) x_3) no_field) no_alternative
+          )
+          ( λ x_0 x_1 x_2 x_3
+            . candidate (list_type x_1)
+            λ
+            . structure
+            λ
+            . alternative x_0 λ. alternative (field x_2 λ. field (candidate (list_type x_1) x_3) no_field) no_alternative
+          ) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      + λ s
+        . s
+          (λk. k "shapes_list_candidate")
+          ( λ x_0 x_1 x_2 x_3
+            . structure
+            λ
+            . alternative x_0 λ. alternative (field (item_candidate x_1 x_2) λ. field x_3 no_field) no_alternative
+          )
+          ( λ x_0 x_1 x_2 x_3
+            . candidate (list_type x_1)
+            λ
+            . structure
+            λ
+            . alternative x_0 λ. alternative (field (item_candidate x_1 x_2) λ. field x_3 no_field) no_alternative
+          ) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      # The field of a candidate for the naturals is one, and an item candidate
+      # too: the field is unified with its candidacies, as hindley_milner_unions'
+      # decompositions unify components, making no new structure (a new structure
+      # over the field's candidacy, a candidate in turn, made one more each time
+      # and did not end: measured 2026-10-29 on successor zero, the budget of
+      # 3,000 instances exhausted). The item candidacy reaches a type that only
+      # successor's field fixes, as the item type of list_fold nil (\h. \t.
+      # cons (successor h) t) (cons zero nil) is, zero's second alternative being
+      # a type variable (measured 2026-10-29: from the shapes alone, that input
+      # list was no candidate and its cells and list_fold's last argument had no
+      # typed version).
+      + λ s
+        . s
+          (λk. k "shapes_natural_field_candidate")
+          ( λ x_0 x_1
+            . candidate nat_type λ. structure λ. alternative x_0 λ. alternative (field x_1 no_field) no_alternative
+          )
+          ( λ x_0 x_1
+            . ( unify x_1 λ. item_candidate nat_type x_1
+              + unify x_1 λ. candidate nat_type x_1
+              + candidate nat_type λ. structure λ. alternative x_0 λ. alternative (field x_1 no_field) no_alternative
+              )
+          ) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      # ---- candidacy, one layer: the shapes of the representations ----
+      # The naturals' and the booleans' shapes make a type a candidate and an ITEM
+      # candidate, a candidate for a representation whose values a list's items
+      # may be: the item candidacy is written by the shapes and by the naturals'
+      # field, which are lemmas of one representation each, and by no lemma that
+      # names a representation besides, so that a list candidacy, written by the
+      # lemmas for every representation below, is never an item candidacy and a
+      # clash cannot nest list_type without end (a lemma making every list
+      # candidate an item candidate did, in a class a clash of a program HM
+      # rejects makes its own head: measured 2026-10-29 on boolean_not (nat_fold
+      # zero successor (successor zero)), the budget of 6,000 instances
+      # exhausted, about 59 seconds, branch nested-lists 07e6b99ce).
+      + λ s
+        . s
+          (λk. k "shapes_boolean_item_candidate")
+          (λx_0. structure λ. alternative x_0 λ. alternative no_field no_alternative)
+          ( λ x_0
+            . item_candidate boolean_type λ. structure λ. alternative x_0 λ. alternative no_field no_alternative
+          ) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      + λ s
+        . s
+          (λk. k "shapes_boolean_candidate")
+          (λx_0. structure λ. alternative x_0 λ. alternative no_field no_alternative)
+          (λx_0. candidate boolean_type λ. structure λ. alternative x_0 λ. alternative no_field no_alternative) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      + λ s
+        . s
+          (λk. k "shapes_natural_item_candidate")
+          (λx_0 x_1. structure λ. alternative x_0 λ. alternative (field x_1 no_field) no_alternative)
+          ( λ x_0 x_1
+            . item_candidate nat_type λ. structure λ. alternative x_0 λ. alternative (field x_1 no_field) no_alternative
+          ) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      + λ s
+        . s
+          (λk. k "shapes_natural_candidate")
+          (λx_0 x_1. structure λ. alternative x_0 λ. alternative (field x_1 no_field) no_alternative)
+          ( λ x_0 x_1
+            . candidate nat_type λ. structure λ. alternative x_0 λ. alternative (field x_1 no_field) no_alternative
+          ) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      )
+  )

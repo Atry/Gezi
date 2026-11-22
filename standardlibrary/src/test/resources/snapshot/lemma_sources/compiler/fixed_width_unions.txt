@@ -1,0 +1,89 @@
+unions_word_end_scheme: word_end = word_end ∥ zero_universe_scheme λ. structure λ. alternative no_field no_alternative + word_end
+unions_word_cell_scheme: word_cell = word_cell
+          ∥ λ
+            . zero_universe_scheme
+            λ
+            . scheme
+            λ x_0
+            . scheme
+            λ x_1
+            . function_type x_0 λ. function_type x_1 λ. structure λ. alternative (field x_0 λ. field x_1 no_field) no_alternative
+          + word_cell
+unions_word_structure_zero: word_structure zero = unify (word_structure zero) λ. structure λ. alternative no_field no_alternative
+unions_word_structure_successor: λx_0. word_structure λ. successor x_0 = λ x_0
+            . unify (word_structure λ. successor x_0)
+            λ
+            . structure
+            λ
+            . alternative
+              ( field (structure λ. alternative no_field λ. alternative no_field no_alternative) λ. field (word_structure_above x_0) no_field
+              ) no_alternative
+unions_word_structure_above_zero: word_structure_above zero = unify (word_structure_above zero) λ. structure λ. alternative no_field no_alternative
+unions_word_structure_above_successor: λx_0. word_structure_above λ. successor x_0 = λ x_0
+            . unify (word_structure_above λ. successor x_0)
+            λ
+            . structure
+            λ
+            . alternative
+              ( field (structure λ. alternative no_field λ. alternative no_field no_alternative) λ. field (word_structure_above x_0) no_field
+              ) no_alternative
+unions_word_add_scheme: λx_0. word_add x_0 = λ x_0
+            . ( word_add x_0
+              ∥ zero_universe_scheme λ. function_type (word_structure x_0) λ. function_type (word_structure x_0) λ. word_structure x_0
+              + word_add x_0
+              )
+unions_word_subtract_scheme: λx_0. word_subtract x_0 = λ x_0
+            . ( word_subtract x_0
+              ∥ zero_universe_scheme λ. function_type (word_structure x_0) λ. function_type (word_structure x_0) λ. word_structure x_0
+              + word_subtract x_0
+              )
+unions_word_multiply_scheme: λx_0. word_multiply x_0 = λ x_0
+            . ( word_multiply x_0
+              ∥ zero_universe_scheme λ. function_type (word_structure x_0) λ. function_type (word_structure x_0) λ. word_structure x_0
+              + word_multiply x_0
+              )
+unions_word_negate_scheme: λx_0. word_negate x_0 = λ x_0
+            . ( word_negate x_0
+              ∥ zero_universe_scheme λ. function_type (word_structure x_0) λ. word_structure x_0
+              + word_negate x_0
+              )
+unions_word_less_than_scheme: λx_0. word_less_than x_0 = λ x_0
+            . ( word_less_than x_0
+              ∥ λ
+                . zero_universe_scheme
+                λ
+                . function_type (word_structure x_0)
+                λ
+                . function_type (word_structure x_0) λ. structure λ. alternative no_field λ. alternative no_field no_alternative
+              + word_less_than x_0
+              )
+unions_word_equal_scheme: λx_0. word_equal x_0 = λ x_0
+            . ( word_equal x_0
+              ∥ λ
+                . zero_universe_scheme
+                λ
+                . function_type (word_structure x_0)
+                λ
+                . function_type (word_structure x_0) λ. structure λ. alternative no_field λ. alternative no_field no_alternative
+              + word_equal x_0
+              )
+unions_word_to_natural_scheme: λx_0. word_to_natural x_0 = λ x_0
+            . ( word_to_natural x_0
+              ∥ λ
+                . zero_universe_scheme
+                λ
+                . function_type (word_structure x_0)
+                λ
+                . recursive_type λx_1. structure λ. alternative no_field λ. alternative (field x_1 no_field) no_alternative
+              + word_to_natural x_0
+              )
+unions_word_of_natural_scheme: λx_0. word_of_natural x_0 = λ x_0
+            . ( word_of_natural x_0
+              ∥ λ
+                . zero_universe_scheme
+                λ
+                . function_type
+                  ( recursive_type λx_1. structure λ. alternative no_field λ. alternative (field x_1 no_field) no_alternative
+                  ) λ. word_structure x_0
+              + word_of_natural x_0
+              )

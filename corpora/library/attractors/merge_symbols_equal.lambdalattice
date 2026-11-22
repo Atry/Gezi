@@ -1,0 +1,7 @@
+#   x (y true false) (y false true).
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "prelude") "boolean")
+λ true false _ _
+. export λx y. x (y true false) λ. y false true

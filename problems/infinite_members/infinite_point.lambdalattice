@@ -1,0 +1,182 @@
+# LEMMAS ON INFINITE MEMBERS: points whose only feasible route to the
+# answer rewrites with a lemma on an infinite member of a recursive,
+# parametric type.
+#
+# A type system without lemmas on infinite members is not a type system,
+# so these points ask for them, for example map id s = s on an infinite
+# stream. Assertions are combinators, so they accept parameters used as
+# type parameters.
+#
+# THE PROGRAMS. A stream is a Scott list with no nil, as in
+# `contest_clauses.pl`. The main points read one stream, an infinite
+# member of the stream type whose element type is the Booleans:
+#
+#     s = Y (\s. cons b0 (cons b1 ... (cons b301 s)))
+#
+# with b_i true when 3 divides i and false otherwise. Its period, 302, is
+# larger than every index read, so no two of the tails read are equal
+# terms. The stream carries no state in a seed: every layer is the same
+# fixpoint (2026-10-02: a stream whose layers are derivable
+# at an opaque seed does not depend on whether hypotheses are admitted in
+# the replay, while `from n = n : from (succ n)` would). Each main point
+# reads one element of s through K layers of `map id`:
+#
+#     nth N (map id (map id ... (map id s)))    K layers
+#
+# - infinite_stream_map_identity_layers: N = 300, K = 300, the layers
+#   written out; b_300, true.
+# - infinite_stream_map_identity_counted: the same layers built at run
+#   time by `stack k s = k s (\p. map (\x. x) (stack p s))` from the
+#   numeral K, the identity spelled inline; N = 301, b_301, false.
+# - infinite_stream_map_identity_shifted: N = 299, K = 300, the layers
+#   written out; b_299, false.
+#
+# THE INTENDED ANSWER IS RIGHT UNDER DEFINITION 14. Each program P reduces by
+# beta to the Boolean B written above: nth N walks N tails, the tail of
+# `map id x` is `map id (tail x)` once x has its weak head, and the element
+# reached is b_N under K identities. So ⊢_β P = B, and P ≃_O B by the soundness
+# of the derivable equations for Definition 14 (Lean
+# `ContextualPreorder.contextualEquivalenceOfDerivableLatticeEta`): B is an
+# answer, P ⊑_O B, and no other closed βη normal form is one (Böhm's theorem). The scored claim is that Boolean and the trap
+# the other, the finite head class of `contest_hard_claims.pl` (the
+# trap's equation is refuted by Boehm's theorem).
+#
+# WHY ONLY A LEMMA REACHES IT IN TIME. The element at index N of the
+# outer layer needs the weak head of every tail `map id^j (tail_i s)`,
+# j up to K and i up to N: the tail of `map id x` is taken only once x
+# has a weak head. These N times K terms are pairwise distinct, since the
+# period exceeds N, so no table and no sharing merges two of them. A
+# finite observation of the stream under the layers, with a premise on
+# the stream, such as `nth n (map id x) = nth n x` for a numeral n and
+# an infinite stream x, or nth commuted with map, used K times, leaves
+# `nth N s`, N steps. Each is a lemma on an infinite stream, whatever its
+# element type; the type parameter is the element type. The
+# point writes neither the lemma nor its premise nor its proof: the
+# setting chooses them.
+#
+# MEASURED 2026-10-02 on CPUs 0 to 5 through doc/contest_limited.sh,
+# N = K = 300, period 302. The main points keep the default limits, 1 s,
+# 32 MB of stack and 32 MB of table space: they are beyond points.
+# - Unfolding, the baseline tabling(weak_head) at 60 s and 1024 MB reads
+#   every main point's answer in 9589 to 10662 ms with 256 to 258 MB of
+#   table space (corpora/contest_hard_baseline.pl).
+# - At the points' own limits every reference setting and every setting of
+#   corpora/contest_entries.pl misses all three main points: each stops
+#   at about 1 s or exhausts its table space.
+# - The program after the lemma, `nth N s`, takes tabling(weak_head) 90
+#   to 114 ms at 1 s, 32 MB and 32 MB, three readings for each N.
+# - Every setting reads the three non-stream points at their limits.
+#
+# TRAPS FOR A LEMMA WITHOUT ITS PREMISE. `nth n (map id x) = nth n x`
+# and `nth n (map f x) = f (nth n x)` fail on a term x that is not a
+# stream, and rewriting `map id x` to x answers the trap of
+# infinite_stream_map_identity_non_stream_case.
+# The two non-stream points apply map id to J = \n. \c. c H T Z, a cons
+# cell with a third field: `map id J` takes J's cons branch, rebuilds
+# `cons H (map id T)` and applies it to Z, so the result is
+# `\c. c H (map id T)`: Z has taken the nil handler's place, and every
+# later argument moves one place left.
+# - infinite_stream_map_identity_non_stream_case: `map id J` applied to a
+#   nil handler `\a. \b. \c. true` and a cons handler `\h. \t. \z. false`:
+#   the nil handler lands in the cons handler's place and answers true.
+#   With J in place of `map id J` the cons handler answers false.
+# - infinite_stream_map_identity_non_stream_nth: `nth 0 (map id J)` with
+#   H = \g. g true false, T = 0 and Z = false: nth's index 0 lands in
+#   the cons handler's place and selects H, which is applied to nth's
+#   cons handler G, and `G true false` reduces to `0 true ...`, true.
+#   Each of the two lemmas, used without its premise, gives `nth 0 J`
+#   (the second as `id (nth 0 J)`): G receives H as the head, 0
+#   selects it, and `H Z` is `false true false`, false.
+# - infinite_stream_map_identity_premised_non_stream: a term that passes
+#   the premise `map id X = X` and is not a stream, after the witness
+#   against the premise `T @ X = X`.
+#   X = \n. \c. c H T E (W W), W = \w. \h. \m. \n. \c. c H T E (w w),
+#   with H = \a. \b. true, T = E = 0. `map f X` takes X's cons branch,
+#   rebuilds `cons (f H) (map f T)` and applies it to E and W W: E takes
+#   the nil handler's place, and W W, in the cons handler's, discards
+#   both fields and answers X. So `map f X` reduces to X for every f,
+#   and `map id X = X` holds by beta. `nth 0 (map (\x. false) X)` is
+#   then `nth 0 X`, which selects H and applies it to E and W W, true.
+#   Commuting nth with map under the premise gives
+#   `(\x. false) (nth 0 X)`, false.
+# The intended answers are finite heads by the same beta argument, with
+# the other Boolean the trap. All three reductions were checked by
+# normalisation.
+#
+# TARGET ALGORITHMS, the specific known algorithms the problem targets, each
+# with its prior work:
+# - proofs by coinduction on streams, the bisimulation that a lemma on an
+#   infinite member rests on: J. J. M. M. Rutten, Universal Coalgebra: A
+#   Theory of Systems, TCS 2000, doi:10.1016/S0304-3975(00)00056-6; D.
+#   Kozen, A. Silva, Practical Coinduction, Mathematical Structures in
+#   Computer Science 2016, doi:10.1017/S0960129515000493.
+# - removing the intermediate structure `map id` builds, by a law instead
+#   of by evaluation: P. Wadler, Deforestation: Transforming Programs to
+#   Eliminate Trees, TCS 1990, doi:10.1016/0304-3975(90)90147-A.
+
+#
+# The value is a constructor of schema/intended_value, here `boolean` of a
+# Church Boolean of corpora/library/prelude/boolean. Each other text is
+# from_cbor of a string literal, a Scott list of bytes, imported from
+# corpora/library/text/cbor. FIXME: the imports project "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "boolean")
+λ true false _ _
+. omega (omega (omega (omega gezi "problems") "schema") "intended_value")
+λ boolean _ _ _
+. export
+λ
+. cons
+  ( λ _infinite_point
+    . _infinite_point (text "infinite_stream_map_identity_layers") (boolean true) (text "complexity")
+    λ
+    . text "nth 300 walks 300 tails of the outer map id; the tail of map id x is map id (tail x) once x has a weak head, so every layer's tails are reached, and the element is b_300 under 300 identities, true as 3 divides 300"
+  )
+λ
+. cons
+  ( λ _infinite_point
+    . _infinite_point (text "infinite_stream_map_identity_counted") (boolean false) (text "complexity")
+    λ
+    . text "stack 300 s unfolds to 300 layers of map (\\x. x) over s; nth 301 walks 301 tails through every layer to b_301, false as 3 does not divide 301"
+  )
+λ
+. cons
+  ( λ _infinite_point
+    . _infinite_point (text "infinite_stream_map_identity_shifted") (boolean false) (text "complexity")
+    λ
+    . text "nth 299 walks 299 tails of 300 layers of map id over s to b_299, false as 3 does not divide 299"
+  )
+λ
+. cons
+  ( λ _infinite_point
+    . _infinite_point (text "infinite_stream_map_identity_non_stream_case") (boolean true) (text "speed")
+    λ
+    . text "map id J takes J's cons branch and reduces to \\c. c H (map id T), Z having taken the nil handler's place; the nil handler \\a. \\b. \\c. true lands in the cons handler's place and answers true"
+  )
+λ
+. cons
+  ( λ _infinite_point
+    . _infinite_point (text "infinite_stream_map_identity_non_stream_nth") (boolean true) (text "speed")
+    λ
+    . text "map id J reduces to \\c. c H (map id T), Z having taken the nil handler's place; nth 0 applies it to 0 and its cons handler G, 0 lands in the cons handler's place and selects H, and H G is G true false, which is 0 true applied further, true"
+  )
+λ
+. cons
+  ( λ _infinite_point
+    . _infinite_point
+      (text "infinite_stream_map_identity_premised_non_stream")
+      (boolean true)
+      (text "speed")
+    λ
+    . text "map (\\x. false) X takes X's cons branch and reduces to cons ((\\x. false) H) (map (\\x. false) 0) applied to 0 and W W, which is W W ((\\x. false) H) (map (\\x. false) 0), which is X; nth 0 X selects H = \\a. \\b. true, true"
+  ) nil

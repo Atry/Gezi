@@ -1,0 +1,7 @@
+#   The body `natural_difference` hands its fixpoint.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega gezi "problems") "prelude_clauses") "zero")
+λ zero
+. export λself m n. n m λn1. m zero λm1. self m1 n1

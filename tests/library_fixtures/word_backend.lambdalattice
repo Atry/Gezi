@@ -1,0 +1,19 @@
+# The knowledge WordDecodingLawTest compiles its library from
+# (gezi.standardlibrary.LibraryFiles.compiled): native_types, fixed_width,
+# prolog_backend and fixed_width_prolog_backend, their choice the one field of
+# this file's tuple, a term of this file and not a choice the host assembles
+# from paths.
+# FIXME: the imports project "corpora" off the variable gezi, the name https://github.com/Atry/private-overlay/issues/1924
+# of the project root's own directory; they break if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega gezi "corpora") "compiler") "native_types")
+λ native_types
+. omega (omega (omega (omega gezi "corpora") "compiler") "fixed_width")
+λ fixed_width
+. omega (omega (omega (omega gezi "corpora") "compiler") "prolog_backend")
+λ prolog_backend
+. omega (omega (omega (omega gezi "corpora") "compiler") "fixed_width_prolog_backend")
+λ fixed_width_prolog_backend
+. export (fixed_width_prolog_backend + prolog_backend + fixed_width + native_types)

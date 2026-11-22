@@ -1,0 +1,97 @@
+# +Point, -Surface
+#   * <module> The set-free series: a loop of cheap library calls, for the scope of compilation
+#
+# A family of the set-free series for the scope of compilation, whose
+# largest gain is compiling more of a program and so avoiding the cost of
+# the FFI. A point is a closed pure
+# lambda program, no set in it, whose answer is one binary numeral.
+#
+# THE PROGRAM is an iterative Fibonacci over binary numerals, a loop the
+# program writes itself around the library's addition:
+#
+#     fib_iter n a b = n a (\p. fib_iter p b (plus a b))
+#
+# n a unary numeral, a and b binary numerals, plus the attractor
+# merge_binary_plus of corpora/contest_attractors.pl; fib_iter n 0 1 is
+# fib(n). The loop makes n calls of plus on numbers of up to about 0.7 n
+# bits:
+# - a setting that replaces each call of plus by native addition converts
+#   both arguments from Scott numerals and the result back at every call,
+#   about n times the bits, a cost at the boundary between the calculus and
+#   native code;
+# - a setting that compiles the whole loop keeps a and b native throughout
+#   and converts once, at the end, as native Prolog does.
+#
+# THE POINTS: a DIRECT and a RESPELLED twin of each size, and a NEAR MISS, a
+# proved trap for compiling without checking that values are canonical: a
+# loop that puts the constructor even around zero n times,
+#
+#     double_iter n x = n x (\p. double_iter p (even x)),   x = 0,
+#
+# whose normal form is the non-canonical tree even(even(... zero)). A
+# setting that represents binary values as native integers answers the
+# canonical zero, another normal form, outside S(P).
+#
+# TARGET ALGORITHMS, the specific known algorithms the problem targets, each
+# with its prior work:
+# - unboxed data representations chosen by the compiler, so that values in a
+#   compiled region stay in machine form: X. Leroy, Unboxed Objects and
+#   Polymorphic Typing, POPL 1992, doi:10.1145/143165.143205;
+# - compiling a hot loop as a whole, with its values specialised to their
+#   types: A. Gal et al., Trace-based Just-in-Time Type Specialization for
+#   Dynamic Languages, PLDI 2009, doi:10.1145/1542476.1542528;
+# - recognising the library's addition inside the program (equality
+#   saturation, Tate et al., POPL 2009, doi:10.1145/1480881.1480915; call
+#   restoration).
+#
+# THE SNAPSHOT is the canonical numeral of fib(n) for a Fibonacci point and
+# the tree of n evens around zero for a near miss. PROOF. The program is
+# pure, so S(P) = {N} for its normal form N. By
+# induction on n, fib_iter n a b reduces to the numeral of F(n) for a = F(0)
+# and b = F(1) shifted, plus on canonical numerals giving the canonical sum
+# (prolog/gezi/catalogue_replacement.pl, "THE ENTRIES' INDUCTIONS
+# (ii)"); double_iter n 0 reduces to even applied n times to zero, a normal
+# form that is no canonical numeral for n >= 1, so it differs from the
+# canonical zero.
+# LIMITS: the reduction family's, 10 s, 256 MB, 256 MB.
+
+#   scope_point(?Point, ?Loop, ?Spelling, ?Steps)
+#
+# The spelling is a constructor of schema/spelling, direct or respelled.
+# Each other text is from_cbor of a string literal, a Scott list of bytes,
+# imported from corpora/library/text/cbor. Each number is from_cbor of an
+# integer literal, a Scott integer, imported from corpora/library/integer/cbor.
+# FIXME: the imports project "corpora" https://github.com/Atry/private-overlay/issues/1923
+# off the variable gezi, the name of the project root's own
+# directory; it breaks if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λx. x)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λx. x)
+λ integer
+. omega (omega (omega (omega gezi "problems") "schema") "spelling")
+λ direct respelled
+. export
+λ
+. cons
+  ( λ _scope_point
+    . _scope_point (text "set_free_scope_small_direct") (text "fibonacci") direct λ. integer 10
+  )
+λ
+. cons
+  ( λ _scope_point
+    . _scope_point (text "set_free_scope_small_respelled") (text "fibonacci") respelled λ. integer 10
+  )
+λ
+. cons
+  ( λ _scope_point
+    . _scope_point (text "set_free_scope_small_near_miss") (text "doubling") direct λ. integer 10
+  ) nil

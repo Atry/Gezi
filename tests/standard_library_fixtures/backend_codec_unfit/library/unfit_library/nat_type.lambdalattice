@@ -1,0 +1,8 @@
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega backend_codec_unfit "library") "unfit_library") "zero")
+λ zero
+. omega (omega (omega (omega backend_codec_unfit "library") "unfit_library") "successor")
+λ successor
+. export (successor zero + zero)

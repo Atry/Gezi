@@ -1,0 +1,465 @@
+# sample 0
+## file:///corpora/narrow/program_0.lambdalattice
+(λa0. λa1. λa2.  λz. z)
+((λx. λy. y y x) ((λx. λy. y x) ((λx. λy. λz. z y x) (λx. x x))) ((λx. λy. y x) ((λx. λy. y x) ((λx. λy. λz. z y x) (λx. x x)))))
+((λx. λy. y y x) ((λx. λy. y y x) (λx. x x) (λx. x x)) ((λx. λy. λz. z y x) (λx. x x)))
+
+
+((λx. λy. y y x) ((λx. λy. y x) ((λx. λy. λz. z y x) (λx. x x))) ((λx. λy. y x) ((λx. λy. λz. z y x) (λx. x x))))
+## file:///corpora/narrow/program_1.lambdalattice
+(λa0. λa1. λa2.  λz. z)
+
+((λx. λy. y y x) ((λx. λy. y x) ((λx. λy. y x) ((λx. λy. λz. z y x) (λx. x x)))) ((λx. λy. y x) ((λx. λy. λz. z y x) (λx. x x))))
+((λx. λy. y y x) ((λx. λy. λz. z y x) (λx. x x)) ((λx. λy. λz. z y x) (λx. x x)))
+((λx. λy. y y x) ((λx. λy. λz. z y x) (λx. x x)) (λx. x x))
+=>
+Compiled from "program_0.lambdalattice"
+public final class gezi.narrowblocks.GeneratedNarrowBlock implements gezi.narrowblocks.NarrowBlockProgram {
+  public gezi.narrowblocks.GeneratedNarrowBlock(int);
+
+  public java.math.BigInteger computed(gezi.saturation.StopSignal);
+
+  public static java.math.BigInteger block0(gezi.saturation.StopSignal);
+      LineNumberTable:
+        line 1: 0
+
+  public static java.math.BigInteger block1(gezi.saturation.StopSignal);
+      LineNumberTable:
+        line 2: 0
+
+  public static java.math.BigInteger block2(gezi.saturation.StopSignal);
+      LineNumberTable:
+        line 3: 0
+
+  public static java.math.BigInteger block3(gezi.saturation.StopSignal);
+      LineNumberTable:
+        line 4: 0
+
+  public static java.math.BigInteger block4(gezi.saturation.StopSignal);
+      LineNumberTable:
+        line 5: 0
+
+  public static java.math.BigInteger block5(gezi.saturation.StopSignal);
+      LineNumberTable:
+        line 6: 0
+}
+SourceDebugExtension:
+SMAP
+program_0.lambdalattice
+Lambdalattice
+*S Lambdalattice
+*F
++ 1 program_0.lambdalattice
+/corpora/narrow/program_0.lambdalattice
++ 2 program_1.lambdalattice
+/corpora/narrow/program_1.lambdalattice
+*L
+2#1:1
+3#1:2
+6#1:3
+3#2:4
+4#2:5
+5#2:6
+*E
+
+# sample 1
+## file:///corpora/narrow/program_0.lambdalattice
+(λa0. λa1.  λz. z)
+((λx. λy. y y x) (λx. x x) ((λx. λy. y x) ((λx. λy. y x) ((λx. λy. λz. z y x) (λx. x x)))))
+
+
+((λx. λy. y y x) ((λx. λy. y y x) (λx. x x) ((λx. λy. λz. z y x) ((λx. λy. y x) ((λx. λy. λz. z y x) (λx. x x))))) ((λx. λy. y x) ((λx. λy. y x) ((λx. λy. λz. z y x) (λx. x x)))))
+## file:///corpora/narrow/program_1.lambdalattice
+(λa0. λa1. λa2.  λz. z)
+
+((λx. λy. y y x) ((λx. λy. y y x) ((λx. λy. λz. z y x) (λx. x x)) ((λx. λy. y x) ((λx. λy. λz. z y x) (λx. x x)))) ((λx. λy. λz. z y x) ((λx. λy. y x) ((λx. λy. λz. z y x) (λx. x x)))))
+
+((λx. λy. y y x) ((λx. λy. y y x) ((λx. λy. y x) ((λx. λy. y x) ((λx. λy. λz. z y x) (λx. x x)))) ((λx. λy. y x) ((λx. λy. λz. z y x) (λx. x x)))) ((λx. λy. λz. z y x) ((λx. λy. λz. z y x) (λx. x x))))
+
+
+((λx. λy. y y x) ((λx. λy. y x) ((λx. λy. y x) ((λx. λy. λz. z y x) (λx. x x)))) ((λx. λy. λz. z y x) ((λx. λy. y x) ((λx. λy. λz. z y x) (λx. x x)))))
+=>
+Compiled from "program_0.lambdalattice"
+public final class gezi.narrowblocks.GeneratedNarrowBlock implements gezi.narrowblocks.NarrowBlockProgram {
+  public gezi.narrowblocks.GeneratedNarrowBlock(int);
+
+  public java.math.BigInteger computed(gezi.saturation.StopSignal);
+
+  public static java.math.BigInteger block0(gezi.saturation.StopSignal);
+      LineNumberTable:
+        line 1: 0
+
+  public static java.math.BigInteger block1(gezi.saturation.StopSignal);
+      LineNumberTable:
+        line 2: 0
+
+  public static java.math.BigInteger block2(gezi.saturation.StopSignal);
+      LineNumberTable:
+        line 3: 0
+
+  public static java.math.BigInteger block3(gezi.saturation.StopSignal);
+      LineNumberTable:
+        line 4: 0
+
+  public static java.math.BigInteger block4(gezi.saturation.StopSignal);
+      LineNumberTable:
+        line 5: 0
+}
+SourceDebugExtension:
+SMAP
+program_0.lambdalattice
+Lambdalattice
+*S Lambdalattice
+*F
++ 1 program_0.lambdalattice
+/corpora/narrow/program_0.lambdalattice
++ 2 program_1.lambdalattice
+/corpora/narrow/program_1.lambdalattice
+*L
+2#1:1
+5#1:2
+3#2:3
+5#2:4
+8#2:5
+*E
+
+# sample 2
+## file:///corpora/narrow/program_0.lambdalattice
+(λa0.  λz. z)
+
+((λx. λy. y y x) ((λx. λy. y y x) ((λx. λy. y x) ((λx. λy. λz. z y x) (λx. x x))) ((λx. λy. y x) ((λx. λy. y x) ((λx. λy. λz. z y x) (λx. x x))))) ((λx. λy. y x) ((λx. λy. y x) ((λx. λy. λz. z y x) (λx. x x)))))
+## file:///corpora/narrow/program_1.lambdalattice
+(λa0. λa1.  λz. z)
+
+((λx. λy. y y x) ((λx. λy. λz. z y x) ((λx. λy. λz. z y x) (λx. x x))) ((λx. λy. λz. z y x) (λx. x x)))
+
+((λx. λy. y y x) ((λx. λy. y y x) ((λx. λy. λz. z y x) (λx. x x)) ((λx. λy. y x) ((λx. λy. λz. z y x) (λx. x x)))) (λx. x x))
+=>
+Compiled from "program_0.lambdalattice"
+public final class gezi.narrowblocks.GeneratedNarrowBlock implements gezi.narrowblocks.NarrowBlockProgram {
+  public gezi.narrowblocks.GeneratedNarrowBlock(int);
+
+  public java.math.BigInteger computed(gezi.saturation.StopSignal);
+
+  public static java.math.BigInteger block0(gezi.saturation.StopSignal);
+      LineNumberTable:
+        line 1: 0
+
+  public static java.math.BigInteger block1(gezi.saturation.StopSignal);
+      LineNumberTable:
+        line 2: 0
+
+  public static java.math.BigInteger block2(gezi.saturation.StopSignal);
+      LineNumberTable:
+        line 3: 0
+}
+SourceDebugExtension:
+SMAP
+program_0.lambdalattice
+Lambdalattice
+*S Lambdalattice
+*F
++ 1 program_0.lambdalattice
+/corpora/narrow/program_0.lambdalattice
++ 2 program_1.lambdalattice
+/corpora/narrow/program_1.lambdalattice
+*L
+3#1:1
+3#2:2
+5#2:3
+*E
+
+# sample 3
+## file:///corpora/narrow/program_0.lambdalattice
+(λa0.  λz. z)
+
+
+((λx. λy. y y x) ((λx. λy. λz. z y x) (λx. x x)) ((λx. λy. y x) ((λx. λy. λz. z y x) (λx. x x))))
+## file:///corpora/narrow/program_1.lambdalattice
+(λa0. λa1. λa2.  λz. z)
+((λx. λy. y y x) ((λx. λy. λz. z y x) ((λx. λy. y x) ((λx. λy. λz. z y x) (λx. x x)))) ((λx. λy. y x) ((λx. λy. y x) ((λx. λy. λz. z y x) (λx. x x)))))
+
+((λx. λy. y y x) ((λx. λy. y x) ((λx. λy. λz. z y x) (λx. x x))) ((λx. λy. λz. z y x) ((λx. λy. y x) ((λx. λy. λz. z y x) (λx. x x)))))
+((λx. λy. y y x) ((λx. λy. y y x) ((λx. λy. λz. z y x) (λx. x x)) ((λx. λy. y x) ((λx. λy. λz. z y x) (λx. x x)))) ((λx. λy. y x) ((λx. λy. y x) ((λx. λy. λz. z y x) (λx. x x)))))
+=>
+Compiled from "program_0.lambdalattice"
+public final class gezi.narrowblocks.GeneratedNarrowBlock implements gezi.narrowblocks.NarrowBlockProgram {
+  public gezi.narrowblocks.GeneratedNarrowBlock(int);
+
+  public java.math.BigInteger computed(gezi.saturation.StopSignal);
+
+  public static java.math.BigInteger block0(gezi.saturation.StopSignal);
+      LineNumberTable:
+        line 1: 0
+
+  public static java.math.BigInteger block1(gezi.saturation.StopSignal);
+      LineNumberTable:
+        line 2: 0
+
+  public static java.math.BigInteger block2(gezi.saturation.StopSignal);
+      LineNumberTable:
+        line 3: 0
+
+  public static java.math.BigInteger block3(gezi.saturation.StopSignal);
+      LineNumberTable:
+        line 4: 0
+}
+SourceDebugExtension:
+SMAP
+program_0.lambdalattice
+Lambdalattice
+*S Lambdalattice
+*F
++ 1 program_0.lambdalattice
+/corpora/narrow/program_0.lambdalattice
++ 2 program_1.lambdalattice
+/corpora/narrow/program_1.lambdalattice
+*L
+4#1:1
+2#2:2
+4#2:3
+5#2:4
+*E
+
+# sample 4
+## file:///corpora/narrow/program_0.lambdalattice
+(λa0.  λz. z)
+((λx. λy. y y x) ((λx. λy. λz. z y x) (λx. x x)) (λx. x x))
+## file:///corpora/narrow/program_1.lambdalattice
+(λa0.  λz. z)
+
+((λx. λy. y y x) ((λx. λy. λz. z y x) (λx. x x)) ((λx. λy. y x) ((λx. λy. y x) ((λx. λy. λz. z y x) (λx. x x)))))
+=>
+Compiled from "program_0.lambdalattice"
+public final class gezi.narrowblocks.GeneratedNarrowBlock implements gezi.narrowblocks.NarrowBlockProgram {
+  public gezi.narrowblocks.GeneratedNarrowBlock(int);
+
+  public java.math.BigInteger computed(gezi.saturation.StopSignal);
+
+  public static java.math.BigInteger block0(gezi.saturation.StopSignal);
+      LineNumberTable:
+        line 1: 0
+
+  public static java.math.BigInteger block1(gezi.saturation.StopSignal);
+      LineNumberTable:
+        line 2: 0
+}
+SourceDebugExtension:
+SMAP
+program_0.lambdalattice
+Lambdalattice
+*S Lambdalattice
+*F
++ 1 program_0.lambdalattice
+/corpora/narrow/program_0.lambdalattice
++ 2 program_1.lambdalattice
+/corpora/narrow/program_1.lambdalattice
+*L
+2#1:1
+3#2:2
+*E
+
+# sample 5
+## file:///corpora/narrow/program_0.lambdalattice
+(λa0.  λz. z)
+
+((λx. λy. y y x) ((λx. λy. λz. z y x) ((λx. λy. y x) ((λx. λy. λz. z y x) (λx. x x)))) ((λx. λy. λz. z y x) ((λx. λy. λz. z y x) (λx. x x))))
+## file:///corpora/narrow/program_1.lambdalattice
+(λa0. λa1.  λz. z)
+
+
+((λx. λy. y y x) ((λx. λy. y y x) ((λx. λy. y x) ((λx. λy. λz. z y x) (λx. x x))) ((λx. λy. λz. z y x) (λx. x x))) ((λx. λy. y x) ((λx. λy. y x) ((λx. λy. λz. z y x) (λx. x x)))))
+((λx. λy. y y x) ((λx. λy. λz. z y x) ((λx. λy. λz. z y x) (λx. x x))) ((λx. λy. y x) ((λx. λy. y x) ((λx. λy. λz. z y x) (λx. x x)))))
+=>
+Compiled from "program_0.lambdalattice"
+public final class gezi.narrowblocks.GeneratedNarrowBlock implements gezi.narrowblocks.NarrowBlockProgram {
+  public gezi.narrowblocks.GeneratedNarrowBlock(int);
+
+  public java.math.BigInteger computed(gezi.saturation.StopSignal);
+
+  public static java.math.BigInteger block0(gezi.saturation.StopSignal);
+      LineNumberTable:
+        line 1: 0
+
+  public static java.math.BigInteger block1(gezi.saturation.StopSignal);
+      LineNumberTable:
+        line 2: 0
+
+  public static java.math.BigInteger block2(gezi.saturation.StopSignal);
+      LineNumberTable:
+        line 3: 0
+}
+SourceDebugExtension:
+SMAP
+program_0.lambdalattice
+Lambdalattice
+*S Lambdalattice
+*F
++ 1 program_0.lambdalattice
+/corpora/narrow/program_0.lambdalattice
++ 2 program_1.lambdalattice
+/corpora/narrow/program_1.lambdalattice
+*L
+3#1:1
+4#2:2
+5#2:3
+*E
+
+# sample 6
+## file:///corpora/narrow/program_0.lambdalattice
+(λa0. λa1.  λz. z)
+
+
+((λx. λy. y y x) ((λx. λy. λz. z y x) (λx. x x)) ((λx. λy. λz. z y x) ((λx. λy. λz. z y x) (λx. x x))))
+
+((λx. λy. y y x) ((λx. λy. y y x) ((λx. λy. λz. z y x) ((λx. λy. y x) ((λx. λy. λz. z y x) (λx. x x)))) ((λx. λy. y x) ((λx. λy. λz. z y x) (λx. x x)))) ((λx. λy. λz. z y x) ((λx. λy. λz. z y x) (λx. x x))))
+## file:///corpora/narrow/program_1.lambdalattice
+(λa0.  λz. z)
+
+((λx. λy. y y x) ((λx. λy. y y x) (λx. x x) ((λx. λy. λz. z y x) ((λx. λy. y x) ((λx. λy. λz. z y x) (λx. x x))))) ((λx. λy. λz. z y x) ((λx. λy. λz. z y x) (λx. x x))))
+=>
+Compiled from "program_0.lambdalattice"
+public final class gezi.narrowblocks.GeneratedNarrowBlock implements gezi.narrowblocks.NarrowBlockProgram {
+  public gezi.narrowblocks.GeneratedNarrowBlock(int);
+
+  public java.math.BigInteger computed(gezi.saturation.StopSignal);
+
+  public static java.math.BigInteger block0(gezi.saturation.StopSignal);
+      LineNumberTable:
+        line 1: 0
+
+  public static java.math.BigInteger block1(gezi.saturation.StopSignal);
+      LineNumberTable:
+        line 2: 0
+
+  public static java.math.BigInteger block2(gezi.saturation.StopSignal);
+      LineNumberTable:
+        line 3: 0
+}
+SourceDebugExtension:
+SMAP
+program_0.lambdalattice
+Lambdalattice
+*S Lambdalattice
+*F
++ 1 program_0.lambdalattice
+/corpora/narrow/program_0.lambdalattice
++ 2 program_1.lambdalattice
+/corpora/narrow/program_1.lambdalattice
+*L
+4#1:1
+6#1:2
+3#2:3
+*E
+
+# sample 7
+## file:///corpora/narrow/program_0.lambdalattice
+(λa0. λa1.  λz. z)
+
+
+((λx. λy. y y x) ((λx. λy. λz. z y x) ((λx. λy. λz. z y x) (λx. x x))) ((λx. λy. λz. z y x) ((λx. λy. y x) ((λx. λy. λz. z y x) (λx. x x)))))
+
+
+((λx. λy. y y x) (λx. x x) ((λx. λy. y x) ((λx. λy. y x) ((λx. λy. λz. z y x) (λx. x x)))))
+## file:///corpora/narrow/program_1.lambdalattice
+(λa0.  λz. z)
+((λx. λy. y y x) ((λx. λy. y x) ((λx. λy. λz. z y x) (λx. x x))) ((λx. λy. λz. z y x) ((λx. λy. λz. z y x) (λx. x x))))
+=>
+Compiled from "program_0.lambdalattice"
+public final class gezi.narrowblocks.GeneratedNarrowBlock implements gezi.narrowblocks.NarrowBlockProgram {
+  public gezi.narrowblocks.GeneratedNarrowBlock(int);
+
+  public java.math.BigInteger computed(gezi.saturation.StopSignal);
+
+  public static java.math.BigInteger block0(gezi.saturation.StopSignal);
+      LineNumberTable:
+        line 1: 0
+
+  public static java.math.BigInteger block1(gezi.saturation.StopSignal);
+      LineNumberTable:
+        line 2: 0
+
+  public static java.math.BigInteger block2(gezi.saturation.StopSignal);
+      LineNumberTable:
+        line 3: 0
+}
+SourceDebugExtension:
+SMAP
+program_0.lambdalattice
+Lambdalattice
+*S Lambdalattice
+*F
++ 1 program_0.lambdalattice
+/corpora/narrow/program_0.lambdalattice
++ 2 program_1.lambdalattice
+/corpora/narrow/program_1.lambdalattice
+*L
+4#1:1
+7#1:2
+2#2:3
+*E
+
+# sample 8
+## file:///corpora/narrow/program_0.lambdalattice
+(λa0. λa1.  λz. z)
+
+
+((λx. λy. y y x) ((λx. λy. λz. z y x) ((λx. λy. y x) ((λx. λy. λz. z y x) (λx. x x)))) ((λx. λy. λz. z y x) ((λx. λy. λz. z y x) (λx. x x))))
+
+
+((λx. λy. y y x) ((λx. λy. λz. z y x) ((λx. λy. y x) ((λx. λy. λz. z y x) (λx. x x)))) (λx. x x))
+## file:///corpora/narrow/program_1.lambdalattice
+(λa0.  λz. z)
+
+
+((λx. λy. y y x) ((λx. λy. y x) ((λx. λy. y x) ((λx. λy. λz. z y x) (λx. x x)))) ((λx. λy. λz. z y x) (λx. x x)))
+=>
+Compiled from "program_0.lambdalattice"
+public final class gezi.narrowblocks.GeneratedNarrowBlock implements gezi.narrowblocks.NarrowBlockProgram {
+  public gezi.narrowblocks.GeneratedNarrowBlock(int);
+
+  public java.math.BigInteger computed(gezi.saturation.StopSignal);
+
+  public static java.math.BigInteger block0(gezi.saturation.StopSignal);
+      LineNumberTable:
+        line 1: 0
+
+  public static java.math.BigInteger block1(gezi.saturation.StopSignal);
+      LineNumberTable:
+        line 2: 0
+
+  public static java.math.BigInteger block2(gezi.saturation.StopSignal);
+      LineNumberTable:
+        line 3: 0
+}
+SourceDebugExtension:
+SMAP
+program_0.lambdalattice
+Lambdalattice
+*S Lambdalattice
+*F
++ 1 program_0.lambdalattice
+/corpora/narrow/program_0.lambdalattice
++ 2 program_1.lambdalattice
+/corpora/narrow/program_1.lambdalattice
+*L
+4#1:1
+7#1:2
+4#2:3
+*E
+
+# sample 9
+## file:///corpora/narrow/program_0.lambdalattice
+(λa0.  λz. z)
+((λx. λy. y y x) (λx. x x) ((λx. λy. λz. z y x) ((λx. λy. y x) ((λx. λy. λz. z y x) (λx. x x)))))
+=>
+Compiled from "program_0.lambdalattice"
+public final class gezi.narrowblocks.GeneratedNarrowBlock implements gezi.narrowblocks.NarrowBlockProgram {
+  public gezi.narrowblocks.GeneratedNarrowBlock(int);
+
+  public java.math.BigInteger computed(gezi.saturation.StopSignal);
+
+  public static java.math.BigInteger block0(gezi.saturation.StopSignal);
+      LineNumberTable:
+        line 2: 0
+}

@@ -1,0 +1,3 @@
+successor_filtered: compose filter_nat λ. compose successor filter_nat = compose successor filter_nat
+successor_filtered_chained: λx_0. compose filter_nat λ. compose successor λ. compose filter_nat x_0 = λx_0. compose successor λ. compose filter_nat x_0
+natural_double_as_fold: natural_double = nat_fold zero λ. compose successor successor

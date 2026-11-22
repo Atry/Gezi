@@ -1,0 +1,61 @@
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "native_types") "natural")
+λ _ _ nat_fold _
+. omega (omega (omega (omega corpora "library") "fixed_width") "word_representation")
+λ word_end word_cell word_zero word_not _ _
+. omega (omega (omega (omega corpora "library") "native_types") "boolean")
+λ true false _ _
+# word_add_carry:
+# The w low bits of x + y + c, c a boolean carried in. The carry c and the
+# bits a and b are each read once, by a case on all three, and every case
+# writes its sum bit and its carry out as constants, so that a reading that
+# does not share reads each bit once and an addition takes steps linear in
+# the width (5,765 steps of the reference at width 32, 2026-10-31). The carry
+# out of the top bit is dropped, which is the two's complement wrap.
+. ( λ tuple
+    . tuple
+    λ w
+    . nat_fold
+      (λc x y. word_end)
+      ( λ rest c x y
+        . x
+        λ a x_above
+        . y
+        λ b y_above
+        . c
+          ( a (b (word_cell true λ. rest true x_above y_above) λ. word_cell false λ. rest true x_above y_above) λ. b (word_cell false λ. rest true x_above y_above) λ. word_cell true λ. rest false x_above y_above
+          )
+        λ
+        . a (b (word_cell false λ. rest true x_above y_above) λ. word_cell true λ. rest false x_above y_above) λ. b (word_cell true λ. rest false x_above y_above) λ. word_cell false λ. rest false x_above y_above
+      ) w
+  )
+λ word_add_carry
+# word_add:
+# The sum of two words of width w, wrapped to w bits. Its schemes are the
+# lemmas word_add_scheme of fixed_width.pl and unions_word_add_scheme of
+# fixed_width_unions.pl.
+. (λtuple. tuple λw. word_add_carry w false)
+λ word_add
+# word_increment:
+# x + 1 of a word of width w, wrapped to w bits.
+. (λtuple. tuple λw x. word_add_carry w true x λ. word_zero w)
+λ word_increment
+# word_subtract:
+# x - y of two words of width w, wrapped to w bits: x plus the negation of
+# y plus one.
+. (λtuple. tuple λw x y. word_add_carry w true x λ. word_not w y)
+λ word_subtract
+# word_negate:
+# The two's complement negation of a word of width w: its negation plus
+# one, wrapped to w bits.
+. (λtuple. tuple λw x. word_add_carry w true (word_not w x) λ. word_zero w)
+λ word_negate
+# word_of_natural:
+# The natural n wrapped to a word of width w: n increments of the zero
+# word, in time linear in n; a literal of a large value is written as its
+# bits instead.
+. (λtuple. tuple λw n. nat_fold (word_zero w) (word_increment w) n)
+λ word_of_natural
+. export word_add_carry word_add word_increment word_subtract word_negate word_of_natural

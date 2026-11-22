@@ -1,0 +1,35 @@
+# The constructor 0 of big_integer bound to two terms: the two data families
+# of nat_type, specialized to big_integer, list different terms at its
+# position.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λx. x)
+λ integer_literal
+. omega (omega (omega (omega codec_native_twice "library") "zero_twice") "nat_type")
+λ nat_type
+. omega (omega (omega (omega codec_native_twice "library") "zero_twice") "zero")
+λ zero
+. omega (omega (omega (omega codec_native_twice "library") "zero_twice") "successor")
+λ successor
+. omega (omega (omega (omega codec_native_twice "library") "zero_twice") "other_zero")
+λ other_zero
+. export
+  ( λ _ _ _ backend
+    . backend
+    λ _ _ _ families _ _
+    . families
+      ( λs. s nat_type (integer_literal 0) λ. cons other_zero λ. cons successor nil
+      + λs. s nat_type (integer_literal 0) λ. cons zero λ. cons successor nil
+      )
+  + λ _ _ _ backend
+    . backend
+    λ _ _ representations _ _ _
+    . representations
+    λ s
+    . s nat_type λk. k "big_integer"
+  )

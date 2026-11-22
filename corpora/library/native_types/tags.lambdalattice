@@ -1,0 +1,12 @@
+# tag_origin:
+# The first tag of the occurrences of a program (at); noinline, written in a
+# form programs do not write.
+λ export
+. (λtuple. tuple λo. (o ∥ (o ∥ o) ∥ o))
+λ tag_origin
+# tag_next:
+# The tag after the tag t (at); noinline, written in a form programs do not
+# write.
+. (λtuple. tuple λt. (t ∥ t ∥ t ∥ t))
+λ tag_next
+. export tag_origin tag_next

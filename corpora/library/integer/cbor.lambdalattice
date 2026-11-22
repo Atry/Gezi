@@ -1,0 +1,48 @@
+# Integers read from and written to CBOR: major type 0 is integer_nonnegative n and
+# major type 1, whose value is -1 - n, is integer_negative_successor n, the
+# library's -(n + 1) (RFC 8949, section 3.1: "The value of the item is -1
+# minus the argument."); beyond 64 bits, tags 2 and 3 over a byte string.
+# from_cbor replaces from_literal: an integer literal's value is
+# `(from_cbor λx. x) 42`.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega corpora "library") "top")
+λ top
+. omega (omega (omega (omega corpora "library") "integer") "integer")
+λ integer_nonnegative integer_negative_successor
+. omega (omega (omega (omega corpora "library") "binary") "cbor")
+λ _ _ argument_read bignum_read _ unsigned_written
+. (λtuple. tuple λt e. t)
+λ one_bit
+. (λtuple. tuple λt e. e)
+λ zero_bit
+# from_cbor k: an integer of major type 0 or 1, or of tag 2 or 3.
+. ( λ tuple
+    . tuple
+    λ k m2 m1 m0
+    . m2
+      ( m1
+        ( λ
+          . m0 top
+          λ a4 a3 a2 a1 a0
+          . a4 top
+          λ
+          . a3 top
+          λ
+          . a2 top
+          λ
+          . a1
+            (a0 (bignum_read λn. k λ. integer_negative_successor n) λ. bignum_read λn. k λ. integer_nonnegative n) top
+        ) top
+      )
+    λ
+    . m1 top
+    λ
+    . m0 (argument_read λn. k λ. integer_negative_successor n) λ. argument_read λn. k λ. integer_nonnegative n
+  )
+λ from_cbor
+# to_cbor v f z: the integer v.
+. (λtuple. tuple λv f z. v (λn. unsigned_written f zero_bit n z) λn. unsigned_written f one_bit n z)
+λ to_cbor
+. export from_cbor to_cbor
