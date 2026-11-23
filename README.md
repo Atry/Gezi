@@ -251,6 +251,11 @@ extract there and show each in the cell's output with the trace player, in
 JupyterLab (`gezi.jupyter.kernel.CellTraces`). Each trace's page holds the
 player, about 4.8 MB.
 
+The [trace showcase](https://atry.github.io/Gezi/) plays example traces.
+The Pages workflow publishes the checked-in `trace-showcase` directory on pushes
+to `main` and can also be run manually. The repository's Pages source must be
+set to GitHub Actions; regenerate the showcase with `sbt trace-showcase/regenerate`.
+
 ## Projects
 
 From the bottom up; each depends only on those above it (the module graph
