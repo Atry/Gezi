@@ -17,12 +17,13 @@ Test / javaOptions += s"-Dgezi.buildRoot=${baseDirectory.value.getParentFile}"
 // serves; no class of api_3 0.15.0 references it (its classes grepped for
 // "jupyter", 2026-11-02), so it is left out rather than adding a resolver
 // that builds artifacts from GitHub.
-libraryDependencies += ("sh.almond" %% "kernel" % "0.15.0").exclude("com.github.jupyter", "jvm-repr")
+libraryDependencies += ("sh.almond" %% "kernel" % "0.15.0")
+  .exclude("com.github.jupyter", "jvm-repr")
 
 // The parser of the kernel's command line, as almond's own kernels have it
 // (almond.echo.EchoKernel); the version is the one of the case-app-annotations
 // that almond's kernel module brings.
-libraryDependencies += "com.github.alexarchambault" %% "case-app" % "2.1.0"
+libraryDependencies += "com.github.alexarchambault" %% "case-app" % "2.1.1"
 
 // `jupyterKernelInstall` installs the kernel `lambdalattice` the way almond
 // installs its own kernels (almond's docs/pages/install-other.md, the
@@ -58,33 +59,43 @@ lazy val jupyterKernelInstall =
   )
 
 jupyterKernelInstall := Def.uncached {
-  val (entryDirectory, traceArguments) = Def.spaceDelimited("<entry directory> [<trace directory>]").parsed match {
-    case Seq(directory)          => (file(directory).getAbsolutePath, Seq.empty[String])
-    case Seq(directory, traces)  => (file(directory).getAbsolutePath, Seq("--trace-directory", traces))
-    case arguments =>
-      sys.error(s"jupyterKernelInstall takes the entry directory and, optionally, the trace directory, and was given ${arguments.size} arguments")
-  }
+  val (entryDirectory, traceArguments) =
+    Def.spaceDelimited("<entry directory> [<trace directory>]").parsed match {
+      case Seq(directory) =>
+        (file(directory).getAbsolutePath, Seq.empty[String])
+      case Seq(directory, traces) =>
+        (file(directory).getAbsolutePath, Seq("--trace-directory", traces))
+      case arguments =>
+        sys.error(
+          s"jupyterKernelInstall takes the entry directory and, optionally, the trace directory, and was given ${arguments.size} arguments"
+        )
+    }
   val log = streams.value.log
   val buildRoot = baseDirectory.value.getParentFile
   val kernelsDirectory = buildRoot / "target" / "jupyter" / "kernels"
-  val jars = (Runtime / fullClasspathAsJars).value.map(entry => fileConverter.value.toPath(entry.data))
-  val launcherContent = coursier.launcher.ClassLoaderContent.withUniqueFileNames(
-    Seq(
-      coursier.launcher.ClassLoaderContent(
-        jars.map(jar =>
-          coursier.launcher.ClassPathEntry.Resource(
-            jar.getFileName.toString,
-            java.nio.file.Files.getLastModifiedTime(jar).toMillis,
-            java.nio.file.Files.readAllBytes(jar)
+  val jars = (Runtime / fullClasspathAsJars).value.map(entry =>
+    fileConverter.value.toPath(entry.data)
+  )
+  val launcherContent =
+    coursier.launcher.ClassLoaderContent.withUniqueFileNames(
+      Seq(
+        coursier.launcher.ClassLoaderContent(
+          jars.map(jar =>
+            coursier.launcher.ClassPathEntry.Resource(
+              jar.getFileName.toString,
+              java.nio.file.Files.getLastModifiedTime(jar).toMillis,
+              java.nio.file.Files.readAllBytes(jar)
+            )
           )
         )
       )
     )
-  )
   IO.withTemporaryDirectory { temporaryDirectory =>
     val launcher = temporaryDirectory / "lambdalattice-kernel.jar"
     coursier.launcher.BootstrapGenerator.generate(
-      coursier.launcher.Parameters.Bootstrap(launcherContent, "gezi.jupyter.kernel.LambdalatticeKernel").withPreambleOpt(None),
+      coursier.launcher.Parameters
+        .Bootstrap(launcherContent, "gezi.jupyter.kernel.LambdalatticeKernel")
+        .withPreambleOpt(None),
       launcher.toPath
     )
     val exitCode = Fork.java(
@@ -110,7 +121,8 @@ jupyterKernelInstall := Def.uncached {
         "JAVA_TOOL_OPTIONS=-Xmx2g"
       ) ++ traceArguments
     )
-    if (exitCode != 0) sys.error(s"the launcher's --install exited with $exitCode")
+    if (exitCode != 0)
+      sys.error(s"the launcher's --install exited with $exitCode")
   }
   kernelsDirectory / "lambdalattice"
 }
@@ -125,14 +137,22 @@ jupyterKernelInstall := Def.uncached {
 // the player's whole directory, with the webjars' other files, is 27 MB
 // (measured 2026-11-19), these 4.5 MB. Uncached: the task copies files, and
 // sbt 2 caches no task whose result is a File.
-lazy val tracePlayerResources = taskKey[Seq[File]]("the trace player's files, as resources of the kernel")
+lazy val tracePlayerResources =
+  taskKey[Seq[File]]("the trace player's files, as resources of the kernel")
 
 tracePlayerResources := Def.uncached {
   val report = (LocalProject("trace-player") / Compile / fullLinkJS).value.data
-  val linked = (LocalProject("trace-player") / Compile / fullLinkJS / scalaJSLinkerOutputDirectory).value
-  val styles = (LocalProject("trace-player") / Assets / com.typesafe.sbt.web.Import.WebKeys.assets).value
+  val linked = (LocalProject(
+    "trace-player"
+  ) / Compile / fullLinkJS / scalaJSLinkerOutputDirectory).value
+  val styles = (LocalProject(
+    "trace-player"
+  ) / Assets / com.typesafe.sbt.web.Import.WebKeys.assets).value
   val scripts = report.publicModules.map(_.jsFileName).toVector
-  assert(scripts == Vector("main.js"), s"the player links to one script, main.js: $scripts")
+  assert(
+    scripts == Vector("main.js"),
+    s"the player links to one script, main.js: $scripts"
+  )
   val sources = Vector("main.js" -> linked / "main.js") ++ Vector(
     "player.css",
     "lib/bootstrap/dist/css/bootstrap.min.css",
@@ -140,7 +160,8 @@ tracePlayerResources := Def.uncached {
     "lib/bootstrap-icons/font/fonts/bootstrap-icons.woff2",
     "lib/bootstrap-icons/font/fonts/bootstrap-icons.woff"
   ).map(path => path -> styles / path)
-  val root = (Compile / resourceManaged).value / "gezi" / "jupyter" / "kernel" / "trace-player"
+  val root =
+    (Compile / resourceManaged).value / "gezi" / "jupyter" / "kernel" / "trace-player"
   sources.map { case (path, source) =>
     assert(source.isFile, s"the player has no $path at $source")
     val target = root / path
