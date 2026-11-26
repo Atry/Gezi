@@ -24,27 +24,39 @@ class LocationsBoundaryTest extends gezi.generatedinputs.FailFastSuite:
   private val allowed: Set[String] =
     Set("locations", "frontend", "provenance", "migration", "conventions", "rewrite-trace", "trace-player", "jmh-pipeline")
 
+  private val projectDirectories: Map[String, String] = Map(
+    "locations" -> "gezi-locations",
+    "frontend" -> "gezi-frontend",
+    "rewrite-trace" -> "gezi-rewrite-trace",
+    "standardlibrary" -> "gezi-standardlibrary",
+    "strategies" -> "gezi-strategies",
+    "narrow-blocks" -> "gezi-narrow-blocks"
+  )
+
+  private val allowedSourceDirectories: Set[String] =
+    allowed.map(project => projectDirectories.getOrElse(project, project))
+
   /** The sources of other projects that may name the packages, by path under
     * the build's root, each with its reason: each carries a location to a
     * trace's debug information and chooses nothing by it.
     */
   private val allowedSources: Map[String, String] = Map(
-    "standardlibrary/src/main/scala/gezi/standardlibrary/LemmaSources.scala" ->
+    "gezi-standardlibrary/src/main/scala/gezi/standardlibrary/LemmaSources.scala" ->
       "the spans of a knowledge file's lemma declarations, read beside the library, which reads none of them",
-    "standardlibrary/src/test/scala/gezi/standardlibrary/LemmaSourcesSnapshotTest.scala" -> "the snapshot of those spans",
+    "gezi-standardlibrary/src/test/scala/gezi/standardlibrary/LemmaSourcesSnapshotTest.scala" -> "the snapshot of those spans",
     "contest-entry-generic/src/main/scala/gezi/contest/entry/generic/GenericEntry.scala" ->
       "the lemmas' texts handed to the trace it writes as evidence",
-    "strategies/src/test/scala/gezi/strategies/TraceSourceMapsLawTest.scala" ->
+    "gezi-strategies/src/test/scala/gezi/strategies/TraceSourceMapsLawTest.scala" ->
       "a law of the trace's source maps, run over a saturation it builds",
     "trace-showcase-generator/src/test/scala/gezi/traceshowcase/ShowcasePages.scala" ->
       "the lemmas' texts handed to the traces of the player's showcase it writes (#1807)",
-    "narrow-blocks/src/main/scala/gezi/narrowblocks/DebugAttributes.scala" ->
+    "gezi-narrow-blocks/src/main/scala/gezi/narrowblocks/DebugAttributes.scala" ->
       "the debugging attributes of a class of narrow blocks, which no block's code reads (#1504, D6.2 and D7)",
-    "narrow-blocks/src/main/scala/gezi/narrowblocks/NarrowBlockCompilation.scala" ->
+    "gezi-narrow-blocks/src/main/scala/gezi/narrowblocks/NarrowBlockCompilation.scala" ->
       "the program's map walked beside its blocks for those attributes, the blocks found the same without it",
-    "narrow-blocks/src/main/scala/gezi/narrowblocks/lists/NarrowBlockCompilation.scala" ->
+    "gezi-narrow-blocks/src/main/scala/gezi/narrowblocks/lists/NarrowBlockCompilation.scala" ->
       "the same walk in the opt-in copy of the narrow blocks with lists and booleans (#1538)",
-    "narrow-blocks/src/test/scala/gezi/narrowblocks/NarrowBlockDebugAttributesSnapshotTest.scala" ->
+    "gezi-narrow-blocks/src/test/scala/gezi/narrowblocks/NarrowBlockDebugAttributesSnapshotTest.scala" ->
       "the snapshot of those attributes"
   )
 
@@ -82,7 +94,7 @@ class LocationsBoundaryTest extends gezi.generatedinputs.FailFastSuite:
     val root = ScalaSources.root
     val sources = ScalaSources
       .sources(root)
-      .filterNot(path => allowed.exists(project => path.startsWith(root.resolve(project))))
+      .filterNot(path => allowedSourceDirectories.exists(project => path.startsWith(root.resolve(project))))
       .filterNot(path => allowedSources.contains(root.relativize(path).toString))
     assert(sources.nonEmpty, s"no Scala source found outside the allowed projects of $root")
     val found = sources.flatMap(path =>
