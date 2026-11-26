@@ -44,7 +44,7 @@ object TransitionOverlay:
     * the subterm inside another's piece (`TextView.highlighted` finds the
     * nearest place above it instead, which would fly too much).
     */
-  def byPlace(printed: ReadableText.Printed): Located =
+  def byPlace(printed: ReadableText.Printed[gezi.ir.NoFacts.type]): Located =
     val suffixes = printed.pieces.collect { case ReadableText.Piece.At(place, suffix) => place.key -> suffix }.toMap
     (layer, path) =>
       val key = printed.place(path).key

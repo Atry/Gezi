@@ -1,0 +1,104 @@
+# seeded_ranges, seeded_ordered_connections, seeded_tree_edges, seeded_walk,
+# seeded_rotation:
+# More shapes of input computed in the language from a seed, built on the
+# generators of ../common/seeded_input, whose group is closed, and drawing from
+# the same stream of states in the same order as the generator each is built
+# on, so that the native reference solutions generate the same inputs
+# (gezi.contest.corpora.reductions.SeededInput and its mirrors).
+#
+# seeded_ranges seed count low high: the pairs of seeded_pairs seed count low
+#   high, each pair x y given as pair (min x y) (max x y), so that
+#   low <= a <= b <= high.
+# seeded_ordered_connections seed count n, for n >= 2: the pairs of
+#   seeded_connections seed count n, each pair a b given as
+#   pair (min a b) (max a b), so that 1 <= a < b <= n: one-way flights that
+#   never lead back, each from a smaller number to a larger one.
+# seeded_tree_edges seed n: the edges of seeded_tree seed n 1 1 without their
+#   costs, pair p k for k = 2, ..., n, so that every node is joined to node 1.
+# seeded_walk seed count bound, for bound >= 1: the entries of an array of
+#   count entries from 1 to bound, each neighbour within 1 of the one before,
+#   some of them hidden as 0. From the pairs pair d h of
+#   seeded_pairs seed count 0 2, in order, v_0 = 1 and
+#   v_k = min bound (max 1 (v_(k-1) + d - 1)), and the k-th entry is 0 when
+#   h = 0 and v_k otherwise.
+# seeded_rotation seed n, for n >= 1: the numbers 1 to n but one, in an order
+#   that starts at a place drawn: from the one pair pair missing start of
+#   seeded_pairs seed 1 1 n, the list of 1 + ((start - 1 + t) mod n) for
+#   t = 0, ..., n - 1, without missing.
+#
+# DEFINITION 14: each generator applied to canonical numerals is built of λ
+# and application only, with no top, no choice and no parallel; the generators
+# of ../common/seeded_input are given the arguments their premises name (n >= 2
+# for seeded_connections), binary_subtract a minuend no smaller than its
+# subtrahend (v_(k-1) + d >= 1, n >= 1, start >= 1) and binary_modulo a modulus
+# n >= 1, as ../common/binary_modular needs. Each walk consumes a finite list or
+# raises t to n, so the term β-reduces to the input described above, its one
+# normal form, by the argument the problems' headers give
+# (../counting_divisors/counting_divisors).
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "fixpoint")
+λ fixpoint
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "boolean")
+λ _ false _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ map _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "pair")
+λ pair _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "natural")
+λ binary_zero binary_even binary_odd _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "arithmetic")
+λ merge_binary_increment merge_binary_plus _ merge_binary_equality
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "order")
+λ binary_less_than binary_maximum binary_minimum
+. omega (omega (omega (omega (omega gezi "problems") "cses") "common") "binary_modular")
+λ _ binary_subtract _ binary_modulo
+. omega (omega (omega (omega (omega gezi "problems") "cses") "common") "seeded_input")
+λ _ _ seeded_pairs _ _ _ _ seeded_connections seeded_tree _
+. (λtuple. tuple (binary_odd binary_zero))
+λ one
+. (λtuple. tuple (binary_even one))
+λ two
+# ordered pairs: each pair x y given as pair (min x y) (max x y).
+. (λtuple. tuple λpairs. map (λunordered. unordered λx y. pair (binary_minimum x y) (binary_maximum x y)) pairs)
+λ ordered
+. (λtuple. tuple λseed count low high. ordered (seeded_pairs seed count low high))
+λ seeded_ranges
+. (λtuple. tuple λseed count n. ordered (seeded_connections seed count n))
+λ seeded_ordered_connections
+. (λtuple. tuple λseed n. map (λedge. edge λparent rest. rest λnode _. pair parent node) (seeded_tree seed n one one))
+λ seeded_tree_edges
+. ( λ tuple
+    . tuple
+    λ seed count bound
+    . fixpoint
+      ( λ self previous steps
+        . steps nil
+        λ step rest
+        . step
+        λ d h
+        . ( λ value
+            . cons (merge_binary_equality h binary_zero binary_zero value) (self value rest)
+          ) (binary_minimum bound (binary_maximum one (binary_subtract (merge_binary_plus previous d) one false)))
+      ) one (seeded_pairs seed count binary_zero two)
+  )
+λ seeded_walk
+. ( λ tuple
+    . tuple
+    λ seed n
+    . seeded_pairs seed one one n nil
+    λ drawn _
+    . drawn
+    λ missing start
+    . fixpoint
+      ( λ self t
+        . binary_less_than (binary_subtract n one false) t nil
+          ( ( λ number
+              . merge_binary_equality number missing (self (merge_binary_increment t)) (cons number (self (merge_binary_increment t)))
+            ) (merge_binary_increment (binary_modulo (merge_binary_plus (binary_subtract start one false) t) n))
+          )
+      ) binary_zero
+  )
+λ seeded_rotation
+. export seeded_ranges seeded_ordered_connections seeded_tree_edges seeded_walk seeded_rotation

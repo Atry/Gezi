@@ -24,17 +24,17 @@ import gezi.weakhead.Expansions
   * them: in the framework, knowledge comes in as data and "the code names
   * no type, lemma, combinator or definition" (CONTRIBUTING.md, "Knowledge comes in as data").
   */
-final case class StandardLibraryTerms(root: Path, expansions: Expansions):
+final case class StandardLibraryTerms(root: Path, expansions: Expansions[gezi.ir.NoFacts.type]):
 
   /** The members of the library terms' file, by name, read from
     * `expansions`, the URI expansions the owner carries. No later read of
     * the owner's starts from the expansions this read adds, the library's
     * files, which no other read of a group lists or parses.
     */
-  private lazy val members: Map[String, Term] =
+  private lazy val members: Map[String, ProblemTerm] =
     StandardLibraryTerms.members(root, expansions)
 
-  private def member(key: String): Term =
+  private def member(key: String): ProblemTerm =
     members.getOrElse(key, throw IllegalStateException(s"the key $key is read with the others"))
 
   /** The binary arithmetic function of the name
@@ -44,42 +44,42 @@ final case class StandardLibraryTerms(root: Path, expansions: Expansions):
     * the member of that key. Throws `IllegalArgumentException` for any other
     * name.
     */
-  def binaryArithmetic(name: String): Term =
+  def binaryArithmetic(name: String): ProblemTerm =
     if StandardLibraryTerms.binaryArithmeticKeys.contains(name) then member(name)
     else throw IllegalArgumentException(s"$name is no binary arithmetic function of the library terms' file")
 
-  def zero: Term = member("zero")
-  def successor: Term = member("successor")
-  def natFold: Term = member("nat_fold")
-  def double: Term = member("double")
-  def even: Term = member("even")
-  def compose: Term = member("compose")
-  def listFold: Term = member("list_fold")
-  def cons: Term = member("cons")
-  def nil: Term = member("nil")
-  def identity: Term = member("identity")
-  def trueValue: Term = member("true")
-  def falseValue: Term = member("false")
-  def wordCell: Term = member("word_cell")
-  def wordEnd: Term = member("word_end")
-  def wordMultiply: Term = member("word_multiply")
-  def binaryZero: Term = member("binary_zero")
-  def binaryEven: Term = member("binary_even")
-  def binaryOdd: Term = member("binary_odd")
-  def binaryIncrement: Term = member("merge_binary_increment")
-  def binaryPlus: Term = member("merge_binary_plus")
-  def binaryEquality: Term = member("merge_binary_equality")
-  def binaryMaximum: Term = member("binary_maximum")
-  def binaryMinimum: Term = member("binary_minimum")
-  def binaryBitwiseOr: Term = member("binary_bitwise_or")
-  def fixpoint: Term = member("fixpoint")
+  def zero: ProblemTerm = member("zero")
+  def successor: ProblemTerm = member("successor")
+  def natFold: ProblemTerm = member("nat_fold")
+  def double: ProblemTerm = member("double")
+  def even: ProblemTerm = member("even")
+  def compose: ProblemTerm = member("compose")
+  def listFold: ProblemTerm = member("list_fold")
+  def cons: ProblemTerm = member("cons")
+  def nil: ProblemTerm = member("nil")
+  def identity: ProblemTerm = member("identity")
+  def trueValue: ProblemTerm = member("true")
+  def falseValue: ProblemTerm = member("false")
+  def wordCell: ProblemTerm = member("word_cell")
+  def wordEnd: ProblemTerm = member("word_end")
+  def wordMultiply: ProblemTerm = member("word_multiply")
+  def binaryZero: ProblemTerm = member("binary_zero")
+  def binaryEven: ProblemTerm = member("binary_even")
+  def binaryOdd: ProblemTerm = member("binary_odd")
+  def binaryIncrement: ProblemTerm = member("merge_binary_increment")
+  def binaryPlus: ProblemTerm = member("merge_binary_plus")
+  def binaryEquality: ProblemTerm = member("merge_binary_equality")
+  def binaryMaximum: ProblemTerm = member("binary_maximum")
+  def binaryMinimum: ProblemTerm = member("binary_minimum")
+  def binaryBitwiseOr: ProblemTerm = member("binary_bitwise_or")
+  def fixpoint: ProblemTerm = member("fixpoint")
 
   /** The canonical binary natural of the value
     * (`corpora/library/binary`), built with binary_zero, binary_even and
     * binary_odd, the least significant bit outermost and no binary_even over
     * binary_zero.
     */
-  def binary(value: BigInt): Term =
+  def binary(value: BigInt): ProblemTerm =
     require(value >= 0, s"a natural is not negative: $value")
     if value == 0 then binaryZero
     else if value.testBit(0) then binaryOdd(binary(value >> 1))
@@ -88,25 +88,25 @@ final case class StandardLibraryTerms(root: Path, expansions: Expansions):
   /** The word of the width whose bits are the value's, the least
     * significant first, built with word_cell and word_end.
     */
-  def word(width: Int, value: BigInt): Term =
+  def word(width: Int, value: BigInt): ProblemTerm =
     require(width >= 0 && value >= 0 && value.bitLength <= width, s"no word of width $width holds $value")
     (0 until width).foldRight(wordEnd)((position, above) =>
       wordCell(if value.testBit(position) then trueValue else falseValue)(above)
     )
 
   /** successor applied the value times to zero. */
-  def numeral(value: Int): Term =
+  def numeral(value: Int): ProblemTerm =
     require(value >= 0, s"a natural is not negative: $value")
     (1 to value).foldLeft(zero)((natural, _) => successor(natural))
 
   /** The list of the elements, built with cons and nil. */
-  def list(elements: Vector[Term]): Term = elements.foldRight(nil)((element, rest) => cons(element)(rest))
+  def list(elements: Vector[ProblemTerm]): ProblemTerm = elements.foldRight(nil)((element, rest) => cons(element)(rest))
 
   /** `(\f. [f a11 ... a1k, ..., f aR1 ... aRk]) Function`, the list built
     * with the library's cons and nil: the function let bound once and
     * applied at each site to that site's arguments.
     */
-  def sites(function: Term, arguments: Vector[Vector[Term]]): Term =
+  def sites(function: ProblemTerm, arguments: Vector[Vector[ProblemTerm]]): ProblemTerm =
     λ(bound => list(arguments.map(applied(bound, _))))(function)
 
 /** The names of the library terms the families read by name. */
@@ -123,5 +123,5 @@ object StandardLibraryTerms:
     * read by projection (`StandardLibrary.entryMembers`), by the names
     * `TermTables.problemLibraryTerms` gives their positions.
     */
-  private def members(root: Path, expansions: Expansions): Map[String, Term] =
+  private def members(root: Path, expansions: Expansions[gezi.ir.NoFacts.type]): Map[String, ProblemTerm] =
     StandardLibrary.entryMembers(root, TermTables.problemLibraryTerms, expansions)._1.view.mapValues(Term.closed).toMap

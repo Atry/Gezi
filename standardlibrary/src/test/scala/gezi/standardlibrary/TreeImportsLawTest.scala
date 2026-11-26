@@ -5,7 +5,8 @@ import java.nio.file.Path
 import gezi.knowledgereading.KnowledgeReading
 import gezi.weakhead.ContinuationReading
 import gezi.weakhead.Mode
-import gezi.weakhead.Value
+import gezi.ir.NoFacts
+import gezi.ir.Value
 import gezi.weakhead.WeakHead
 import scala.jdk.StreamConverters.*
 import scala.util.Using
@@ -57,6 +58,8 @@ class TreeImportsLawTest extends gezi.generatedinputs.FailFastSuite:
 
   private val root: Path = LibraryFiles.buildRoot
 
+  given NoFacts.type = NoFacts
+
   /** The steps the parallel sets of one file's term may take: the measured
     * 27, with room for a fixture a few times larger.
     */
@@ -87,7 +90,7 @@ class TreeImportsLawTest extends gezi.generatedinputs.FailFastSuite:
   /** The number of parallel sets the file's term reads to. */
   private def parallelSets(visible: Path, file: Path): Int =
     val StandardLibrary.EntryReading(instance, afterEntry, _, _) = StandardLibrary.entryTerm(visible, file, KnowledgeReading.compilationState.copy(continuations = ContinuationReading.Packed))
-    val (sets, _) = KnowledgeReading.run(WeakHead.heads(Mode.TablingWeakHead, instance).collected, setsLimit, afterEntry)
+    val (sets, _) = KnowledgeReading.run(WeakHead.heads(Mode.TablingWeakHead, Value.of(instance)).collected, setsLimit, afterEntry)
     sets.size
 
   trees.foreach((visible, tree) =>

@@ -10,11 +10,14 @@ import gezi.frontend.Lambdalattice
 import gezi.generatedinputs.GeneratedProperties
 import gezi.generatedinputs.HoasGenerators
 import gezi.generatedinputs.LambdalatticeText
-import gezi.ir.Instruction
+import gezi.ir.Configured
+import gezi.ir.NoFacts
 import gezi.locations.SourceMap
 import gezi.rewritetrace.Trace
 import gezi.rewritetrace.TraceStart
 import gezi.rewritetrace.TraceText
+
+private given sourceNamesLawTestNoFacts: NoFacts.type = NoFacts
 
 /** The laws of a trace's start written from its source
   * (`TraceStart.written`) and drawn with the source's names
@@ -42,13 +45,13 @@ class SourceNamesLawTest extends GeneratedProperties:
     * construct in parentheses, rather than by `LambdalatticeText`, which
     * reuses a name where no capture follows.
     */
-  private val sources: Gen[(Instruction, String)] =
+  private val sources: Gen[(Configured[NoFacts.type], String)] =
     for
       term <- HoasGenerators.closedTerm
       words <- Gen.string(Gen.lower, Range.linear(1, 4)).list(Range.singleton(64))
     yield
       val source = written(LambdalatticeText.closedInstructionsWrittenOut(term.deBruijnTerm(Map.empty)), words, 0)
-      (Defunctionalization.thunkInstruction(Lambdalattice.term(source)), source)
+      (Defunctionalization.thunkInstruction(Lambdalattice.term(source))(using gezi.ir.NoFacts), source)
 
   /** The text of a de Bruijn term under `depth` binders, the binder at depth
     * d named `words(d)` followed by d. Recursive on the term's depth: a
@@ -79,10 +82,10 @@ class SourceNamesLawTest extends GeneratedProperties:
         case Left(unreadable) => Result.failure.log(unreadable.error)
         case Right(played) =>
           val read = Lambdalattice.located(source, FreeNames.Rejected)
-          val (_, sourceMap) = Defunctionalization.locatedThunkInstruction(read.term, read.spans, sourceUri)
+          val (_, sourceMap) = Defunctionalization.locatedThunkInstruction(read.term, read.spans, sourceUri)(using gezi.ir.NoFacts)
           val (drawn, misnamed) =
             drawing(start, played.map(0), played.source, openings(start, sourceMap, TraceReading.codePoints(source)), 0, Set(0))
-          val again = Defunctionalization.thunkInstruction(Lambdalattice.term(drawn))
+          val again = Defunctionalization.thunkInstruction(Lambdalattice.term(drawn))(using gezi.ir.NoFacts)
           Result
             .all(
               List(
@@ -103,7 +106,7 @@ class SourceNamesLawTest extends GeneratedProperties:
     * so its occurrences are one, and the printer names it after one of them.
     * Recursive on the start's depth: a generated term is small.
     */
-  private def openings(instruction: Instruction, map: SourceMap, codePoints: Vector[Int]): Map[Instruction, Set[Int]] =
+  private def openings(instruction: Configured[NoFacts.type], map: SourceMap, codePoints: Vector[Int]): Map[Configured[NoFacts.type], Set[Int]] =
     val here = map.locations.collect { case gezi.locations.Location.Source(_, span) => openAt(codePoints, span.start) }
     val parts = instruction.layer match
       case gezi.ir.Apply(function, argument)  => Vector(function, argument)
@@ -154,7 +157,7 @@ class SourceNamesLawTest extends GeneratedProperties:
     * abstractions open there, less the depth; `inherited` for an
     * instruction the source's map locates nowhere.
     */
-  private def shifts(instruction: Instruction, openings: Map[Instruction, Set[Int]], depth: Int, inherited: Set[Int]): Set[Int] =
+  private def shifts(instruction: Configured[NoFacts.type], openings: Map[Configured[NoFacts.type], Set[Int]], depth: Int, inherited: Set[Int]): Set[Int] =
     val depths = openings.getOrElse(instruction, Set.empty)
     if depths.isEmpty then inherited else depths.map(_ - depth)
 
@@ -163,10 +166,10 @@ class SourceNamesLawTest extends GeneratedProperties:
     * than the source writes at them.
     */
   private def drawing(
-      instruction: Instruction,
+      instruction: Configured[NoFacts.type],
       map: SourceMap,
       source: StartSource,
-      openings: Map[Instruction, Set[Int]],
+      openings: Map[Configured[NoFacts.type], Set[Int]],
       depth: Int,
       inherited: Set[Int]
   ): (String, Vector[String]) =

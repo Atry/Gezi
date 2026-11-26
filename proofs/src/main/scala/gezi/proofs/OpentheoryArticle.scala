@@ -6,7 +6,6 @@ import java.nio.file.Files
 import java.nio.file.Path
 import gezi.standardlibrary.StandardLibraryIndex
 import gezi.ir.Code
-import gezi.ir.Instruction
 import gezi.ir.Hole
 import gezi.ir.Layer
 import gezi.ir.LemmaIdentifier
@@ -14,7 +13,8 @@ import gezi.lemmaencoding.EncodedLemma
 import scala.util.control.TailCalls.TailRec
 import scala.util.control.TailCalls.done
 import scala.util.control.TailCalls.tailcall
-import gezi.ir.{Apply, Choice, NoinlineLeaf, Opaque, Parallel, Slot, Thunk}
+import gezi.ir.{Apply, Choice, NoinlineLeaf, Parallel, Slot, Thunk}
+import gezi.ir.{Configured, NativeSpecializer}
 
 /** A search strategy's proof as an OpenTheory article: the equation of two
   * terms, derived from the unions. The port of
@@ -134,34 +134,33 @@ object OpentheoryArticle:
     * needs a check at every valuation, a substitution lemma of ≃_O under the
     * interpretation that `LambdaJit.RoundCertificate` does not have yet.
     */
-  def uriFree(proof: StrategyProof): Boolean = !proof.terms.exists(holds(_, _.uri.isDefined))
+  def uriFree[C <: NativeSpecializer & Singleton](proof: StrategyProof[C])(using C): Boolean = !proof.layers.exists {
+    case NoinlineLeaf(leaf) => holdsUri(leaf)
+    case _                  => false
+  }
 
   /** Whether the writer cannot write a β conversion: its terms hold a URI
     * node.
     */
-  private[proofs] def conversionUnwritable(first: Instruction, second: Instruction): Boolean =
-    holds(first, _.uri.isDefined) || holds(second, _.uri.isDefined)
+  private[proofs] def conversionUnwritable[C <: NativeSpecializer & Singleton](
+      terms: ProofTerms[C],
+      first: TermId,
+      second: TermId
+  )(using C): Boolean =
+    terms.holdsUriUnder(first) || terms.holdsUriUnder(second)
 
-  /** The name of the term variable that writes an opaque instruction that
-    * is no URI node, the opaque term's own name; none for any other
-    * instruction. In an article such a term, which has no layer, can only be
-    * a variable: an equation over it then claims more than over the term.
+  /** Whether a term is a URI node or holds one among its layers' children.
+    * Iterative: a body is as deep as a program. A storage is a leaf of its
+    * term's layer, and the e-graph keeps no URI node under one.
     */
-  private[proofs] def opaqueVariable(instruction: Instruction): Option[String] = instruction.layer match
-    case Opaque(name) => Some(name)
-    case _            => None
-
-  /** Whether a term holds an instruction with the property among its layers'
-    * children, itself included. Iterative: a body is as deep as a program.
-    */
-  private def holds(term: Instruction, property: Instruction => Boolean): Boolean =
+  private def holdsUri[C <: NativeSpecializer & Singleton](term: Configured[C])(using C): Boolean =
     @annotation.tailrec
-    def searched(pending: List[Instruction], visited: Set[Instruction]): Boolean = pending match
-      case Nil                                       => false
-      case next :: rest if visited.contains(next)    => searched(rest, visited)
-      case next :: _ if property(next)               => true
-      case next :: rest if next.opaque               => searched(rest, visited + next)
-      case next :: rest                              => searched(next.layer.children.toList ++ rest, visited + next)
+    def searched(pending: List[Configured[C]], visited: Set[Configured[C]]): Boolean = pending match
+      case Nil                                    => false
+      case next :: rest if visited.contains(next) => searched(rest, visited)
+      case next :: _ if next.uri.isDefined        => true
+      case next :: rest if next.opaque            => searched(rest, visited + next)
+      case next :: rest                           => searched(next.layer.children.toList ++ rest, visited + next)
     searched(List(term), Set.empty)
 
   /** The article of the equation `left = right`. `left` and `right` are the
@@ -173,31 +172,57 @@ object OpentheoryArticle:
     * it, when `leftAt` and `rightAt` are not joined by its unions, and on a
     * union whose step the writer cannot write.
     */
-  def text(
-      index: StandardLibraryIndex,
-      left: Instruction,
-      right: Instruction,
-      proof: StrategyProof
-  ): String =
-    val equation = proof.equations match
-      case Vector(only) => only
-      case other        => throw OpentheoryArticleError(ArticleErrorReason.NotAProofOfOneEquation(other.size))
-    val store = ArticleStore(index, proof.lemmas)
-    val forest = ProofForest.of(proof, store)
-    if forest.pathSteps(equation.leftAt, equation.rightAt).isEmpty then
-      throw OpentheoryArticleError(ArticleErrorReason.SidesNotJoined(equation.leftAt, equation.rightAt))
-    val lines =
-      ArticleWriter(store, forest).articleLines(left, right, equation.leftAt, equation.rightAt)
+  def text[C <: NativeSpecializer & Singleton](
+      index: StandardLibraryIndex[C],
+      left: Configured[C],
+      right: Configured[C],
+      proof: StrategyProof[C]
+  )(using gezi.ir.StorageAccess)(using C): String =
+    val prepared = Prepared.of(index, left, right, proof)
+    val lines = ArticleWriter(prepared.store, prepared.forest)
+      .articleLines(prepared.left, prepared.right, prepared.leftAt, prepared.rightAt)
     dictionarySettled(lines).map(_ + "\n").mkString
 
+  /** What the writer reads of a proof of one equation: the store over the proof's nodes and the two terms, the
+    * forest, the two terms and the terms of the nodes whose classes they are matched against. Throws
+    * `OpentheoryArticleError` when the proof is no proof of one equation and when the two nodes are not joined by
+    * its unions.
+    */
+  private final case class Prepared[C <: NativeSpecializer & Singleton](
+      store: ArticleStore[C],
+      forest: ProofForest[C],
+      left: TermId,
+      right: TermId,
+      leftAt: TermId,
+      rightAt: TermId
+  )
+
+  private object Prepared:
+    def of[C <: NativeSpecializer & Singleton](
+        index: StandardLibraryIndex[C],
+        left: Configured[C],
+        right: Configured[C],
+        proof: StrategyProof[C]
+    )(using access: gezi.ir.StorageAccess)(using C): Prepared[C] =
+      val equation = proof.equations match
+        case Vector(only) => only
+        case other        => throw OpentheoryArticleError(ArticleErrorReason.NotAProofOfOneEquation(other.size))
+      val store = ArticleStore.of(index, proof.lemmas, proof.layers, Vector(left, right), Some(access))
+      val forest = ProofForest.of(proof, store.terms)
+      val leftAt = store.terms.nodeTerm(equation.leftAt)
+      val rightAt = store.terms.nodeTerm(equation.rightAt)
+      if forest.pathSteps(leftAt, rightAt).isEmpty then
+        throw OpentheoryArticleError(ArticleErrorReason.SidesNotJoined(leftAt, rightAt))
+      Prepared(store, forest, store.terms.of(left), store.terms.of(right), leftAt, rightAt)
+
   /** Writes the article of `text` to the file, replacing it, in UTF-8. */
-  def written(
-      index: StandardLibraryIndex,
-      left: Instruction,
-      right: Instruction,
-      proof: StrategyProof,
+  def written[C <: NativeSpecializer & Singleton](
+      index: StandardLibraryIndex[C],
+      left: Configured[C],
+      right: Configured[C],
+      proof: StrategyProof[C],
       file: Path
-  ): Unit =
+  )(using gezi.ir.StorageAccess)(using C): Unit =
     Files.writeString(file, text(index, left, right, proof), StandardCharsets.UTF_8)
 
   /** The derivation `text` writes for the same arguments: the proof tree of
@@ -207,27 +232,22 @@ object OpentheoryArticle:
     * `RewriteTrace` flattens the proof the article derives. Throws as `text`
     * does before it writes.
     */
-  def derivation(
-      index: StandardLibraryIndex,
-      left: Instruction,
-      right: Instruction,
-      proof: StrategyProof
-  ): ArticleDerivation =
-    val equation = proof.equations match
-      case Vector(only) => only
-      case other        => throw OpentheoryArticleError(ArticleErrorReason.NotAProofOfOneEquation(other.size))
-    val store = ArticleStore(index, proof.lemmas)
-    val forest = ProofForest.of(proof, store)
-    if forest.pathSteps(equation.leftAt, equation.rightAt).isEmpty then
-      throw OpentheoryArticleError(ArticleErrorReason.SidesNotJoined(equation.leftAt, equation.rightAt))
-    val writer = ArticleWriter(store, forest)
+  def derivation[C <: NativeSpecializer & Singleton](
+      index: StandardLibraryIndex[C],
+      left: Configured[C],
+      right: Configured[C],
+      proof: StrategyProof[C]
+  )(using gezi.ir.StorageAccess)(using specializer: C): ArticleDerivation[C] =
+    val prepared = Prepared.of(index, left, right, proof)
+    val writer = ArticleWriter(prepared.store, prepared.forest)
     ArticleDerivation(
+      specializer,
       left,
       right,
-      writer.roundProof(left, right, equation.leftAt, equation.rightAt),
+      writer.roundProof(prepared.left, prepared.right, prepared.leftAt, prepared.rightAt),
       writer.proofExpanded,
-      store,
-      forest
+      prepared.store,
+      prepared.forest
     )
 
   /** The two sides of the equation that an article imports for the lemma,
@@ -238,12 +258,12 @@ object OpentheoryArticle:
     * `OpentheoryArticleError` as the writer does on that lemma: with
     * `NotALemma`, `NoEncoding` or `ClosureInEncoding`.
     */
-  def lemmaStatementEncoded(
-      index: StandardLibraryIndex,
-      lemmas: Vector[EncodedLemma],
+  def lemmaStatementEncoded[C <: NativeSpecializer & Singleton](
+      index: StandardLibraryIndex[C],
+      lemmas: Vector[EncodedLemma[C]],
       lemma: LemmaIdentifier
-  ): ThunkDefinitions.NamedTerms =
-    val store = ArticleStore(index, lemmas)
+  )(using access: gezi.ir.StorageAccess): ThunkDefinitions.NamedTerms =
+    val store = ArticleStore.of(index, lemmas, Vector.empty, Vector.empty, Some(access))
     val (left, right) = store.axiomStatement(Axiom.Lemma(lemma))
     Encoding(store).termsEncoded(Vector(left, right))
 
@@ -251,16 +271,16 @@ object OpentheoryArticle:
     * by the functions that write it, with the thunks of its thunk
     * constants, numbered from 0 in this term.
     */
-  def termEncoded(index: StandardLibraryIndex, instruction: Instruction): ThunkDefinitions.NamedTerms =
-    val store = ArticleStore(index, Vector.empty)
-    Encoding(store).termsEncoded(Vector(ArticleTerm.Stored(instruction)))
+  def termEncoded[C <: NativeSpecializer & Singleton](index: StandardLibraryIndex[C], instruction: Configured[C]): ThunkDefinitions.NamedTerms =
+    val store = ArticleStore.of(index, Vector.empty, Vector.empty, Vector(instruction), None)
+    Encoding(store).termsEncoded(Vector(ArticleTerm.Stored(store.terms.of(instruction))))
 
   /** The defining term of a thunk constant, `LambdaJit.Code.thunkOf C H`,
     * as a HOL term with every type in it: what an article's
     * `defineConst` defines the constant by, for a text that stands alone.
     */
-  def definingTermEncoded(index: StandardLibraryIndex, code: Code, holes: Vector[Hole]): HolTerm =
-    val store = ArticleStore(index, Vector.empty)
+  def definingTermEncoded[C <: NativeSpecializer & Singleton](index: StandardLibraryIndex[C], code: Code, holes: Vector[Hole]): HolTerm =
+    val store = ArticleStore.of(index, Vector.empty, Vector.empty, Vector.empty, None)
     val encoding = Encoding(store)
     ThunkDefinitions.definingTerm(code, holes, store.thunkArity(code, holes), encoding.typeEncoded)
 
@@ -350,21 +370,24 @@ private enum TermEncoding:
   * term is its readback, as partial functions (`Encoding.readEncode`), on a
   * signature whose names are distinct (`Encoding.signatureWellFormed`).
   *
-  * FIXME (this link, https://github.com/Atry/private-overlay/issues/1561):
-  * that this writer computes Lean's `Encoding.encode` is neither proved nor
-  * tested. The test that compared the two on the fixpoint runs' sides was
-  * deleted when the writer's encoding of a side became a term over thunk
-  * constants with their definitions (9f962cba6) and is not ported (the TODO
-  * of `OpentheoryArticleFixpointRunsTest`). Only the Lean module
-  * FixpointRunFixtures checks, with the kernel, the fixpoint runs' own
-  * articles; an article of any other run has no check that its exported
-  * sides are Lean's encodings of the IR terms it was asked to join.
-  * Candidate fixes: the comparison of `termEncoded` with `encode` on
-  * generated IR terms, as `DefunctionalizationAgreementTest` compares the
-  * front end with Lean; or the two IR terms written beside every article as
-  * Lean finite terms, as for the fixpoint runs.
+  * FIXME (link (ii) of https://github.com/Atry/private-overlay/issues/1561, D6):
+  * that this writer computes Lean's `Encoding.encode` is not proved, and is
+  * tested on the seven fixpoint runs only. The test
+  * `OpentheoryArticleFixpointRunsTest.theWriterEncodesAsLeanEncodesOnTheFixpointRuns`
+  * compares `termEncoded` of each run's two sides with `encode` of their
+  * finite terms under the signature of the writer's thunk constants, byte
+  * for byte, and the Lean module FixpointRunFixtures checks with the kernel
+  * that each of those runs' articles exports the pair of `encode` of its
+  * sides under the article's signature. An article of any other run has no
+  * check that its exported sides are Lean's encodings of the IR terms it was
+  * asked to join. Candidate fixes: the comparison of `termEncoded` with
+  * `encode` on generated IR terms, as `DefunctionalizationAgreementTest`
+  * compares the front end with Lean; or the two IR terms written beside every
+  * article as Lean finite terms, as for the fixpoint runs.
   */
-private final class Encoding(store: ArticleStore):
+private final class Encoding[C <: NativeSpecializer & Singleton](store: ArticleStore[C]):
+
+  private given C = store.specializer
 
   /** How the term of a key is written: a choice is `LambdaJit.choice`
     * applied to its two sides, and an equation the
@@ -373,8 +396,8 @@ private final class Encoding(store: ArticleStore):
   def encoding(key: ArticleTerm): TermEncoding = key match
     case ArticleTerm.Variable(name)        => TermEncoding.Variable(name)
     case ArticleTerm.Equation(left, right) => TermEncoding.Applied(HolSymbol.Equality, Vector(left, right))
-    case ArticleTerm.Stored(instruction) =>
-      OpentheoryArticle.opaqueVariable(instruction) match
+    case ArticleTerm.Stored(term) =>
+      store.terms.opaqueName(term) match
         case Some(name) => TermEncoding.Variable(name)
         case None       => layered(key)
     case ArticleTerm.Layered(_) => layered(key)
@@ -392,9 +415,11 @@ private final class Encoding(store: ArticleStore):
       TermEncoding.Applied(HolSymbol.Thunk(code, holes), fillings)
     case Apply(function, argument) => TermEncoding.Applied(HolSymbol.Apply, Vector(function, argument))
     case Parallel(left, right)     => TermEncoding.Applied(HolSymbol.Parallel, Vector(left, right))
+    // A storage's view `v ∥ T` is the parallel the storage stands for.
+    case gezi.ir.StorageView(value, criterion) => TermEncoding.Applied(HolSymbol.Parallel, Vector(value, criterion))
     case Choice(left, right)       => TermEncoding.Applied(HolSymbol.Choice, Vector(left, right))
-    case NoinlineLeaf(instruction) =>
-      throw IllegalArgumentException(s"a noinline leaf $instruction is no term of an article")
+    case NoinlineLeaf(leaf) =>
+      throw IllegalArgumentException(s"a noinline leaf $leaf is no term of an article")
 
   /** The name of a fixed symbol's constant, its components. A thunk
     * constant has no name of its own: its name is its number among the thunk
@@ -573,7 +598,9 @@ private final case class ArticleState(
   * the state after it, as a trampoline where it recurses on proofs and
   * terms.
   */
-private final class ArticleWriter(store: ArticleStore, forest: ProofForest):
+private final class ArticleWriter[C <: NativeSpecializer & Singleton](store: ArticleStore[C], forest: ProofForest[C]):
+
+  private given C = store.specializer
 
   private val matching = ProofMatching(store, forest)
   private val encoding = Encoding(store)
@@ -584,10 +611,10 @@ private final class ArticleWriter(store: ArticleStore, forest: ProofForest):
     * theorem, before the dictionary is settled.
     */
   def articleLines(
-      left: Instruction,
-      right: Instruction,
-      leftNode: Instruction,
-      rightNode: Instruction
+      left: TermId,
+      right: TermId,
+      leftNode: TermId,
+      rightNode: TermId
   ): Vector[String] =
     val start =
       ArticleState(Vector.empty, Map.empty, 0, Vector.empty, 0, Map.empty).number(6).line("version")
@@ -609,7 +636,7 @@ private final class ArticleWriter(store: ArticleStore, forest: ProofForest):
     * `rightNode`, and `right` matched against the class of `rightNode`,
     * turned. Its edges and paths expand by `proofExpanded`.
     */
-  def roundProof(left: Instruction, right: Instruction, leftNode: Instruction, rightNode: Instruction): ArticleProof =
+  def roundProof(left: TermId, right: TermId, leftNode: TermId, rightNode: TermId): ArticleProof =
     val leftProof = sideProof(left, leftNode)
     val rightProof = sideProof(right, rightNode)
     ArticleProof.transitivity(
@@ -617,7 +644,7 @@ private final class ArticleWriter(store: ArticleStore, forest: ProofForest):
       ArticleProof.transitivity(ArticleProof.connection(leftNode, rightNode), ArticleProof.symmetry(rightProof))
     )
 
-  private def sideProof(side: Instruction, node: Instruction): ArticleProof =
+  private def sideProof(side: TermId, node: TermId): ArticleProof =
     matching.matchedProof(MatchPattern.Reference(side), Vector.empty, node, forest.finalTime).getOrElse(
       throw OpentheoryArticleError(ArticleErrorReason.SideNotMatched(node))
     )
@@ -673,6 +700,8 @@ private final class ArticleWriter(store: ArticleStore, forest: ProofForest):
             case Axiom.Lemma(lemma) =>
               written.line(store.lemmaName(lemma).fold("# schema")(name => s"# lemma $name"))
             case Axiom.Conversion(_, _)     => written.line("# conversion")
+            case Axiom.Native(native, _, _) =>
+              written.line(s"# native $native, with the unique spelling's pattern theorem (docs/design/gezi-set-equations-proofs.md, section 23)")
             case _                          => written
           named.line("axiom").defined(key).copy(axioms = named.axioms.updated(axiom, AxiomUse.Kept))
         }
@@ -708,12 +737,12 @@ private final class ArticleWriter(store: ArticleStore, forest: ProofForest):
   /** The unions of the path between two nodes chained, each turned where
     * the path runs from its second node to its first.
     */
-  private def pathProof(first: Instruction, second: Instruction): ArticleProof =
+  private def pathProof(first: TermId, second: TermId): ArticleProof =
     val steps = forest
       .pathSteps(first, second)
       .getOrElse(throw OpentheoryArticleError(ArticleErrorReason.NotConnected(first, second)))
     val proofs = steps.map(step =>
-      if forest.index(forest.union(step.union).first) == step.from then ArticleProof.Edge(step.union)
+      if forest.union(step.union).first == step.from then ArticleProof.Edge(step.union)
       else ArticleProof.Symmetry(ArticleProof.Edge(step.union))
     )
     proofs.init.foldRight(proofs.last)(ArticleProof.Transitivity(_, _))
@@ -736,7 +765,7 @@ private final class ArticleWriter(store: ArticleStore, forest: ProofForest):
         yield axiomWritten.line("subst")
     case ArticleProof.Edge(_) | ArticleProof.Connection(_, _) =>
       throw IllegalStateException(s"the proof $proof expands and is not built")
-    case ArticleProof.Conversion(first, second, _) if OpentheoryArticle.conversionUnwritable(first, second) =>
+    case ArticleProof.Conversion(first, second, _) if OpentheoryArticle.conversionUnwritable(store.terms, first, second) =>
       throw OpentheoryArticleError(ArticleErrorReason.Unproved(UnprovedKind.BetaConversion, first, second))
     case ArticleProof.Conversion(first, second, reduct) =>
       if reduct == second then axiomTheoremWritten(state, Axiom.Conversion(first, second))
@@ -752,7 +781,7 @@ private final class ArticleWriter(store: ArticleStore, forest: ProofForest):
     // always precede an `axiom`.
     case ArticleProof.Abstraction(first, second, eigenvariables, _, inner) =>
       val names = eigenvariables.map(eigenvariable =>
-        OpentheoryArticle.opaqueVariable(eigenvariable).getOrElse(
+        store.terms.opaqueName(eigenvariable).getOrElse(
           throw IllegalStateException(s"the eigenvariable $eigenvariable is no opaque term")
         )
       )

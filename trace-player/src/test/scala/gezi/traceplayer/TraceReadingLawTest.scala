@@ -48,6 +48,6 @@ class TraceReadingLawTest extends GeneratedProperties:
       case Right(_) => Result.failure.log(s"$texts read to terms")
 
   /** The texts of the start and of the trace, for the log. */
-  private def written(startAndTrace: (gezi.ir.Instruction, gezi.rewritetrace.Trace)): String =
+  private def written(startAndTrace: (Configured[NoFacts.type], gezi.rewritetrace.Trace)): String =
     val (start, trace) = startAndTrace
     s"${TraceStart.written(start, None)}\n${TraceText.written(trace)}"

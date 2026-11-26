@@ -28,7 +28,7 @@ object ReductionTesting:
     * as the lambdalattice text of the tree, as `MergeTesting.form` writes it.
     */
   def form(term: Term): String =
-    Lambdalattice.textWithLiterals(gezi.generatedinputs.LambdalatticeText.closedInstructionsWrittenOut(Encodings.deBruijn(term)), Map.empty)
+    Lambdalattice.textWithLiterals(Encodings.deBruijn(term), Map.empty)
 
   /** The lines of the reduction problems, keyed
     * `reduction_problem/<point>/<field>`: the program, the type, the

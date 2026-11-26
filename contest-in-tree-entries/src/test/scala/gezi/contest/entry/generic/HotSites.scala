@@ -3,6 +3,10 @@ package gezi.contest.entry.generic
 import java.nio.file.Path
 import gezi.frontend.Term
 import gezi.frontend.Term.λ
+import gezi.frontend.TermOf
+import gezi.ir.Configured
+import gezi.ir.NativeSpecializer
+import gezi.ir.NoFacts
 import gezi.standardlibrary.StandardLibrary
 import gezi.standardlibrary.TermTables
 import gezi.weakhead.Expansions
@@ -18,20 +22,23 @@ import scala.util.Random
   * @param terms
   *   the library terms, by their names in the fixture file
   */
-final case class HotSites(terms: Map[String, Term]):
+final case class HotSites[C <: NativeSpecializer & Singleton](terms: Map[String, Configured[C]]):
 
-  private def term(key: String): Term = terms.getOrElse(key, throw IllegalArgumentException(s"no fixture member $key"))
+  /** A term of the sites, a HOAS term whose constants are terms of `C`. */
+  private type SiteTerm = TermOf[Configured[C]]
+
+  private def term(key: String): SiteTerm = Term.closed(terms.getOrElse(key, throw IllegalArgumentException(s"no fixture member $key")))
 
   /** The binary numeral of the value, written with the site's bound
     * constructors (zero, even, odd), least significant digit outermost.
     */
-  private def numeral(constructors: Vector[Term], value: BigInt): Term =
+  private def numeral(constructors: Vector[SiteTerm], value: BigInt): SiteTerm =
     if value == 0 then constructors(0)
     else if value.testBit(0) then constructors(2)(numeral(constructors, value >> 1))
     else constructors(1)(numeral(constructors, value >> 1))
 
   /** The iterated call of the hot ladder, `fixpoint` over a binary count. */
-  private def iterate: Term =
+  private def iterate: SiteTerm =
     term("fixpoint")(λ(self => λ(n => λ(g => λ(s =>
       n(s)(λ(m => self(m)(g)(self(m)(g)(s))))(λ(m => g(self(m)(g)(self(m)(g)(s)))))
     )))))
@@ -41,7 +48,7 @@ final case class HotSites(terms: Map[String, Term]):
     * three steps by the bound operations, the library's terms let bound as
     * the hot ladder's generator binds them.
     */
-  def site(random: Random, sites: Int, bits: Int): Term =
+  def site(random: Random, sites: Int, bits: Int): SiteTerm =
     val libraryNames = HotSites.keys.dropRight(1).map(term)
     lets(libraryNames :+ iterate, Vector.empty, bound =>
       val constructors = bound.take(3)
@@ -63,7 +70,7 @@ final case class HotSites(terms: Map[String, Term]):
     * block, its counts drawn of `bits` binary digits and its function of one
     * to three steps by the bound operations.
     */
-  def nested(random: Random, bits: Int): Term =
+  def nested(random: Random, bits: Int): SiteTerm =
     val libraryNames = HotSites.keys.dropRight(1).map(term)
     lets(libraryNames :+ iterate, Vector.empty, bound =>
       val constructors = bound.take(3)
@@ -82,7 +89,7 @@ final case class HotSites(terms: Map[String, Term]):
   /** The values let bound in order, `(\x0. … (\xn. body) vn …) v0`, and
     * the body given the bound variables.
     */
-  private def lets(values: Vector[Term], bound: Vector[Term], body: Vector[Term] => Term): Term =
+  private def lets(values: Vector[SiteTerm], bound: Vector[SiteTerm], body: Vector[SiteTerm] => SiteTerm): SiteTerm =
     if bound.size == values.size then body(bound)
     else λ(variable => lets(values, bound :+ variable, body))(values(bound.size))
 
@@ -99,10 +106,12 @@ object HotSites:
     * projection off the tree whose visible subtree is `buildRoot`
     * (`StandardLibrary.entryMembers`), held as a closed instruction.
     */
-  def read(buildRoot: Path): HotSites =
-    HotSites(
-      StandardLibrary
-        .entryMembers(buildRoot, TermTables.hotSiteTerms, Expansions.none)
-        ._1
-        .map((key, instruction) => key -> Term.closed(instruction))
-    )
+  def read(buildRoot: Path): HotSites[NoFacts.type] =
+    HotSites(StandardLibrary.entryMembers(buildRoot, TermTables.hotSiteTerms, Expansions.none)._1)
+
+  /** The sites' library terms in the configuration of the specializer, each crossed from no facts in its spelling
+    * there (`NativeSpecializer.crossedAllFromNoFacts`).
+    */
+  def crossed[C <: NativeSpecializer & Singleton](sites: HotSites[NoFacts.type], specializer: C): HotSites[C] =
+    val crossedTerms = specializer.crossedAllFromNoFacts(sites.terms.values)
+    HotSites(sites.terms.map((key, term) => key -> crossedTerms(term)))

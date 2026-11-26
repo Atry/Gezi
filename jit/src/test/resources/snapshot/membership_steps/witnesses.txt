@@ -1,7 +1,0 @@
-zero ∥ nat_type
-=>
-1 normal forms, 1296 steps
-
-nil ∥ list_type nat_type
-=>
-1 normal forms, 1303 steps

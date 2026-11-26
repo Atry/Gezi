@@ -9,7 +9,8 @@ import gezi.generatedinputs.GeneratedProperties
 import gezi.generatedinputs.HoasGenerators
 import gezi.generatedinputs.LambdalatticeText
 import gezi.ir.BuiltInRule
-import gezi.ir.Instruction
+import gezi.ir.Configured
+import gezi.ir.NoFacts
 import gezi.lemmaencoding.baseline.BaselineLemmaEncoding
 import gezi.locations.Location
 import gezi.locations.SourceMap
@@ -52,6 +53,10 @@ import snapshot4s.generated.snapshotConfig
   */
 class TraceSourceMapsLawTest extends GeneratedProperties with gezi.generatedinputs.SeededSnapshots:
 
+  given gezi.ir.StorageAccess = gezi.ir.StorageAccess.granted()
+
+  private given NoFacts.type = NoFacts
+
   /** The law of a trace written with its lemmas' texts, run alone in a fresh
     * test JVM, took 2.90 to 3.63 s over five seeds (measured 2026-11-19 on
     * cores 0-5, the 1-minute load 5.9 to 7.2, with a deadline of 120 s). Each
@@ -74,7 +79,7 @@ class TraceSourceMapsLawTest extends GeneratedProperties with gezi.generatedinpu
     ("λa. λb. (λx. λy. x) a b", "λa. λb. a")
   )
 
-  private val lemmas: Vector[LemmaSides] =
+  private val lemmas: Vector[LemmaSides[NoFacts.type]] =
     sideTexts.zipWithIndex.map { case ((left, right), number) => equation(number, left, right) }
 
   /** The lemmas as a knowledge file would write them: each side on a line
@@ -84,10 +89,10 @@ class TraceSourceMapsLawTest extends GeneratedProperties with gezi.generatedinpu
     * written with a name, `konst`, bound to K, so that the trace binds it by
     * the β redex around the data.
     */
-  private val lemmaTexts: Map[(Instruction, Instruction), gezi.locations.LemmaText] =
+  private val lemmaTexts: Map[(Configured[NoFacts.type], Configured[NoFacts.type]), gezi.locations.LemmaText[NoFacts.type]] =
     val written = sideTexts.updated(3, ("λa. λb. konst a b", "λa. λb. a"))
     val names = Vector(Vector.empty, Vector.empty, Vector.empty, Vector("konst" -> closed("λx. λy. x")))
-    val (texts, _) = written.zip(lemmas).zip(names).foldLeft((Map.empty[(Instruction, Instruction), gezi.locations.LemmaText], 0)) {
+    val (texts, _) = written.zip(lemmas).zip(names).foldLeft((Map.empty[(Configured[NoFacts.type], Configured[NoFacts.type]), gezi.locations.LemmaText[NoFacts.type]], 0)) {
       case ((found, offset), (((left, right), sides), bound)) =>
         val leftSpan = gezi.locations.Span(offset, offset + left.length)
         val rightSpan = gezi.locations.Span(leftSpan.end + 1, leftSpan.end + 1 + right.length)
@@ -101,20 +106,20 @@ class TraceSourceMapsLawTest extends GeneratedProperties with gezi.generatedinpu
     }
     texts
 
-  private val index: StandardLibraryIndex =
-    StandardLibraryIndex(Vector.empty, lemmas, Vector.empty, Vector.empty)
+  private val index: StandardLibraryIndex[NoFacts.type] =
+    StandardLibraryIndex(NoFacts, Vector.empty, lemmas, Vector.empty, Vector.empty)
 
   /** The instances a round may add, `RewriteTraceLawTest`'s budget for the
     * same lemmas and programs, measured there.
     */
   private val budget: Int = 24
 
-  private val strategy: FixpointEgraph = FixpointEgraph(
+  private val strategy: FixpointEgraph[NoFacts.type] = FixpointEgraph(
     index,
     StandardSaturator(
-      SaturationOptions(lemmas.map(_.lemma), BuiltInRule.all, budget, BaselineLemmaEncoding, ClosureCompilation, StandardIndexer, StandardOrientationCompiler, MemoRetention.Kept)
+      SaturationOptions(lemmas.map(_.lemma), BuiltInRule.beforeOptIn, budget, BaselineLemmaEncoding, ClosureCompilation, StandardIndexer.of[gezi.ir.NoFacts.type], StandardOrientationCompiler, MemoRetention.Kept, gezi.ir.TermConstruction(gezi.ir.NoFacts))
     ),
-    CountedExtractor(ExtractionOptions(Vector("compression")), BaselineModules.table)
+    CountedExtractor(ExtractionOptions(Vector("compression")), BaselineModules.table[gezi.ir.NoFacts.type])
   )
 
   private val closedText: Gen[String] = HoasGenerators.closedTerm.map(LambdalatticeText.text)
@@ -140,7 +145,7 @@ class TraceSourceMapsLawTest extends GeneratedProperties with gezi.generatedinpu
   private def carried(
       program: String,
       stopped: scala.concurrent.Future[Unit]
-  ): (Instruction, Trace, Vector[ReplayedStep], Vector[SourceMap]) =
+  ): (Configured[NoFacts.type], Trace[NoFacts.type], Vector[ReplayedStep[NoFacts.type]], Vector[SourceMap]) =
     val (input, trace) = traced(program, stopped)
     val start = TraceStart.readLocated(TraceStart.written(input, Some(program)), java.net.URI("trace:start"))
     val text = TraceText.written(trace)
@@ -151,7 +156,7 @@ class TraceSourceMapsLawTest extends GeneratedProperties with gezi.generatedinpu
   /** The program read as a closed term and the trace of the strategy's round
     * on it, as the strategy's proof gives it, not written or read.
     */
-  private def traced(program: String, stopped: scala.concurrent.Future[Unit]): (Instruction, Trace) =
+  private def traced(program: String, stopped: scala.concurrent.Future[Unit]): (Configured[NoFacts.type], Trace[NoFacts.type]) =
     val input = closed(program)
     val outcome = strategy.ran(Vector(input), true, StopSignal.completedWith(stopped)).getOrElse(fail("the strategy gave no answer"))
     val Vector(output) = outcome.outputs: @unchecked
@@ -159,10 +164,10 @@ class TraceSourceMapsLawTest extends GeneratedProperties with gezi.generatedinpu
     (input, RewriteTrace.trace(OpentheoryArticle.derivation(index, input, output, proof)))
 
   /** Each place of the term with its map, from the root, outermost first. */
-  private def places(term: Instruction, map: SourceMap): Vector[(Vector[PositionSegment], Instruction, SourceMap)] =
+  private def places(term: Configured[NoFacts.type], map: SourceMap): Vector[(Vector[PositionSegment], Configured[NoFacts.type], SourceMap)] =
     if term.opaque then Vector((Vector.empty, term, map))
     else
-      val layer = term.layered
+      val layer = Positions.layerOf(term)
       (Vector.empty[PositionSegment], term, map) +: layer.children
         .zip(Positions.roles(layer))
         .zipWithIndex
@@ -178,7 +183,7 @@ class TraceSourceMapsLawTest extends GeneratedProperties with gezi.generatedinpu
       val terms = start +: steps.map(_.after)
       val problems = terms.zip(maps).zipWithIndex.flatMap { case ((term, map), step) =>
         places(term, map).flatMap((position, subterm, submap) =>
-          val count = if subterm.opaque then 0 else subterm.layered.children.size
+          val count = if subterm.opaque then 0 else subterm.layer.children.size
           val thunk = subterm.layer match
             case gezi.ir.Thunk(_, _, _) => true
             case _                           => false
@@ -196,13 +201,24 @@ class TraceSourceMapsLawTest extends GeneratedProperties with gezi.generatedinpu
     * (`SourceMap`). A step under a place changes its subterms and keeps its
     * layer, a thunk's code and holes included.
     */
-  private def own(term: Instruction): Either[Instruction, gezi.ir.Layer[Unit]] =
-    if term.opaque then Left(term) else Right(term.layered.map(_ => ()))
+  /** A term's own layer with its children left out: the kind of the layer, and a thunk's code, holes and number of fillings. */
+  private type OwnLayer = Either[Configured[NoFacts.type], (String, Option[(gezi.ir.Code, Vector[gezi.ir.Hole], Int)])]
+
+  private def own(term: Configured[NoFacts.type]): OwnLayer =
+    if term.opaque then Left(term)
+    else
+      Right(term.layer match
+        case gezi.ir.Apply(_, _)                  => ("apply", None)
+        case gezi.ir.Parallel(_, _)               => ("parallel", None)
+        case gezi.ir.Choice(_, _)                 => ("choice", None)
+        case gezi.ir.Thunk(code, holes, fillings) => ("thunk", Some((code, holes, fillings.size)))
+        case other                                => throw IllegalStateException(s"a term of no facts holds the layer $other")
+      )
 
   stoppableProperty("a located place has the layer the start has at that location") { stopped =>
     programs.forAllWithLog(identity).map(program =>
       val (start, _, steps, maps) = carried(program, stopped)
-      val written: Map[Location, Set[Either[Instruction, gezi.ir.Layer[Unit]]]] =
+      val written: Map[Location, Set[OwnLayer]] =
         places(start, maps.head)
           .flatMap((_, subterm, submap) => submap.locations.map(_ -> own(subterm)))
           .groupMap(_._1)(_._2)
@@ -232,7 +248,7 @@ class TraceSourceMapsLawTest extends GeneratedProperties with gezi.generatedinpu
         val offPosition = position.indices.flatMap(depth =>
           val prefix = position.take(depth)
           Positions
-            .roles(Positions.subterm(step.before, prefix).layered)
+            .roles(Positions.layerOf(Positions.subterm(step.before, prefix)))
             .filterNot(_ == position(depth))
             .flatMap(role =>
               Option.unless(
@@ -314,8 +330,8 @@ class TraceSourceMapsLawTest extends GeneratedProperties with gezi.generatedinpu
   /** The instruction a printed text reads back to, its bindings contracted
     * (`ReadableText.contracted`).
     */
-  private def readBack(printed: gezi.frontend.ReadableText.Printed): Instruction =
-    val read = gezi.frontend.Defunctionalization.thunkInstruction(gezi.frontend.Lambdalattice.term(printed.text))
+  private def readBack(printed: gezi.frontend.ReadableText.Printed[NoFacts.type]): Configured[NoFacts.type] =
+    val read: Configured[NoFacts.type] = gezi.frontend.Defunctionalization.thunkInstruction[gezi.ir.NoFacts.type](gezi.frontend.Lambdalattice.term(printed.text))(using gezi.ir.NoFacts)
     (1 to printed.bindings).foldLeft(read)((term, _) =>
       gezi.frontend.ReadableText
         .contracted(term, gezi.locations.SourceMap.unlocated)
@@ -324,9 +340,9 @@ class TraceSourceMapsLawTest extends GeneratedProperties with gezi.generatedinpu
     )
 
   /** The subterm at a path of `Layer.children` indices, the path the player keys its nodes by. */
-  private def atPath(term: Instruction, path: Vector[Int]): Option[Instruction] =
+  private def atPath(term: Configured[NoFacts.type], path: Vector[Int]): Option[Configured[NoFacts.type]] =
     path.foldLeft(Option(term))((found, index) =>
-      found.flatMap(subterm => if subterm.opaque then None else subterm.layered.children.lift(index))
+      found.flatMap(subterm => if subterm.opaque then None else subterm.layer.children.lift(index))
     )
 
   /** Purpose: catch a move (`TraceSourceMaps.moves`, what the player's transition flies)
@@ -369,7 +385,7 @@ class TraceSourceMapsLawTest extends GeneratedProperties with gezi.generatedinpu
     * lemma's label shows its sides printed with the names of the trace
     * written with the lemmas' texts (`LocatedTrace.lemmaMaps`).
     */
-  private def namedSteps(program: String, input: Instruction, output: Instruction, proof: gezi.proofs.StrategyProof, index: StandardLibraryIndex): String =
+  private def namedSteps(program: String, input: Configured[NoFacts.type], output: Configured[NoFacts.type], proof: gezi.proofs.StrategyProof[NoFacts.type], index: StandardLibraryIndex[NoFacts.type]): String =
     val trace = RewriteTrace.trace(OpentheoryArticle.derivation(index, input, output, proof))
     val start = TraceStart.readLocated(TraceStart.written(input, Some(program)), java.net.URI("trace:start"))
     val text = TraceText.writtenWith(trace, lemmaTexts)

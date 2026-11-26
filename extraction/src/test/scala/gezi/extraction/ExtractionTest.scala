@@ -3,8 +3,7 @@ package gezi.extraction
 import gezi.saturation.StopSignal
 import gezi.egraph.EGraph
 import gezi.egraph.Justification
-import gezi.ir.Instruction
-import gezi.ir.Layer
+import gezi.ir.NoFacts
 import gezi.ir.LemmaIdentifier
 import gezi.ir.Store
 import gezi.ir.{Apply, Choice, NoinlineLeaf, Parallel}
@@ -12,29 +11,33 @@ import gezi.ir.{Apply, Choice, NoinlineLeaf, Parallel}
 class ExtractionTest extends gezi.generatedinputs.FailFastSuite:
 
   /** `applied` is `function first`; the other three are noinline leaves. */
-  private val function = Instruction.opaque("function")
-  private val first = Instruction.opaque("first")
-  private val second = Instruction.opaque("second")
-  private val applied = Instruction(Apply(function, first))
+  private type C = NoFacts.type
+
+  private given NoFacts.type = NoFacts
+
+  private val function = NoFacts.opaque("function")
+  private val first = NoFacts.opaque("first")
+  private val second = NoFacts.opaque("second")
+  private val applied = NoFacts.application(function, first)
 
   /** The number each instruction is spelled with. */
   private val numbers = Map(function -> 0, first -> 1, second -> 2, applied -> 3)
 
-  private val store = Store(noinline = Set(function, first, second))
+  private val store = Store(noinline = Set(function, first, second), gezi.ir.TermConstruction(NoFacts))
 
   /** The cost of a spelling is its number of nodes. */
-  private object Size extends StatelessCostModel[Int]:
-    def cost(shape: Shape, childCosts: Vector[Int]): Int = 1 + childCosts.sum
+  private object Size extends StatelessCostModel[C, Int]:
+    def cost(shape: Shape[C], childCosts: Vector[Int]): Int = 1 + childCosts.sum
     val ordering: Ordering[Int] = Ordering.Int
-    def pricedChildren(shape: Shape): Vector[Boolean] = shape.children.map(_ => true)
+    def pricedChildren(shape: Shape[C]): Vector[Boolean] = shape.children.map(_ => true)
 
-  private def spelling(shape: Shape, children: Vector[String]): String = shape match
+  private def spelling(shape: Shape[C], children: Vector[String]): String = shape match
     case Shape.Name(instruction)                 => s"name${numbers(instruction)}"
     case Shape.Node(_, NoinlineLeaf(instruction))  => s"leaf${numbers(instruction)}"
     case Shape.Node(_, layer)               => s"${layer.getClass.getSimpleName}${children.mkString("(", ",", ")")}"
     case pattern                            => s"${pattern.getClass.getSimpleName}${children.mkString("(", ",", ")")}"
 
-  private def spelled(extracted: Extracted[Int], root: Int): String =
+  private def spelled(extracted: Extracted[C, Int], root: Int): String =
     val (_, result) = Extraction.spelled(extracted, root, Spelled[String, Unit]((), Map.empty)) {
       (accumulator, shape, children) => (accumulator, spelling(shape, children))
     }
@@ -43,7 +46,7 @@ class ExtractionTest extends gezi.generatedinputs.FailFastSuite:
   private val lemma = Justification.Lemma(LemmaIdentifier(0), Vector.empty)
 
   /** The graph of `function first` and `second` united. */
-  private def united: (EGraph, Int) =
+  private def united: (EGraph[C], Int) =
     val (withApplied, appliedNode) = EGraph.empty(store, Map.empty, explained = false).instructionAdded(applied)
     val (withSecond, secondNode) = withApplied.instructionAdded(second)
     (withSecond.unionWorked(appliedNode, secondNode, lemma, None), appliedNode)

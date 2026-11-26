@@ -1,7 +1,7 @@
-# The base problems of the CSES families repeated_cses_money_sums_*: lists of positive integer coin values, the answer the sums that some nonempty set of the coins makes, each once, increasing.
+# The base problems of the CSES families repeated_cses_money_sums_*: lists of positive integer coin values, the answer the sum of the sums that some nonempty set of the coins makes, each counted once.
 #
 # THE ANSWER of each row is the problem's definition computed exhaustively by a
-# brute-force script (2026-11-22), which enumerates every candidate the problem's
+# brute-force script (2026-11-22; the results summed 2026-11-22), which enumerates every candidate the problem's
 # statement describes. PROOF: the program of the problem's file follows the
 # definition, and its header argues under Definition 14 that its one normal form
 # is that answer; the data are finite and within the family's bottom rungs, which
@@ -10,7 +10,7 @@
 #
 #   money_sums_point(?Point, ?Coins, ?Result)
 #
-# Coins is a Scott list (corpora/library/prelude/list) of integers (corpora/library/integer/cbor), each at least 1; Result is a Scott list of integers.
+# Coins is a Scott list (corpora/library/prelude/list) of integers (corpora/library/integer/cbor), each at least 1; Result is an integer, the sum.
 λ export
 . (λtuple. tuple λmixin. mixin mixin)
 λ omega
@@ -28,30 +28,30 @@
 λ
 . cons
   ( λ _money_sums_point
-    . _money_sums_point (text "cses_money_sums_repeated_coin") (cons (integer 2) λ. cons (integer 2) λ. cons (integer 5) λ. nil) λ. (cons (integer 2) λ. cons (integer 4) λ. cons (integer 5) λ. cons (integer 7) λ. cons (integer 9) λ. nil)
+    . _money_sums_point (text "cses_money_sums_repeated_coin") (cons (integer 2) λ. cons (integer 2) λ. cons (integer 5) λ. nil) (integer 27)
   )
 λ
 . cons
   ( λ _money_sums_point
-    . _money_sums_point (text "cses_money_sums_single_coin") (cons (integer 7) λ. nil) λ. (cons (integer 7) λ. nil)
+    . _money_sums_point (text "cses_money_sums_single_coin") (cons (integer 7) λ. nil) (integer 7)
   )
 λ
 . cons
   ( λ _money_sums_point
-    . _money_sums_point (text "cses_money_sums_every_sum_is_made_twice") (cons (integer 1) λ. cons (integer 2) λ. cons (integer 3) λ. nil) λ. (cons (integer 1) λ. cons (integer 2) λ. cons (integer 3) λ. cons (integer 4) λ. cons (integer 5) λ. cons (integer 6) λ. nil)
+    . _money_sums_point (text "cses_money_sums_every_sum_is_made_twice") (cons (integer 1) λ. cons (integer 2) λ. cons (integer 3) λ. nil) (integer 21)
   )
 λ
 . cons
   ( λ _money_sums_point
-    . _money_sums_point (text "cses_money_sums_equal_coins") (cons (integer 1) λ. cons (integer 1) λ. cons (integer 1) λ. nil) λ. (cons (integer 1) λ. cons (integer 2) λ. cons (integer 3) λ. nil)
+    . _money_sums_point (text "cses_money_sums_equal_coins") (cons (integer 1) λ. cons (integer 1) λ. cons (integer 1) λ. nil) (integer 6)
   )
 λ
 . cons
   ( λ _money_sums_point
-    . _money_sums_point (text "cses_money_sums_gap_in_the_sums") (cons (integer 3) λ. cons (integer 5) λ. cons (integer 5) λ. nil) λ. (cons (integer 3) λ. cons (integer 5) λ. cons (integer 8) λ. cons (integer 10) λ. cons (integer 13) λ. nil)
+    . _money_sums_point (text "cses_money_sums_gap_in_the_sums") (cons (integer 3) λ. cons (integer 5) λ. cons (integer 5) λ. nil) (integer 39)
   )
 λ
 . cons
   ( λ _money_sums_point
-    . _money_sums_point (text "cses_money_sums_four_coins") (cons (integer 4) λ. cons (integer 2) λ. cons (integer 1) λ. cons (integer 8) λ. nil) λ. (cons (integer 1) λ. cons (integer 2) λ. cons (integer 3) λ. cons (integer 4) λ. cons (integer 5) λ. cons (integer 6) λ. cons (integer 7) λ. cons (integer 8) λ. cons (integer 9) λ. cons (integer 10) λ. cons (integer 11) λ. cons (integer 12) λ. cons (integer 13) λ. cons (integer 14) λ. cons (integer 15) λ. nil)
+    . _money_sums_point (text "cses_money_sums_four_coins") (cons (integer 4) λ. cons (integer 2) λ. cons (integer 1) λ. cons (integer 8) λ. nil) (integer 120)
   ) nil

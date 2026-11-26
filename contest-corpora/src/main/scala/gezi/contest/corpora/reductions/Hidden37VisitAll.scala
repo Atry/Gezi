@@ -36,7 +36,7 @@ object Hidden37VisitAll:
   /** Under the lets of the nodes, `(\walk. [walk v (insert none v) Budget k | v a node]) Walk`
     * (`visit_all_term/4`).
     */
-  def visitAllTerm(attractors: Attractors, count: Int, edges: Vector[(Int, Int)], budget: Int): Term =
+  def visitAllTerm(attractors: Attractors, count: Int, edges: Vector[(Int, Int)], budget: Int): ProblemTerm =
     Graphs.numeralLets(
       count,
       nodes =>
@@ -53,7 +53,7 @@ object Hidden37VisitAll:
   /** `Y (\self. \node. \visited. \r. \k. full visited (k r) (case node))`,
     * each case the steps to the node's neighbours (`walk_function/3`).
     */
-  private def walkFunction(attractors: Attractors, nodes: Vector[Term], edges: Vector[(Int, Int)]): Term =
+  private def walkFunction(attractors: Attractors, nodes: Vector[ProblemTerm], edges: Vector[(Int, Int)]): ProblemTerm =
     val full = attractors.functionSurface("bit_set_full", Spelling.Direct)
     attractors.fixpoint(
       λ(self =>

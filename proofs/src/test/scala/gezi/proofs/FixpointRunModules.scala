@@ -1,7 +1,8 @@
 package gezi.proofs
 
 import gezi.standardlibrary.LeanFiniteTerms
-import gezi.ir.Instruction
+import gezi.ir.Configured
+import gezi.ir.NoFacts
 
 /** A fixpoint run of `gezi/tests/opentheory_article.plt`: a program over
   * the library's names and the round of the native route that writes its
@@ -24,10 +25,10 @@ final case class FixpointRun(name: String, round: String, programText: String):
     */
   def base: String = s"${name}_$round"
 
-/** The sides of a run as the encoding test compares them: their finite
-  * terms and the texts of the writer's encodings.
+/** The sides of a run as module FixpointRunSides holds them: their finite
+  * terms, named after the run's expected article.
   */
-final case class EncodedRun(base: String, inputFinite: Instruction, outputFinite: Instruction, inputText: String, outputText: String)
+final case class EncodedRun(base: String, inputFinite: Configured[NoFacts.type], outputFinite: Configured[NoFacts.type])
 
 /** A run with the lemmas whose statements its expected article imports, by
   * name in the order of the index.
@@ -64,6 +65,8 @@ final case class FixpointFixture(run: FixpointRun, lemmas: Vector[String])
   * from the article.
   */
 object FixpointRunModules:
+
+  private given NoFacts.type = NoFacts
 
   /** The knowledge of the runs of the baseline's search strategy, the one
     * field of the file: the Prolog backend's preset, through which native
@@ -136,7 +139,7 @@ object FixpointRunModules:
       lowerCamelName: String,
       suffix: String,
       which: String,
-      term: Instruction
+      term: Configured[NoFacts.type]
   ): String =
     val tokens = LeanFiniteTerms.finiteLeanText(term).split(" ", -1).toList
     s"/-- The $which of the run of `$base.art`. -/\n" +
@@ -155,7 +158,35 @@ object FixpointRunModules:
     */
   val kernelCheckHeartbeats: Int = 300000
 
-  /** The module FixpointRunFixtures of the fixtures. */
+  /** The module FixpointRunFixtures of the fixtures.
+    *
+    * FIXME (https://github.com/Atry/private-overlay/issues/1561, D6, "定理与一次运行的源程序相连"):
+    * no theorem is linked to the source program of a run. The theorems this
+    * module states stop at the readbacks of the run's input and output, the
+    * IR terms of module FixpointRunSides (`…Readbacks`), and that those finite
+    * terms are what the front end made of the run's program rests on this
+    * Scala test alone. Missing: for each run, a theorem that the readback of
+    * its input is δ of its source program (link (i), Lean's
+    * `Defunctionalization.readbackThunkInstruction`), joined to `…Readbacks`
+    * so that the theorem reads δ(program) ≃_O readback(output). Two things
+    * stand between: the source program is not in Lean (the run's program is
+    * HOAS over library terms read off a fixture file as closed instructions,
+    * `Term.Closed`, whose de Bruijn terms the run does not keep;
+    * `StrategyTesting.programInput`), and the input is the program with its
+    * occurrences tagged (`Occurrences.tagged`), whose markers are identities
+    * by the β rule only, so the input reads back to δ(program) up to the
+    * lemmas of occurrence_erasure, not syntactically. An entry's articles
+    * (`GenericEntry.evidenceWritten`) have the same gap and no Lean module at
+    * all. Candidate fixes: the run carries its source program, the library
+    * terms' de Bruijn terms and the markers into a generated Lean module, as
+    * `Defunctionalization.Program` with constants, and the kernel checks that
+    * `thunkInstruction` of the tagged program is the input's finite term,
+    * a theorem then closing the gap from the tagged to the untagged program
+    * by the soundness of occurrence_erasure's statements; or Lean's
+    * `thunkInstruction` compiled and run as the front end, so that the input
+    * is its output by construction (the FIXME of `Defunctionalization.lean`,
+    * "Agreement with the Prolog").
+    */
   def fixturesText(fixtures: Vector[FixpointFixture]): String =
     "import LambdaJit.Encoding\n" +
       "import LambdaJit.ArticleLines\n" +
@@ -200,7 +231,7 @@ object FixpointRunModules:
       "Module `FixpointRunFixturesAxioms` prints the axioms of these theorems. They stop at the readbacks\n" +
       "of the run's IR terms: that the finite terms of module `FixpointRunSides` are those terms rests on\n" +
       "the Scala test that checks that module, and no module carries the theorem to the source\n" +
-      "program (link (i) of D6, https://github.com/Atry/private-overlay/issues/1561).\n" +
+      "program (link (i) of D6).\n" +
       measurement.map(_ + "\n").mkString +
       "-/\n\n" +
       "namespace LambdaJit.FixpointRunFixtures\n\n" +
@@ -219,7 +250,7 @@ object FixpointRunModules:
     "under a machine load of 8.3 to 13.3: this module took 216 s, and the largest resident set of the",
     "build's processes, which GNU time reports, was 7.2 GB (7,220,524 kB). The kernel's check of an",
     "article is most of it: built alone, each in a module of its own (4c3d7d0c9, reverted), the",
-    "articles of the markers' keys before #1834 took 74 s and 8.0 GB (compose_redex_type_check), 59 s",
+    "articles of the markers' keys, before the markers' members took the `$` prefix, took 74 s and 8.0 GB (compose_redex_type_check), 59 s",
     "and 6.9 GB (twice_closure_type_check) and 49 s and 5.1 GB (successor_zero_type_check). The",
     "articles are of 4304 to 12682 lines of at most 41 characters."
   )

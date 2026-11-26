@@ -3,11 +3,12 @@ package gezi.extraction
 import gezi.ir.Code
 import gezi.ir.CodeLayer
 import gezi.ir.Hole
-import gezi.ir.Instruction
-import gezi.ir.Layer
+import gezi.ir.IrLayer
+import gezi.ir.LayerWith
 import gezi.ir.SpecializationRange
 import scala.annotation.tailrec
 import gezi.ir.{Apply, Choice, NoinlineLeaf, Parallel, Slot, Thunk}
+import gezi.ir.{Configured, NativeSpecializer}
 
 /** The order of content between entries of equal cost, the extraction's
   * tie-break: a structural order of the term, the same for every
@@ -23,11 +24,12 @@ import gezi.ir.{Apply, Choice, NoinlineLeaf, Parallel, Slot, Thunk}
   * order of their members, two judgments by the order of theirs; and then
   * their child entries left to right. A dispatch pattern spells a choice
   * that a node's entry may spell too, and the two compare by their shapes,
-  * not as one term. Two instructions, and two codes, compare by
-  * their hash codes, which the IR computes from content alone and makes the
-  * same in every process (`gezi.ir.Instruction`), and only on equal
-  * hash codes by their structure the same way. An opaque instruction compares by
-  * its name. Nothing reads a node's number, a class's root, a name's
+  * not as one term. Two instructions, and two codes, compare by their
+  * structure the same way, never by their hash codes, which are their
+  * identities and differ from one run to the next
+  * (`gezi.ir.ConstructorIdentity`). An opaque instruction compares by
+  * its name, and a native storage the e-graph keeps as a leaf by its content
+  * (`gezi.ir.ContentComparison`), its view not read. Nothing reads a node's number, a class's root, a name's
   * meaning, a type or a filter's criterion: the order is the spelled
   * term's, so the entry a class keeps among equal costs does not depend on
   * the order in which the graph numbered its nodes.
@@ -44,18 +46,20 @@ object ContentOrder:
   /** Negative when `left` comes first, zero when the two spell one term,
     * positive otherwise.
     */
-  def compare[Cost](left: Entry[Cost], right: Entry[Cost]): Int =
-    compared(List(Pending.Entries(left, right)))
+  def compare[C <: NativeSpecializer & Singleton, Cost](left: Entry[C, Cost], right: Entry[C, Cost]): Int =
+    compared(List(Pending.Entries[C](left, right)))
 
-  private enum Pending:
-    case Entries(left: Entry[?], right: Entry[?])
-    case Instructions(left: Instruction, right: Instruction)
-    case Codes(left: Code, right: Code)
-    case Integers(left: Int, right: Int)
-    case Texts(left: String, right: String)
+  /** The layers of an instruction or of a node, which this order ranks alike. */
+  private type AnyLayer[+Child, +Leaf] = IrLayer[Child] | LayerWith[Child, Leaf]
+
+  private enum Pending[C <: NativeSpecializer & Singleton]:
+    case Entries(left: Entry[C, ?], right: Entry[C, ?])
+    case Instructions(left: Configured[C], right: Configured[C])
+    case Codes[C <: NativeSpecializer & Singleton](left: Code, right: Code) extends Pending[C]
+    case Integers[C <: NativeSpecializer & Singleton](left: Int, right: Int) extends Pending[C]
 
   @tailrec
-  private def compared(pending: List[Pending]): Int = pending match
+  private def compared[C <: NativeSpecializer & Singleton](pending: List[Pending[C]]): Int = pending match
     case Nil => 0
     case next :: rest =>
       step(next) match
@@ -64,9 +68,8 @@ object ContentOrder:
         case Right(more)    => compared(more ++ rest)
 
   /** The decision of one pair, or the pairs it is decided by, in order. */
-  private def step(pair: Pending): Either[Int, List[Pending]] = pair match
+  private def step[C <: NativeSpecializer & Singleton](pair: Pending[C]): Either[Int, List[Pending[C]]] = pair match
     case Pending.Integers(left, right) => Left(Integer.compare(left, right))
-    case Pending.Texts(left, right)    => Left(left.compareTo(right))
     case Pending.Entries(left, right) =>
       if left eq right then Left(0)
       else
@@ -78,22 +81,30 @@ object ContentOrder:
               left.childEntries.zip(right.childEntries).map(Pending.Entries(_, _))
           )
     case Pending.Instructions(left, right) =>
-      if left eq right then Left(0)
-      else if left.hashCode != right.hashCode then Left(Integer.compare(left.hashCode, right.hashCode))
-      else if left.opaque || right.opaque then
-        Right(List(Pending.Integers(opaqueRank(left), opaqueRank(right)), Pending.Texts(left.toString, right.toString)))
-      else layerPairs(left.layered, right.layered)
+      if left.representation eq right.representation then Left(0)
+      else if left.representation.heldAsLeaf || right.representation.heldAsLeaf then
+        Right(
+          List(
+            Pending.Integers(opaqueRank(left), opaqueRank(right)),
+            Pending.Integers(gezi.ir.ContentComparison.compare(left.representation, right.representation), 0)
+          )
+        )
+      else layerPairs(left.layer, right.layer)
     case Pending.Codes(left, right) =>
       if left eq right then Left(0)
-      else if left.hashCode != right.hashCode then Left(Integer.compare(left.hashCode, right.hashCode))
       else codePairs(left.layer, right.layer)
 
-  private def opaqueRank(instruction: Instruction): Int = if instruction.opaque then 0 else 1
+  /** An opaque instruction, then a storage the e-graph keeps as a leaf, then
+    * any other instruction: two leaves compare by their content
+    * (`gezi.ir.ContentComparison`).
+    */
+  private def opaqueRank[C <: NativeSpecializer & Singleton](instruction: Configured[C]): Int =
+    if instruction.representation.opaque then 0 else if instruction.representation.heldAsLeaf then 1 else 2
 
-  private def shapePairs(left: Shape, right: Shape): List[Pending] = (left, right) match
+  private def shapePairs[C <: NativeSpecializer & Singleton](left: Shape[C], right: Shape[C]): List[Pending[C]] = (left, right) match
     case (Shape.Name(leftInstruction), Shape.Name(rightInstruction)) => List(Pending.Instructions(leftInstruction, rightInstruction))
     case (Shape.Node(_, leftLayer), Shape.Node(_, rightLayer)) =>
-      Pending.Integers(layerRank(leftLayer), layerRank(rightLayer)) :: atomPairs(leftLayer, rightLayer)
+      Pending.Integers(layerRank(leftLayer), layerRank(rightLayer)) :: atomPairs[C](leftLayer, rightLayer)
     case (Shape.Specialized(_, leftSpecialization), Shape.Specialized(_, rightSpecialization)) =>
       List(
         Pending.Integers(rangeRank(leftSpecialization.range), rangeRank(rightSpecialization.range)),
@@ -104,7 +115,7 @@ object ContentOrder:
     case _ => List(Pending.Integers(shapeRank(left), shapeRank(right)))
 
   /** A name, a node, a specialization choice, a judgment. */
-  private def shapeRank(shape: Shape): Int = shape match
+  private def shapeRank[C <: NativeSpecializer & Singleton](shape: Shape[C]): Int = shape match
     case Shape.Name(_)           => 0
     case Shape.Node(_, _)        => 1
     case Shape.Specialized(_, _) => 2
@@ -120,22 +131,32 @@ object ContentOrder:
   /** The pairs of the atoms of two layers of one constructor: a thunk's code
     * and holes, a leaf's instruction.
     */
-  private def atomPairs(left: Layer[Any], right: Layer[Any]): List[Pending] = (left, right) match
+  private def atomPairs[C <: NativeSpecializer & Singleton](
+      left: AnyLayer[Any, Configured[C]],
+      right: AnyLayer[Any, Configured[C]]
+  ): List[Pending[C]] = (left, right) match
     case (Thunk(leftCode, leftHoles, _), Thunk(rightCode, rightHoles, _)) =>
       Pending.Codes(leftCode, rightCode) :: holePairs(leftHoles, rightHoles)
     case (NoinlineLeaf(leftInstruction), NoinlineLeaf(rightInstruction)) =>
-      List(Pending.Instructions(leftInstruction, rightInstruction))
+      List(Pending.Instructions[C](leftInstruction, rightInstruction))
     case _ => Nil
 
-  /** The pairs of two instructions' layers of equal hash code: the
-    * constructor, the atoms, then the children.
+  /** The pairs of two instructions' layers: the constructor, the atoms,
+    * then the children.
     */
-  private def layerPairs(left: Layer[Instruction], right: Layer[Instruction]): Either[Int, List[Pending]] =
+  private def layerPairs[C <: NativeSpecializer & Singleton](
+      left: IrLayer[Configured[C]],
+      right: IrLayer[Configured[C]]
+  ): Either[Int, List[Pending[C]]] =
     val rankOrder = Integer.compare(layerRank(left), layerRank(right))
     if rankOrder != 0 then Left(rankOrder)
-    else Right(atomPairs(left, right) ++ left.children.zip(right.children).map(Pending.Instructions(_, _)))
+    else
+      Right(
+        atomPairs[C](left, right) ++
+          (Pending.Integers(left.children.size, right.children.size) :: left.children.zip(right.children).map(Pending.Instructions(_, _)).toList)
+      )
 
-  private def codePairs(left: CodeLayer[Code], right: CodeLayer[Code]): Either[Int, List[Pending]] =
+  private def codePairs[C <: NativeSpecializer & Singleton](left: CodeLayer[Code], right: CodeLayer[Code]): Either[Int, List[Pending[C]]] =
     val rankOrder = Integer.compare(codeRank(left), codeRank(right))
     if rankOrder != 0 then Left(rankOrder)
     else
@@ -158,7 +179,7 @@ object ContentOrder:
   /** Two hole lists: their lengths, then each hole, an ignored binder
     * before a bound one, bound ones by slot.
     */
-  private def holePairs(left: Vector[Hole], right: Vector[Hole]): List[Pending] =
+  private def holePairs[C <: NativeSpecializer & Singleton](left: Vector[Hole], right: Vector[Hole]): List[Pending[C]] =
     Pending.Integers(left.size, right.size) ::
       left.zip(right).map((leftHole, rightHole) => Pending.Integers(holeRank(leftHole), holeRank(rightHole))).toList
 
@@ -167,12 +188,14 @@ object ContentOrder:
     case Hole.Bound(slot) => slot
 
   /** The rank of a layer's constructor. */
-  private def layerRank(layer: Layer[Any]): Int = layer match
+  private def layerRank(layer: AnyLayer[Any, Any]): Int = layer match
     case Apply(_, _)     => 0
     case Parallel(_, _)  => 1
     case Choice(_, _)    => 2
     case Thunk(_, _, _)  => 3
     case NoinlineLeaf(_)         => 4
+    case view: gezi.ir.StorageView[?] => throw IllegalStateException(s"a node's layer is never a storage's view: $view")
+    case other                        => throw IllegalStateException(s"the layer $other is no layer of an instruction with a layer")
 
   /** The rank of a code's constructor. */
   private def codeRank(layer: CodeLayer[Code]): Int = layer match

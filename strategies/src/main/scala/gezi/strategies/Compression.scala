@@ -1,5 +1,7 @@
 package gezi.strategies
 
+import gezi.ir.NativeSpecializer
+
 /** The fold state of `compression`: the size, which is the value and the
   * rank.
   */
@@ -11,15 +13,15 @@ final case class CompressionState(size: BigInt) extends FoldState
   * node, a thunk one node more than its resolved body. So a name beats the
   * shape it stands for.
   */
-object Compression extends NormalityModule:
+object Compression extends ConfigurationFreeModule:
 
   val name: String = "compression"
 
   val meetsExtractionContract: Boolean = true
 
-  def folded(layer: OrderTerm, reading: TermReading): FoldState = CompressionState(size(layer))
+  def folded[C <: NativeSpecializer & Singleton](layer: OrderTerm[C], reading: TermReading[C]): FoldState = CompressionState(size(layer))
 
-  private def size(term: OrderTerm): BigInt = term match
+  private def size[C <: NativeSpecializer & Singleton](term: OrderTerm[C]): BigInt = term match
     case OrderTerm.Folded(state, _)                           => TermOrder.ownState[CompressionState](state).size
     case OrderTerm.Name(_)                                 => 1
     case leaf if TermReading.leafTerm(leaf)                => 1
@@ -39,14 +41,17 @@ object Compression extends NormalityModule:
     * body with its fillings in their slots (`TermReading.resolved`); a
     * filling the code does not read counts nothing.
     */
-  override val codeFolding: Option[CodeFolding] = Some(
-    new CodeFolding:
-      def folded(layer: CodeFold, reading: TermReading): FoldState = layer match
+  override def codeFolding[C <: NativeSpecializer & Singleton]: Option[CodeFolding[C]] = Some(
+    new CodeFolding[C]:
+      def folded(layer: CodeFold[C], reading: TermReading[C]): FoldState = layer match
         case CodeFold.Filling(term, _)                  => CompressionState(size(term))
         case CodeFold.InnerFilling(part)                => part
         case CodeFold.HoleSlot(_, _, _)                 => CompressionState(1)
         case CodeFold.Apply(function, argument)         => CompressionState(1 + sizeOf(function) + sizeOf(argument))
         case CodeFold.Parallel(left, criterion)         => CompressionState(1 + sizeOf(left) + sizeOf(criterion))
+        case CodeFold.RangeParallel(left, range)        => CompressionState(1 + sizeOf(left) + sizeOf(range))
+        case CodeFold.Choice(_, Some(dispatched))       => dispatched
+        case CodeFold.Choice(members, None)             => CompressionState(1 + members.map(sizeOf).sum)
         case CodeFold.InnerThunk(_, _, _, _, body, _)   => CompressionState(1 + sizeOf(body))
         case CodeFold.Closing(_, _, body, _, _)         => CompressionState(1 + sizeOf(body))
       def rank(state: FoldState): OrderValue = Compression.rank(state)
@@ -59,4 +64,4 @@ object Compression extends NormalityModule:
     */
   private def sizeOf(state: FoldState): BigInt = state match
     case CompressionState(size) => size
-    case other                  => throw TermOrderError(TermOrderErrorReason.NotATerm(OrderTerm.Folded(other, false)))
+    case other                  => throw TermOrderError(TermOrderErrorReason.NotATerm(OrderTerm.Folded[Nothing](other, false)))

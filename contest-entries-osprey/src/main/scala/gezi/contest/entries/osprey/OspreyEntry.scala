@@ -8,6 +8,7 @@ import gezi.jit.BackendChecks
 import gezi.jit.BackendFacts
 import gezi.jit.ClosureBackend
 import gezi.hotspot.Cache
+import gezi.jit.StorageEncoding
 import gezi.jit.DispatchMode
 import gezi.jit.Jit
 import gezi.jit.JitConfiguration
@@ -19,6 +20,7 @@ import gezi.contest.entry.Cells
 import gezi.contest.entry.Entry
 import gezi.contest.entry.EntryProvider
 import gezi.contest.entry.Interaction
+import gezi.contest.entry.Judgments
 import gezi.contest.entry.OutputDisplay
 import gezi.weakhead.Computed
 import gezi.weakhead.JitState
@@ -27,7 +29,7 @@ import gezi.weakhead.NoJitState
 import gezi.weakhead.NormalForms
 import gezi.weakhead.Reading
 import gezi.weakhead.ReadingState
-import gezi.weakhead.Value
+import gezi.ir.Value
 import gezi.standardlibrary.StandardLibrary
 import gezi.strategies.DispatchStrategies
 import gezi.strategies.NativeRouteCompilation
@@ -43,11 +45,13 @@ import gezi.frontend.OccurrenceMarkers
 import gezi.frontend.Occurrences
 import gezi.ir.CodeLayer
 import gezi.ir.Code
-import gezi.ir.Instruction
 import gezi.ir.LemmaIdentifier
 import gezi.ir.Layer
 import scala.annotation.tailrec
 import gezi.ir.{Apply, Choice, NoinlineLeaf, Parallel, Slot, Thunk}
+import gezi.ir.{Closed, Configured, NativeSpecializer, StorageAccess}
+import gezi.frontend.DeBruijnTermOf
+import gezi.weakhead.ScottADTChoices
 
 /** The entry `contest-entries-osprey`. It started from the
   * baseline entry, `gezi.contest.entries.baseline`, since deleted (the library, the schedule, the dispatch, the JIT reading and the program
@@ -67,7 +71,7 @@ final class OspreyEntryProvider extends EntryProvider:
     * with the judge's cache service and an empty reading cache. Nothing is saturated,
     * extracted, compiled by the JIT or evaluated here.
     */
-  def initial(entryDirectory: Path, caches: Cache, articles: ArticleDestination): Entry =
+  def initial(entryDirectory: Path, caches: Cache, articles: ArticleDestination): Entry[?] =
     // TODO: here stood `StandardLibrary.compiledFromText(Vector(sourceTree), OspreyEntry.libraryKnowledge, ...)`,
     // the library of a knowledge text of relative paths from corpora (OspreyEntry.libraryKnowledge, deleted with
     // it), which no longer read since the corpora's conversion to the tuple module encoding (f26d54657).
@@ -77,18 +81,25 @@ final class OspreyEntryProvider extends EntryProvider:
     // its file contest-entries-osprey/osprey.lambdalattice included, is its author's. The deleted code:
     // git show 1346b2038:lambda_jit/contest-entries-osprey/src/main/scala/lambdajit/contest/entries/osprey/OspreyEntry.scala.
     val library: StandardLibrary = throw NotImplementedError("the library: osprey's entry is not ported to G3")
-    val facts = BackendFacts.of(library)
-    val jit = Jit(
-      JitConfiguration(
-        facts,
+    val encoding = BackendFacts.of(library).storageEncoding
+    OspreyEntryProvider.built[encoding.type](encoding, library, caches)
+
+object OspreyEntryProvider:
+
+  /** The entry of the configuration `C` of the encoding of the library's facts. */
+  private def built[C <: NativeSpecializer & Singleton](encoding: StorageEncoding & C, library: StandardLibrary, caches: Cache): OspreyEntry[C] =
+    val jit = Jit[C](
+      JitConfiguration[C](
+        encoding,
         JitConfiguration.defaultBudget,
         PredicatePerCode,
         ClosureBackend,
         DispatchMode.Dispatch(DispatchStrategies.fallback),
-        instanceTable = false
+        instanceTable = false,
+        storageAccess = StorageAccess.granted()
       )
     )
-    OspreyEntry(
+    OspreyEntry[C](
       library,
       // TODO: here stood `library.lemmasOf(OspreyEntry.closureApplicationKnowledge)`, the lemmas of the round before
       // the type check, read from knowledge files named by paths. lemmasOf was deleted when the library became files reached by paths: a round's
@@ -103,7 +114,7 @@ final class OspreyEntryProvider extends EntryProvider:
       // TODO: here stood `library.lemmasOf(OspreyEntry.erasureKnowledge)`, the erasure round's lemmas; deleted and
       // to be ported as the TODO above says.
       throw NotImplementedError("the erasure round's lemmas: osprey's entry is not ported to G3"),
-      facts,
+      encoding,
       library.index.occurrenceMarkers,
       // TODO: here stood `library.index.definitions`, the library's define instructions. The index has no definitions
       // since the library became files reached by paths; the deleted baseline entry's
@@ -133,21 +144,27 @@ final class OspreyEntryProvider extends EntryProvider:
   * clear the flag. It holds no type and names no program. `cellState` is
   * the state after the cells run so far, a term (`Cells.nextState`).
   */
-final case class OspreyEntry(
+final case class OspreyEntry[C <: NativeSpecializer & Singleton](
     library: StandardLibrary,
     closureApplicationLemmas: Vector[LemmaIdentifier],
     typeCheckLemmas: Vector[LemmaIdentifier],
     erasureLemmas: Vector[LemmaIdentifier],
-    facts: BackendFacts,
+    specializer: StorageEncoding & C,
     markers: Option[OccurrenceMarkers],
-    defines: Set[Instruction],
-    jit: Jit,
+    defines: Set[Configured[C]],
+    jit: Jit[C],
     caches: Cache,
-    jitState: JitState,
-    readings: Map[Instruction, Option[Vector[Instruction]]],
+    jitState: JitState[C],
+    readings: Map[Configured[C], Option[Vector[Configured[C]]]],
     compileFirst: Boolean,
-    cellState: DeBruijnTerm
-) extends Entry:
+    cellState: DeBruijnTermOf[Configured[C]]
+) extends Entry[C]:
+
+  private given C = specializer
+  private given StorageAccess = jit.configuration.storageAccess
+
+  /** The backend facts the entry's encoding is made of. */
+  def facts: BackendFacts = specializer.facts
 
   /** The cell's Output (`Cells.output`) read by `read`, ported from the
     * methods `answered` and `judged` of the interface before cells became
@@ -165,22 +182,30 @@ final case class OspreyEntry(
     * readings are not affected. The candidate fix, the entry's own: keep the source the memos were read under, and on
     * another drop `readings` and the JIT state's answers (`JitState.withoutAnswers`), as `ReadingExecutor` does.
     */
-  def run(cell: DeBruijnTerm, source: gezi.hotspot.ExpansionSource, stop: StopSignal): Interaction =
+  def run(cell: DeBruijnTermOf[Configured[C]], source: gezi.hotspot.ExpansionSource, stop: StopSignal): Interaction[C] =
     val output = Cells.output(cell, cellState)
     val (after, display) = output match
       case DeBruijnTerm.Parallel(candidate, program) =>
         val (afterRead, normalForms) = read(program)
-        val proved = normalForms.exists(_.exists(normalForm => Defunctionalization.instructionTerm(normalForm) == candidate))
-        (afterRead, OutputDisplay.shown(if proved then candidate else output))
+        val candidateInstruction = Defunctionalization.thunkInstruction[C](candidate)
+        val proved = normalForms.exists(_.exists(Configured.same(_, candidateInstruction)))
+        val shown = ScottADTChoices.ofNormalForm(candidateInstruction).filter(_ => proved)
+        (afterRead, shown.fold(OutputDisplay.remainder[C](output))(OutputDisplay.Values(_)))
       case _ =>
         val (afterRead, normalForms) = read(output)
         (
           afterRead,
-          normalForms.fold(OutputDisplay.shown(output))(found =>
-            Cells.displayed(found.map(Defunctionalization.instructionTerm).toSet)
+          normalForms.fold(OutputDisplay.remainder[C](output))(found =>
+            Judgments
+              .scottADTValues(found, OspreyEntry.readingLimit, stop, jit.readingConfiguration)
+              .fold(OutputDisplay.remainder[C](output))(values => OutputDisplay.Values(values.choices))
           )
         )
     Interaction.Finished(display, Vector.empty, after.copy(cellState = Cells.nextState(cell, cellState)))
+
+  /** An entry that runs no FFI program is given no value to display. */
+  def displayed(value: Closed[C], source: gezi.hotspot.ExpansionSource, stop: StopSignal): (Entry[C], OutputDisplay[C]) =
+    throw IllegalStateException("osprey's entry runs no FFI program, and is given no value to display")
 
   /** The point through the front end (defunctionalized and interned), and
     * its reading: the one in `readings` when the program was read before;
@@ -210,8 +235,8 @@ final case class OspreyEntry(
     * 0.578 s and 4.04 s, repeated_reduction_problems_fibonacci 0.83 s
     * against 2.86 s and 3.66 s.
     */
-  private def read(point: DeBruijnTerm): (OspreyEntry, Option[Vector[Instruction]]) =
-    val input = Defunctionalization.thunkInstruction(point)
+  private def read(point: DeBruijnTermOf[Configured[C]]): (OspreyEntry[C], Option[Vector[Configured[C]]]) =
+    val input = Defunctionalization.thunkInstruction[C](point)
     readings.get(input) match
       // FIXME (2026-10-31): a hit returns the earlier reading with no https://github.com/Atry/private-overlay/issues/1994
       // derivation of its own, while a reused
@@ -235,7 +260,7 @@ final case class OspreyEntry(
     * steps, so that a program the compiled path does not answer gets the
     * steps the direct reading would have had with no compiled path.
     */
-  private def compiledThen(entry: OspreyEntry, program: Instruction): (OspreyEntry, Option[Vector[Instruction]]) =
+  private def compiledThen(entry: OspreyEntry[C], program: Configured[C]): (OspreyEntry[C], Option[Vector[Configured[C]]]) =
     val (after, reading) = entry.compiledReading(program)
     reading match
       case Some(_) => (after.copy(compileFirst = true), reading)
@@ -248,13 +273,13 @@ final case class OspreyEntry(
     * after it.
     */
   private def jitReading(
-      term: Instruction,
-      readingJitState: JitState,
+      term: Configured[C],
+      readingJitState: JitState[C],
       limit: Long
-  ): (ReadingState, Option[Vector[Instruction]]) =
+  ): (ReadingState[C], Option[Vector[Configured[C]]]) =
     NormalForms
-      .normalForms(Mode.Jit(jit), term)
-      .result(ReadingState.fresh(limit).copy(jitState = readingJitState)) match
+      .normalForms(Mode.Jit, Value.of(term))
+      .result(ReadingState.fresh(limit, jit.readingConfiguration).copy(jitState = readingJitState)) match
       case Computed.Done(normalForms, state) => (state, Some(normalForms))
       case Computed.Stopped(state)           => (state, None)
 
@@ -264,7 +289,7 @@ final case class OspreyEntry(
     * the program's size, dispatched under `fallback`, and its normal forms
     * read by the JIT within `readingLimit` steps.
     */
-  private def compiledReading(program: Instruction): (OspreyEntry, Option[Vector[Instruction]]) =
+  private def compiledReading(program: Configured[C]): (OspreyEntry[C], Option[Vector[Configured[C]]]) =
     // TODO: occurrence tagging on the IR outside the e-graph was deleted. What stands here when
     // the entry is ported is either the public front end
     // (`Occurrences.tagged(LibraryRecognition.recognised(point, defines).term, markers)`
@@ -273,18 +298,26 @@ final case class OspreyEntry(
     // own schedule rounds. The deleted code reads back with
     // `git show fb52420956a830ec5439e8b2139338ea2e04217e:lambda_jit/contest-entries-osprey/src/main/scala/lambdajit/contest/entries/osprey/NamedOccurrences.scala`.
     val input = program
-    val schedule = NativeRouteCompilation.beyondHindleyMilnerSchedule(
-      library.index,
+    val schedule = NativeRouteCompilation.beyondHindleyMilnerSchedule[C](
+      specializer.operations.index,
       closureApplicationLemmas,
       typeCheckLemmas,
       erasureLemmas,
       OspreyEntry.roundBudget(OspreyEntry.programSize(input)),
-      RoundModules(StandardSaturator(_), CountedExtractor(NativeRouteCompilation.extraction, BaselineModules.table), BaselineLemmaEncoding, StandardIndexer, ClosureCompilation, StandardOrientationCompiler)
+      RoundModules[C](
+        StandardSaturator[C](_),
+        CountedExtractor(NativeRouteCompilation.extraction, BaselineModules.table[C]),
+        BaselineLemmaEncoding,
+        StandardIndexer.of[C],
+        ClosureCompilation,
+        StandardOrientationCompiler,
+        gezi.jit.ConvertedTermConstruction[C](specializer)(jit.configuration.storageAccess)
+      )
     )
-    val dispatched = StrategyDispatch.dispatched(
+    val dispatched = StrategyDispatch.dispatched[C](
       CompilationStrategy(DispatchStrategies.fallback, schedule),
       input,
-      facts,
+      specializer,
       caches,
       StopSignal.NeverStopped
     )
@@ -394,24 +427,29 @@ object OspreyEntry:
     * from it and the distinct codes their thunks name, each counted once;
     * an opaque instruction counts as a leaf.
     */
-  def programSize(root: Instruction): Int =
+  def programSize[C <: NativeSpecializer & Singleton](root: Configured[C])(using C): Int =
     val (layers, codes) = reachable(List(root), Set.empty, Set.empty)
     layers.size + codesReachable(codes.toList, Set.empty).size
 
   @tailrec
-  private def reachable(
-      pending: List[Instruction],
-      layers: Set[Instruction],
+  private def reachable[C <: NativeSpecializer & Singleton](
+      pending: List[Configured[C]],
+      layers: Set[Configured[C]],
       codes: Set[Code]
-  ): (Set[Instruction], Set[Code]) = pending match
+  )(using C): (Set[Configured[C]], Set[Code]) = pending match
     case Nil => (layers, codes)
     case instruction :: rest if layers.contains(instruction) => reachable(rest, layers, codes)
     case instruction :: rest =>
-      val layer = if instruction.opaque then NoinlineLeaf(instruction) else instruction.layered
-      val named = layer match
-        case Thunk(code, _, _) => codes + code
-        case _                       => codes
-      reachable(layer.children.toList ::: rest, layers + instruction, named)
+      val (children, named) =
+        if instruction.heldAsLeaf then (Nil, codes)
+        else
+          instruction.layer match
+            case Thunk(code, _, fillings) => (fillings.toList, codes + code)
+            case Apply(function, argument) => (List(function, argument), codes)
+            case Parallel(left, right)     => (List(left, right), codes)
+            case Choice(left, right)       => (List(left, right), codes)
+            case _: gezi.ir.UriNode | _: gezi.ir.Opaque | _: gezi.ir.NativeStorage => (Nil, codes)
+      reachable(children ::: rest, layers + instruction, named)
 
   @tailrec
   private def codesReachable(pending: List[Code], seen: Set[Code]): Set[Code] =

@@ -13,13 +13,14 @@ import gezi.frontend.LambdaError
 import gezi.frontend.Lambdalattice
 import gezi.frontend.LambdalatticeMalformed
 import gezi.generatedinputs.GeneratedProperties
-import gezi.ir.Instruction
-import gezi.ir.Layer
+import gezi.ir.Configured
+import gezi.ir.NoFacts
+import gezi.ir.NonEmptyHoles
 import gezi.ir.Store
 import gezi.weakhead.Computed
 import gezi.weakhead.Mode
 import gezi.weakhead.ReadingState
-import gezi.weakhead.Value
+import gezi.ir.Value
 import gezi.weakhead.Values
 import gezi.weakhead.WeakHead
 import scala.jdk.StreamConverters.*
@@ -39,6 +40,12 @@ import gezi.ir
   * evaluator that knows top, as knowledge is read.
   */
 class DirectoryTreeLawTest extends GeneratedProperties:
+
+  private type C = NoFacts.type
+
+  private type Term = Configured[C]
+
+  private given NoFacts.type = NoFacts
 
   // Measured 2026-11-16 on 2 CPUs (contest-lean.slice, CPUs 10,11, nice 10), the 1-minute load 9 to 22 over the run, every deadline raised to 600 s: the slowest test of DirectoryTreeLawTest, "a member read through URI nodes is the member read off the whole tree", takes 7.485 s; the bound is 1.5 times that rounded up to 5 s.
   // FIXME: this suite exceeds the 3 s default with no reason yet; its slow tests are to be made fast. https://github.com/Atry/private-overlay/issues/1925
@@ -121,22 +128,21 @@ class DirectoryTreeLawTest extends GeneratedProperties:
   /** The reading of the field of the position of the module of the group,
     * whose tuple has the fields, off the common directory's mixin.
     */
-  private def memberReading(corpora: Instruction, group: String, module: String, fields: Int, member: Int): Value =
+  private def memberReading(corpora: Term, group: String, module: String, fields: Int, member: Int): Value[C] =
     val reader = Lambdalattice.term(
       s"""λcorpora. (λtuple. tuple λmixin. mixin mixin) λomega. omega (omega (omega corpora "$group") "$module") λ${binders(fields, member, "x")}. λq. q x"""
     )
-    Value.Apply(Defunctionalization.thunkInstruction(reader), corpora)
+    Value.Apply(Value.of(Defunctionalization.thunkInstruction(reader)(using NoFacts)), Value.of(corpora))
 
   /** The answers of the reading read back to the IR under the state, and
     * the state after it; nothing when the budget stops it.
     */
-  private def answersFrom(reading: Value, state: ReadingState): (Option[Set[Set[Instruction]]], ReadingState) =
+  private def answersFrom(reading: Value[C], state: ReadingState[C]): (Option[Set[Set[Term]]], ReadingState[C]) =
     WeakHead.heads(Mode.TablingWeakHead, reading).collected.result(state) match
       case Computed.Done(sets, after) =>
         (
           Some(
-            WeakHead
-              .headsExpanded(Mode.TablingWeakHead, sets)
+            sets
               .map(_.heads.map(head => Values.instruction(head.value)).toSet)
               .toSet
           ),
@@ -144,13 +150,13 @@ class DirectoryTreeLawTest extends GeneratedProperties:
         )
       case Computed.Stopped(after) => (None, after.nextReading(limit))
 
-  private def fresh: ReadingState = ReadingState.knowing(limit, KnowledgeReading.knownExtremes)
+  private def fresh: ReadingState[C] = ReadingState.knowing(limit, KnowledgeReading.knownExtremes, gezi.weakhead.ReadingConfiguration.withoutFacts)
 
   /** The answers of the reading under a fresh state. */
-  private def answers(reading: Value): Option[Set[Set[Instruction]]] = answersFrom(reading, fresh)._1
+  private def answers(reading: Value[C]): Option[Set[Set[Term]]] = answersFrom(reading, fresh)._1
 
   /** The URIs of the URI nodes the state has expanded. */
-  private def expandedUris(state: ReadingState): Set[URI] = state.expansions.byNode.keySet.flatMap(_.uri)
+  private def expandedUris(state: ReadingState[C]): Set[URI] = state.expansions.byNode.keySet.flatMap(_.uri)
 
   /** The readings read in order under one state, as the reads over one tree
     * share their tables and expansions, each with a fresh budget (no read
@@ -162,10 +168,10 @@ class DirectoryTreeLawTest extends GeneratedProperties:
     * path from `/`; read again under the same state, 1 step.
     */
   private def readInOrder(
-      readings: Vector[Value],
-      start: ReadingState
-  ): (Vector[(Option[Set[Set[Instruction]]], Set[URI])], ReadingState) =
-    readings.foldLeft((Vector.empty[(Option[Set[Set[Instruction]]], Set[URI])], start)) { case ((found, state), reading) =>
+      readings: Vector[Value[C]],
+      start: ReadingState[C]
+  ): (Vector[(Option[Set[Set[Term]]], Set[URI])], ReadingState[C]) =
+    readings.foldLeft((Vector.empty[(Option[Set[Set[Term]]], Set[URI])], start)) { case ((found, state), reading) =>
       val (read, after) = answersFrom(reading, state)
       (found :+ (read, expandedUris(after) -- expandedUris(state)), after)
     }
@@ -182,61 +188,62 @@ class DirectoryTreeLawTest extends GeneratedProperties:
     * of the directories above the library) left as they are, no reading
     * reaching them.
     */
-  private def expandedWhole(instruction: Instruction, common: Path): Instruction =
-    expandedSharing(instruction, common, Map.empty)._1
+  private def expandedWhole(term: Term, common: Path): Term =
+    expandedSharing(term, common, Map.empty)._1
 
-  /** `expandedWhole` with the instructions already rewritten: an instruction
-    * is a graph whose nodes are shared (`lookedUp` writes `X X k`, X twice),
-    * so a walk that does not remember them rewrites a node once per path to
-    * it. Measured 2026-11-12: without it, one library of one module under
+  /** `expandedWhole` with the terms already rewritten: a term is a graph
+    * whose nodes are shared (`lookedUp` writes `X X k`, X twice), so a walk
+    * that does not remember them rewrites a node once per path to it.
+    * Measured 2026-11-12: without it, one library of one module under
     * `target` took 255,351 ms, the path's ten levels doubling the visits of
     * the directories above.
     */
   private def expandedSharing(
-      instruction: Instruction,
+      term: Term,
       common: Path,
-      rewritten: Map[Instruction, Instruction]
-  ): (Instruction, Map[Instruction, Instruction]) =
-    rewritten.get(instruction) match
+      rewritten: Map[Term, Term]
+  ): (Term, Map[Term, Term]) =
+    rewritten.get(term) match
       case Some(found) => (found, rewritten)
       case None =>
         def pair(
-            left: Instruction,
-            right: Instruction,
-            make: (Instruction, Instruction) => Instruction
-        ): (Instruction, Map[Instruction, Instruction]) =
+            left: Term,
+            right: Term,
+            make: (Term, Term) => Term
+        ): (Term, Map[Term, Term]) =
           val (leftRewritten, afterLeft) = expandedSharing(left, common, rewritten)
           val (rightRewritten, afterRight) = expandedSharing(right, common, afterLeft)
           (make(leftRewritten, rightRewritten), afterRight)
-        val (result, after) = instruction.uri match
-          case Some(uri) if onPath(uri, common) => expandedSharing(DirectoryTree.expansion(instruction), common, rewritten)
-          case Some(_)                          => (instruction, rewritten)
+        val (result, after) = term.uri match
+          case Some(uri) if onPath(uri, common) => expandedSharing(DirectoryTree.expansion(term), common, rewritten)
+          case Some(_)                          => (term, rewritten)
           case None =>
-            instruction match
-              case Instruction.Apply(function, argument) => pair(function, argument, Instruction.Apply(_, _))
-              case Instruction.Parallel(left, right)     => pair(left, right, Instruction.Parallel(_, _))
-              case Instruction.Choice(left, right)       => pair(left, right, Instruction.Choice(_, _))
-              case Instruction.Thunk(code, holes, fillings) =>
+            term.layer match
+              case gezi.ir.Apply(function, argument) => pair(function, argument, NoFacts.application(_, _))
+              case gezi.ir.Parallel(left, right)     => pair(left, right, NoFacts.parallel(_, _))
+              case gezi.ir.Choice(left, right)       => pair(left, right, NoFacts.choice(_, _))
+              case gezi.ir.Thunk(code, holes, fillings) =>
                 val (fillingsRewritten, afterFillings) =
-                  fillings.foldLeft((Vector.empty[Instruction], rewritten)) { case ((done, current), filling) =>
+                  fillings.foldLeft((Vector.empty[Term], rewritten)) { case ((done, current), filling) =>
                     val (fillingRewritten, next) = expandedSharing(filling, common, current)
                     (done :+ fillingRewritten, next)
                   }
-                (Instruction.Thunk(code, holes, fillingsRewritten), afterFillings)
-              case other => (other, rewritten)
-        (result, after.updated(instruction, result))
+                val present = NonEmptyHoles.of(holes).getOrElse(throw IllegalStateException(s"a thunk term has no hole: $term"))
+                (NoFacts.thunk(code, present, fillingsRewritten), afterFillings)
+              case _ => (term, rewritten)
+        (result, after.updated(term, result))
 
-  /** The URIs of the URI nodes the instruction holds, read as syntax. */
-  private def urisIn(instruction: Instruction): Set[URI] =
-    instruction.uri match
+  /** The URIs of the URI nodes the term holds, read as syntax. */
+  private def urisIn(term: Term): Set[URI] =
+    term.uri match
       case Some(uri) => Set(uri)
       case None =>
-        instruction match
-          case Instruction.Apply(function, argument) => urisIn(function) ++ urisIn(argument)
-          case Instruction.Parallel(left, right)     => urisIn(left) ++ urisIn(right)
-          case Instruction.Choice(left, right)       => urisIn(left) ++ urisIn(right)
-          case Instruction.Thunk(_, _, fillings)     => fillings.toSet.flatMap(urisIn)
-          case _                                     => Set.empty
+        term.layer match
+          case gezi.ir.Apply(function, argument) => urisIn(function) ++ urisIn(argument)
+          case gezi.ir.Parallel(left, right)     => urisIn(left) ++ urisIn(right)
+          case gezi.ir.Choice(left, right)       => urisIn(left) ++ urisIn(right)
+          case gezi.ir.Thunk(_, _, fillings)     => fillings.toSet.flatMap(urisIn)
+          case _                                 => Set.empty
 
   /** Catches a reading through URI nodes that differs from the reading of
     * the same tree expanded whole: a URI node expanded to the wrong unit, a
@@ -256,14 +263,14 @@ class DirectoryTreeLawTest extends GeneratedProperties:
     for modules <- libraries.forAll
     yield
       val common = written(modules, Map.empty)
-      val lazily = DirectoryTree.mixin(common, common)
-      val whole = expandedWhole(lazily, common)
+      val lazily: Term = DirectoryTree.mixin(common, common)
+      val whole: Term = expandedWhole(lazily, common)
       val onPath = directoriesOnPath(common)
       val members = for
         index <- modules.indices.toVector
         member <- (0 until modules(index).members).toVector
       yield (index, member)
-      def reading(corpora: Instruction, index: Int, member: Int): Value =
+      def reading(corpora: Term, index: Int, member: Int): Value[C] =
         memberReading(corpora, groupName(modules(index).group), moduleName(index), modules(index).members, member)
       def needed(index: Int): Set[URI] =
         onPath ++ importClosure(modules, index).flatMap(imported =>
@@ -337,13 +344,13 @@ class DirectoryTreeLawTest extends GeneratedProperties:
     for modules <- libraries.forAll
     yield
       val common = written(modules, Map.empty)
-      val corpora = DirectoryTree.mixin(common, common)
+      val corpora: Term = DirectoryTree.mixin(common, common)
       val readings = for
         index <- modules.indices.toVector
         member <- (0 until modules(index).members).toVector
       yield memberReading(corpora, groupName(modules(index).group), moduleName(index), modules(index).members, member)
-      def readAll(start: ReadingState): (Vector[Option[Set[Set[Instruction]]]], ReadingState) =
-        readings.foldLeft((Vector.empty[Option[Set[Set[Instruction]]]], start)) { case ((found, state), reading) =>
+      def readAll(start: ReadingState[C]): (Vector[Option[Set[Set[Term]]]], ReadingState[C]) =
+        readings.foldLeft((Vector.empty[Option[Set[Set[Term]]]], start)) { case ((found, state), reading) =>
           val (read, after) = answersFrom(reading, state)
           (found :+ read, after)
         }
@@ -368,15 +375,15 @@ class DirectoryTreeLawTest extends GeneratedProperties:
       val last = modules.size - 1
       val text = moduleText(modules, last, modules(last).imports)
       val common = written(modules, Map(s"group_copy/${moduleName(last)}${DirectoryTree.fileExtension}" -> text))
-      val original = Instruction.uri(common.resolve(s"${groupName(modules(last).group)}/${moduleName(last)}${DirectoryTree.fileExtension}").toUri)
-      val copy = Instruction.uri(common.resolve(s"group_copy/${moduleName(last)}${DirectoryTree.fileExtension}").toUri)
+      val original = NoFacts.uri(common.resolve(s"${groupName(modules(last).group)}/${moduleName(last)}${DirectoryTree.fileExtension}").toUri)
+      val copy = NoFacts.uri(common.resolve(s"group_copy/${moduleName(last)}${DirectoryTree.fileExtension}").toUri)
       val expansions = (DirectoryTree.expansion(original), DirectoryTree.expansion(copy))
       removed(common)
       Result.all(
         List(
-          Result.assert(original != copy),
-          Result.diff(expansions._1, expansions._2)(_ eq _),
-          Result.diff(Store(Set.empty).expanded(original), ir.NoinlineLeaf(original))(_ == _)
+          Result.assert(!Configured.same(original, copy)),
+          Result.diff(expansions._1, expansions._2)(Configured.same(_, _)),
+          Result.diff(Store(Set.empty[Term], gezi.ir.TermConstruction(NoFacts)).expanded(original), ir.NoinlineLeaf(original))(_ == _)
         )
       )
   }
@@ -389,7 +396,7 @@ class DirectoryTreeLawTest extends GeneratedProperties:
     for modules <- libraries.forAll
     yield
       val common = written(modules, Map(s"${groupName(0)}/broken${DirectoryTree.fileExtension}" -> "λ"))
-      val corpora = DirectoryTree.mixin(common, common)
+      val corpora: Term = DirectoryTree.mixin(common, common)
       val (reads, state) =
         readInOrder(
           modules.indices.toVector.map(index => memberReading(corpora, groupName(modules(index).group), moduleName(index), modules(index).members, 0)),
@@ -421,7 +428,7 @@ class DirectoryTreeLawTest extends GeneratedProperties:
           s"group-unnamed/${moduleName(last)}${DirectoryTree.fileExtension}" -> text
         )
       )
-      val corpora = DirectoryTree.mixin(common, common)
+      val corpora: Term = DirectoryTree.mixin(common, common)
       val groups = Vector(groupName(modules(last).group), "group_copy", "group-unnamed")
       val (reads, _) = readInOrder(
         (0 until modules(last).members).toVector.flatMap(member =>
@@ -448,14 +455,13 @@ class DirectoryTreeLawTest extends GeneratedProperties:
     yield
       val common = written(modules, Map.empty)
       val results = modules.indices.toList.map { index =>
-        val read = Try(
+        val read = Try[Term](
           DirectoryTree.closedFile(common.resolve(s"${groupName(modules(index).group)}/${moduleName(index)}${DirectoryTree.fileExtension}"))
         ).toEither
         if modules(index).imports.isEmpty then
+          val expected = Defunctionalization.thunkInstruction(Lambdalattice.term(moduleText(modules, index, Vector.empty)))(using NoFacts)
           Result
-            .diff(read.toOption, Some(Defunctionalization.thunkInstruction(Lambdalattice.term(moduleText(modules, index, Vector.empty)))))(
-              _ == _
-            )
+            .assert(read.toOption.exists(Configured.same(_, expected)))
             .log(s"read: $read")
         else Result.assert(read.left.exists(_.isInstanceOf[LambdaError])).log(s"read: $read")
       }

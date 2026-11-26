@@ -1,6 +1,8 @@
 package gezi.contest.judge
 
 import java.net.URL
+import gezi.ir.Configured
+import gezi.ir.NoFacts
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.Collections
@@ -16,17 +18,17 @@ import gezi.saturation.StopSignal
 
 /** A provider registered in this test's services file only. */
 final class FirstTestProvider extends EntryProvider:
-  def initial(entryDirectory: Path, cache: Cache, articles: ArticleDestination): Entry = NoAnswerEntry(cache)
+  def initial(entryDirectory: Path, cache: Cache, articles: ArticleDestination): Entry[?] = NoAnswerEntry(cache)
 
 /** Another provider registered in this test's services file only. */
 final class SecondTestProvider extends EntryProvider:
-  def initial(entryDirectory: Path, cache: Cache, articles: ArticleDestination): Entry = NoAnswerEntry(cache)
+  def initial(entryDirectory: Path, cache: Cache, articles: ArticleDestination): Entry[?] = NoAnswerEntry(cache)
 
 /** An entry that answers nothing (it displays the Output unreduced),
   * holding the judge's cache service.
   */
-final case class NoAnswerEntry(cache: Cache) extends Entry:
-  def run(cell: DeBruijnTerm, source: gezi.hotspot.ExpansionSource, stop: StopSignal): Interaction =
+final case class NoAnswerEntry(cache: Cache) extends Entry[NoFacts.type]:
+  def run(cell: gezi.frontend.DeBruijnTermOf[Configured[NoFacts.type]], source: gezi.hotspot.ExpansionSource, stop: StopSignal): Interaction[NoFacts.type] =
     Interaction.Finished(Cells.unreducedOutput(cell, Cells.initialState), Vector.empty, this)
 
 /** The runner stops loudly when the loader registers no implementation of

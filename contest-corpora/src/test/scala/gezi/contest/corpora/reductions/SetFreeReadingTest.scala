@@ -3,7 +3,7 @@ package gezi.contest.corpora.reductions
 import gezi.weakhead.Computed
 import gezi.weakhead.Mode
 import gezi.weakhead.NormalForms
-import gezi.weakhead.ReadOut
+import gezi.weakhead.ParallelSetReading
 import gezi.weakhead.ReadingState
 import gezi.contest.corpora.oldcorpora.BetaEtaNormalisation
 import gezi.frontend.DeBruijnTerm
@@ -115,6 +115,8 @@ class SetFreeSearchReadingTest extends gezi.generatedinputs.FailFastSuite:
   * 1,000, stand unchanged.
   */
 class SetFreeEmptySearchReadingTest extends gezi.generatedinputs.FailFastSuite:
+
+  given gezi.ir.NoFacts.type = gezi.ir.NoFacts
   private val group = ReductionTesting.group
   private val attractors = group.attractors
 
@@ -155,8 +157,8 @@ class SetFreeEmptySearchReadingTest extends gezi.generatedinputs.FailFastSuite:
   test("tablingWeakHeadReadsNoNormalFormOfASmallUnreachablePoint") {
     val problem = SetReading.problem(SetFreeEmptySearch.problems(group), "set_free_empty_search_small_unreachable_direct")
     val root = Reduction.programRoot(problem.program)
-    val first = NormalForms.normalForm(Mode.TablingWeakHead, ReadOut.Whole, root).pull
-      .result(ReadingState.fresh(gezi.weakhead.Reading.budgetSteps(1)))
+    val first = NormalForms.normalForm(Mode.TablingWeakHead, ParallelSetReading.Whole, root).pull
+      .result(ReadingState.fresh(gezi.weakhead.Reading.budgetSteps(1), gezi.weakhead.ReadingConfiguration.withoutFacts))
     first match
       case Computed.Stopped(_)     => ()
       case Computed.Done(found, _) => fail(s"tabling(weak_head) read a normal form or finished: $found")

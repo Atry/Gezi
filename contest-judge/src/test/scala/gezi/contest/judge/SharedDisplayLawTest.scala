@@ -8,7 +8,10 @@ import gezi.contest.runner.PipeLines
 import gezi.frontend.DeBruijnTerm
 import gezi.frontend.Defunctionalization
 import gezi.generatedinputs.GeneratedProperties
-import gezi.ir.Instruction
+import gezi.ir.Configured
+import gezi.ir.NoFacts
+
+private given sharedDisplayLawTestNoFacts: NoFacts.type = NoFacts
 
 /** The law that the judge reads and judges a display at the size of its
   * graph: an answer line whose display is `V40`, `V0` a Church numeral and
@@ -51,14 +54,14 @@ class SharedDisplayLawTest extends GeneratedProperties:
       member <- Gen.boolean.forAll
     yield
       val start = allocated
-      val display = (1 to height).foldLeft(Defunctionalization.thunkInstruction(numeral(base)))((below, _) => Instruction.Apply(below, below))
-      val line = PipeLines.answerLine("point", Vector.empty, OutputDisplay.Shown(display))
+      val display = (1 to height).foldLeft[Configured[NoFacts.type]](Defunctionalization.thunkInstruction(numeral(base))(using gezi.ir.NoFacts))((below, _) => NoFacts.application(below, below))
+      val line = PipeLines.answerLine("point", Vector.empty, OutputDisplay.Remainder(display))
       val reference = numeral(referenceCount)
       val judgments = PipeLines.answerRead(line) match
         case PipeLines.AnswerRead.Answer(_, _, read) =>
           Vector(
             Outcome.judged(Question.Evaluation(Set(reference)), read),
-            Outcome.judged(Question.Judgment(Defunctionalization.thunkInstruction(reference), member), read)
+            Outcome.judged(Question.Judgment(Defunctionalization.thunkInstruction(reference)(using gezi.ir.NoFacts), member), read)
           )
         case _ => Vector.empty
       val spent = start.zip(allocated).map((before, after) => after - before)

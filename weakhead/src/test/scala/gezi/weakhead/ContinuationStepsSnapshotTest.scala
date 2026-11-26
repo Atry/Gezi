@@ -1,7 +1,8 @@
 package gezi.weakhead
 
+import gezi.ir.NoFacts
+import gezi.ir.Configured
 import gezi.frontend.Term
-import gezi.ir.Instruction
 import snapshot4s.generated.snapshotConfig
 
 /** The evaluator steps and tables of `tabling(weak_head)` on a diamond of
@@ -22,6 +23,8 @@ import snapshot4s.generated.snapshotConfig
   */
 class ContinuationStepsSnapshotTest extends gezi.generatedinputs.FailFastSuite with snapshot4s.munit.SnapshotAssertions:
 
+  given NoFacts.type = NoFacts
+
   /** The steps a read may take: far above what the deepest read takes. */
   private val limit: Long = 2000000
 
@@ -29,7 +32,7 @@ class ContinuationStepsSnapshotTest extends gezi.generatedinputs.FailFastSuite w
   private val deepest: Int = 10
 
   /** `d_0` to `d_deepest`, each a closed instruction. */
-  private val diamonds: Vector[Instruction] =
+  private val diamonds: Vector[Configured[NoFacts.type]] =
     (1 to deepest).foldLeft(Vector(EvaluatorTesting.instructionOf(Term.λ(continuation => continuation(Term.λ(z => z)))))) {
       (made, _) =>
         val below = Term.closed(made.last)
@@ -39,10 +42,10 @@ class ContinuationStepsSnapshotTest extends gezi.generatedinputs.FailFastSuite w
     }
 
   /** The steps and tables of reading the diamond applied to `λx. x`. */
-  private def counts(diamond: Instruction, continuations: ContinuationReading): (Long, Int, Int) =
+  private def counts(diamond: Configured[NoFacts.type], continuations: ContinuationReading): (Long, Int, Int) =
     val term = EvaluatorTesting.instructionOf(Term.closed(diamond)(Term.λ(x => x)))
-    val start = ReadingState.knowingTop(limit).copy(continuations = continuations)
-    WeakHead.heads(Mode.TablingWeakHead, term).collected.result(start) match
+    val start = ReadingState.knowingTop(limit, gezi.weakhead.ReadingConfiguration.withoutFacts).copy(continuations = continuations)
+    WeakHead.heads(Mode.TablingWeakHead, gezi.ir.Value.of(term)).collected.result(start) match
       case Computed.Done(found, after) => (after.budget.spent, after.tables.complete.size + after.tables.open.size, found.size)
       case Computed.Stopped(after)     => throw AssertionError(s"the read of a diamond stopped: ${after.exhausted}")
 

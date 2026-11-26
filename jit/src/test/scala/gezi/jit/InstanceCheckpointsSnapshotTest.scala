@@ -20,6 +20,10 @@ import snapshot4s.generated.snapshotConfig
   */
 class InstanceCheckpointsSnapshotTest extends gezi.generatedinputs.FailFastSuite with snapshot4s.munit.SnapshotAssertions:
 
+  private val encoding = noFactsEncoding
+
+  private given encoding.type = encoding
+
   private val terms =
     EvaluatorTesting.draws(40, 20261103L)(random => randomLatticeApplication(16, random))
 
@@ -32,27 +36,28 @@ class InstanceCheckpointsSnapshotTest extends gezi.generatedinputs.FailFastSuite
 
   private def lines(checkpoints: InstanceCheckpoints): Vector[String] =
     val jit = Jit(
-      JitConfiguration(
-        noFacts,
+      JitConfiguration[encoding.type](
+        encoding,
         JitConfiguration.defaultBudget,
         PredicatePerCode,
         ClosureBackend,
         DispatchMode.NoDispatch,
         instanceTable = true,
-        instanceCheckpoints = checkpoints
+        instanceCheckpoints = checkpoints,
+        storageAccess = gezi.ir.StorageAccess.granted()
       )
     )
     terms.zipWithIndex
-      .foldLeft((Vector.empty[String], NoJitState: JitState)) { case ((written, state), (term, index)) =>
+      .foldLeft((Vector.empty[String], NoJitState: JitState[encoding.type])) { case ((written, state), (term, index)) =>
         val value = valuesOf(Vector(instructionOf(term))) match
           case Vector(only) => only
           case other        => fail(s"one value per term, not ${other.size}")
-        val read = NativesTesting.normalFormsSpent(Mode.Jit(jit), value, 200000, state)
+        val read = NativesTesting.normalFormsSpent(jit, value, 200000, state)
         val outcome = read.outcome match
           case Bounded.Finished(normalForms) => s"finished(${normalForms.size})"
           case other                         => other.productPrefix
         val (costs, held) = read.jitState match
-          case run: JitRunState => (run.tableCosts.values.toVector, run.instanceTables.complete.size + run.olderInstances.size)
+          case run: JitRunState[?] => (run.tableCosts.values.toVector, run.instanceTables.complete.size + run.olderInstances.size)
           case NoJitState       => (Vector.empty, 0)
           case other            => fail(s"the JIT left another state: $other")
         val line = Vector(

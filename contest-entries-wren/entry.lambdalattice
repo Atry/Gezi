@@ -63,7 +63,7 @@
 . omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
 λ nil cons _ _ _
 . omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "rules")
-λ beta
+λ beta _
 . omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "indexer")
 λ standard
 . omega
@@ -79,12 +79,16 @@
 λ closures _ _
 . omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "memo_retention")
 λ memo_kept _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "write_back_spellings")
+λ kept_within_a_pass _ _
 . omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "opening_criterion")
 λ calls_a_head _
 . omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "checkpoints")
 λ profitable _
 . omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "lookahead")
 λ lazily _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "instance_reuse")
+λ within_version _
 . omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "native_blocks")
 λ no_native_blocks
 . omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "application")
@@ -109,6 +113,12 @@
 λ framework_jit _
 . omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "compilation_place")
 λ upfront_compilation _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "unit_selection")
+λ whole_program _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "occurrence_tagging")
+λ untagged _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "group_blocks")
+λ no_group_blocks _
 . omega (omega (omega (omega gezi "corpora") "library") "top")
 λ top
 . omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
@@ -158,11 +168,12 @@
               )
           + λ
             . instances
-            λ instance_table instance_retention checkpoints lookahead
+            λ instance_table instance_retention checkpoints lookahead instance_reuse
             . ( instance_table λt f. t
               + instance_retention λ. generations λ. integer_literal 524288
               + checkpoints profitable
               + lookahead lazily
+              + instance_reuse within_version
               )
           + λ
             . reading
@@ -175,9 +186,11 @@
               )
           + λ
             . execution
-            λ executor compilation_place
+            λ executor compilation_place occurrence_tagging group_blocks
             . ( executor framework_jit
-              + compilation_place upfront_compilation
+              + compilation_place (upfront_compilation whole_program)
+              + occurrence_tagging untagged
+              + group_blocks no_group_blocks
               )
           )
       )
@@ -199,12 +212,13 @@
           )
       + λ
         . behaviour
-        λ opened rules respellings write_back_spellings opening_criterion
+        λ opened rules respellings write_back_spellings opening_criterion constant_storage_stop
         . ( opened opening
           + rules beta
           + respellings memo_kept
-          + write_back_spellings memo_kept
+          + write_back_spellings kept_within_a_pass
           + opening_criterion calls_a_head
+          + constant_storage_stop λt f. f
           )
       )
   )

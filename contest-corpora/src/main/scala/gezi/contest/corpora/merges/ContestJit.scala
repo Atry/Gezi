@@ -13,7 +13,7 @@ import gezi.frontend.Term
   */
 final class ContestJit(contest: Contest, hard: claims.Hard, clauses: claims.HardClauses):
 
-  private def fromHard(name: String): (String, () => Term) =
+  private def fromHard(name: String): (String, () => ProblemTerm) =
     name -> (() =>
       hard.points
         .get(name)
@@ -21,9 +21,9 @@ final class ContestJit(contest: Contest, hard: claims.Hard, clauses: claims.Hard
         .getOrElse(throw IllegalStateException(s"contest_hard.pl has no point $name"))()
     )
 
-  private def fromContest(name: String): (String, () => Term) = name -> (() => contest.program(name))
+  private def fromContest(name: String): (String, () => ProblemTerm) = name -> (() => contest.program(name))
 
-  private val pointTerms: Vector[(String, () => Term)] = Vector(
+  private val pointTerms: Vector[(String, () => ProblemTerm)] = Vector(
     fromHard("input_independent_stretch"),
     fromHard("jit_hot_body_count_down_3200"),
     fromHard("jit_hot_combinator_count_down_3200"),
@@ -60,7 +60,7 @@ final class ContestJit(contest: Contest, hard: claims.Hard, clauses: claims.Hard
   def points: Vector[String] = pointTerms.map(_._1)
 
   /** The point's program. */
-  def program(name: String): Term =
+  def program(name: String): ProblemTerm =
     pointTerms.find(_._1 == name).map(_._2()).getOrElse(
       throw IllegalArgumentException(s"$name is no point of contest_jit.pl")
     )

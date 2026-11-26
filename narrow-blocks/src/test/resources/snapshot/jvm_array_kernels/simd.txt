@@ -1,0 +1,22 @@
+added: vpaddd ymm, vpxor ymm
+subtracted: vpsubd ymm, vpxor ymm
+multiplied: vpmulld ymm, vpxor ymm
+equal: vpbroadcastd ymm, vpor ymm, vpsrld ymm, vpsubd ymm, vpxor xmm, vpxor ymm
+lessThan: vpand xmm, vpsrld xmm, vpsubd xmm, vpxor xmm, vpxor ymm
+negated: vpsubd ymm, vpxor xmm, vpxor ymm
+gathered: vpxor ymm
+repeated: vpbroadcastd xmm, vpxor ymm
+tiled: vpaddd ymm, vpbroadcastd ymm, vpxor ymm
+compressed: vpxor ymm
+compressedZeros: vpxor ymm
+concatenated: vpxor ymm
+iota: vpaddd ymm, vpbroadcastd ymm, vpxor ymm
+packed: vpand ymm, vpbroadcastd xmm, vpbroadcastq ymm, vpmovsxdq ymm, vpor ymm, vpsllq ymm, vpxor xmm, vpxor ymm
+high: vpbroadcastd xmm, vpermilps ymm, vpermpd ymm, vpsrlq ymm, vpsubq ymm, vpxor xmm, vpxor ymm
+low: vpbroadcastd xmm, vpermilps ymm, vpermpd ymm, vpxor xmm, vpxor ymm
+sortedUnique: vpxor ymm
+mergeJoined: vpxor ymm
+histogram: vpxor ymm
+filled: vpbroadcastd ymm, vpxor ymm
+ranked: vpxor ymm
+firstRows: vpxor ymm

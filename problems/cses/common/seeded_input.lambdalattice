@@ -1,0 +1,135 @@
+# next_state, seeded_numbers, seeded_pairs, seeded_triples, seeded_grid,
+# trapped_first, trapped_last, seeded_connections, seeded_tree,
+# seeded_binomial_queries:
+# The input of a problem computed in the language from a seed, so that a
+# program's size does not grow with its input: a top rung's program is the
+# problem's function applied to these generators' calls on a few literals.
+# Written on the library's canonical binary naturals
+# (corpora/library/binary/natural), with ../common/binary_modular's helpers,
+# Scott lists (corpora/library/prelude/list), pairs
+# (corpora/library/prelude/pair) and booleans (corpora/library/prelude/boolean),
+# in the problems' tree, not the library. A list of them is appended with the
+# prelude's append.
+#
+# Every generator draws from one stream of states: s_0 = seed and
+# s_k = next_state s_(k-1), and the k-th draw from [low, high], for
+# low <= high, is low + s_k mod (high - low + 1). Each generator below names
+# its draws in the order they consume the stream. The native reference
+# solutions generate the same inputs
+# (gezi.contest.corpora.reductions.CsesSolutions.seededNumbers and its
+# mirrors).
+#
+# next_state state: the Lehmer generator of Park and Miller's "minimal standard"
+#   with Park, Miller and Stockmeyer's multiplier, 48271 state mod (2^31 - 1).
+#   A state that is 0 mod 2^31 - 1 stays 0.
+# seeded_numbers seed count low high: the list of count draws from [low, high].
+# seeded_pairs seed count low high: count pairs pair x y, x then y drawn from
+#   [low, high].
+# seeded_triples seed count low high cost_low cost_high: count pairs
+#   pair x (pair y c), x and y drawn from [low, high], then c from
+#   [cost_low, cost_high].
+# seeded_grid seed rows columns odds: rows lists of columns booleans each,
+#   row by row, each square a draw d from [1, odds], true when d is not 1.
+# trapped_first grid, trapped_last grid: the grid with its first square of its
+#   first row, or its last square of its last row, false; an empty grid or an
+#   empty row is left as it is.
+# seeded_connections seed count n, for n >= 2: count pairs pair a b, a drawn
+#   from [1, n], then d from [1, n - 1], and b = 1 + ((a - 1 + d) mod n), so
+#   that b is not a.
+# seeded_tree seed n cost_low cost_high: for k = 2, ..., n, a parent p drawn
+#   from [1, k - 1], then c from [cost_low, cost_high], giving pair p (pair k c),
+#   so that every city is reached from city 1.
+# seeded_binomial_queries seed count high: count pairs pair a b, x then y drawn
+#   from [0, high], a the larger and b the smaller of them, so that 0 <= b <= a.
+#
+# DEFINITION 14: each generator applied to canonical numerals is built of λ
+# and application only, with no top, no choice and no parallel;
+# binary_subtract is given a minuend no smaller than its subtrahend (high >= low,
+# a counter >= 1, a >= 1, k >= 2), and binary_modulo a modulus >= 1, as
+# ../common/binary_modular needs. Each walk consumes a counter or raises k to
+# n, so the term β-reduces to the input described above, its one normal form,
+# by the argument the problems' headers give (../counting_divisors/counting_divisors).
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "fixpoint")
+λ fixpoint
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "boolean")
+λ true false _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "pair")
+λ pair _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "natural")
+λ binary_zero binary_even binary_odd _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "arithmetic")
+λ merge_binary_increment merge_binary_plus merge_binary_times merge_binary_equality
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "order")
+λ binary_less_than binary_maximum binary_minimum
+. omega (omega (omega (omega (omega gezi "problems") "cses") "common") "binary_modular")
+λ _ binary_subtract _ binary_modulo
+. (λtuple. tuple (binary_odd binary_zero))
+λ one
+. (λtuple. tuple (binary_even one))
+λ two
+. ( λ tuple
+    . tuple λ. binary_odd λ. binary_odd λ. binary_odd λ. binary_odd λ. binary_even λ. binary_even λ. binary_even λ. binary_odd λ. binary_even λ. binary_even λ. binary_odd λ. binary_odd λ. binary_odd λ. binary_odd λ. binary_even λ. binary_odd binary_zero
+  )
+λ multiplier
+. ( λ tuple
+    . tuple λ. binary_odd λ. binary_odd λ. binary_odd λ. binary_odd λ. binary_odd λ. binary_odd λ. binary_odd λ. binary_odd λ. binary_odd λ. binary_odd λ. binary_odd λ. binary_odd λ. binary_odd λ. binary_odd λ. binary_odd λ. binary_odd λ. binary_odd λ. binary_odd λ. binary_odd λ. binary_odd λ. binary_odd λ. binary_odd λ. binary_odd λ. binary_odd λ. binary_odd λ. binary_odd λ. binary_odd λ. binary_odd λ. binary_odd λ. binary_odd λ. binary_odd binary_zero
+  )
+λ modulus
+. (λtuple. tuple λstate. binary_modulo (merge_binary_times multiplier state) modulus)
+λ next_state
+# draw state low high k: k applied to the next draw from [low, high] and the
+# state it leaves.
+. ( λ tuple
+    . tuple λstate low high k. (λnext. k (merge_binary_plus low (binary_modulo next (merge_binary_increment (binary_subtract high low false)))) next) (next_state state)
+  )
+λ draw
+# decremented counter: counter - 1, for counter >= 1.
+. (λtuple. tuple λcounter. binary_subtract counter one false)
+λ decremented
+# counted f seed count: the list of count items, f state k giving k the item
+# and the state it leaves, the first from seed.
+. ( λ tuple
+    . tuple λf. fixpoint λself state remaining. (λstep. remaining nil (λ_. step) λ_. step) (f state λitem next. cons item (self next (decremented remaining)))
+  )
+λ counted
+. (λtuple. tuple λseed count low high. counted (λstate k. draw state low high k) seed count)
+λ seeded_numbers
+. (λtuple. tuple λseed count low high. counted (λstate k. draw state low high λx s1. draw s1 low high λy s2. k (pair x y) s2) seed count)
+λ seeded_pairs
+. ( λ tuple
+    . tuple λseed count low high cost_low cost_high. counted (λstate k. draw state low high λx s1. draw s1 low high λy s2. draw s2 cost_low cost_high λc s3. k (pair x (pair y c)) s3) seed count
+  )
+λ seeded_triples
+# row state columns odds k: k applied to a row of columns squares and the state
+# it leaves.
+. ( λ tuple
+    . tuple λodds. fixpoint λself state remaining k. (λstep. remaining (k nil state) (λ_. step) λ_. step) (draw state one odds λd s1. self s1 (decremented remaining) λrest s2. k (cons (merge_binary_equality d one false true) rest) s2)
+  )
+λ row
+. (λtuple. tuple λseed rows columns odds. counted (λstate k. row odds state columns k) seed rows)
+λ seeded_grid
+. (λtuple. tuple λgrid. grid nil λfirst_row rest. cons (first_row nil λ_ squares. cons false squares) rest)
+λ trapped_first
+# last_trapped items: the list with its last item false.
+. (λtuple. tuple λ. fixpoint λself items. items nil λitem rest. rest (cons false nil) λ_ _. cons item (self rest))
+λ last_trapped
+. (λtuple. tuple λ. fixpoint λself rows. rows nil λlast_row rest. rest (cons (last_trapped last_row) nil) λ_ _. cons last_row (self rest))
+λ trapped_last
+. ( λ tuple
+    . tuple λseed count n. counted (λstate k. draw state one n λa s1. draw s1 one (decremented n) λd s2. k (pair a (merge_binary_increment (binary_modulo (merge_binary_plus (decremented a) d) n))) s2) seed count
+  )
+λ seeded_connections
+. ( λ tuple
+    . tuple λseed n cost_low cost_high. fixpoint (λself state k. binary_less_than n k nil λ. draw state one (decremented k) λp s1. draw s1 cost_low cost_high λc s2. cons (pair p (pair k c)) (self s2 (merge_binary_increment k))) seed two
+  )
+λ seeded_tree
+. ( λ tuple
+    . tuple λseed count high. counted (λstate k. draw state binary_zero high λx s1. draw s1 binary_zero high λy s2. k (pair (binary_maximum x y) (binary_minimum x y)) s2) seed count
+  )
+λ seeded_binomial_queries
+. export next_state seeded_numbers seeded_pairs seeded_triples seeded_grid trapped_first trapped_last seeded_connections seeded_tree seeded_binomial_queries

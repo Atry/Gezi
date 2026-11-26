@@ -10,7 +10,8 @@ import gezi.standardlibrary.LibraryFiles
 import gezi.standardlibrary.StandardLibrary
 import gezi.standardlibrary.TermTables
 import gezi.weakhead.Expansions
-import gezi.ir.Instruction
+import gezi.ir.{Configured, NoFacts}
+import gezi.frontend.TermOf
 import gezi.frontend.Term
 import gezi.generatedinputs.GeneratedProperties
 
@@ -30,26 +31,30 @@ import gezi.generatedinputs.GeneratedProperties
   */
 class FixedWidthLawTest extends GeneratedProperties:
 
-  private lazy val operations: Map[String, Instruction] =
+  private given NoFacts.type = NoFacts
+
+  private type Operand = TermOf[Configured[NoFacts.type]]
+
+  private lazy val operations: Map[String, Configured[NoFacts.type]] =
     StandardLibrary.entryMembers(LibraryFiles.buildRoot, TermTables.fixedWidthTerms, Expansions.none)._1
 
   /** The operations and the library terms the words are built from, forced before the first test and not charged to it (FailFastSuite). */
   override def sharedFixtures: Vector[scala.concurrent.Future[Unit] => Any] = Vector(_ => operations, _ => JitTesting.libraryTerms)
 
-  private def operation(key: String): Term =
+  private def operation(key: String): Operand =
     Term.closed(operations.getOrElse(key, throw IllegalArgumentException(s"${TermTables.fixedWidthTerms.file} has no member $key")))
 
-  private def term(key: String): Term = JitTesting.libraryTerm(key)
+  private def term(key: String): Operand = JitTesting.libraryTerm[NoFacts.type](key)
 
-  private def numeral(value: Long): Term =
+  private def numeral(value: Long): Operand =
     (1L to value).foldLeft(term("zero"))((below, _) => term("successor")(below))
 
-  private def boolean(value: Boolean): Term = term(if value then "true" else "false")
+  private def boolean(value: Boolean): Operand = term(if value then "true" else "false")
 
   /** The word of width w whose bits are the w low bits of the value, the
     * least significant first.
     */
-  private def word(width: Int, value: Long): Term =
+  private def word(width: Int, value: Long): Operand =
     (0 until width).foldRight(term("word_end"))((position, above) =>
       term("word_cell")(boolean(((value >> position) & 1L) == 1L))(above)
     )
@@ -63,12 +68,12 @@ class FixedWidthLawTest extends GeneratedProperties:
   /** The reference's normal forms of the closed term, within the natives'
     * limit of steps.
     */
-  private def normalForms(closed: Term): Bounded[Vector[Instruction]] =
-    NativesTesting.normalFormsSpent(Mode.TablingWeakHead, JitTesting.termValue(closed), NativesTesting.normalFormLimit).outcome
+  private def normalForms(closed: Operand): Bounded[Vector[Configured[NoFacts.type]]] =
+    NativesTesting.normalFormsSpent(Mode.TablingWeakHead, gezi.weakhead.ReadingConfiguration.withoutFacts, JitTesting.termValue(closed), NativesTesting.normalFormLimit).outcome
 
-  private def agrees(read: Term, expected: Term): Result =
+  private def agrees(read: Operand, expected: Operand): Result =
     normalForms(read) match
-      case finished @ Bounded.Finished(_) => Result.diff(finished, normalForms(expected))(_ == _)
+      case finished @ Bounded.Finished(_) => Result.assert(JitTesting.sameOutcomes(finished, normalForms(expected))).log(s"$finished against ${normalForms(expected)}")
       case other                          => Result.failure.log(s"the reading did not finish: $other")
 
   private val widthAndWords: Gen[(Int, Long, Long)] =
@@ -78,7 +83,7 @@ class FixedWidthLawTest extends GeneratedProperties:
       right <- Gen.long(Range.linear(0L, (1L << width) - 1L))
     yield (width, left, right)
 
-  private def applied(key: String, width: Int, operands: Term*): Term =
+  private def applied(key: String, width: Int, operands: Operand*): Operand =
     operands.foldLeft(operation(key)(numeral(width)))((applying, operand) => applying(operand))
 
   property("each operation reads as two's complement arithmetic at the width", _.copy(testLimit = SuccessCount(40))) {

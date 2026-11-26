@@ -16,7 +16,7 @@ object Hidden37Segments:
   /** `(\starts. \choose. \drop. \words. Cut (concat Chunks) Budget (\r. difference Budget r))
     * Starts Choose Drop Words` (`segments_term/5`).
     */
-  def segmentsTerm(attractors: Attractors, chunks: Vector[Vector[Int]], words: Vector[Vector[Int]], budget: Int): Term =
+  def segmentsTerm(attractors: Attractors, chunks: Vector[Vector[Int]], words: Vector[Vector[Int]], budget: Int): ProblemTerm =
     val concat = attractors.functionSurface("concat", Spelling.Direct)
     val difference = attractors.functionSurface("natural_difference", Spelling.Direct)
     λ(starts =>
@@ -34,12 +34,12 @@ object Hidden37Segments:
     )
 
   /** `\s. \w. prefix w s` (`starts_function/1`). */
-  private def startsFunction(attractors: Attractors): Term =
+  private def startsFunction(attractors: Attractors): ProblemTerm =
     val prefix = attractors.functionSurface("bits_prefix", Spelling.Direct)
     λ(string => λ(word => prefix(word)(string)))
 
   /** Each word chosen (`choose_function/1`). */
-  private def chooseFunction(attractors: Attractors): Term =
+  private def chooseFunction(attractors: Attractors): ProblemTerm =
     attractors.fixpoint(
       λ(self =>
         λ(words =>
@@ -51,7 +51,7 @@ object Hidden37Segments:
   /** The string cut at a word that starts it, each cut costing one unit of
     * the budget (`cut_function/5`).
     */
-  private def cutFunction(attractors: Attractors, starts: Term, choose: Term, drop: Term, words: Term): Term =
+  private def cutFunction(attractors: Attractors, starts: ProblemTerm, choose: ProblemTerm, drop: ProblemTerm, words: ProblemTerm): ProblemTerm =
     val filter = attractors.functionSurface("filter", Spelling.Direct)
     val length = attractors.functionSurface("length", Spelling.Direct)
     attractors.fixpoint(

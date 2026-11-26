@@ -4,7 +4,8 @@ import hedgehog.Result
 import gezi.egraph.Respelling
 import gezi.generatedinputs.GeneratedProperties
 import gezi.generatedinputs.HoasGenerators
-import gezi.ir.Instruction
+import gezi.ir.Configured
+import gezi.ir.NoFacts
 import gezi.ir.Thunk
 
 /** The law that the e-graph's respelling of a thunk layer
@@ -24,13 +25,13 @@ import gezi.ir.Thunk
   */
 class LayerRespellingLawTest extends GeneratedProperties:
 
-  private def thunkLayers(instruction: Instruction): Vector[Thunk[Instruction]] =
+  private def thunkLayers(instruction: Configured[NoFacts.type]): Vector[Thunk[Configured[NoFacts.type]]] =
     if instruction.opaque then Vector.empty
     else
-      val own = instruction.layered match
+      val own = instruction.layer match
         case thunk @ Thunk(_, holes, _) if holes.nonEmpty => Vector(thunk)
         case _                                            => Vector.empty
-      own ++ instruction.layered.children.flatMap(thunkLayers)
+      own ++ instruction.layer.children.flatMap(thunkLayers)
 
   property("every thunk layer the front end spells is its own respelling") {
     for root <- HoasGenerators.instruction.forAll

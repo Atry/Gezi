@@ -15,6 +15,8 @@ import scala.util.Try
   */
 class PlantedDefectLawTest extends GeneratedProperties:
 
+  given gezi.ir.NoFacts.type = gezi.ir.NoFacts
+
   // TODO: defines and instructions stood here, the library names of the generated terms and their opaque instructions, with
   // which `rejection` converted a text's free names. They named library terms by Term.define leaves and a map of
   // names to instructions, a free variable (blacklisted) and a table of library files deleted when the library became files reached by paths.
@@ -24,7 +26,7 @@ class PlantedDefectLawTest extends GeneratedProperties:
 
   /** The problem of reading the closed text and converting it. */
   private def rejection(text: String): Option[LambdalatticeProblem] =
-    Try(Defunctionalization.thunkInstruction(Lambdalattice.term(text))).failed.toOption
+    Try(Defunctionalization.thunkInstruction(Lambdalattice.term(text))(using gezi.ir.NoFacts)).failed.toOption
       .collect { case LambdalatticeMalformed(problem) => problem }
 
   property("a text with an unexpected character is rejected at that character") {

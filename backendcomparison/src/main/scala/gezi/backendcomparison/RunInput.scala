@@ -7,30 +7,30 @@ import gezi.ematching.CompiledProgram
 import gezi.ematching.Program
 import gezi.orientation.Orientation
 import gezi.ir.Code
-import gezi.ir.Instruction
+import gezi.ir.{Configured, NativeSpecializer}
 import gezi.ir.Store
 
 /** What a run of the saturation reads: the store, the orientations, the
   * pattern instructions, the inputs and the budget.
   */
-final case class RunInput(
-    store: Store,
-    orientations: Vector[Orientation],
-    patternInstructions: Vector[Instruction],
-    inputs: Vector[Instruction],
+final case class RunInput[C <: NativeSpecializer & Singleton](
+    store: Store[C],
+    orientations: Vector[Orientation[C]],
+    patternInstructions: Vector[Configured[C]],
+    inputs: Vector[Configured[C]],
     budget: Int
 ):
   /** The codes the run may meet (`Indexing.codesMet`). */
-  def codes: Set[Code] = Indexing.codesMet(orientations, patternInstructions ++ inputs)
+  def codes(using C): Set[Code] = Indexing.codesMet(orientations, patternInstructions ++ inputs)
 
 /** A run's input compiled: its program, the program as the backend compiled
   * it, and the head arity bounds of its orientations.
   */
-final case class Compiled(
-    input: RunInput,
-    program: Program,
-    compiled: CompiledProgram,
-    headArityBounds: Map[Instruction, Int]
+final case class Compiled[C <: NativeSpecializer & Singleton](
+    input: RunInput[C],
+    program: Program[C],
+    compiled: CompiledProgram[C],
+    headArityBounds: Map[Configured[C], Int]
 )
 
 object Compiled:
@@ -38,10 +38,10 @@ object Compiled:
     * (`Backends.defaultName`, closure compilation), for callers that choose
     * none.
     */
-  def of(input: RunInput): Compiled = of(input, Backends.named(Backends.defaultName))
+  def of[C <: NativeSpecializer & Singleton](input: RunInput[C])(using C): Compiled[C] = of(input, Backends.named(Backends.defaultName))
 
   /** The input compiled by the index and by the backend. */
-  def of(input: RunInput, backend: Backend): Compiled =
+  def of[C <: NativeSpecializer & Singleton](input: RunInput[C], backend: Backend)(using C): Compiled[C] =
     val program = Indexing.program(input.orientations, input.codes)
     Compiled(
       input,

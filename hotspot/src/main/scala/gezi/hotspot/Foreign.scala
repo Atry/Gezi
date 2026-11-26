@@ -1,18 +1,20 @@
 package gezi.hotspot
 
-import gezi.ir.Instruction
+import gezi.ir.{Closed, NativeSpecializer, Pure}
 import gezi.saturation.StopSignal
 
 /** A value that crosses the FFI's boundary as a JVM value, with no Scott
   * encoding on the way, as an input symbol is a closed term of Gezi or a JVM
   * value that encodes as one: a JVM boolean, the bits of a value type of the width, high bit at
   * `width - 1` (`java_ffi/bits`; a `float`'s and a `double`'s are their raw
-  * IEEE 754 bits), or a closed term.
+  * IEEE 754 bits), or a closed term with no parallel (`Pure`), the same under every configuration: a service
+  * knows no configuration, and the executor that receives the term brings it into its own by
+  * `Configured.fromPure`.
   */
 enum ForeignValue:
   case Truth(value: Boolean)
   case Bits(width: Int, value: Long)
-  case Term(term: Instruction)
+  case Term(term: Pure)
 
 /** A call an executor asks of the service: a method by its owner's internal
   * name, its name and its descriptor, and its arguments, which the
@@ -46,6 +48,7 @@ object ForeignService:
       throw IllegalStateException(s"no foreign service was given for the calls $calls")
 
 /** What one interaction with a program's Moore machine gives: the answers its
-  * branches ended with, whether it ran to its end, and what it cost.
+  * branches ended with (the output fields they left unread, each a closed value of the configuration the program
+  * was read under), whether it ran to its end, and what it cost.
   */
-final case class ForeignProgress(answers: Vector[Instruction], finished: Boolean, spent: Spent)
+final case class ForeignProgress[C <: NativeSpecializer & Singleton](answers: Vector[Closed[C]], finished: Boolean, spent: Spent)

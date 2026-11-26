@@ -41,7 +41,7 @@ final class MixinTraps(problems: ProblemFamilies, searches: MixinClaims, theorem
     (missPoints.map(_._1) :+ "mixin_diamond_two_hop_self") ++ theoremTraps.map(_._1)
 
   /** The point's program. */
-  def program(name: String): Term =
+  def program(name: String): ProblemTerm =
     if name == "mixin_diamond_two_hop_self" then
       searches.graphSurface(MixinGraphName.Diamond, MixinQuery("two_hop", "a", "a"))
     else

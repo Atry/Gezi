@@ -1,0 +1,62 @@
+# The base problems of the CSES families repeated_cses_tree_matching_*: the number n of the nodes of a tree and its n - 1 edges, the answer the most edges that share no node.
+#
+# THE ANSWER of each row is the problem's definition computed exhaustively by a
+# brute-force script (2026-11-22), which enumerates every candidate the problem's
+# statement describes. PROOF: the program of the problem's file follows the
+# definition, and its header argues under Definition 14 that its one normal form
+# is that answer; the data are finite and within the family's bottom rungs, which
+# the reference reading answers. The inputs are the author's own, no CSES test
+# data.
+#
+#   tree_matching_point(?Point, ?Nodes, ?Edges, ?Result)
+#
+# Nodes is an integer (corpora/library/integer/cbor), at least 1; Edges is a Scott
+# list (corpora/library/prelude/list) of pairs `pair a b`
+# (corpora/library/prelude/pair) of integers from 1 to Nodes, which make a tree;
+# Result is an integer.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λvalue. value)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λvalue. value)
+λ integer
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "pair")
+λ pair _ _
+. export
+λ
+. cons
+  ( λ _tree_matching_point
+    . _tree_matching_point (text "cses_tree_matching_sample") (integer 5) (cons (pair (integer 1) (integer 2)) λ. cons (pair (integer 1) (integer 3)) λ. cons (pair (integer 3) (integer 4)) λ. cons (pair (integer 3) (integer 5)) λ. nil) λ. (integer 2)
+  )
+λ
+. cons
+  ( λ _tree_matching_point
+    . _tree_matching_point (text "cses_tree_matching_single_node") (integer 1) nil λ. (integer 0)
+  )
+λ
+. cons
+  ( λ _tree_matching_point
+    . _tree_matching_point (text "cses_tree_matching_single_edge") (integer 2) (cons (pair (integer 1) (integer 2)) λ. nil) λ. (integer 1)
+  )
+λ
+. cons
+  ( λ _tree_matching_point
+    . _tree_matching_point (text "cses_tree_matching_path") (integer 4) (cons (pair (integer 1) (integer 2)) λ. cons (pair (integer 2) (integer 3)) λ. cons (pair (integer 3) (integer 4)) λ. nil) λ. (integer 2)
+  )
+λ
+. cons
+  ( λ _tree_matching_point
+    . _tree_matching_point (text "cses_tree_matching_star") (integer 4) (cons (pair (integer 1) (integer 2)) λ. cons (pair (integer 1) (integer 3)) λ. cons (pair (integer 1) (integer 4)) λ. nil) λ. (integer 1)
+  )
+λ
+. cons
+  ( λ _tree_matching_point
+    . _tree_matching_point (text "cses_tree_matching_edges_written_backwards") (integer 5) (cons (pair (integer 2) (integer 1)) λ. cons (pair (integer 3) (integer 2)) λ. cons (pair (integer 4) (integer 3)) λ. cons (pair (integer 5) (integer 3)) λ. nil) λ. (integer 2)
+  ) nil

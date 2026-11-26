@@ -34,7 +34,7 @@ final class Claims(root: Path, problems: ProblemFamilies, otherGroups: Vector[Ha
   )
 
   /** Every point of the group's files in `contest_hard`, by name. */
-  val points: Map[String, () => gezi.frontend.Term] =
+  val points: Map[String, () => ProblemTerm] =
     hard.points ++ clauses.points ++ families.flatMap(_._2.points)
 
   private val allFamilies: Vector[HardFamily] = families.map(_._2) ++ otherGroups

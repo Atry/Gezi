@@ -2,7 +2,9 @@ package gezi.contest.entry
 
 import java.nio.file.Path
 import gezi.egraph.EGraph
-import gezi.ir.Instruction
+import gezi.ir.Configured
+import gezi.ir.NativeSpecializer
+import gezi.ir.NoFacts
 import gezi.jit.NativeBackend
 import gezi.narrowblocks.LemmaRoundsResult
 import gezi.narrowblocks.LemmaRoute
@@ -33,48 +35,53 @@ final class TestExtractorModule extends ExtractorModule:
     * carrying the integer the parameters' one field holds and the inputs.
     * Throws `EntryDataError` for parameters that are no tuple of one integer.
     */
-  def extractor(parameters: Instruction, inputs: ExtractorModuleInputs): Extractor =
+  def extractor[C <: NativeSpecializer & Singleton](parameters: Configured[NoFacts.type], inputs: ExtractorModuleInputs[C]): Extractor[C] =
     ParameterCarryingExtractor(
-      TestModuleParameters.integer("extractor", parameters),
+      TestModuleParameters.integer("extractor", parameters)(using NoFacts),
       inputs,
-      NarrowBlockExtractor(LemmaRoute.extractorModules(inputs.natives), JointReading.measured)
+      NarrowBlockExtractor(LemmaRoute.extractorModules(inputs.natives, inputs.configuration), JointReading.measured)
     )
 
   /** The framework's route, carrying the integer the parameters' one field
-    * holds and the inputs. Throws `EntryDataError` for parameters that are no
-    * tuple of one integer.
+    * holds. Throws `EntryDataError` for parameters that are no tuple of one
+    * integer.
     */
-  def route(parameters: Instruction, inputs: ExtractorModuleInputs): NarrowBlockRoute =
-    ParameterCarryingRoute(TestModuleParameters.integer("extractor", parameters), inputs, LemmaRoute)
+  def route(parameters: Configured[NoFacts.type]): NarrowBlockRoute =
+    ParameterCarryingRoute(TestModuleParameters.integer("extractor", parameters)(using NoFacts), LemmaRoute)
 
 /** The framework's extraction with the parameter a module read and the
   * inputs the framework gave it: every call is the framework extraction's.
   */
-final case class ParameterCarryingExtractor(parameter: BigInt, inputs: ExtractorModuleInputs, framework: Extractor) extends Extractor:
+final case class ParameterCarryingExtractor[C <: NativeSpecializer & Singleton](
+    parameter: BigInt,
+    inputs: ExtractorModuleInputs[C],
+    framework: Extractor[C]
+) extends Extractor[C]:
 
   def extracted(
-      index: StandardLibraryIndex,
-      graph: EGraph,
+      index: StandardLibraryIndex[C],
+      graph: EGraph[C],
       inputNodes: Vector[Int],
-      inputs: Vector[Instruction],
+      inputs: Vector[Configured[C]],
       stop: StopSignal
-  ): Vector[Instruction] =
+  ): Vector[Configured[C]] =
     framework.extracted(index, graph, inputNodes, inputs, stop)
 
-/** The framework's route with the parameter a module read and the inputs the
-  * framework gave it: every call is the framework route's.
-  */
-final case class ParameterCarryingRoute(parameter: BigInt, inputs: ExtractorModuleInputs, framework: NarrowBlockRoute)
-    extends NarrowBlockRoute:
+/** The framework's route with the parameter a module read: every call is the framework route's. */
+final case class ParameterCarryingRoute(parameter: BigInt, framework: NarrowBlockRoute) extends NarrowBlockRoute:
 
-  def extractorModules(natives: NativeBackend): Vector[NormalityModule] = framework.extractorModules(natives)
-
-  def compiledRounds(
-      index: StandardLibraryIndex,
-      rounds: Vector[PreparedLemmaCompilation],
+  def extractorModules[C <: NativeSpecializer & Singleton](
       natives: NativeBackend,
-      program: Instruction,
+      configuration: gezi.weakhead.ReadingConfiguration[C]
+  ): Vector[NormalityModule[C]] = framework.extractorModules(natives, configuration)
+
+  def compiledRounds[C <: NativeSpecializer & Singleton](
+      index: StandardLibraryIndex[C],
+      rounds: Vector[PreparedLemmaCompilation[C]],
+      natives: NativeBackend,
+      encoding: gezi.jit.StorageEncoding & C,
+      program: Configured[C],
       explained: Boolean,
       stop: StopSignal
-  ): LemmaRoundsResult =
-    framework.compiledRounds(index, rounds, natives, program, explained, stop)
+  )(using C): LemmaRoundsResult[C] =
+    framework.compiledRounds(index, rounds, natives, encoding, program, explained, stop)

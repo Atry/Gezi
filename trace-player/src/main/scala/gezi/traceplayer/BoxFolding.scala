@@ -1,11 +1,14 @@
 package gezi.traceplayer
 
 import gezi.frontend.ReadableText
-import gezi.ir.Instruction
 import gezi.locations.SourceMap
+import gezi.ir.{Configured, NativeSpecializer, NoFacts}
+
+/** The configuration of the terms here: no facts. */
+private given boxFoldingNoFacts: NoFacts.type = NoFacts
 
 /** How the boxes view draws a step's term folded as the printer shares it:
-  * each shared instruction the printed text binds (`ReadableText.Printed.sharedValues`)
+  * each shared instruction the printed text binds (`ReadableText.Printed[NoFacts.type].sharedValues`)
   * drawn once, under its name, and referred to by its name where it occurs,
   * a library term the trace names (`Played.names`) among them, bound under
   * that name as the text binds it;
@@ -21,20 +24,20 @@ import gezi.locations.SourceMap
   * whose laws `BoxFoldingLawTest` checks.
   */
 final case class BoxFolding(
-    root: Instruction,
+    root: Configured[NoFacts.type],
     map: SourceMap,
-    bindings: Vector[ReadableText.SharedValue],
-    inlined: Map[Instruction, String]
+    bindings: Vector[ReadableText.SharedValue[NoFacts.type]],
+    inlined: Map[Configured[NoFacts.type], String]
 ):
 
-  private val referenced: Map[Instruction, String] = bindings.map(value => value.instruction -> value.name).toMap
+  private val referenced: Map[Configured[NoFacts.type], String] = bindings.map(value => value.instruction -> value.name).toMap
 
-  private val bound: Map[String, ReadableText.SharedValue] = bindings.map(value => value.name -> value).toMap
+  private val bound: Map[String, ReadableText.SharedValue[NoFacts.type]] = bindings.map(value => value.name -> value).toMap
 
   /** What is drawn where the instruction occurs, with the map of that
     * occurrence: a reference to its binding, or its layer's box.
     */
-  private def occurrence(instruction: Instruction, occurrenceMap: SourceMap): BoxFolding.Shown =
+  private def occurrence(instruction: Configured[NoFacts.type], occurrenceMap: SourceMap): BoxFolding.Shown =
     referenced.get(instruction) match
       case Some(name) => BoxFolding.Shown.Reference(name, SharedKey.of(name))
       case None       => BoxFolding.Shown.Layer(instruction, occurrenceMap, inlined.get(instruction))
@@ -115,7 +118,7 @@ object BoxFolding:
     /** The box of the instruction's layer, with the map of its occurrence,
       * and the key of the shared instruction it is when that is inlined.
       */
-    case Layer(instruction: Instruction, map: SourceMap, extracted: Option[String])
+    case Layer(instruction: Configured[NoFacts.type], map: SourceMap, extracted: Option[String])
 
     /** A reference to the binding of the name, with the key that inlines it,
       * none for a name the printer did not synthesize.
@@ -135,7 +138,7 @@ object BoxFolding:
     * that reads back as the step's term, and no inlining unbinds them: a
     * step that wrote them by name and bound them nowhere is no term.
     */
-  def step(term: Instruction, map: SourceMap, known: Map[Instruction, String], keys: Set[String]): (ReadableText.Printed, BoxFolding) =
+  def step(term: Configured[NoFacts.type], map: SourceMap, known: Map[Configured[NoFacts.type], String], keys: Set[String]): (ReadableText.Printed[NoFacts.type], BoxFolding) =
     val names = ReadableText.KnownNames.Bound(known)
     val plain = ReadableText.printed(term, map, names)
     val inlined = plain.sharedValues

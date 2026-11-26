@@ -7,10 +7,13 @@ import gezi.frontend.Defunctionalization
 import gezi.frontend.Lambdalattice
 import gezi.frontend.ReadableText
 import gezi.generatedinputs.GeneratedProperties
-import gezi.ir.Instruction
+import gezi.ir.Configured
+import gezi.ir.NoFacts
 import gezi.locations.SourceMap
 import gezi.rewritetrace.TraceStart
 import gezi.rewritetrace.TraceText
+
+private given stepTextLawTestNoFacts: NoFacts.type = NoFacts
 
 /** The law of a step's text on generated traces read and replayed as a
   * page plays them, from a start written with a generated subset of its
@@ -36,15 +39,15 @@ class StepTextLawTest extends GeneratedProperties:
   /** Every subterm of the term that is no opaque instruction, each once, in
     * preorder.
     */
-  private def subterms(instruction: Instruction): Vector[Instruction] =
+  private def subterms(instruction: Configured[NoFacts.type]): Vector[Configured[NoFacts.type]] =
     if instruction.opaque then Vector.empty
     else (instruction +: instruction.layer.children.flatMap(subterms)).distinct
 
   /** The text read back and its first `bindings` bindings at the root
     * contracted, each `(λt. t V) λm. BODY` to BODY with V in place of m.
     */
-  private def readBack(text: String, bindings: Int): Option[Instruction] =
-    (1 to bindings).foldLeft(Option((Defunctionalization.thunkInstruction(Lambdalattice.term(text)), SourceMap.unlocated)))(
+  private def readBack(text: String, bindings: Int): Option[Configured[NoFacts.type]] =
+    (1 to bindings).foldLeft(Option[(Configured[NoFacts.type], SourceMap)]((Defunctionalization.thunkInstruction(Lambdalattice.term(text))(using gezi.ir.NoFacts), SourceMap.unlocated)))(
       (read, _) => read.flatMap((instruction, map) => ReadableText.contracted(instruction, map))
     ).map(_._1)
 

@@ -1,7 +1,8 @@
 package gezi.strategies
 
 import gezi.egraph.EGraph
-import gezi.ir.Instruction
+import gezi.ir.Configured
+import gezi.ir.NoFacts
 import gezi.ir.Layer
 import gezi.standardlibrary.LibraryFiles
 import gezi.standardlibrary.StandardLibrary
@@ -81,15 +82,17 @@ object FixpointVerdicts:
   /** The instructions of the zero universe's heads, read by projection off
     * the fixture `TermTables.zeroUniverseTerms`.
     */
-  lazy val zeroUniverseHeads: Map[String, Instruction] =
+  lazy val zeroUniverseHeads: Map[String, Configured[NoFacts.type]] =
     StandardLibrary.entryMembers(LibraryFiles.buildRoot, TermTables.zeroUniverseTerms, Expansions.none)._1
 
   /** The reading of the zero universe's types off a finished run's graph,
     * its heads recognized by their instructions (`zeroUniverseHeads`).
     */
-  final case class ZeroUniverse(graph: EGraph):
+  final case class ZeroUniverse(graph: EGraph[NoFacts.type]):
 
-    private def instruction(name: String): Instruction =
+    private given NoFacts.type = NoFacts
+
+    private def instruction(name: String): Configured[NoFacts.type] =
       zeroUniverseHeads.getOrElse(name, throw IllegalArgumentException(s"${TermTables.zeroUniverseTerms.file} has no member $name"))
 
     /** The heads of the zero universe and the arguments each takes, the
@@ -110,7 +113,7 @@ object FixpointVerdicts:
     private def headNamed(node: Int, name: String): Boolean =
       val named = instruction(name)
       members(node).exists {
-        case NoinlineLeaf(found) => found == named
+        case NoinlineLeaf(found) => Configured.same(found, named)
         case _                 => false
       }
 

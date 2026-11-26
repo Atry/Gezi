@@ -1,8 +1,11 @@
 package gezi.traceplayer
 
 import gezi.generatedinputs.SeededSnapshots
-import gezi.ir.Instruction
+import gezi.ir.Configured
+import gezi.ir.NoFacts
 import snapshot4s.generated.snapshotConfig
+
+private given nodeShapeSnapshotTestNoFacts: NoFacts.type = NoFacts
 
 /** What the player draws for generated terms (`TermSequences.term`), node
   * by node, recorded as a seeded snapshot: each node's path, its role under
@@ -15,8 +18,8 @@ import snapshot4s.generated.snapshotConfig
   */
 class NodeShapeSnapshotTest extends gezi.generatedinputs.FailFastSuite with SeededSnapshots:
 
-  private def outline(term: Instruction): String =
-    def lines(instruction: Instruction, path: Vector[Int], role: String): Vector[String] =
+  private def outline(term: Configured[NoFacts.type]): String =
+    def lines(instruction: Configured[NoFacts.type], path: Vector[Int], role: String): Vector[String] =
       val shape = NodeShape.of(instruction)
       val drawn = shape match
         case NodeShape.Thunk(code, holes, fillings) =>

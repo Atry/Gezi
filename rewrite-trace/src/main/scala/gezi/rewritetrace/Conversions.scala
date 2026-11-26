@@ -3,18 +3,22 @@ package gezi.rewritetrace
 import gezi.egraph.EGraph
 import gezi.frontend.Defunctionalization
 import gezi.frontend.Term
+import gezi.frontend.TermOf
 import gezi.ir.BindingNormalForm
 import gezi.ir.Store
+import gezi.ir.TermConstruction
 import gezi.saturation.ClosedTerm
 import gezi.saturation.HigherOrderMatching
 import gezi.ir.Code
-import gezi.ir.CodeLayer
 import gezi.ir.Hole
-import gezi.ir.Instruction
 import gezi.ir.Layer
+import gezi.ir.NonEmptyHoles
 import gezi.ir.Pattern
 import gezi.ir.Spine
-import gezi.ir.{Apply, Choice, NoinlineLeaf, Opaque, Parallel, Slot, Thunk, UriNode}
+import gezi.ir.StorageAccess
+import gezi.ir.StorageView
+import gezi.ir.{Apply, Choice, Parallel, Slot, Thunk}
+import gezi.ir.{Configured, NativeSpecializer}
 
 /** A side of a lemma's statement. */
 enum LemmaSide:
@@ -51,21 +55,22 @@ enum Conversion:
 object Conversions:
 
   /** The thunks of a side, in preorder: a thunk before the thunks under it. */
-  def thunkPatterns(side: StatementTerm): Vector[StatementTerm] = side match
-    case StatementTerm.Layered(layer @ Thunk(_, _, _)) => side +: (layer: Layer[StatementTerm]).children.flatMap(thunkPatterns)
-    case StatementTerm.Layered(layer)                        => layer.children.flatMap(thunkPatterns)
-    case StatementTerm.Variable(_) | StatementTerm.Stored(_)  => Vector.empty
+  def thunkPatterns[Term](side: StatementTerm[Term]): Vector[StatementTerm[Term]] = side match
+    case StatementTerm.Layered(layer @ Thunk(_, _, _)) =>
+      side +: (layer: Layer[StatementTerm[Term]]).children.flatMap(thunkPatterns)
+    case StatementTerm.Layered(layer)                       => layer.children.flatMap(thunkPatterns)
+    case StatementTerm.Variable(_) | StatementTerm.Stored(_) => Vector.empty
 
   /** The thunk pattern of a higher-order conversion. Throws
     * `IllegalArgumentException` when the side has no thunk at the occurrence.
     */
-  def pattern(statement: Statement, side: LemmaSide, occurrence: Int): StatementTerm =
+  def pattern[Term](statement: Statement[Term], side: LemmaSide, occurrence: Int): StatementTerm[Term] =
     thunkPatterns(sideOf(statement, side))
       .lift(occurrence)
       .getOrElse(throw IllegalArgumentException(s"the $side side has no thunk $occurrence"))
 
   /** The side of a statement. */
-  def sideOf(statement: Statement, side: LemmaSide): StatementTerm = side match
+  def sideOf[Term](statement: Statement[Term], side: LemmaSide): StatementTerm[Term] = side match
     case LemmaSide.Left  => statement.left
     case LemmaSide.Right => statement.right
 
@@ -78,7 +83,7 @@ object Conversions:
     * the right side's `a w`, which the saturator keeps, under
     * `λk. λa. (λx. λz. z (λw. k (x w))) a = λk. λa. λz. z (λw. k (a w))`.
     */
-  def higherOrder(statement: Statement): Set[String] =
+  def higherOrder[Term](statement: Statement[Term]): Set[String] =
     thunkPatterns(statement.left).flatMap {
       case StatementTerm.Layered(Thunk(code, holes, fillings)) =>
         val slots = Defunctionalization.slotValues(holes, holes.map(_ => None), fillings.map(Some(_)))
@@ -101,7 +106,7 @@ object Conversions:
         innerSlots.lift(slot).flatten.flatMap(filling =>
           filling.layer match
             case Slot(outer) => Some(outer)
-            case _                     => None
+            case _           => None
         )
       )
 
@@ -112,14 +117,20 @@ object Conversions:
   /** The normal form of the thunk pattern under the bindings, as the
     * higher-order saturator computes it: `gezi.ir.BindingNormalForm.of`,
     * the one function both call, over the pattern with its variables
-    * numbered in the order they first occur. Throws `IllegalArgumentException`
-    * for a variable with no binding and for a pattern that is no thunk.
+    * numbered in the order they first occur, in the trace's configuration.
+    * Throws `IllegalArgumentException` for a variable with no binding and
+    * for a pattern that is no thunk.
     */
-  def normalForm(pattern: StatementTerm, bound: Map[String, Instruction], higherOrderVariables: Set[String]): Instruction =
+  def normalForm[C <: NativeSpecializer & Singleton](
+      pattern: StatementTerm[Configured[C]],
+      bound: Map[String, Configured[C]],
+      higherOrderVariables: Set[String]
+  )(using C): Configured[C] =
     val names = Statements.variables(pattern).distinct
     val indices = names.zipWithIndex.toMap
-    patternOf(pattern, indices) match
-      case thunk: Pattern.Thunk =>
+    val thunk = patternOf(pattern, indices)
+    thunk match
+      case Pattern.Thunk(_, _, _) =>
         BindingNormalForm.of(
           thunk,
           names
@@ -139,8 +150,8 @@ object Conversions:
     * x0's value `λa. …` inline), so the equation checked, the term β-equal to
     * the instance, holds of it as of its spelling.
     */
-  def spelledAlike(normal: Instruction, term: Instruction): Boolean =
-    normal == term || normal == BindingNormalForm.spelled(term)
+  def spelledAlike[C <: NativeSpecializer & Singleton](normal: Configured[C], term: Configured[C])(using C): Boolean =
+    Configured.same(normal, term) || Configured.same(normal, BindingNormalForm.spelled(term))
 
   /** The bindings that make the term, in the replay's spelling, the
     * pattern's instance in that spelling (`ReplaySpelling.side`). A lemma's
@@ -149,11 +160,14 @@ object Conversions:
     * `thunk(apply(slot 0, slot 1), [ignored], [k, a])`, whose instance the
     * replay spells `thunk(slot 0, [ignored], [apply(k, a)])`.
     */
-  def instanceBindings(pattern: StatementTerm, term: Instruction): Option[Map[String, Instruction]] =
+  def instanceBindings[C <: NativeSpecializer & Singleton](pattern: StatementTerm[Configured[C]], term: Configured[C])(using
+      C,
+      StorageAccess
+  ): Option[Map[String, Configured[C]]] =
     Statements.matchedBindings(ReplaySpelling.side(pattern), term)
 
   /** The pattern's instance under the bindings in the replay's spelling. */
-  def instance(pattern: StatementTerm, bound: Map[String, Instruction]): Instruction =
+  def instance[C <: NativeSpecializer & Singleton](pattern: StatementTerm[Configured[C]], bound: Map[String, Configured[C]])(using C): Configured[C] =
     Statements.instance(ReplaySpelling.side(pattern), bound)
 
   /** `λx. term x` as the front end spells it, the term a closed filling: the
@@ -161,8 +175,8 @@ object Conversions:
     * the term, computed so that the step writes no thunk: a step backward
     * names its place by a path in the term's tree, not by a thunk.
     */
-  def etaExpanded(term: Instruction): Instruction =
-    Defunctionalization.thunkInstruction(Term.λ(variable => Term.closed(term)(variable)).deBruijnTerm(Map.empty))
+  def etaExpanded[C <: NativeSpecializer & Singleton](term: Configured[C])(using C): Configured[C] =
+    Defunctionalization.thunkInstruction[C](Term.λ(variable => Term.closed(term)(variable)).deBruijnTerm(Map.empty))
 
   /** The solutions of a thunk pattern of a lemma's left side on the term a
     * step backward replaces, its normal form: the bindings of each match of
@@ -175,30 +189,37 @@ object Conversions:
     * step backward of a left side's conversion writes no binding: a binding
     * written in a command is what a trace avoids. The matching runs in the
     * player too, which is why `egraph` and that file of `saturation` are
-    * built for Scala.js. The graph files no noinline
-    * name (`Store`), as a trace names none.
+    * built for Scala.js. The graph files no noinline name (`Store`), as a
+    * trace names none, and builds through the trace's configuration with no
+    * storage made one layer up from a leaf (`TermConstruction.apply`): the
+    * graph only matches the term, adding no lemma instance, so that nothing
+    * it would build is read.
     */
-  def expansionSolutions(
-      pattern: StatementTerm,
-      replaced: Instruction,
+  def expansionSolutions[C <: NativeSpecializer & Singleton](
+      pattern: StatementTerm[Configured[C]],
+      replaced: Configured[C],
       higherOrderVariables: Set[String]
-  ): Vector[Map[String, Instruction]] =
+  )(using specializer: C): Vector[Map[String, Configured[C]]] =
     val names = Statements.variables(pattern).distinct
     val indices = names.zipWithIndex.toMap
     val thunk = patternOf(pattern, indices)
-    def solutionsOn(term: Instruction): Vector[Map[String, Instruction]] =
-      val (graph, node) = EGraph.empty(Store(noinline = Set.empty), Map.empty, explained = false).instructionAdded(term)
+    def solutionsOn(term: Configured[C]): Vector[Map[String, Configured[C]]] =
+      val (graph, node) =
+        EGraph.empty(Store(Set.empty[Configured[C]], TermConstruction(specializer)), Map.empty, explained = false).instructionAdded(term)
       val classTerms = graph.liveNodes
         .flatMap(live => graph.nodeInstruction(live.node).map(live.root -> _))
         .toMap
-      def instructionOf(closed: ClosedTerm): Instruction = closed match
+      def instructionOf(closed: ClosedTerm[C]): Configured[C] = closed match
         case ClosedTerm.Class(root) =>
           classTerms.getOrElse(graph.root(root), throw IllegalStateException(s"the class $root of a term's graph holds no term"))
         case ClosedTerm.InstructionTerm(instruction) => instruction
-        case ClosedTerm.Apply(function, argument)    => Instruction.Apply(instructionOf(function), instructionOf(argument))
-        case ClosedTerm.Choice(left, right)          => Instruction.Choice(instructionOf(left), instructionOf(right))
-        case ClosedTerm.Parallel(left, right)        => Instruction.Parallel(instructionOf(left), instructionOf(right))
-        case ClosedTerm.Thunk(code, holes, fillings) => Instruction.Thunk(code, holes, fillings.map(instructionOf))
+        case ClosedTerm.Apply(function, argument)    => specializer.application(instructionOf(function), instructionOf(argument))
+        case ClosedTerm.Choice(left, right)          => specializer.choice(instructionOf(left), instructionOf(right))
+        case ClosedTerm.Parallel(left, right)        => specializer.parallel(instructionOf(left), instructionOf(right))
+        case ClosedTerm.Thunk(code, holes, fillings) =>
+          NonEmptyHoles.of(holes) match
+            case Some(present) => specializer.thunk(code, present, fillings.map(instructionOf))
+            case None          => specializer.instance(code, fillings.map(instructionOf))
       HigherOrderMatching
         .unseenInstances(graph, thunk, thunk, Set.empty)
         .collect { case (key, _) if graph.root(key.root) == graph.root(node) => key.bindings }
@@ -211,52 +232,59 @@ object Conversions:
             )
             .toMap
         )
-    solutionsOn(replaced)
-      .filter(bound => spelledAlike(normalForm(pattern, bound, higherOrderVariables), replaced))
-      .distinct
+    val solutions = solutionsOn(replaced).filter(bound => spelledAlike(normalForm(pattern, bound, higherOrderVariables), replaced))
+    // Distinct by the bindings' terms, compared as terms of the configuration.
+    solutions.foldLeft(Vector.empty[Map[String, Configured[C]]])((kept, bound) =>
+      if kept.exists(earlier =>
+          earlier.keySet == bound.keySet && earlier.forall((name, term) => Configured.same(term, bound(name)))
+        )
+      then kept
+      else kept :+ bound
+    )
 
   /** The side as a pattern of the IR, each variable the metavariable of its
     * index.
     */
-  private def patternOf(term: StatementTerm, indices: Map[String, Int]): Pattern = term match
-    case StatementTerm.Variable(name) => Pattern.Metavariable(indices(name))
-    case StatementTerm.Stored(instruction) => Pattern.InstructionReference(instruction)
-    case StatementTerm.Layered(layer) =>
-      layer match
-        case Apply(function, argument) => Pattern.Apply(patternOf(function, indices), patternOf(argument, indices))
-        case Parallel(left, right)     => Pattern.Parallel(patternOf(left, indices), patternOf(right, indices))
-        case Choice(left, right)       => Pattern.Choice(patternOf(left, indices), patternOf(right, indices))
-        case Thunk(code, holes, fillings) => Pattern.Thunk(code, holes, fillings.map(patternOf(_, indices)))
-        case NoinlineLeaf(instruction)                 => Pattern.InstructionReference(instruction)
+  private def patternOf[C <: NativeSpecializer & Singleton](term: StatementTerm[Configured[C]], indices: Map[String, Int]): Pattern[C] =
+    term match
+      case StatementTerm.Variable(name)   => Pattern.Metavariable(indices(name))
+      case StatementTerm.Stored(stored)   => Pattern.InstructionReference(stored)
+      case StatementTerm.Layered(layer) =>
+        layer match
+          case Apply(function, argument)    => Pattern.Apply(patternOf(function, indices), patternOf(argument, indices))
+          case Parallel(left, right)        => Pattern.Parallel(patternOf(left, indices), patternOf(right, indices))
+          case Choice(left, right)          => Pattern.Choice(patternOf(left, indices), patternOf(right, indices))
+          case Thunk(code, holes, fillings) => Pattern.Thunk(code, holes, fillings.map(patternOf(_, indices)))
+          case other => throw IllegalStateException(s"a statement's layer is never a leaf or a storage's view: $other")
 
   /** The names a lemma's left side applies its metavariable to, when the side
     * is a metavariable applied to closed terms, `m G1 … Gn`.
     */
-  def names(statement: Statement): Option[Vector[Instruction]] =
-    def spine(term: StatementTerm, arguments: List[Instruction]): Option[Vector[Instruction]] = term match
+  def names[Term](statement: Statement[Term]): Option[Vector[Term]] =
+    def spine(term: StatementTerm[Term], arguments: List[Term]): Option[Vector[Term]] = term match
       case StatementTerm.Layered(Apply(function, StatementTerm.Stored(name))) => spine(function, name :: arguments)
-      case StatementTerm.Variable(_) if arguments.nonEmpty                          => Some(arguments.toVector)
-      case _                                                                        => None
+      case StatementTerm.Variable(_) if arguments.nonEmpty                    => Some(arguments.toVector)
+      case _                                                                  => None
     spine(statement.left, Nil)
 
   /** The redex `(λx1 … xn. T[G1 := x1, …]) G1 … Gn` of a term T over the
     * names, its abstraction spelled as the front end spells the lambda.
     */
-  def redex(term: Instruction, names: Vector[Instruction]): Instruction =
-    names.foldLeft(abstraction(term, names))(Instruction.Apply(_, _))
+  def redex[C <: NativeSpecializer & Singleton](term: Configured[C], names: Vector[Configured[C]])(using specializer: C, access: StorageAccess): Configured[C] =
+    names.foldLeft(abstraction(term, names))((function, argument) => (specializer: C).application(function, argument))
 
   /** Whether the term is an application to the names, in order, as every
     * redex over them is (`redex`): a check of the names alone, which a term
     * that is no redex fails before its abstraction is computed.
     */
-  def appliedToNames(term: Instruction, names: Vector[Instruction]): Boolean =
+  def appliedToNames[C <: NativeSpecializer & Singleton](term: Configured[C], names: Vector[Configured[C]])(using C): Boolean =
     @scala.annotation.tailrec
-    def matched(at: Instruction, rest: List[Instruction]): Boolean = rest match
+    def matched(at: Configured[C], rest: List[Configured[C]]): Boolean = rest match
       case Nil => true
       case name :: earlier =>
-        at match
-          case Instruction.Apply(function, argument) => argument == name && matched(function, earlier)
-          case _                                     => false
+        at.layer match
+          case Apply(function, argument) => Configured.same(argument, name) && matched(function, earlier)
+          case _                         => false
     matched(term, names.reverse.toList)
 
   /** The thunk `λx1 … xn. T[G1 := x1, …]` of a term T over the leaves G1 to
@@ -264,18 +292,18 @@ object Conversions:
     * root reverse β, and the write-back of a body opened at eigenvariables
     * (the abstraction rule ξ).
     */
-  def abstraction(term: Instruction, leaves: Vector[Instruction]): Instruction =
-    def abstracted(bound: Map[Instruction, Term], rest: Vector[Instruction]): Term = rest match
+  def abstraction[C <: NativeSpecializer & Singleton](term: Configured[C], leaves: Vector[Configured[C]])(using C, StorageAccess): Configured[C] =
+    def abstracted(bound: Map[Configured[C], gezi.frontend.Term], rest: Vector[Configured[C]]): TermOf[Configured[C]] = rest match
       case leaf +: others => Term.λ(variable => abstracted(bound.updated(leaf, variable), others))
       case _              => readBack(term, bound)
-    Defunctionalization.thunkInstruction(abstracted(Map.empty, leaves).deBruijnTerm(Map.empty))
+    Defunctionalization.thunkInstruction[C](abstracted(Map.empty, leaves).deBruijnTerm(Map.empty))
 
   /** The eigenvariables a replay opens a thunk of `count` holes at, under
     * `depth` enclosing openings: opaque leaves no program holds, named by
     * their place, so that a writer and a replay agree on them.
     */
-  def eigenvariables(depth: Int, count: Int): Vector[Instruction] =
-    Vector.tabulate(count)(position => Instruction.opaque(s"trace eigenvariable $depth $position"))
+  def eigenvariables[C <: NativeSpecializer & Singleton](depth: Int, count: Int)(using specializer: C): Vector[Configured[C]] =
+    Vector.tabulate(count)(position => specializer.opaque(s"trace eigenvariable $depth $position"))
 
   /** The body of a thunk opened at the leaves, one for each of its first
     * holes in lambda order, as the defunctionalized β rule fills them: a
@@ -283,49 +311,53 @@ object Conversions:
     * ignored hole's dropped; with holes left, the thunk of those holes (the
     * front end folds a chain whose body is a thunk with holes into one
     * thunk, so `λz. λx. x` written back is one thunk of two holes), else its
-    * code read at the fillings. Throws `IllegalArgumentException` for a term
-    * that is no thunk of at least as many holes as leaves.
+    * code read at the fillings, built through the configuration
+    * (`NativeSpecializer.instance`). Throws `IllegalArgumentException` for a
+    * term that is no thunk of at least as many holes as leaves.
     */
-  def opened(thunk: Instruction, leaves: Vector[Instruction]): Instruction = thunk match
-    case Instruction.Thunk(code, holes, fillings) if holes.size >= leaves.size && leaves.nonEmpty =>
-      val (rest, filled) = leaves.foldLeft((holes, fillings)) { case ((remaining, current), leaf) =>
-        remaining match
-          case Hole.Bound(slot) +: others =>
-            (others, current.patch(Defunctionalization.fillingPosition(others, slot), Vector(leaf), 0))
-          case Hole.Ignored +: others => (others, current)
-          case _                      => throw IllegalStateException(s"no hole is left for $leaf")
-      }
-      if rest.nonEmpty then Instruction.Thunk(code, rest, filled)
-      else
-        val slots = Defunctionalization.slotValues(Vector.empty, Vector.empty, filled.map(filling => Some(StatementTerm.Stored(filling))))
-        Statements.instance(
-          Statements.codeInstance(code, slots.map(_.getOrElse(throw IllegalArgumentException(s"$thunk has an empty slot")))),
-          Map.empty
-        )
-    case other => throw IllegalArgumentException(s"$other is no thunk of at least ${leaves.size} holes")
+  def opened[C <: NativeSpecializer & Singleton](thunk: Configured[C], leaves: Vector[Configured[C]])(using specializer: C): Configured[C] =
+    thunk.layer match
+      case Thunk(code, holes, fillings) if holes.size >= leaves.size && leaves.nonEmpty =>
+        val (rest, filled) = leaves.foldLeft((holes, fillings)) { case ((remaining, current), leaf) =>
+          remaining match
+            case Hole.Bound(slot) +: others =>
+              (others, current.patch(Defunctionalization.fillingPosition(others, slot), Vector(leaf), 0))
+            case Hole.Ignored +: others => (others, current)
+            case _                      => throw IllegalStateException(s"no hole is left for $leaf")
+        }
+        NonEmptyHoles.of(rest) match
+          case Some(present) => specializer.thunk(code, present, filled)
+          case None          => specializer.instance(code, filled)
+      case other => throw IllegalArgumentException(s"$other is no thunk of at least ${leaves.size} holes")
 
   /** The term with each leaf of the map replaced, a subterm that holds none
-    * kept as it is. A leaf sits only where a term sits, never in a code.
+    * kept as it is, each layer rebuilt through the configuration
+    * (`Positions.built`). A leaf sits only where a term sits, never in a code.
     */
-  def leavesReplaced(term: Instruction, replaced: Map[Instruction, Instruction]): Instruction =
+  def leavesReplaced[C <: NativeSpecializer & Singleton](term: Configured[C], replaced: Map[Configured[C], Configured[C]])(using
+      C,
+      StorageAccess
+  ): Configured[C] =
     if replaced.isEmpty || !holds(term, replaced.keySet) then term
     else
       replaced.get(term) match
         case Some(leaf) => leaf
-        case None       => Instruction(term.layered.map(leavesReplaced(_, replaced)))
+        case None =>
+          val layer = Positions.layerOf(term)
+          Positions.built(layer, layer.children.map(leavesReplaced(_, replaced)))
 
   /** The term a redex of `redex` contracts to, its n applications of the
     * abstraction reduced, spelled as the front end spells it. Throws
     * `IllegalArgumentException` for a term that is not the abstraction
     * applied to n arguments.
     */
-  def contracted(term: Instruction, count: Int): Instruction =
-    def spine(current: Instruction, arguments: List[Instruction]): (Instruction, Vector[Instruction]) =
+  def contracted[C <: NativeSpecializer & Singleton](term: Configured[C], count: Int)(using C): Configured[C] =
+    def spine(current: Configured[C], arguments: List[Configured[C]]): (Configured[C], Vector[Configured[C]]) =
       if arguments.size == count then (current, arguments.toVector)
       else
-        current match
-          case Instruction.Apply(function, argument) => spine(function, argument :: arguments)
-          case other => throw IllegalArgumentException(s"$term is no abstraction applied to $count arguments")
+        current.layer match
+          case Apply(function, argument) => spine(function, argument :: arguments)
+          case _ => throw IllegalArgumentException(s"$term is no abstraction applied to $count arguments")
     val (abstraction, arguments) = spine(term, Nil)
     spelled(arguments.foldLeft(instructionValue(abstraction, inlined = true))((function, argument) =>
       applied(function, Value.Syntax(Term.closed(argument)))
@@ -336,12 +368,12 @@ object Conversions:
     * holds no name, `filling i`) and each name (`name i`, from 0) where they
     * occur in the term and in the redex.
     */
-  def redexProvenance(term: Instruction, redex: Instruction, count: Int): Vector[Provenance] =
+  def redexProvenance[C <: NativeSpecializer & Singleton](term: Configured[C], redex: Configured[C], count: Int)(using C, StorageAccess): Vector[Provenance] =
     val abstractionPosition = Vector.fill(count)(PositionSegment.Function)
     val abstraction = Positions.subterm(redex, abstractionPosition)
     val fillings = abstraction.layer match
       case Thunk(_, _, fillings) => fillings
-      case other                       => throw IllegalArgumentException(s"the redex's abstraction is no thunk: $other")
+      case other                 => throw IllegalArgumentException(s"the redex's abstraction is no thunk: $other")
     val fillingProvenance = fillings.zipWithIndex.map((filling, place) =>
       Provenance(s"filling$place", Positions.occurrences(term, filling), Vector(abstractionPosition :+ PositionSegment.Filling(place)))
     )
@@ -351,48 +383,52 @@ object Conversions:
     )
     fillingProvenance ++ nameProvenance
 
-  /** The term of the instruction with each of the bound instructions read as
-    * its term, a subterm that holds none of them a closed constant.
+  /** The term of the instruction with each of the bound terms read as its
+    * HOAS variable, a subterm that holds none of them a closed constant, a
+    * storage that holds one read through its view.
     */
-  private def readBack(instruction: Instruction, bound: Map[Instruction, Term]): Term =
-    bound.get(instruction) match
-      case Some(term) => term
-      case None if !holds(instruction, bound.keySet) => Term.closed(instruction)
+  private def readBack[C <: NativeSpecializer & Singleton](term: Configured[C], bound: Map[Configured[C], gezi.frontend.Term])(using
+      C,
+      StorageAccess
+  ): TermOf[Configured[C]] =
+    bound.get(term) match
+      case Some(variable) => variable
+      case None if !holds(term, bound.keySet) => Term.closed(term)
       case None =>
-        instruction.layer match
+        Positions.layerOf(term) match
           case Apply(function, argument) => readBack(function, bound)(readBack(argument, bound))
-          case Choice(left, right)       => Term.Choice(readBack(left, bound), readBack(right, bound))
-          case Parallel(left, right)     => Term.Parallel(readBack(left, bound), readBack(right, bound))
+          case Choice(left, right)       => TermOf.Choice(readBack(left, bound), readBack(right, bound))
+          case Parallel(left, right)     => TermOf.Parallel(readBack(left, bound), readBack(right, bound))
+          case StorageView(value, criterion) => TermOf.Parallel(readBack(value, bound), readBack(criterion, bound))
           case Thunk(code, holes, fillings) =>
             reified(lambda(code, holes, fillings.map(filling => Value.Syntax(readBack(filling, bound))), inlined = false))
-          case UriNode(_) | Opaque(_) => Term.closed(instruction)
 
-  /** Whether the instruction holds one of the leaves, not under an opaque
-    * instruction.
+  /** Whether the term holds one of the leaves, not under an opaque term, a
+    * storage read through its view.
     */
-  def holds(instruction: Instruction, names: Set[Instruction]): Boolean =
-    names.contains(instruction) || (!instruction.opaque && instruction.layer.children.exists(holds(_, names)))
+  def holds[C <: NativeSpecializer & Singleton](term: Configured[C], names: Set[Configured[C]])(using C, StorageAccess): Boolean =
+    names.contains(term) || (!term.opaque && Positions.layerOf(term).children.exists(holds(_, names)))
 
   /** A value of the reading: a lambda, which an application contracts when it
     * is inlined, or a term.
     */
-  private enum Value:
-    case Function(inlined: Boolean, body: Value => Value)
-    case Syntax(term: Term)
+  private enum Value[C <: NativeSpecializer & Singleton]:
+    case Function(inlined: Boolean, body: Value[C] => Value[C])
+    case Syntax(term: TermOf[Configured[C]])
 
-  private def instructionValue(instruction: Instruction, inlined: Boolean): Value =
-    if instruction.opaque then Value.Syntax(Term.closed(instruction))
+  private def instructionValue[C <: NativeSpecializer & Singleton](term: Configured[C], inlined: Boolean)(using C): Value[C] =
+    if term.opaque then Value.Syntax(Term.closed(term))
     else
-      instruction.layer match
+      term.layer match
         case Thunk(code, holes, fillings) =>
           lambda(code, holes, fillings.map(filling => Value.Syntax(Term.closed(filling))), inlined)
-        case _ => Value.Syntax(Term.closed(instruction))
+        case _ => Value.Syntax(Term.closed(term))
 
   /** The lambda of a thunk's code over its fillings' values, one function
     * per hole, the code read when the last hole is entered.
     */
-  private def lambda(code: Code, holes: Vector[Hole], fillings: Vector[Value], inlined: Boolean): Value =
-    def entered(rest: Vector[Hole], slots: Vector[Option[Value]]): Value = rest match
+  private def lambda[C <: NativeSpecializer & Singleton](code: Code, holes: Vector[Hole], fillings: Vector[Value[C]], inlined: Boolean): Value[C] =
+    def entered(rest: Vector[Hole], slots: Vector[Option[Value[C]]]): Value[C] = rest match
       case hole +: others =>
         Value.Function(
           inlined,
@@ -407,18 +443,18 @@ object Conversions:
       case _ => read(code, slots)
     entered(holes, Defunctionalization.slotValues(holes, holes.map(_ => None), fillings.map(Some(_))))
 
-  private def read(code: Code, slots: Vector[Option[Value]]): Value = code.layer match
+  private def read[C <: NativeSpecializer & Singleton](code: Code, slots: Vector[Option[Value[C]]]): Value[C] = code.layer match
     case Slot(slot) =>
       slots.lift(slot).flatten.getOrElse(throw IllegalArgumentException(s"the code reads the empty slot $slot"))
     case Apply(function, argument) => applied(read(function, slots), read(argument, slots))
-    case Choice(left, right)       => Value.Syntax(Term.Choice(reified(read(left, slots)), reified(read(right, slots))))
-    case Parallel(left, right)     => Value.Syntax(Term.Parallel(reified(read(left, slots)), reified(read(right, slots))))
+    case Choice(left, right)       => Value.Syntax(TermOf.Choice(reified(read(left, slots)), reified(read(right, slots))))
+    case Parallel(left, right)     => Value.Syntax(TermOf.Parallel(reified(read(left, slots)), reified(read(right, slots))))
     case Thunk(inner, holes, fillings) => lambda(inner, holes, fillings.map(read(_, slots)), inlined = false)
 
   /** The application: contracted when the function is an inlined lambda, a
     * lambda argument then inlined in turn; a term otherwise.
     */
-  private def applied(function: Value, argument: Value): Value = function match
+  private def applied[C <: NativeSpecializer & Singleton](function: Value[C], argument: Value[C]): Value[C] = function match
     case Value.Function(true, body) =>
       body(argument match
         case Value.Function(_, argumentBody) => Value.Function(true, argumentBody)
@@ -426,9 +462,10 @@ object Conversions:
       )
     case _ => Value.Syntax(reified(function)(reified(argument)))
 
-  private def reified(value: Value): Term = value match
+  private def reified[C <: NativeSpecializer & Singleton](value: Value[C]): TermOf[Configured[C]] = value match
     case Value.Function(_, body) => Term.λ(variable => reified(body(Value.Syntax(variable))))
     case Value.Syntax(term)      => term
 
-  private def spelled(value: Value): Instruction =
-    Defunctionalization.thunkInstruction(reified(value).deBruijnTerm(Map.empty))
+  /** The value's term as the front end spells it, built through the configuration. */
+  private def spelled[C <: NativeSpecializer & Singleton](value: Value[C])(using C): Configured[C] =
+    Defunctionalization.thunkInstruction[C](reified(value).deBruijnTerm(Map.empty))

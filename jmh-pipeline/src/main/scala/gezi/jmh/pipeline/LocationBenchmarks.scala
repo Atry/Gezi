@@ -1,5 +1,6 @@
 package gezi.jmh.pipeline
 
+import gezi.ir.{ChoiceSpine, Configured, NoFacts}
 import java.net.URI
 import java.util.concurrent.TimeUnit // the JMH protocol's exception (the user, 2026-10-31: "好的，用sbt-jmh，需要配合JMH协议时，必要时可以作为例外使用可变数据结构"): the time unit of JMH's annotations, an immutable enum of the concurrency package
 import gezi.backendcomparison.Compiled
@@ -8,7 +9,6 @@ import gezi.frontend.Defunctionalization.BindingsContracted
 import gezi.frontend.FreeNames
 import gezi.frontend.Lambdalattice
 import gezi.frontend.ReadableText
-import gezi.ir.Instruction
 import gezi.ir.Direction
 import gezi.ir.LemmaIdentifier
 import gezi.ir.Pattern
@@ -34,6 +34,9 @@ import org.openjdk.jmh.annotations.State
 import org.openjdk.jmh.annotations.Warmup
 import scala.compiletime.uninitialized
 
+/** The configuration of the terms here: no facts. */
+private given locationBenchmarksNoFacts: NoFacts.type = NoFacts
+
 /** What source locations cost: reading a text with its locations against reading it without them, and computing
   * the provenance of a saturated graph's nodes against saturating it. The
   * input of each is a program family's item printed as a text
@@ -56,8 +59,8 @@ class LocationBenchmarks:
     */
   @Benchmark
   @OutputTimeUnit(TimeUnit.MICROSECONDS)
-  def readUnlocated(input: ItemTextInput): Either[String, Instruction] =
-    Defunctionalization.bindingsContracted(Lambdalattice.term(input.text, FreeNames.Rejected), input.printed.bindings, enclosingBinders = 0)
+  def readUnlocated(input: ItemTextInput): Either[String, Configured[NoFacts.type]] =
+    Defunctionalization.bindingsContracted(Lambdalattice.term(input.text, FreeNames.Rejected), input.printed.bindings, enclosingBinders = 0)(using gezi.ir.NoFacts)
 
   /** The text read with its spans and converted to the IR, its bindings
     * contracted, with the source maps of the body and of each binding's
@@ -67,7 +70,7 @@ class LocationBenchmarks:
   @OutputTimeUnit(TimeUnit.MICROSECONDS)
   def readLocated(input: ItemTextInput): Either[String, BindingsContracted] =
     val read = Lambdalattice.located(input.text, FreeNames.Rejected)
-    Defunctionalization.locatedBindingsContracted(read.term, read.spans, ItemTextInput.uri, input.printed.bindings)
+    Defunctionalization.locatedBindingsContracted(read.term, read.spans, ItemTextInput.uri, input.printed.bindings)(using gezi.ir.NoFacts)
 
   /** The locations of the saturated graph's nodes, from the maps of the
     * body and of each binding's value and the graph's union log.
@@ -155,11 +158,11 @@ class LocatedItemInput extends ItemTextInput:
   lazy val located: BindingsContracted =
     val read = Lambdalattice.located(text, FreeNames.Rejected)
     Defunctionalization
-      .locatedBindingsContracted(read.term, read.spans, ItemTextInput.uri, printed.bindings)
+      .locatedBindingsContracted(read.term, read.spans, ItemTextInput.uri, printed.bindings)(using gezi.ir.NoFacts)
       .fold(reason => throw IllegalStateException(s"${item.name}'s text: $reason"), identity)
 
   /** The program's instruction, read from the text. */
-  lazy val instruction: Instruction = located.body
+  lazy val instruction: Configured[NoFacts.type] = located.body
 
   /** The inputs of the provenance: the body with its map, and each
     * binding's value with its own.
@@ -170,7 +173,7 @@ class LocatedItemInput extends ItemTextInput:
   /** The run input of the program's instruction, compiled by the index and
     * the closure backend.
     */
-  lazy val indexed: Compiled = Pipeline.indexCompiled(compiled, afterFrontEnd)
+  lazy val indexed: Compiled[NoFacts.type] = Pipeline.indexCompiled(compiled, afterFrontEnd)
 
   /** The graph saturated from that run input. */
   lazy val saturated: Saturated = Pipeline.saturated(indexed)
@@ -178,7 +181,7 @@ class LocatedItemInput extends ItemTextInput:
   /** The sides of each lemma the configuration orients, its left side first,
     * which `Provenance.of` reads an instance's union by.
     */
-  lazy val lemmas: Map[LemmaIdentifier, (Pattern, Pattern)] =
+  lazy val lemmas: Map[LemmaIdentifier, (Pattern[NoFacts.type], Pattern[NoFacts.type])] =
     compiled.orientations.orientations
       .map(orientation =>
         orientation.lemma -> (orientation.direction match

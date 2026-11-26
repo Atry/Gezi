@@ -9,6 +9,7 @@ import gezi.generatedinputs.GeneratedProperties
 import gezi.generatedinputs.HoasGenerators
 import gezi.generatedinputs.LambdalatticeText
 import gezi.ir.BuiltInRule
+import gezi.ir.NoFacts
 import gezi.lemmaencoding.baseline.BaselineLemmaEncoding
 import gezi.orientation.StandardOrientationCompiler
 import gezi.saturation.StopSignal
@@ -35,23 +36,25 @@ import gezi.standardlibrary.StandardLibraryIndex
   * edge.
   */
 class UnionBuiltLawTest extends GeneratedProperties:
+
+  private given NoFacts.type = NoFacts
   import RewriteTraceLawTest.closed
   import RewriteTraceLawTest.equation
 
-  private val lemmas: Vector[LemmaSides] = Vector(
+  private val lemmas: Vector[LemmaSides[NoFacts.type]] = Vector(
     equation(0, "λa. λb. (a + b)", "λa. λb. (b + a)"),
     equation(1, "λa. λb. λc. ((a + b) + c)", "λa. λb. λc. (a + (b + c))"),
     equation(2, "λa. (a + a)", "λa. a"),
     equation(3, "λa. λb. (λx. λy. x) a b", "λa. λb. a")
   )
 
-  private val index: StandardLibraryIndex = StandardLibraryIndex(Vector.empty, lemmas, Vector.empty, Vector.empty)
+  private val index: StandardLibraryIndex[NoFacts.type] = StandardLibraryIndex(NoFacts, Vector.empty, lemmas, Vector.empty, Vector.empty)
 
   /** `RewriteTraceLawTest`'s budget for the same lemmas and programs. */
   private val budget: Int = 24
 
-  private val saturator: StandardSaturator = StandardSaturator(
-    SaturationOptions(lemmas.map(_.lemma), BuiltInRule.all, budget, BaselineLemmaEncoding, ClosureCompilation, StandardIndexer, StandardOrientationCompiler, MemoRetention.Kept)
+  private val saturator: StandardSaturator[NoFacts.type] = StandardSaturator(
+    SaturationOptions(lemmas.map(_.lemma), BuiltInRule.beforeOptIn, budget, BaselineLemmaEncoding, ClosureCompilation, StandardIndexer.of[gezi.ir.NoFacts.type], StandardOrientationCompiler, MemoRetention.Kept, gezi.ir.TermConstruction(gezi.ir.NoFacts))
   )
 
   private val closedText: Gen[String] = HoasGenerators.closedTerm.map(LambdalatticeText.text)

@@ -1,5 +1,7 @@
 package gezi.strategies
 
+import gezi.ir.NativeSpecializer
+
 import gezi.standardlibrary.Property
 
 /** How a closure's body uses the argument standing in one of its holes, at
@@ -55,27 +57,27 @@ enum SpecializationRoot:
   * term's (`rootHole`): the hole itself, or a tag given its last argument
   * there.
   */
-final case class SpecializationState(
+final case class SpecializationState[C <: NativeSpecializer & Singleton](
     count: BigInt,
     root: SpecializationRoot,
     unfilteredLefts: BigInt,
-    holes: Map[OrderTerm, HoleUse],
-    rootHole: Option[OrderTerm]
+    holes: Map[OrderTerm[C], HoleUse],
+    rootHole: Option[OrderTerm[C]]
 ) extends FoldState
 
 /** The states of the terms with no free hole and no parallel. */
 object SpecializationState:
-  def apply(count: BigInt, root: SpecializationRoot): SpecializationState =
+  def apply[C <: NativeSpecializer & Singleton](count: BigInt, root: SpecializationRoot): SpecializationState[C] =
     SpecializationState(count, root, 0, Map.empty, None)
 
 /** The reading of `specialization_attraction`: the root reading, and the
   * uses of the free holes with the hole the root reads as, empty of every
   * term with no free hole, which every entry of the extraction is.
   */
-final case class SpecializationReading(
+final case class SpecializationReading[C <: NativeSpecializer & Singleton](
     root: SpecializationRoot,
-    holes: Map[OrderTerm, HoleUse],
-    rootHole: Option[OrderTerm]
+    holes: Map[OrderTerm[C], HoleUse],
+    rootHole: Option[OrderTerm[C]]
 ) extends ModuleReading
 
 /** The specialization attractor of the native route's compilation, the port
@@ -141,14 +143,29 @@ final case class SpecializationReading(
   * took the step's untyped spelling, the smaller under `Compression`, and
   * the native route lost the step's typed successor; probe of 2026-11-12 on
   * `aFoldUnderATypedConstructor`).
+  *
+  * A native storage the e-graph keeps as a leaf (`NativeStorage.leafInEGraph`,
+  * a storage of constant size, which reaches the production as a name)
+  * counts no unfiltered application and no unfiltered left, and reads as a
+  * filter: it is the term it stands for, `C (f1 ∥ F1) … ∥ T`, which the code
+  * that reads it, the JIT and the natives, reads as its own head, its `∥ T`
+  * dropped by the unique spelling's pattern theorem
+  * (`docs/design/gezi-set-equations-proofs.md`, section 23), whose premise
+  * the facts check per representation (`gezi.jit.UniqueSpellingPremise`), so
+  * no filter is left to check at run time, as a specialization range counts
+  * none. It is a rule of its own, not read off the storage's view, whose
+  * constructor counts nothing only where the extractor takes it for a
+  * production name. A storage the e-graph reads through its one-layer view
+  * (a list's cell, a declared family's value) is priced by the view's layers
+  * as any written term is, its fields by their own classes.
   */
-object SpecializationAttraction extends NormalityModule:
+object SpecializationAttraction extends ConfigurationFreeModule:
 
   val name: String = "specialization_attraction"
 
   val meetsExtractionContract: Boolean = true
 
-  def folded(layer: OrderTerm, reading: TermReading): FoldState = state(layer, reading)
+  def folded[C <: NativeSpecializer & Singleton](layer: OrderTerm[C], reading: TermReading[C]): FoldState = state(layer, reading)
 
   /** The arguments a define of the role takes to make an occurrence or a
     * tag (`role_arguments/2`).
@@ -170,8 +187,11 @@ object SpecializationAttraction extends NormalityModule:
     * use records, so the application of the closure to filters still counts
     * that application. No measured case meets one.
     */
-  private def state(term: OrderTerm, reading: TermReading): SpecializationState = term match
-    case OrderTerm.Folded(folded, _) => TermOrder.ownState[SpecializationState](folded)
+  private def state[C <: NativeSpecializer & Singleton](term: OrderTerm[C], reading: TermReading[C]): SpecializationState[C] = term match
+    case OrderTerm.Folded(folded, _) => TermOrder.ownState[SpecializationState[C]](folded)
+    // A native storage leaf: a filter with none left to check (the object's Scaladoc).
+    case OrderTerm.Name(instruction) if gezi.ir.NativeStorage.stored(instruction.representation) =>
+      SpecializationState(0, SpecializationRoot.Filter, 0, Map.empty, None)
     case OrderTerm.Name(instruction) =>
       val missing = reading.occurrenceRoles.get(instruction).map(roleArguments)
       SpecializationState(
@@ -243,7 +263,7 @@ object SpecializationAttraction extends NormalityModule:
       )
     case OrderTerm.Thunk(code, holes, fillings) =>
       val first = fillings.map(freeMarkers).foldLeft(0)(_ max _) + 1
-      val markers = holes.indices.toVector.map(position => OrderTerm.Metavariable(-(first + position)))
+      val markers = holes.indices.toVector.map(position => OrderTerm.Metavariable[C](-(first + position)))
       val (body, _) = TermReading.instantiated(code, holes, fillings, markers)
       val bodyState = state(body, reading)
       val own = markers.map(marker => bodyState.holes.getOrElse(marker, HoleUse.unused))
@@ -259,7 +279,7 @@ object SpecializationAttraction extends NormalityModule:
     * metavariable a closure puts in one of its own holes, of negative index,
     * which no lemma side has.
     */
-  private def standsForAHole(term: OrderTerm): Boolean = term match
+  private def standsForAHole[C <: NativeSpecializer & Singleton](term: OrderTerm[C]): Boolean = term match
     case OrderTerm.Bound(_)            => true
     case OrderTerm.Metavariable(index) => index < 0
     case _                             => false
@@ -268,10 +288,10 @@ object SpecializationAttraction extends NormalityModule:
     * 0 when none is, so that a closure's own metavariables are not those of
     * an enclosing closure that its fillings hold.
     */
-  private def freeMarkers(term: OrderTerm): Int = term match
+  private def freeMarkers[C <: NativeSpecializer & Singleton](term: OrderTerm[C]): Int = term match
     case OrderTerm.Metavariable(index) if index < 0 => -index
     case OrderTerm.Folded(folded, _) =>
-      TermOrder.ownState[SpecializationState](folded).holes.keys.map(freeMarkers).foldLeft(0)(_ max _)
+      TermOrder.ownState[SpecializationState[C]](folded).holes.keys.map(freeMarkers).foldLeft(0)(_ max _)
     case OrderTerm.Apply(function, argument) => freeMarkers(function) max freeMarkers(argument)
     case OrderTerm.Parallel(left, right, _)     => freeMarkers(left) max freeMarkers(right)
     case OrderTerm.Choice(members)           => members.map(freeMarkers).foldLeft(0)(_ max _)
@@ -279,19 +299,19 @@ object SpecializationAttraction extends NormalityModule:
     case _                                   => 0
 
   /** The uses of both, summed hole by hole. */
-  private def added(left: Map[OrderTerm, HoleUse], right: Map[OrderTerm, HoleUse]): Map[OrderTerm, HoleUse] =
+  private def added[C <: NativeSpecializer & Singleton](left: Map[OrderTerm[C], HoleUse], right: Map[OrderTerm[C], HoleUse]): Map[OrderTerm[C], HoleUse] =
     right.foldLeft(left) { case (sum, (hole, use)) =>
       sum.updated(hole, sum.getOrElse(hole, HoleUse.unused) + use)
     }
 
   /** The uses as many times over. */
-  private def scaled(uses: Map[OrderTerm, HoleUse], times: Int): Map[OrderTerm, HoleUse] =
+  private def scaled[C <: NativeSpecializer & Singleton](uses: Map[OrderTerm[C], HoleUse], times: Int): Map[OrderTerm[C], HoleUse] =
     uses.map((hole, use) => hole -> use * times)
 
   /** The unfiltered applications and left operands the hole is counted in
     * where a term reads as that hole.
     */
-  private def direct(rootHole: Option[OrderTerm], use: HoleUse): Map[OrderTerm, HoleUse] =
+  private def direct[C <: NativeSpecializer & Singleton](rootHole: Option[OrderTerm[C]], use: HoleUse): Map[OrderTerm[C], HoleUse] =
     rootHole.filter(_ => use != HoleUse.unused).map(hole => hole -> use).toMap
 
   def rank(state: FoldState): OrderValue = value(state)
@@ -304,11 +324,11 @@ object SpecializationAttraction extends NormalityModule:
     * term reads; of every entry of the extraction, none.
     */
   override def reading(state: FoldState): ModuleReading =
-    val own = TermOrder.ownState[SpecializationState](state)
+    val own = TermOrder.ownState[SpecializationState[?]](state)
     SpecializationReading(own.root, own.holes, own.rootHole)
 
   def value(state: FoldState): OrderValue =
-    val own = TermOrder.ownState[SpecializationState](state)
+    val own = TermOrder.ownState[SpecializationState[?]](state)
     OrderValue.pair(
       OrderValue.pair(OrderValue.Number(own.count), OrderValue.number(if own.root.filterReading then 0 else 1)),
       OrderValue.Number(own.unfilteredLefts)
@@ -323,16 +343,20 @@ object SpecializationAttraction extends NormalityModule:
     * root reading, as `state`'s `OrderTerm.Thunk`. A filling its code does
     * not read counts nothing, as it does in `TermReading.instantiated`.
     */
-  override val codeFolding: Option[CodeFolding] = Some(
-    new CodeFolding:
-      def folded(layer: CodeFold, reading: TermReading): FoldState = layer match
+  override def codeFolding[C <: NativeSpecializer & Singleton]: Option[CodeFolding[C]] = Some(
+    new CodeFolding[C]:
+      def folded(layer: CodeFold[C], reading: TermReading[C]): FoldState = layer match
         case CodeFold.Filling(term, _)   => state(term, reading)
         case CodeFold.InnerFilling(part) => part
         case CodeFold.HoleSlot(depth, position, _) => state(marker(depth, position), reading)
         case CodeFold.Apply(function, argument) =>
-          state(OrderTerm.Apply(OrderTerm.Folded(function, false), OrderTerm.Folded(argument, false)), reading)
+          state(OrderTerm.Apply(OrderTerm.Folded[C](function, false), OrderTerm.Folded[C](argument, false)), reading)
         case CodeFold.Parallel(left, criterion) =>
-          state(OrderTerm.Parallel(OrderTerm.Folded(left, false), OrderTerm.Folded(criterion, false), specializationRange = false), reading)
+          state(OrderTerm.Parallel(OrderTerm.Folded[C](left, false), OrderTerm.Folded[C](criterion, false), specializationRange = false), reading)
+        case CodeFold.RangeParallel(left, range) =>
+          state(OrderTerm.Parallel(OrderTerm.Folded[C](left, false), OrderTerm.Folded[C](range, false), specializationRange = true), reading)
+        case CodeFold.Choice(_, Some(dispatched)) => dispatched
+        case CodeFold.Choice(members, None)       => state(OrderTerm.Choice(members.map(OrderTerm.Folded(_, false))), reading)
         case CodeFold.InnerThunk(depth, _, holes, _, body, _) => closed(depth + 1, holes.size, body)
         case CodeFold.Closing(_, holes, body, _, _)           => closed(0, holes.size, body)
       def rank(state: FoldState): OrderValue = SpecializationAttraction.rank(state)
@@ -343,15 +367,15 @@ object SpecializationAttraction extends NormalityModule:
     * `depth` thunks in: a negative index none of an enclosing thunk's has,
     * by Cantor's pairing of the two.
     */
-  private def marker(depth: Int, position: Int): OrderTerm =
-    OrderTerm.Metavariable(-(1 + (depth + position) * (depth + position + 1) / 2 + position))
+  private def marker[C <: NativeSpecializer & Singleton](depth: Int, position: Int): OrderTerm[C] =
+    OrderTerm.Metavariable[C](-(1 + (depth + position) * (depth + position + 1) / 2 + position))
 
   /** The state of a thunk whose code's state is given, its holes `depth`
     * thunks in: as `state`'s `OrderTerm.Thunk`.
     */
-  private def closed(depth: Int, holeCount: Int, body: FoldState): SpecializationState =
-    val bodyState = TermOrder.ownState[SpecializationState](body)
-    val markers = Vector.tabulate(holeCount)(marker(depth, _))
+  private def closed[C <: NativeSpecializer & Singleton](depth: Int, holeCount: Int, body: FoldState): SpecializationState[C] =
+    val bodyState = TermOrder.ownState[SpecializationState[C]](body)
+    val markers = Vector.tabulate(holeCount)(marker[C](depth, _))
     val own = markers.map(marker => bodyState.holes.getOrElse(marker, HoleUse.unused))
     val root = bodyState.root match
       case SpecializationRoot.Contract(remaining)         => SpecializationRoot.Contract(own ++ remaining)

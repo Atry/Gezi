@@ -2,22 +2,22 @@ package gezi.standardlibrary
 
 import gezi.frontend.Defunctionalization
 import gezi.frontend.Lambdalattice
-import gezi.ir.Instruction
 import gezi.knowledgereading.KnowledgeReading
 import gezi.weakhead.Computation
-import gezi.weakhead.Value
+import gezi.ir.Value
 import gezi.weakhead.Values
+import gezi.ir.{Configured, NoFacts}
 
 /** What justifies an entry of the vocabulary: a lemma whose two sides are
-  * the terms, in either order, each the instruction of a term whose first
+  * the terms, in either order, each the term (of no facts) whose first
   * abstraction binds the combinator (`CombinatorPropertyVocabulary.side`
   * instantiates it); or nothing, for a matching, a front end or a backend
   * entry.
   */
 enum Justification:
   case Lemma(
-      left: Instruction,
-      right: Instruction
+      left: Configured[NoFacts.type],
+      right: Configured[NoFacts.type]
   )
   case Matching
   case FrontEnd
@@ -71,6 +71,24 @@ enum Justification:
   *     says nothing about a type. The marker's body must be no other
   *     library term's, or hash consing would make every application of that body
   *     a marker; the backend keeps the fallback to the other members.
+  *   - `repeller` (justified): operational. C is β-equal to the identity,
+  *     and a class of the e-graph that holds an application of C has no
+  *     entry in the extraction (`gezi.extraction.CostModel.repeller`), so
+  *     that no term the extraction spells reads through it. Its lemma is C's
+  *     erasure, with, in either order, the sides `λx. C x` and `λx. x`, the
+  *     row of `justified_properties.lambdalattice`. Soundness: leaving a
+  *     class out of the extraction leaves out spellings only, every entry
+  *     kept being a term of its class, so no answer is added; a lemma that
+  *     writes `C M` in a class writes M's own class, C M being M by the
+  *     erasure. It is an order of reading, not a fact of the
+  *     algebra, as `typed_branch` is: a lemma that writes a negative
+  *     conclusion, such as a typed version whose filter its operand's type
+  *     is refuted for, cannot take the term out of the e-graph, where it
+  *     stays equal to the class's other members (`CONTRIBUTING.md`,
+  *     "A negative conclusion is encoded as an attractor's guard"). The
+  *     property is on the marker, not on the member, and says nothing about a
+  *     type; the marker's body must be no other library term's, for the
+  *     reason `typed_branch` gives.
   *   - `data_family(Arity, Constructors)` (backend), on a family's criterion
   *     C: a filter `x ∥ C @ P1 @ … @ Pk` with k = Arity says x is held as a
   *     value of the family whose constructors are the library terms
@@ -121,6 +139,7 @@ object CombinatorPropertyVocabulary:
       case Property.FirstOrderConstructor   => Justification.Backend
       case Property.NativeSpecialization(_) => Justification.Backend
       case Property.TypedBranch             => Justification.Backend
+      case Property.Repeller                => justifiedLemma("repeller")
       case Property.DataFamily(_, _)        => Justification.Backend
       case Property.DataFields(_, _)        => Justification.Backend
       case Property.JvmType(_)              => Justification.Backend
@@ -129,8 +148,8 @@ object CombinatorPropertyVocabulary:
     * abstraction instantiated by the combinator's instruction, by the front end
     * (`Defunctionalization.bodyInstantiated`).
     */
-  def side(term: Instruction, combinator: Instruction): Instruction =
-    Defunctionalization.bodyInstantiated(term, combinator)
+  def side(term: Configured[NoFacts.type], combinator: Configured[NoFacts.type]): Configured[NoFacts.type] =
+    Defunctionalization.bodyInstantiated(term, combinator)(using NoFacts)
 
   private def justifiedLemma(property: String): Justification =
     justifiedLemmas.getOrElse(
@@ -153,7 +172,7 @@ object CombinatorPropertyVocabulary:
   /** The properties `justified_properties.lambdalattice` has a member of,
     * in the order of the members.
     */
-  private val justifiedProperties: Vector[String] = Vector("associative")
+  private val justifiedProperties: Vector[String] = Vector("associative", "repeller")
 
   /** The lemmas of the justified entries, by the property's name, read from
     * the resource `justified_properties.lambdalattice` under weak head as
@@ -165,11 +184,12 @@ object CombinatorPropertyVocabulary:
     val stream = Option(getClass.getResourceAsStream("justified_properties.lambdalattice"))
       .getOrElse(throw IllegalStateException("the resource justified_properties.lambdalattice is missing"))
     val text = String(stream.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8)
-    val table = Defunctionalization.thunkInstruction(Lambdalattice.term(text))
-    def term(value: Value): Instruction = Values.instruction(value)
+    given NoFacts.type = NoFacts
+    val table = Defunctionalization.thunkInstruction[NoFacts.type](Lambdalattice.term(text))
+    def term(value: Value[NoFacts.type]): Configured[NoFacts.type] = Values.instruction(value)
     KnowledgeReading.run(
       KnowledgeReading
-        .soleField(table)
+        .soleField(Value.of(table))
         .flatMap(group => KnowledgeReading.fields(group, justifiedProperties.size))
         .flatMap(members =>
           Computation.traversed(justifiedProperties.zip(members))((property, member) =>

@@ -19,7 +19,7 @@
 . (λtuple. tuple λmixin. mixin mixin)
 λ omega
 . omega (omega (omega (omega corpora "library") "native_types") "markers")
-λ _ _ _ $closure
+λ _ _ _ $closure _
 . export
 λ _ rewriting _ _
 . rewriting

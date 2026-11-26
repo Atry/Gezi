@@ -23,11 +23,14 @@ import gezi.hotspot.ExpansionSource
 import gezi.hotspot.ForeignCall
 import gezi.hotspot.ForeignService
 import gezi.hotspot.ForeignValue
-import gezi.ir.Instruction
+import gezi.ir.Configured
+import gezi.ir.NoFacts
 import gezi.jit.JitRunState
 import gezi.jit.NativesProvider
 import gezi.saturation.StopSignal
 import snapshot4s.generated.snapshotConfig
+
+private given mooreInteractionLawTestNoFacts: NoFacts.type = NoFacts
 
 /** The laws of an FFI program run by a configured entry
   * on the fixture
@@ -44,7 +47,7 @@ class MooreInteractionLawTest extends GeneratedProperties with SeededSnapshots:
 
   private val buildRoot = Paths.get(sys.props("gezi.buildRoot")).toAbsolutePath.normalize
 
-  private lazy val entry: GenericEntry =
+  private lazy val entry: GenericEntry[?] =
     val (data, afterEntry) = EntryData.at(
       buildRoot,
       buildRoot.resolve("tests/moore_fixtures/entry_with_moore.lambdalattice"),
@@ -79,9 +82,9 @@ class MooreInteractionLawTest extends GeneratedProperties with SeededSnapshots:
         Vector(ForeignValue.Term(closed(s"λk. k \"${call.owner}.${call.name}${call.descriptor}[$arguments]\"")))
       ))
 
-  private def closed(text: String): Instruction = Defunctionalization.thunkInstruction(Lambdalattice.term(text))
+  private def closed(text: String): Configured[NoFacts.type] = Defunctionalization.thunkInstruction(Lambdalattice.term(text))(using gezi.ir.NoFacts)
 
-  private val identity: Instruction = closed("λx. x")
+  private val identity: Configured[NoFacts.type] = closed("λx. x")
 
   /** The bit tuple of the byte, high bit first (`java_ffi/bits`). */
   private def byteText(value: Byte): String =
@@ -102,7 +105,7 @@ class MooreInteractionLawTest extends GeneratedProperties with SeededSnapshots:
   private val pair = "(λx y s. s x y)"
 
   /** The normal forms of the answers of the program under the service. */
-  private def answers(program: String, service: ForeignService, stop: StopSignal): Set[Instruction] =
+  private def answers(program: String, service: ForeignService, stop: StopSignal): Set[Configured[NoFacts.type]] =
     val source = ExpansionSource.fresh()
     val run = entry
       .interacted(closed(program), service, source, stop)
@@ -110,13 +113,14 @@ class MooreInteractionLawTest extends GeneratedProperties with SeededSnapshots:
     assert(run.finished, s"the run of $program did not finish")
     run.answers.flatMap(normalForms(_, source, stop)).toSet
 
-  private def normalForms(term: Instruction, source: ExpansionSource, stop: StopSignal): Vector[Instruction] =
-    val output = Instruction.Apply(identity, term)
+  private def normalForms(term: Configured[NoFacts.type], source: ExpansionSource, stop: StopSignal): Vector[Configured[NoFacts.type]] =
+    val output = NoFacts.application(identity, term)
+    given gezi.ir.StorageAccess = gezi.weakhead.ReadingConfiguration.withoutFacts.storageAccess
     entry.run(Cells.cell(DeBruijnTerm.Constant(output)), source, stop) match
-      case Interaction.Finished(OutputDisplay.NoNormalForm, _, _) => Vector.empty
-      case Interaction.Finished(OutputDisplay.Shown(shown), _, _) if shown == output =>
+      case Interaction.Finished(OutputDisplay.Values(choices), _, _) =>
+        gezi.weakhead.ScottADTChoices.members(choices).map(gezi.weakhead.ScottADTChoices.withFilters)
+      case Interaction.Finished(OutputDisplay.Remainder(_) | OutputDisplay.Mixed(_, _), _, _) =>
         throw IllegalStateException(s"the entry did not evaluate $term")
-      case Interaction.Finished(OutputDisplay.Shown(Instruction.ChoiceMembers(members)), _, _) => members
 
   private val byte: Gen[Byte] = Gen.byte(Range.constant(Byte.MinValue, Byte.MaxValue))
 
@@ -166,7 +170,7 @@ class MooreInteractionLawTest extends GeneratedProperties with SeededSnapshots:
     for
       other <- normalForm.forAll
       state <- outside(other).forAll
-    yield Result.diff(answers(state, Echoing, StopSignal.completedWith(stopped)), Set.empty[Instruction])(_ == _)
+    yield Result.diff(answers(state, Echoing, StopSignal.completedWith(stopped)), Set.empty[Configured[NoFacts.type]])(_ == _)
   }
 
   private val fewInputs: hedgehog.core.PropertyConfig => hedgehog.core.PropertyConfig =
@@ -244,32 +248,40 @@ class MooreInteractionLawTest extends GeneratedProperties with SeededSnapshots:
     val step = callState(7, s"λr. self ($pair r accumulator) rest")
     s"($fixpoint (λself accumulator n. n ${finishState("accumulator")} (λrest. $step))) (λy. y) ${natural(count)}"
 
-  private def countsAfter(after: gezi.contest.entry.Entry): gezi.jit.JitCounts = after match
-    case generic: GenericEntry =>
+  private def countsAfter(after: gezi.contest.entry.Entry[?]): gezi.jit.JitCounts = after match
+    case generic: GenericEntry[?] =>
       generic.executor match
-        case moore: MooreExecutor =>
-          moore.reading.jitState match
-            case state: JitRunState => state.counts
-            case other              => throw IllegalStateException(s"the executor holds no JIT state: $other")
-        case other => throw IllegalStateException(s"the fixture entry's executor is $other")
+        case moore: MooreExecutor[?] => countsOf(moore)
+        case other                   => throw IllegalStateException(s"the fixture entry's executor is $other")
     case other => throw IllegalStateException(s"the fixture entry became $other")
+
+  /** The counts of the JIT state the Moore executor's reading holds under its JIT's configuration. */
+  private def countsOf[C <: gezi.ir.NativeSpecializer & Singleton](moore: MooreExecutor[C]): gezi.jit.JitCounts =
+    JitRunState
+      .held(moore.reading.jitState, moore.jit.configuration)
+      .getOrElse(throw IllegalStateException(s"the executor holds no JIT state: ${moore.reading.jitState}"))
+      .counts
+
+  /** The values the check that a field holds no case of a decoding visits
+    * in a run of `count` linked calls.
+    */
+  private def caseWalkVisits(count: Int, stop: StopSignal): Long =
+    val run = entry
+      .interacted(closed(linkedCalls(count)), Echoing, ExpansionSource.fresh(), stop)
+      .getOrElse(throw IllegalStateException("the fixture entry's executor runs no FFI program"))
+    assert(run.finished, s"the run of $count calls did not finish")
+    countsAfter(run.entry).decodingCaseVisits
 
   /** Its purpose is to catch the check that a field holds no case of a
     * decoding going back to walking the whole state at every step, which
-    * costs the square of the number of calls.
+    * costs the square of the number of calls: one more call adds as many
+    * visits after any number of calls as after one.
     */
-  stoppableTest("the check of a growing state visits what each step adds") { stopped =>
-    val stop = StopSignal.completedWith(stopped)
-    assertSeededSnapshot(Gen.int(Range.linear(1, 64)), seed = 1893L, count = 8, "moore/case_walk_visits.txt")(
-      _.toString,
-      (visits: Long) => visits.toString
-    ) { count =>
-      val run = entry
-        .interacted(closed(linkedCalls(count)), Echoing, ExpansionSource.fresh(), stop)
-        .getOrElse(throw IllegalStateException("the fixture entry's executor runs no FFI program"))
-      assert(run.finished, s"the run of $count calls did not finish")
-      countsAfter(run.entry).decodingCaseVisits
-    }
+  stoppableProperty("one more call of a growing state adds as many visits whatever the state's length", fewInputs) { stopped =>
+    for count <- Gen.int(Range.linear(1, 48)).forAll
+    yield
+      val stop = StopSignal.completedWith(stopped)
+      Result.diff(caseWalkVisits(count + 1, stop) - caseWalkVisits(count, stop), caseWalkVisits(2, stop) - caseWalkVisits(1, stop))(_ == _)
   }
 
   /** A recursion of `count` calls of one method, whose owner is the text. */

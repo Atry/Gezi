@@ -1,0 +1,4 @@
+direct/reached blocks=1 computed=true
+respelled/reached blocks=0 computed=false
+direct/unreached blocks=1 computed=true
+respelled/unreached blocks=0 computed=false

@@ -1,5 +1,7 @@
 package gezi.weakhead
 
+import gezi.ir.NoFacts
+import gezi.ir.Configured
 import hedgehog.Gen
 import hedgehog.Range
 import hedgehog.Result
@@ -9,7 +11,6 @@ import gezi.hotspot.ExpansionSource
 import gezi.hotspot.LifecycleEvent
 import gezi.hotspot.Retention
 import gezi.hotspot.baselines.BaselineCaches
-import gezi.ir.Instruction
 import gezi.standardlibrary.SplitMix
 
 /** The clearing law of shared tables (`TableSharing`),
@@ -31,6 +32,8 @@ import gezi.standardlibrary.SplitMix
   */
 class TableSharingLawTest extends GeneratedProperties:
 
+  given NoFacts.type = NoFacts
+
   private val modelLimit: Long = 3000
 
   private enum Operation:
@@ -38,12 +41,12 @@ class TableSharingLawTest extends GeneratedProperties:
     case Cleared
     case SourceChanged
 
-  private val pool: Gen[Vector[Instruction]] =
+  private val pool: Gen[Vector[Configured[NoFacts.type]]] =
     Gen.list(
       for
         size <- Gen.int(Range.linear(2, 20))
         seed <- Gen.long(Range.linear(0L, Long.MaxValue))
-      yield Defunctionalization.thunkInstruction(EvaluatorTesting.randomApplication(size, SplitMix(seed))._1),
+      yield Defunctionalization.thunkInstruction[NoFacts.type](EvaluatorTesting.randomApplication(size, SplitMix(seed))._1),
       Range.singleton(3)
     ).map(_.toVector)
 
@@ -58,8 +61,8 @@ class TableSharingLawTest extends GeneratedProperties:
     ).list(Range.linear(1, 16))
 
   /** The heads of a reading, if it finished. */
-  private def heads(term: Instruction, state: ReadingState): Option[Set[ParallelSet]] =
-    WeakHead.heads(Mode.TablingWeakHead, term).collected.result(state) match
+  private def heads(term: Configured[NoFacts.type], state: ReadingState[NoFacts.type]): Option[Set[ParallelSet[NoFacts.type]]] =
+    WeakHead.heads(Mode.TablingWeakHead, gezi.ir.Value.of(term)).collected.result(state) match
       case Computed.Done(sets, _) => Some(sets.toSet)
       case Computed.Stopped(_)    => None
 
@@ -67,19 +70,20 @@ class TableSharingLawTest extends GeneratedProperties:
     property(s"readings sharing their complete tables under $retention read the heads of readings from no table") {
       for
         terms <- pool.forAll
-        steps <- operations.forAll
-          .cover(30, "a term read twice with no clearing between", repeatedRead)
-          .cover(30, "a shared reading stopped by its limit", _.exists {
-            case Operation.Read(_, limit) => limit < 20
-            case _                        => false
-          })
+        drawn <- operations.forAll
+        repeated <- Gen.int(Range.constant(0, 2)).forAll
       yield
+        // Both cases the law must reach, by construction every iteration: a
+        // shared reading under a limit of 1, which stops it (the terms take 3
+        // to 20 steps), and the same term then read twice with no clearing
+        // and no change of source between.
+        val steps = drawn ++ List(Operation.Read(repeated, 1L), Operation.Read(repeated, 40L), Operation.Read(repeated, 40L))
         val provider = BaselineCaches.provider()
         val (_, checks) = steps.foldLeft((ExpansionSource.fresh(), Vector.empty[Result])) {
           case ((source, checked), Operation.Read(index, limit)) =>
             val term = terms(index)
-            val shared = ReadingState.knowingTop(limit).copy(sharing = TableSharing.Shared(provider, retention, source))
-            val compared = (heads(term, shared), heads(term, ReadingState.knowingTop(modelLimit))) match
+            val shared = ReadingState.knowingTop(limit, gezi.weakhead.ReadingConfiguration.withoutFacts).copy(sharing = TableSharing.Shared(provider, retention, source))
+            val compared = (heads(term, shared), heads(term, ReadingState.knowingTop(modelLimit, gezi.weakhead.ReadingConfiguration.withoutFacts))) match
               case (Some(found), Some(expected)) => Result.diff(found, expected)(_ == _)
               case _                             => Result.success
             (source, checked :+ compared)
@@ -92,14 +96,3 @@ class TableSharingLawTest extends GeneratedProperties:
         Result.all(checks.toList)
     }
   )
-
-  /** Whether some term is read twice with no clearing and no change of
-    * source between the two readings.
-    */
-  private def repeatedRead(steps: List[Operation]): Boolean =
-    steps
-      .foldLeft((Set.empty[Int], false)) {
-        case ((read, repeated), Operation.Read(index, _)) => (read + index, repeated || read.contains(index))
-        case ((_, repeated), Operation.Cleared | Operation.SourceChanged) => (Set.empty, repeated)
-      }
-      ._2

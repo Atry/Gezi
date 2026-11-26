@@ -2,8 +2,8 @@ package gezi.backendcomparison
 
 import gezi.egraph.EGraph
 import gezi.egraph.Justification
-import gezi.ir.Instruction
-import gezi.ir.Layer
+import gezi.ir.Configured
+import gezi.ir.NoFacts
 import gezi.ir.LemmaIdentifier
 import gezi.ir.Store
 import scala.annotation.tailrec
@@ -14,29 +14,31 @@ class FixedPointTest extends gezi.generatedinputs.FailFastSuite:
   /** `function first` and `function second`, paired in either order; the
     * three names are noinline leaves.
     */
-  private val function = Instruction.opaque("function")
-  private val first = Instruction.opaque("first")
-  private val second = Instruction.opaque("second")
-  private val functionOfFirst = Instruction(Apply(function, first))
-  private val functionOfSecond = Instruction(Apply(function, second))
-  private val pairInOrder = Instruction(Parallel(functionOfFirst, functionOfSecond))
-  private val pairReversed = Instruction(Parallel(functionOfSecond, functionOfFirst))
+  private type C = NoFacts.type
 
-  private val store = Store(noinline = Set(function, first, second))
+  private val function = NoFacts.opaque("function")
+  private val first = NoFacts.opaque("first")
+  private val second = NoFacts.opaque("second")
+  private val functionOfFirst = NoFacts.application(function, first)
+  private val functionOfSecond = NoFacts.application(function, second)
+  private val pairInOrder = NoFacts.parallel(functionOfFirst, functionOfSecond)
+  private val pairReversed = NoFacts.parallel(functionOfSecond, functionOfFirst)
+
+  private val store = Store(noinline = Set(function, first, second), gezi.ir.TermConstruction(NoFacts))
 
   private val lemma = Justification.Lemma(LemmaIdentifier(0), Vector.empty)
 
-  private def added(graph: EGraph, instruction: Instruction): EGraph =
+  private def added(graph: EGraph[C], instruction: Configured[C]): EGraph[C] =
     val (next, _) = graph.instructionAdded(instruction)
     next
 
   @tailrec
-  private def unionsWorked(graph: EGraph): EGraph = graph.unionTaken match
+  private def unionsWorked(graph: EGraph[C]): EGraph[C] = graph.unionTaken match
     case Some((pending, rest)) =>
       unionsWorked(rest.unionWorked(pending.first, pending.second, pending.justification, pending.made))
     case None => graph
 
-  private def united(graph: EGraph, instruction: Instruction, other: Instruction): EGraph =
+  private def united(graph: EGraph[C], instruction: Configured[C], other: Configured[C]): EGraph[C] =
     unionsWorked(
       graph.unionWorked(graph.instructionNode(instruction).get, graph.instructionNode(other).get, lemma, None)
     )

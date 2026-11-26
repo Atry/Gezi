@@ -1,8 +1,8 @@
 package gezi.weakhead
 
 import gezi.ir.Code
-import gezi.ir.Instruction
 import gezi.saturation.StopSignal
+import gezi.ir.{Configured, NativeSpecializer, NoFacts, Pure, Value}
 
 /** The mode a reader takes heads under (evaluators.pl): the two modes of the
   * weak-head evaluator, and the JIT's.
@@ -24,9 +24,12 @@ enum Mode:
 
   /** `jit`: the JIT evaluator of the later module `jit`, which
     * answers the heads weak_head answers, in the same order, and which a
-    * reader treats as it treats weak_head.
+    * reader treats as it treats weak_head. The evaluator is the reading
+    * configuration's (`ReadingConfiguration.jit`), typed by the configuration as
+    * the reading's state is, so that the JIT's terms and the reader's are one
+    * configuration's by their types.
     */
-  case Jit(evaluator: JitEvaluator)
+  case Jit
 
 /** What the JIT evaluator gives a reader (evaluators.pl's `jit` branch):
   * the module `jit` implements it. The JIT answers the heads the
@@ -34,7 +37,7 @@ enum Mode:
   * run-time values, so a reader treats it as it treats weak_head: untabled,
   * heads that are plain values.
   */
-trait JitEvaluator:
+trait JitEvaluator[C <: NativeSpecializer & Singleton]:
 
   /** The parallel sets of the closed term in the order weak_head gives them,
     * each head as a reader observes it (`jit_observed_head/2`: a value of a
@@ -42,13 +45,10 @@ trait JitEvaluator:
     * codec encodes with), charging the reading's budget for the JIT's own
     * steps.
     */
-  def heads(term: Value): Answers[ReadingState, ParallelSet]
+  def heads(term: Value[C]): Answers[ReadingState[C], ParallelSet[C]]
 
-  /** The parallel sets with their heads as plain values of the IR, every
-    * value of a backend representation encoded whole
-    * (`jit_values_encoded/2`).
-    */
-  def encoded(heads: Vector[ParallelSet]): Vector[ParallelSet]
+  /** The configuration of the readings the JIT runs in: its facts' native specializer, its capability and itself. */
+  def readingConfiguration: ReadingConfiguration[C]
 
 /** The JIT's part of a reading's state, which the module `jit`
   * defines: what the Prolog JIT kept in the process (its cache of compiled
@@ -56,9 +56,11 @@ trait JitEvaluator:
   * of its decodings) and in backtrackable global variables (the path of the
   * readings of its fallback points), here a value the reading threads, kept
   * from one reading of a suite to the next as the Prolog process kept them.
-  * A reading that has not met the JIT holds `NoJitState`.
+  * A reading that has not met the JIT holds `NoJitState`. Covariant in the configuration `C` of the reading, so that
+  * `NoJitState`, which holds nothing of any configuration, is every reading's; the JIT's own state of `C` is the one
+  * the JIT reads back (`gezi.jit.JitRunState.of`, a registered conversion of issue 2261, section 8).
   */
-trait JitState:
+trait JitState[+C <: NativeSpecializer & Singleton]:
 
   /** This state without what it read through the expansions of URI nodes
     * (the answers of its tables), for a reading under another version of the
@@ -66,11 +68,19 @@ trait JitState:
     * what it holds of
     * the term's syntax alone, its compiled codes, is kept.
     */
-  def withoutAnswers: JitState
+  def withoutAnswers: JitState[C]
+
+  /** This state for a reading that starts now, under a fresh budget: what it
+    * keeps of the readings before (tables, compiled codes) kept, and what it
+    * counts against one reading's budget (the steps its group blocks wasted,
+    * the thunks it gave up) cleared.
+    */
+  def readingStarted: JitState[C]
 
 /** The JIT's part of a reading that has not met the JIT. */
-case object NoJitState extends JitState:
-  def withoutAnswers: JitState = this
+case object NoJitState extends JitState[Nothing]:
+  def withoutAnswers: JitState[Nothing] = this
+  def readingStarted: JitState[Nothing] = this
 
 /** A budget of evaluator steps (a Scala reading is
   * bounded by a deterministic count of evaluator steps where the Prolog one
@@ -92,25 +102,33 @@ case object NoJitState extends JitState:
   *   loser of the race sees the stop, and the winner's reading is the one
   *   it would be alone.
   */
-final case class Budget(spent: Long, limit: Long, stop: StopSignal = StopSignal.NeverStopped):
+final case class Budget(spent: Long, limit: Long, stop: StopSignal = StopSignal.NeverStopped, ceiling: Long = Long.MaxValue):
   require(limit >= 0, s"a budget's limit is not negative: $limit")
 
-  /** The budget after one more step, or nothing when the limit is reached
-    * or, at a check, a stop is requested.
+  /** The bound of the steps that is reached first: the limit, or the
+    * ceiling (`Long.MaxValue` unless set), the bound a part of the reading is
+    * tried under (`ReadingState.attempted`), which every charge reads; the
+    * share of the limit a group block may waste is reckoned from `limit`,
+    * which stays the reading's own.
+    */
+  def bound: Long = math.min(limit, ceiling)
+
+  /** The budget after one more step, or nothing when the limit or the
+    * ceiling is reached or, at a check, a stop is requested.
     */
   def charged: Option[Budget] =
-    if spent >= limit then None
+    if spent >= bound then None
     else if spent % Budget.stopCheckSteps == 0 && stop.stopRequested then None
     else Some(copy(spent = spent + 1))
 
   /** The budget after `count` more steps, or nothing when they would pass
-    * the limit or a stop is requested: the steps of work whose size is known
+    * the bound or a stop is requested: the steps of work whose size is known
     * before it is done, charged whole so that work the budget cannot pay for
     * is not started.
     */
   def chargedTimes(count: Long): Option[Budget] =
     require(count >= 0, s"a count of steps is not negative: $count")
-    if count > limit - spent then None
+    if count > bound - spent then None
     else if stop.stopRequested then None
     else Some(copy(spent = spent + count))
 
@@ -337,10 +355,18 @@ enum ParallelReading:
   * @param bottoms
   *   the spellings of least terms, such as Ω
   */
-final case class KnownExtremes(tops: Vector[Value], bottoms: Vector[Value]):
+final case class KnownExtremes(tops: Vector[Pure], bottoms: Vector[Pure]):
 
   /** Whether no term is listed: the plain evaluator. */
   def isEmpty: Boolean = tops.isEmpty && bottoms.isEmpty
+
+  /** Whether the value spells a listed greatest term: one object, the pure term being one under every configuration. */
+  def top[C <: NativeSpecializer & Singleton](term: Value[C]): Boolean =
+    tops.exists(listed => listed.representation eq term.representation)
+
+  /** Whether the value spells a listed least term. */
+  def bottom[C <: NativeSpecializer & Singleton](term: Value[C]): Boolean =
+    bottoms.exists(listed => listed.representation eq term.representation)
 
 /** The known extremes of the plain evaluator. */
 object KnownExtremes:
@@ -361,9 +387,31 @@ object KnownExtremes:
     * refers to this value nor to `Literals.top` itself.
     */
   val onlyTop: KnownExtremes = KnownExtremes(
-    Vector(gezi.frontend.Defunctionalization.thunkInstruction(gezi.frontend.Literals.top)),
+    Vector(gezi.frontend.Defunctionalization.pure(gezi.frontend.Literals.top)),
     Vector.empty
   )
+
+/** The configuration a reading builds and reads its terms under: the native specializer every term it builds goes through,
+  * its facts' or `NoFacts`, and the capability to read a storage's view.
+  */
+final case class ReadingConfiguration[C <: NativeSpecializer & Singleton](
+    specializer: C,
+    storageAccess: gezi.ir.StorageAccess,
+    jit: Option[JitEvaluator[C]] = None
+)
+
+object ReadingConfiguration:
+
+  /** The configuration of no facts: terms as written, which is canonical only because `NoFacts` declares no storage, so
+    * that a reading under it meets no storage and the capability it holds reads none. The library, an entry's data,
+    * the problem corpora and the judge's reference reading are read under it.
+    */
+  val withoutFacts: ReadingConfiguration[NoFacts.type] = ReadingConfiguration(NoFacts, gezi.ir.StorageAccess.granted())
+
+  // TODO: deleted: `under(mode, weakHead)`, which picked the JIT's configuration out of `Mode.Jit(evaluator)`. Wrong
+  // because the mode held an evaluator of no configuration's type; the evaluator is now the configuration's own
+  // (`ReadingConfiguration.jit`); issue https://github.com/Atry/private-overlay/issues/2261, design v38, section 4. Read
+  // it back with `git show 7669694cc:gezi/weakhead-core/src/main/scala/gezi/weakhead/ReadingState.scala`.
 
 /** The state a reading threads: the evaluator's tables (used under
   * `tabling(weak_head)` only), and the budget.
@@ -376,6 +424,8 @@ object KnownExtremes:
   *   the number of tables the tabled mode may hold, complete or not
   * @param exhausted
   *   the resource whose limit stopped the reading, if one did
+  * @param configuration
+  *   the native specializer the reading builds its terms through and the capability to read a storage's view
   * @param jitState
   *   the JIT's part of the state (`JitState`), `NoJitState` until the JIT
   *   is met
@@ -424,23 +474,41 @@ object KnownExtremes:
   *   (`keptSpinePrefixes`)
   * @param parallels
   *   how `tabling(weak_head)` reads a parallel (`ParallelReading`)
+  * @param storages
+  *   how the reading reads the native storages it meets and builds the
+  *   parallels it makes (`StorageReading`); none by default, the storages
+  *   read by their views and every parallel built as written
+  * @param nativeCalls
+  *   the natives the storage option called whose results the reading read
+  *   (`StorageReading.called`), each also a step of the budget. Costs only,
+  *   never a type
   */
-final case class ReadingState(
-    tables: Tables[ReadingState, Value, ParallelSet],
+final case class ReadingState[C <: NativeSpecializer & Singleton](
+    tables: Tables[ReadingState[C], Value[C], ParallelSet[C]],
     budget: Budget,
     tableLimit: Int,
     exhausted: Option[Resource],
-    jitState: JitState = NoJitState,
+    // No default, so that no reading under facts builds its terms as written by omission.
+    configuration: ReadingConfiguration[C],
+    jitState: JitState[C] = NoJitState,
     extremes: KnownExtremes = KnownExtremes.none,
-    expansions: Expansions = Expansions.none,
+    expansions: Expansions[C] = Expansions.none[C],
     applications: ApplicationReading = ApplicationReading.ByLayer,
     sharing: TableSharing = TableSharing.Local,
     continuations: ContinuationReading = ContinuationReading.Substituted,
-    unverified: Set[Value] = Set.empty,
-    spinePrefixes: Map[Value, Value] = Map.empty,
+    unverified: Set[Value[C]] = Set.empty[Value[C]],
+    spinePrefixes: Map[Value[C], Value[C]] = Map.empty[Value[C], Value[C]],
     codeApplications: Option[Map[Code, Long]] = None,
-    parallels: ParallelReading = ParallelReading.BothSides
+    parallels: ParallelReading = ParallelReading.BothSides,
+    storages: Option[StorageReading[C]] = None,
+    nativeCalls: Long = 0
 ):
+
+  /** The native specializer every term the reading builds goes through. */
+  def specializer: C = configuration.specializer
+
+  /** The capability to read a storage's view, which the reading needs to read a storage at a head. */
+  def storageAccess: gezi.ir.StorageAccess = configuration.storageAccess
 
   /** This state with one more application of the code counted, when the
     * reading counts them (`codeApplications`); this state itself otherwise.
@@ -448,7 +516,7 @@ final case class ReadingState(
     * the code whose holes are all filled replaced by the code's body under
     * the fillings (`WeakHead`, APPLICATIONS COUNTED; the JIT's `JitRules`).
     */
-  def entered(code: Code): ReadingState =
+  def entered(code: Code): ReadingState[C] =
     codeApplications match
       case None         => this
       case Some(counts) => copy(codeApplications = Some(counts.updated(code, counts.getOrElse(code, 0L) + 1)))
@@ -459,8 +527,8 @@ final case class ReadingState(
     * (`Tables.stopped`), and a fresh budget under the same stop signal, so that a suite read in
     * one fork stays stoppable: `next` under `TableRetention.KeptAll`.
     */
-  def nextReading(limit: Long): ReadingState =
-    copy(tables = tables.stopped, budget = Budget.stoppedBy(limit, budget.stop), exhausted = None)
+  def nextReading(limit: Long): ReadingState[C] =
+    copy(tables = tables.stopped, budget = Budget.stoppedBy(limit, budget.stop), exhausted = None, jitState = jitState.readingStarted)
 
   /** The state of the next reading of the same owner, its tables kept as the
     * retention says:
@@ -470,7 +538,7 @@ final case class ReadingState(
     * dropping one changes no answer, only what a later reading computes
     * again.
     */
-  def next(retention: TableRetention, limit: Long): ReadingState =
+  def next(retention: TableRetention, limit: Long): ReadingState[C] =
     nextReading(limit).copy(
       tables = keptTables(retention),
       unverified = keptUnverified(retention),
@@ -480,7 +548,7 @@ final case class ReadingState(
   /** The tables the next reading of the same owner starts from under the
     * retention (`next`).
     */
-  def keptTables(retention: TableRetention): Tables[ReadingState, Value, ParallelSet] =
+  def keptTables(retention: TableRetention): Tables[ReadingState[C], Value[C], ParallelSet[C]] =
     if keeps(retention) then tables.stopped else Tables.empty
 
   /** The heads marked unverified that the next reading of the same owner
@@ -491,7 +559,7 @@ final case class ReadingState(
     * what was read before (the review of
     * https://github.com/Atry/private-overlay/pull/1798).
     */
-  def keptUnverified(retention: TableRetention): Set[Value] =
+  def keptUnverified(retention: TableRetention): Set[Value[C]] =
     if keeps(retention) then unverified else Set.empty
 
   /** The index of the keys' spines that the next reading of the same owner
@@ -499,7 +567,7 @@ final case class ReadingState(
     * (`keptTables`), whose keys it indexes, so that it does not outgrow
     * them.
     */
-  def keptSpinePrefixes(retention: TableRetention): Map[Value, Value] =
+  def keptSpinePrefixes(retention: TableRetention): Map[Value[C], Value[C]] =
     if keeps(retention) then spinePrefixes else Map.empty
 
   /** Whether the retention keeps the complete tables for the next reading. */
@@ -532,18 +600,75 @@ enum TableRetention:
     */
   case DroppedAtPercent(percent: Int)
 
+/** How a computation tried within a bound of its own ended
+  * (`ReadingState.attempted`).
+  */
+enum Attempt[C <: NativeSpecializer & Singleton, +Result]:
+  /** It ended within the bound, with its value. */
+  case Finished(value: Result)
+
+  /** It reached its own bound, below the reading's, with no stop requested
+    * (or, tried speculatively, exhausted a resource): the state it stopped in,
+    * which the caller may keep or drop.
+    */
+  case OutOfSteps(stopped: ReadingState[C])
+
 /** The state of a fresh reading. */
 object ReadingState:
 
-  /** No table, the budget of the limit, the table limit
-    * `defaultTableLimit`.
+  /** The computation within at most `steps` more steps, under a ceiling of
+    * its own (`Budget.ceiling`, the reading's limit left as it is, every charge
+    * reading `Budget.bound`): its value and state, the ceiling it found
+    * restored; or, when it reached that ceiling below the bound it was tried
+    * under, with no stop requested and no resource exhausted, the state before
+    * it with its steps spent, and the state it stopped in
+    * (`Attempt.OutOfSteps`); any other stop is the reading's, propagated. A
+    * `speculative` computation, work the reading would not otherwise ask
+    * for, that exhausts a resource is out of steps as well, its state, and so
+    * the tables it made, dropped: the reading goes on as if it had not been
+    * tried. The one way a part of a reading is given a bound below the
+    * reading's own: a parallel set's heads tried in turn (`NormalForms`, not
+    * speculative: the reading needs one of them), and, speculative, a
+    * lookahead, a group block's entry and the search for a self filling (the
+    * JIT's).
     */
-  def fresh(limit: Long): ReadingState =
-    ReadingState(Tables.empty, Budget.of(limit), defaultTableLimit, None)
+  def attempted[C <: NativeSpecializer & Singleton, Result](
+      computation: Computation[ReadingState[C], Result],
+      steps: Long,
+      speculative: Boolean
+  ): Computation[ReadingState[C], Attempt[C, Result]] =
+    require(steps >= 0, s"a count of steps is not negative: $steps")
+    Computation(state =>
+      val outer = state.budget
+      // The remainder compared first, so that a count near Long.MaxValue does not overflow the sum.
+      val ceiling = if steps >= outer.bound - outer.spent then outer.bound else outer.spent + steps
+      Trampoline.tailcall(computation.run(state.copy(budget = outer.copy(ceiling = ceiling)))).flatMap {
+        case Computed.Done(value, after) =>
+          Trampoline.done(Computed.Done(Attempt.Finished(value), after.copy(budget = after.budget.copy(ceiling = outer.ceiling))))
+        case Computed.Stopped(after) if ceiling < outer.bound && (speculative || after.exhausted.isEmpty) && !after.budget.stop.stopRequested =>
+          Trampoline.done(
+            Computed.Done(
+              Attempt.OutOfSteps(after.copy(budget = after.budget.copy(ceiling = outer.ceiling))),
+              state.copy(budget = outer.copy(spent = after.budget.spent))
+            )
+          )
+        case Computed.Stopped(after) => Trampoline.done(Computed.Stopped(after.copy(budget = after.budget.copy(ceiling = outer.ceiling))))
+      }
+    )
+
+  /** No table, the budget of the limit, the table limit
+    * `defaultTableLimit`, under the configuration.
+    */
+  def fresh[C <: NativeSpecializer & Singleton](limit: Long, configuration: ReadingConfiguration[C]): ReadingState[C] =
+    ReadingState(Tables.empty, Budget.of(limit), defaultTableLimit, None, configuration)
 
   /** A fresh state of the variant that knows the extremes. */
-  def knowing(limit: Long, extremes: KnownExtremes): ReadingState =
-    fresh(limit).copy(extremes = extremes)
+  def knowing[C <: NativeSpecializer & Singleton](
+      limit: Long,
+      extremes: KnownExtremes,
+      configuration: ReadingConfiguration[C]
+  ): ReadingState[C] =
+    fresh(limit, configuration).copy(extremes = extremes)
 
   /** The state every reading of the contest starts from: a fresh state that
     * knows top alone as a greatest term (`KnownExtremes.onlyTop`), no least term
@@ -554,7 +679,8 @@ object ReadingState:
     * readings agree. A value its callers pass: the evaluator reads only the
     * state's `extremes`, by spelling, and never refers to `onlyTop`.
     */
-  def knowingTop(limit: Long): ReadingState = knowing(limit, KnownExtremes.onlyTop)
+  def knowingTop[C <: NativeSpecializer & Singleton](limit: Long, configuration: ReadingConfiguration[C]): ReadingState[C] =
+    knowing(limit, KnownExtremes.onlyTop, configuration)
 
   /** The tables a reading may hold, the counterpart of SWI-Prolog's table
     * space, which the Prolog readings ran under at 32 MB: a tabled reading

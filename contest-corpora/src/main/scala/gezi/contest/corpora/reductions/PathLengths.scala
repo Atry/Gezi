@@ -36,7 +36,7 @@ object PathLengths:
     * Lengths answering zero at the target and the successor of each
     * successor's lengths (`path_lengths_term/6`).
     */
-  def pathLengthsTerm(attractors: Attractors, count: Int, edges: Vector[(Int, Int)], start: Int, target: Int, bound: Int): Term =
+  def pathLengthsTerm(attractors: Attractors, count: Int, edges: Vector[(Int, Int)], start: Int, target: Int, bound: Int): ProblemTerm =
     Graphs.numeralLets(
       count,
       nodes =>

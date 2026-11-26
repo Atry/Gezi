@@ -1,5 +1,7 @@
 package gezi.strategies
 
+import gezi.ir.NativeSpecializer
+
 /** The fold state of `weak_redexes`: the count of weak redexes, which is the
   * value and the rank, and how many arguments the term, as the head of a
   * spine, still waits for to make a weak redex, `None` for none
@@ -28,15 +30,15 @@ final case class RedexesReading(waiting: Option[Int]) extends ModuleReading
   * term is an application, a choice or a parallel takes no argument (a
   * reading of the term's structure, never of its name).
   */
-object WeakRedexes extends NormalityModule:
+object WeakRedexes extends ConfigurationFreeModule:
 
   val name: String = "weak_redexes"
 
   val meetsExtractionContract: Boolean = true
 
-  def folded(layer: OrderTerm, reading: TermReading): FoldState = state(layer, reading)
+  def folded[C <: NativeSpecializer & Singleton](layer: OrderTerm[C], reading: TermReading[C]): FoldState = state(layer, reading)
 
-  private def state(term: OrderTerm, reading: TermReading): RedexesState = term match
+  private def state[C <: NativeSpecializer & Singleton](term: OrderTerm[C], reading: TermReading[C]): RedexesState = term match
     case OrderTerm.Folded(folded, _) => TermOrder.ownState[RedexesState](folded)
     case OrderTerm.Name(instruction)   => RedexesState(0, pendingOfHead(reading.instructionLayer(instruction)))
     case leaf if TermReading.leafTerm(leaf) => RedexesState(0, None)
@@ -59,7 +61,7 @@ object WeakRedexes extends NormalityModule:
   /** A thunk with N holes, N at least 1, waits for N arguments; any other
     * term for none (`pending_of_head/2`).
     */
-  private def pendingOfHead(term: OrderTerm): Option[Int] = term match
+  private def pendingOfHead[C <: NativeSpecializer & Singleton](term: OrderTerm[C]): Option[Int] = term match
     case OrderTerm.Thunk(_, holes, _) if holes.nonEmpty => Some(holes.size)
     case _                                              => None
 

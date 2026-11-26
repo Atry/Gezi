@@ -1,0 +1,68 @@
+# The typed branches of the remainder and of the difference with no borrow on binary
+# naturals: each recursion equals the choice of itself and its typed version at filtered
+# operands, for all operands, by monotonicity alone, by the paper proof its declaration
+# cites. The recursion a program writes is the IR term itself, so no lemma folds it.
+#
+# The typed versions are noinline leaves, so a lemma never matches inside its own right
+# side. Termination of this module's saturation, derived and not proved: the left sides'
+# instances are the program's own subterms of those shapes, and the right sides add only
+# applications of terms already there, the typed leaves and filters of operands already
+# there.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "prelude") "boolean")
+λ _ boolean_false _ _
+. omega (omega (omega (omega corpora "library") "binary") "natural")
+λ _ _ _ _ binary_set
+. omega (omega (omega (omega corpora "library") "native_types") "boolean")
+λ true _ _ _
+. omega (omega (omega (omega corpora "library") "plover_compositions") "plover_binary_arithmetic")
+λ _ binary_subtract
+. omega (omega (omega (omega corpora "library") "plover_compositions") "plover_compositions")
+λ _ _ plover_binary_modulo _ _ _
+. omega (omega (omega (omega corpora "library") "plover_compositions") "plover_natural_arithmetic")
+λ plover_typed_natural_modulo plover_typed_natural_difference
+. export
+  ( λ _ rewriting _ _
+    . rewriting
+    λ _ _ leaves
+    . leaves
+      ( λkey. key plover_typed_natural_modulo
+      + λkey. key plover_typed_natural_difference
+      )
+  + λ _ _ _ backend
+    . backend
+    λ _ natives _ _ _ _
+    . natives
+      ( λ binding. binding plover_typed_natural_modulo λkey. key "plover_natural_modulo"
+      + λ binding. binding plover_typed_natural_difference λkey. key "plover_natural_difference"
+      )
+  + λ _ rewriting _ _
+    . rewriting
+    λ _ lemmas _
+    . lemmas
+      ( λ lemma
+        . lemma
+          (λkey. key "plover_natural_modulo_branch")
+          (λ number modulus. plover_binary_modulo number modulus)
+          ( λ number modulus
+            . ( plover_binary_modulo number modulus
+              + plover_typed_natural_modulo (number ∥ binary_set true) (modulus ∥ binary_set true)
+              )
+          )
+        λ _ metadata _
+        . metadata λkey. key "[plover_natural_modulo_branch](docs/design/gezi-plover-ordered-compositions-proofs.md)"
+      + λ lemma
+        . lemma
+          (λkey. key "plover_natural_difference_branch")
+          (λ minuend subtrahend. binary_subtract minuend subtrahend boolean_false)
+          ( λ minuend subtrahend
+            . ( binary_subtract minuend subtrahend boolean_false
+              + plover_typed_natural_difference (minuend ∥ binary_set true) (subtrahend ∥ binary_set true)
+              )
+          )
+        λ _ metadata _
+        . metadata λkey. key "[plover_natural_difference_branch](docs/design/gezi-plover-ordered-compositions-proofs.md)"
+      )
+  )

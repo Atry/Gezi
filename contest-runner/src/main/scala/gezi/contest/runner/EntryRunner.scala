@@ -20,6 +20,7 @@ import gezi.hotspot.CacheNamespace
 import gezi.hotspot.CacheProvider
 import gezi.hotspot.ExpansionSource
 import gezi.hotspot.LifecycleEvent
+import gezi.ir.{NativeSpecializer, StorageAccess}
 import gezi.saturation.StopSignal
 import scala.annotation.tailrec
 import scala.concurrent.Await
@@ -30,9 +31,14 @@ import scala.util.Try
 import scala.jdk.CollectionConverters.*
 
 /** The judge's side in a reader's JVM: it loads the reader, writes the line `ready` on the pipe,
-  * then reads one cell line (`PipeLines`) at a time from the standard
-  * input and writes its answer line, the entry one cell finished with
-  * running the next. The pipe is the process's original standard output;
+  * then reads one point's line (`PipeLines`) at a time from the standard
+  * input, builds the point's cell from the program's line and, for a
+  * judgment, the candidate's (`PipeLines.cellRead`), and writes its answer
+  * line, the entry one cell finished with running the next. Only the
+  * runner reads the pipe: the entry is given the cell alone
+  * (`gezi.contest.entry.Entry.run`), and no interface hands it a point's
+  * name, its kind or its lines, as when the judge wrote the cell's line
+  * itself. The pipe is the process's original standard output;
   * `System.out` is pointed at the standard error, so that what an entry
   * prints cannot be read as an answer. Nothing is caught: an exception, an
   * `OutOfMemoryError` (the JVM runs with `-XX:+ExitOnOutOfMemoryError`) or
@@ -80,7 +86,7 @@ object EntryRunner:
     * expansion source, made here: the files of the tree do not change while
     * the judge runs (`Entry.run`).
     */
-  def served(initial: Cache => Entry, recordings: Option[Path]): Unit =
+  def served(initial: Cache => Entry[?], recordings: Option[Path]): Unit =
     val pipe = PrintStream(FileOutputStream(FileDescriptor.out), false, StandardCharsets.UTF_8)
     System.setOut(System.err)
     val provider = Defaults.caches()
@@ -122,7 +128,7 @@ object EntryRunner:
       pipe: PrintStream,
       provider: CacheProvider,
       source: ExpansionSource,
-      entry: Entry,
+      entry: Entry[?],
       recordings: Option[Path]
   ): Unit =
     answeredFrom(Option(input.readLine()), input, pipe, provider, source, entry, recordings)
@@ -145,7 +151,7 @@ object EntryRunner:
       pipe: PrintStream,
       provider: CacheProvider,
       source: ExpansionSource,
-      entry: Entry,
+      entry: Entry[?],
       recordings: Option[Path]
   ): Unit =
     read match
@@ -155,26 +161,52 @@ object EntryRunner:
         // parsed, so that a cancel that comes while a large cell is still
         // being parsed reaches the call's stop.
         val readAhead = Option.when(PipeLines.isCellLine(line))(nextLine(input))
-        PipeLines.receivedRead(line) match
-          case PipeLines.Received.Cancel =>
-            answeredFrom(Option(input.readLine()), input, pipe, provider, source, entry, recordings)
-          case PipeLines.Received.Lifecycle(event) =>
-            announced(provider, event)
-            pipe.print(PipeLines.lifecycleDone + "\n")
+        // The entry's configuration is a type the loop does not name: each line is handled by a method generic in it,
+        // which opens the entry by capture conversion.
+        val (next, following) = handled(entry, line, readAhead, input, pipe, provider, source, recordings)
+        answeredFrom(following, input, pipe, provider, source, next, recordings)
+
+  /** The capability to read a storage's view, which the runner needs to read the terms of the pipe's lines in the
+    * entry's configuration and to write the entry's display: the adapter's own, granted here.
+    */
+  private val storageAccess: StorageAccess = StorageAccess.granted()
+
+  /** One line handled for an entry of the configuration `C`: the terms of the line are read by the entry's native
+    * specializer (`Entry.specializer`), a cell is run by the entry, a lifecycle event is handed to the provider.
+    * The entry after it, and the line to handle next.
+    */
+  private def handled[C <: NativeSpecializer & Singleton](
+      entry: Entry[C],
+      line: String,
+      readAhead: Option[Future[Option[String]]],
+      input: BufferedReader,
+      pipe: PrintStream,
+      provider: CacheProvider,
+      source: ExpansionSource,
+      recordings: Option[Path]
+  ): (Entry[C], Option[String]) =
+    given C = entry.specializer
+    given StorageAccess = storageAccess
+    PipeLines.receivedRead[C](line) match
+      case PipeLines.Received.Cancel =>
+        (entry, Option(input.readLine()))
+      case PipeLines.Received.Lifecycle(event) =>
+        announced(provider, event)
+        pipe.print(PipeLines.lifecycleDone + "\n")
+        pipe.flush()
+        (entry, Option(input.readLine()))
+      case PipeLines.Received.Cell(name, cell) =>
+        val recording = recordings.map(FlightRecordings.started(_, name))
+        announced(provider, LifecycleEvent.PointStarted)
+        val following =
+          readAhead.getOrElse(throw AssertionError(s"the cell line of $name was not recognized as one before it was parsed"))
+        entry.run(cell, source, CancelRead(following)) match
+          case Interaction.Finished(display, phases, next) =>
+            announced(provider, LifecycleEvent.PointFinished)
+            pipe.print(PipeLines.answerLine(name, phases, display) + "\n")
             pipe.flush()
-            answeredFrom(Option(input.readLine()), input, pipe, provider, source, entry, recordings)
-          case PipeLines.Received.Cell(name, cell) =>
-            val recording = recordings.map(FlightRecordings.started(_, name))
-            announced(provider, LifecycleEvent.PointStarted)
-            val following =
-              readAhead.getOrElse(throw AssertionError(s"the cell line of $name was not recognized as one before it was parsed"))
-            entry.run(cell, source, CancelRead(following)) match
-              case Interaction.Finished(display, phases, next) =>
-                announced(provider, LifecycleEvent.PointFinished)
-                pipe.print(PipeLines.answerLine(name, phases, display) + "\n")
-                pipe.flush()
-                recording.foreach(FlightRecordings.written)
-                answeredFrom(Await.result(following, Duration.Inf), input, pipe, provider, source, next, recordings)
+            recording.foreach(FlightRecordings.written)
+            (next, Await.result(following, Duration.Inf))
 
   /** The next line of the input, read on a daemon thread of its own, so
     * that the main thread can run a call meanwhile. The reader is used by

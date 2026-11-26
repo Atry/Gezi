@@ -1,0 +1,29 @@
+# The choice rule of the HM baseline's judgments, a module of its own that a
+# type check opts into: a choice of two members, each judged, (x_0 ∥ x_2 + x_0)
+# and (x_1 ∥ x_3 + x_1), is judged by the unify node of the two members' types
+# and its own type, type_of of the choice, written as the choice of the choice
+# and its parallel with them: both are top up to contextual equivalence, and the
+# judgment is the choice by absorption, as the application rule's is
+# (hindley_milner_unions_application). So that a group of values written
+# `(m1 + … + mk) ∥ T`, which the JIT holds as one storage, is a type the
+# e-graph's HM reaches for a choice of typed values.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "hindley_milner_unions") "judgments")
+λ type_of _ unify
+. export
+  λ _ rewriting _ _
+  . rewriting
+  λ _ lemmas _
+  . lemmas
+  λ s
+  . s
+    (λk. k "unions_choice_typed")
+    (λx_0 x_1 x_2 x_3. ((x_0 ∥ x_2 + x_0) + (x_1 ∥ x_3 + x_1)))
+    ( λ x_0 x_1 x_2 x_3
+      . ( ((x_0 ∥ x_2 + x_0) + (x_1 ∥ x_3 + x_1))
+        ∥ (unify x_2 x_3 + type_of ((x_0 ∥ x_2 + x_0) + (x_1 ∥ x_3 + x_1)))
+        + ((x_0 ∥ x_2 + x_0) + (x_1 ∥ x_3 + x_1))
+        )
+    ) λ_ md _. md λk. k "[absorption](docs/design/gezi-hindley-milner-unions-proofs.md#absorption)"

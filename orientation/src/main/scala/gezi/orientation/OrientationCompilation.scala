@@ -1,17 +1,18 @@
 package gezi.orientation
 
 import gezi.ir.BindingNormalForm
+import gezi.ir.ChoiceSpine
 import gezi.ir.CodeLayer
 import gezi.ir.Code
 import gezi.ir.Direction
-import gezi.ir.Instruction
 import gezi.ir.Hole
-import gezi.ir.Layer
+import gezi.ir.LayerWith
 import gezi.ir.LemmaIdentifier
 import gezi.ir.Pattern
 import gezi.ir.Spine
 import gezi.ir.Store
 import gezi.ir.{Apply, Choice, NoinlineLeaf, Opaque, Parallel, Slot, Thunk, UriNode}
+import gezi.ir.{Configured, NativeSpecializer}
 
 /** An enabled lemma as the orientation compiler takes it: its identifier,
   * the number of its metavariables, numbered from 0, and the patterns of its
@@ -19,14 +20,19 @@ import gezi.ir.{Apply, Choice, NoinlineLeaf, Opaque, Parallel, Slot, Thunk, UriN
   * is written as; the compiler reads it as a
   * closure. No side holds `Pattern.Closure`.
   */
-final case class LemmaSides(lemma: LemmaIdentifier, arity: Int, left: Pattern, right: Pattern)
+final case class LemmaSides[C <: NativeSpecializer & Singleton](
+    lemma: LemmaIdentifier,
+    arity: Int,
+    left: Pattern[C],
+    right: Pattern[C]
+)
 
 /** The orientations of a set of lemmas and the instructions their matched sides
   * mention, which are added to every graph before its inputs.
   */
-final case class CompiledOrientations(
-    orientations: Vector[Orientation],
-    patternInstructions: Vector[Instruction]
+final case class CompiledOrientations[C <: NativeSpecializer & Singleton](
+    orientations: Vector[Orientation[C]],
+    patternInstructions: Vector[Configured[C]]
 )
 
 /** How a round's enabled lemmas and the store become the orientations its
@@ -41,11 +47,11 @@ final case class CompiledOrientations(
   * made, never their soundness.
   */
 trait OrientationCompiler:
-  def compiled(lemmas: Vector[LemmaSides], store: Store): CompiledOrientations
+  def compiled[C <: NativeSpecializer & Singleton](lemmas: Vector[LemmaSides[C]], store: Store[C]): CompiledOrientations[C]
 
 /** The framework's orientation compiler, `OrientationCompilation.compiled`. */
 object StandardOrientationCompiler extends OrientationCompiler:
-  def compiled(lemmas: Vector[LemmaSides], store: Store): CompiledOrientations =
+  def compiled[C <: NativeSpecializer & Singleton](lemmas: Vector[LemmaSides[C]], store: Store[C]): CompiledOrientations[C] =
     OrientationCompilation.compiled(lemmas, store)
 
 /** The compiler of lemma orientations, the port of the Prolog baseline's
@@ -104,12 +110,12 @@ object OrientationCompilation:
     * numbering in the standard order, which orders the matches. Another compiler replaces them whole
     * (`OrientationCompiler`, a round's `orientation_compiler`).
     */
-  def compiled(lemmas: Vector[LemmaSides], store: Store): CompiledOrientations =
+  def compiled[C <: NativeSpecializer & Singleton](lemmas: Vector[LemmaSides[C]], store: Store[C]): CompiledOrientations[C] =
     require(
       lemmas.map(_.lemma).distinct.size == lemmas.size,
       "the lemmas given are distinct"
     )
-    val contents = Contents(store)
+    val contents = Contents[C](store)
     val oriented = for
       (sides, lemmaPosition) <- lemmas.zipWithIndex
       left = closuresRead(sides.left, store)
@@ -142,12 +148,12 @@ object OrientationCompilation:
     CompiledOrientations(orientations, patternInstructions(orientations))
 
   /** An orientation before it is numbered. */
-  private final case class Oriented(
+  private final case class Oriented[C <: NativeSpecializer & Singleton](
       lemma: LemmaIdentifier,
       direction: Direction,
       arity: Int,
-      matched: Pattern,
-      added: Pattern
+      matched: Pattern[C],
+      added: Pattern[C]
   )
 
   private def directionName(direction: Direction): String = direction match
@@ -157,13 +163,20 @@ object OrientationCompilation:
   /** The usable orientations of a lemma whose normalized sides are given,
     * the forward one first.
     */
-  private def usable(left: Pattern, right: Pattern): Vector[(Direction, Pattern, Pattern)] =
+  private def usable[C <: NativeSpecializer & Singleton](
+      left: Pattern[C],
+      right: Pattern[C]
+  ): Vector[(Direction, Pattern[C], Pattern[C])] =
     Vector((Direction.Forward, left, right), (Direction.Backward, right, left)).filter(orientationUsable)
 
   /** Whether the orientation that matches `matched` and adds `added` is
     * usable.
     */
-  private def orientationUsable(direction: Direction, matched: Pattern, added: Pattern): Boolean =
+  private def orientationUsable[C <: NativeSpecializer & Singleton](
+      direction: Direction,
+      matched: Pattern[C],
+      added: Pattern[C]
+  ): Boolean =
     rigid(matched) &&
       mentions(added).forall(mentions(matched).contains) &&
       (if matched == added then direction == Direction.Forward
@@ -189,15 +202,21 @@ object OrientationCompilation:
     * record or a field selection, read by the closure seed's
     * `HasClosure` step.
     */
-  def normalized(pattern: Pattern, store: Store): Pattern = read(pattern, store, respelling = true)
+  def normalized[C <: NativeSpecializer & Singleton](pattern: Pattern[C], store: Store[C]): Pattern[C] =
+    read(pattern, store, respelling = true)
 
   /** The pattern with every eta-shaped lambda `\x. M x` read as the closure
     * of M's metavariable, every other thunk as stated: `normalized` without
     * the respelling, the side as the encoding states it.
     */
-  def closuresRead(pattern: Pattern, store: Store): Pattern = read(pattern, store, respelling = false)
+  def closuresRead[C <: NativeSpecializer & Singleton](pattern: Pattern[C], store: Store[C]): Pattern[C] =
+    read(pattern, store, respelling = false)
 
-  private def read(pattern: Pattern, store: Store, respelling: Boolean): Pattern = pattern match
+  private def read[C <: NativeSpecializer & Singleton](
+      pattern: Pattern[C],
+      store: Store[C],
+      respelling: Boolean
+  ): Pattern[C] = pattern match
     case thunk @ Pattern.Thunk(code, holes, fillings) =>
       lambdaMetavariable(thunk, store) match
         case Some(index) => Pattern.Closure(index)
@@ -238,32 +257,33 @@ object OrientationCompilation:
     * code under the bindings (`BindingNormalForm.of`), as the higher-order
     * matching does; not designed.
     */
-  private def respelled(thunk: Pattern.Thunk): Option[Pattern] = thunk match
+  private def respelled[C <: NativeSpecializer & Singleton](thunk: Pattern.Thunk[C]): Option[Pattern[C]] = thunk match
     case Pattern.Thunk(code, holes, fillings) if holes.nonEmpty =>
       BindingNormalForm.respelled(code, holes, fillings.size).map((spelledCode, spelledHoles, spelledFillings) =>
         Pattern.Thunk(
           spelledCode,
           spelledHoles,
-          spelledFillings.map(BindingNormalForm.placeholdersMapped(_, fillings)(layerPattern))
+          spelledFillings.map(BindingNormalForm.fillingMapped(_, fillings)(layerPattern))
         )
       )
     case _ => None
 
   /** A layer of a respelled filling over its children's patterns as a
-    * pattern. A filling's layer is never a noinline leaf (`layered` makes
-    * none); throws `IllegalStateException` for one.
+    * pattern. A filling is a code over the fillings' slots, so its layer is
+    * never a noinline leaf, which its leaf type `Nothing` says.
     */
-  private def layerPattern(layer: Layer[Pattern]): Pattern = layer match
+  private def layerPattern[C <: NativeSpecializer & Singleton](layer: LayerWith[Pattern[C], Nothing]): Pattern[C] = layer match
     case Apply(function, argument)    => Pattern.Apply(function, argument)
     case Parallel(left, right)        => Pattern.Parallel(left, right)
     case Choice(left, right)          => Pattern.Choice(left, right)
     case Thunk(code, holes, fillings) => Pattern.Thunk(code, holes, fillings)
-    case leaf @ NoinlineLeaf(_)       => throw IllegalStateException(s"a respelled filling's layer is the leaf $leaf")
+    case view: gezi.ir.StorageView[?] => throw IllegalStateException(s"a respelled filling's layer is the storage view $view")
+    case gezi.ir.NoinlineLeaf(leaf)   => leaf
 
   /** The metavariable of a thunk pattern that is a lambda pattern
     * `thunk(apply(slot(F), slot(H)), [H], [metavariable(Index)])`, F not H.
     */
-  private def lambdaMetavariable(thunk: Pattern.Thunk, store: Store): Option[Int] =
+  private def lambdaMetavariable[C <: NativeSpecializer & Singleton](thunk: Pattern.Thunk[C], store: Store[C]): Option[Int] =
     thunk match
       case Pattern.Thunk(code, Vector(Hole.Bound(hole)), Vector(Pattern.Metavariable(index))) =>
         store.code(code) match
@@ -280,7 +300,7 @@ object OrientationCompilation:
     * a parallel, a record, a field selection, or an application with a rigid
     * side.
     */
-  def rigid(pattern: Pattern): Boolean = pattern match
+  def rigid[C <: NativeSpecializer & Singleton](pattern: Pattern[C]): Boolean = pattern match
     case Pattern.Metavariable(_)          => false
     case Pattern.Apply(function, argument) => rigid(function) || rigid(argument)
     case _                                => true
@@ -288,7 +308,7 @@ object OrientationCompilation:
   /** The metavariables the pattern mentions, a closure's included, each
     * once.
     */
-  def mentions(pattern: Pattern): Vector[Int] = (pattern match
+  def mentions[C <: NativeSpecializer & Singleton](pattern: Pattern[C]): Vector[Int] = (pattern match
     case Pattern.Metavariable(index) => Vector(index)
     case Pattern.Closure(index)      => Vector(index)
     case other                       => other.children.flatMap(mentions)
@@ -297,7 +317,7 @@ object OrientationCompilation:
   /** The metavariables of the closures the pattern mentions, the function
     * metavariables, each once.
     */
-  private def closureMentions(pattern: Pattern): Vector[Int] = (pattern match
+  private def closureMentions[C <: NativeSpecializer & Singleton](pattern: Pattern[C]): Vector[Int] = (pattern match
     case Pattern.Closure(index) => Vector(index)
     case other                  => other.children.flatMap(closureMentions)
   ).distinct
@@ -318,18 +338,18 @@ object OrientationCompilation:
     * termination rests on the round's cap. Candidate fix: read the added
     * application only when the matched one is readable.
     */
-  private def appliedMetavariables(pattern: Pattern): Vector[Int] = (pattern match
+  private def appliedMetavariables[C <: NativeSpecializer & Singleton](pattern: Pattern[C]): Vector[Int] = (pattern match
     case Pattern.Apply(function, argument) =>
       spineHead(function).toVector ++ appliedMetavariables(function) ++ appliedMetavariables(argument)
     case other => other.children.flatMap(appliedMetavariables)
   ).distinct
 
-  private def spineHead(pattern: Pattern): Option[Int] = Spine.of(pattern)._1 match
+  private def spineHead[C <: NativeSpecializer & Singleton](pattern: Pattern[C]): Option[Int] = Spine.of(pattern)._1 match
     case Pattern.Metavariable(index) => Some(index)
     case Pattern.Closure(index)      => Some(index)
     case _                           => None
 
-  private def compound(pattern: Pattern): Boolean = pattern match
+  private def compound[C <: NativeSpecializer & Singleton](pattern: Pattern[C]): Boolean = pattern match
     case Pattern.Apply(_, _) | Pattern.Parallel(_, _) | Pattern.Choice(_, _) | Pattern.Thunk(_, _, _) =>
       true
     case _ => false
@@ -337,7 +357,11 @@ object OrientationCompilation:
   /** The orientation numbered `index`, with its functions, its essential
     * metavariables and its shared subterms.
     */
-  private def filed(oriented: Oriented, index: Int, contents: Contents): Orientation =
+  private def filed[C <: NativeSpecializer & Singleton](
+      oriented: Oriented[C],
+      index: Int,
+      contents: Contents[C]
+  ): Orientation[C] =
     val (essential, shared) = essentialAndShared(oriented.added, oriented.matched, contents)
     Orientation(
       index = index,
@@ -358,11 +382,11 @@ object OrientationCompilation:
     * subpatterns of the matched side as well; an added metavariable or
     * closure is essential and shares nothing.
     */
-  private def essentialAndShared(
-      added: Pattern,
-      matched: Pattern,
-      contents: Contents
-  ): (Vector[Int], Vector[Pattern]) = added match
+  private def essentialAndShared[C <: NativeSpecializer & Singleton](
+      added: Pattern[C],
+      matched: Pattern[C],
+      contents: Contents[C]
+  ): (Vector[Int], Vector[Pattern[C]]) = added match
     case Pattern.Metavariable(index) => (Vector(index), Vector.empty)
     case Pattern.Closure(index)      => (Vector(index), Vector.empty)
     case _ =>
@@ -372,12 +396,12 @@ object OrientationCompilation:
         )
       (mentionedOutside(added, shared).distinct.sorted, shared)
 
-  private def sharedSubterms(pattern: Pattern, matched: Pattern): Vector[Pattern] =
+  private def sharedSubterms[C <: NativeSpecializer & Singleton](pattern: Pattern[C], matched: Pattern[C]): Vector[Pattern[C]] =
     if compound(pattern) && (pattern == matched || Orientations.contains(matched, pattern)) then
       Vector(pattern)
     else pattern.children.flatMap(sharedSubterms(_, matched))
 
-  private def mentionedOutside(pattern: Pattern, shared: Vector[Pattern]): Vector[Int] =
+  private def mentionedOutside[C <: NativeSpecializer & Singleton](pattern: Pattern[C], shared: Vector[Pattern[C]]): Vector[Int] =
     if shared.contains(pattern) then Vector.empty
     else
       pattern match
@@ -401,7 +425,7 @@ object OrientationCompilation:
     * would make every reference a structural match, the encoding that
     * filing the references replaced.
     */
-  private def patternInstructions(orientations: Vector[Orientation]): Vector[Instruction] =
+  private def patternInstructions[C <: NativeSpecializer & Singleton](orientations: Vector[Orientation[C]]): Vector[Configured[C]] =
     val (onlyUniting, adding) = orientations.partition(onlyUnitesAsFiled)
     (adding ++ onlyUniting).flatMap(orientation => instructions(orientation.matched)).distinct
 
@@ -409,26 +433,26 @@ object OrientationCompilation:
     * subpattern of the matched side below its root; an added closure counts
     * only in the second way.
     */
-  private def onlyUnitesAsFiled(orientation: Orientation): Boolean = orientation.added match
+  private def onlyUnitesAsFiled[C <: NativeSpecializer & Singleton](orientation: Orientation[C]): Boolean = orientation.added match
     case Pattern.Metavariable(_) => true
     case added                   => Orientations.contains(orientation.matched, added)
 
-  private def instructions(pattern: Pattern): Vector[Instruction] = pattern match
+  private def instructions[C <: NativeSpecializer & Singleton](pattern: Pattern[C]): Vector[Configured[C]] = pattern match
     case Pattern.InstructionReference(instruction) => Vector(instruction)
     case other                           => other.children.flatMap(instructions)
 
   /** The contents of patterns over the store: every instruction written out as
     * the term it stands for, every code as its tree.
     */
-  private final case class Contents(store: Store):
+  private final case class Contents[C <: NativeSpecializer & Singleton](store: Store[C]):
     // A choice is written as the list of the members of its right `+` spine
     // (`ChoiceSpine.members`), so that a chain reads as the member list it
     // was before the choice became binary.
 
-    def orientationContent(matched: Pattern, added: Pattern): PrologTerm =
+    def orientationContent(matched: Pattern[C], added: Pattern[C]): PrologTerm =
       PrologTerm.Compound("content", Vector(pattern(matched), pattern(added)))
 
-    def pattern(pattern: Pattern): PrologTerm = pattern match
+    def pattern(pattern: Pattern[C]): PrologTerm = pattern match
       case Pattern.Metavariable(index) => compound("metavariable", PrologTerm.Integer(index))
       case Pattern.Closure(index)      => compound("closure", PrologTerm.Integer(index))
       case Pattern.InstructionReference(referenced) => compound("handle", instruction(referenced))
@@ -444,18 +468,26 @@ object OrientationCompilation:
       * writes it; an opaque instruction, whose layer is not known, as
       * `opaque(Name)`.
       */
-    def instruction(written: Instruction): PrologTerm =
-      if written.opaque then compound("opaque", PrologTerm.Atom(written.toString))
+    def instruction(written: Configured[C]): PrologTerm =
+      if written.representation.heldAsLeaf then compound("opaque", PrologTerm.Atom(written.toString))
       else written.layer match
         case Apply(function, argument) => compound("apply", instruction(function), instruction(argument))
         case Parallel(left, right)     => compound("parallel", instruction(left), instruction(right))
         case Choice(_, _) =>
-          val Instruction.ChoiceMembers(members) = written
+          val members = ChoiceSpine.members(
+            written,
+            (term: Configured[C]) =>
+              term.layer match
+                case Choice(left, right) => Some((left, right))
+                case _                   => None
+          )
           compound("choice", StandardOrder.list(members.map(instruction)))
         case Thunk(code, holes, fillings) =>
           compound("thunk", codeTree(code), holeList(holes), StandardOrder.list(fillings.map(instruction)))
         case UriNode(_) | Opaque(_) =>
           throw IllegalStateException(s"the opaque $written has no layer")
+        case storage: gezi.ir.NativeStorage =>
+          throw IllegalStateException(s"the storage $storage is no leaf of the store, and has no layer of the IR")
 
     private def codeTree(identifier: Code): PrologTerm = store.code(identifier) match
       case Slot(index)               => compound("slot", PrologTerm.Integer(index))

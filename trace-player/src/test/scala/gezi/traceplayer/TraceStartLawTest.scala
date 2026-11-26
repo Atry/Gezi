@@ -36,7 +36,7 @@ class TraceStartLawTest extends GeneratedProperties:
   property("a start with shared parts, written nameless and from its source, reads back as the start") {
     for tower <- towers.forAllWithLog(LambdalatticeText.text)
     yield
-      val start = Defunctionalization.thunkInstruction(tower.deBruijnTerm(Map.empty))
+      val start = Defunctionalization.thunkInstruction(tower.deBruijnTerm(Map.empty))(using gezi.ir.NoFacts)
       val source = LambdalatticeText.text(tower)
       Result.all(
         List(

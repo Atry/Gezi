@@ -1,10 +1,8 @@
 package gezi.interfacelaws
 
-import gezi.jit.ClosureBackend
-import gezi.jit.DispatchMode
+import gezi.ir.NoFacts
 import gezi.jit.Jit
 import gezi.jit.JitConfiguration
-import gezi.jit.PredicatePerCode
 import gezi.strategies.BaselineModules
 import gezi.strategies.NativeRouteCompilation
 import gezi.strategies.CountedExtractor
@@ -24,8 +22,8 @@ import gezi.strategies.CountedExtractor
   * next failure can be replayed with `HEDGEHOG_SEED` and its mechanism found.
   */
 class BaselineJitEvaluatorLawTest
-    extends JitEvaluatorLaws(facts =>
-      Jit(JitConfiguration(facts, JitConfiguration.defaultBudget, PredicatePerCode, ClosureBackend, DispatchMode.NoDispatch, instanceTable = false))
+    extends JitEvaluatorLaws(encoding =>
+      Jit(JitConfiguration.of(encoding, instanceTable = false, storageAccess = gezi.ir.StorageAccess.granted()))
     )
 
 /** The extraction laws on the baseline's extractor, `CountedExtractor`
@@ -34,7 +32,10 @@ class BaselineJitEvaluatorLawTest
   * hold of the implementation a replacement is judged against.
   */
 class BaselineExtractorLawTest
-    extends ExtractorLaws(CountedExtractor(NativeRouteCompilation.extraction, BaselineModules.table)):
+    extends ExtractorLaws(
+      CountedExtractor[NoFacts.type](NativeRouteCompilation.extraction, BaselineModules.table[NoFacts.type]),
+      CountedExtractor[LawNativeSpecializer.type](NativeRouteCompilation.extraction, BaselineModules.table[LawNativeSpecializer.type])
+    ):
 
   // Measured 2026-11-16 on 2 CPUs (contest-lean.slice, CPUs 10,11, nice 10), the 1-minute load 9 to 22 over the run, every deadline raised to 600 s: the slowest test of BaselineExtractorLawTest, "each input has one output, in the input's class", takes 23.336 s; the bound is 1.5 times that rounded up to 5 s.
   // FIXME: this suite exceeds the 3 s default with no reason yet; its slow tests are to be made fast. https://github.com/Atry/private-overlay/issues/1925

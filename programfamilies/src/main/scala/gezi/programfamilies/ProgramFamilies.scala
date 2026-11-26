@@ -1,11 +1,14 @@
 package gezi.programfamilies
 
+import gezi.ir.{Configured, NoFacts}
 import gezi.frontend.Term
 import gezi.frontend.Term.*
-import gezi.ir.Instruction
 import gezi.standardlibrary.StandardLibrary
 import gezi.standardlibrary.TermTables
 import gezi.weakhead.Expansions
+
+/** The configuration of the terms here: no facts. */
+private given programFamiliesNoFacts: NoFacts.type = NoFacts
 
 /** The programs of the two configurations ([[Configurations]]), written in
   * the HOAS over the library's terms, closed instructions read off
@@ -25,17 +28,17 @@ object ProgramFamilies:
     * (`StandardLibrary.entryMembers`), so that a program names no
     * library term.
     */
-  private lazy val libraryTerms: Map[String, Instruction] =
+  private lazy val libraryTerms: Map[String, Configured[NoFacts.type]] =
     StandardLibrary.entryMembers(FixedPointLines.buildRoot, TermTables.programFamilyLibraryTerms, Expansions.none)._1
 
   /** The library term of the name as a closed HOAS term (`Term.Closed`). */
-  private def libraryTerm(name: String): Term =
+  private def libraryTerm(name: String): ProgramTerm =
     Term.closed(
       libraryTerms.getOrElse(name, throw IllegalArgumentException(s"${TermTables.programFamilyLibraryTerms.file} has no member $name"))
     )
 
-  lazy val zero: Term = libraryTerm("zero")
-  lazy val successor: Term = libraryTerm("successor")
+  lazy val zero: ProgramTerm = libraryTerm("zero")
+  lazy val successor: ProgramTerm = libraryTerm("successor")
   private lazy val nil = libraryTerm("nil")
   private lazy val cons = libraryTerm("cons")
   private lazy val trueValue = libraryTerm("true")
@@ -46,12 +49,12 @@ object ProgramFamilies:
   private lazy val compose = libraryTerm("compose")
   private lazy val naturalFold = libraryTerm("nat_fold")
   private lazy val listFold = libraryTerm("list_fold")
-  lazy val fixpoint: Term = libraryTerm("fixpoint")
+  lazy val fixpoint: ProgramTerm = libraryTerm("fixpoint")
 
   /** `successor (... (successor zero))` with `size` successors
     * (`numeral/2`).
     */
-  def numeral(size: Int): Term =
+  def numeral(size: Int): ProgramTerm =
     require(size >= 0, s"a numeral's size is not negative: $size")
     (1 to size).foldLeft(zero)((value, _) => successor(value))
 
@@ -59,14 +62,14 @@ object ProgramFamilies:
     * (`list_of/3`); each copy is an occurrence of its own once through the
     * front end.
     */
-  def listOf(element: Term, size: Int): Term =
+  def listOf(element: ProgramTerm, size: Int): ProgramTerm =
     require(size >= 0, s"a list's size is not negative: $size")
     (1 to size).foldLeft(nil)((rest, _) => cons(element)(rest))
 
   /** A chain of `size` lambdas returning the first one's variable,
     * `λa1. ... λan. a1` (`family_value(chain, ...)`).
     */
-  def chain(size: Int): Term =
+  def chain(size: Int): ProgramTerm =
     require(size >= 1, s"a chain has at least one lambda: $size")
     λ(first => (1 until size).foldLeft(first)((body, _) => λ(_ => body)))
 
@@ -74,14 +77,14 @@ object ProgramFamilies:
     * `(λa. successor ((λb. successor (... b)) a)) zero`
     * (`family_value(nested, ...)` and `nested/3`).
     */
-  def nested(size: Int): Term =
+  def nested(size: Int): ProgramTerm =
     require(size >= 0, s"a nesting's size is not negative: $size")
     λ(parameter => nestedBody(size, parameter))(zero)
 
   /** `successor parameter` under `size` closures, each applied to the
     * enclosing parameter (`nested/3`).
     */
-  private def nestedBody(size: Int, parameter: Term): Term =
+  private def nestedBody(size: Int, parameter: ProgramTerm): ProgramTerm =
     if size == 0 then successor(parameter)
     else successor(λ(inner => nestedBody(size - 1, inner))(parameter))
 
@@ -89,7 +92,7 @@ object ProgramFamilies:
     * `(λa1. ... λan. λk. k a1 ... an) zero ... zero`
     * (`family_value(tuple, ...)`).
     */
-  def tuple(size: Int): Term =
+  def tuple(size: Int): ProgramTerm =
     require(size >= 1, s"a tuple has at least one component: $size")
     (1 to size).foldLeft(tupleClosure(size, Vector.empty))((function, _) => function(zero))
 
@@ -97,23 +100,23 @@ object ProgramFamilies:
     * lambda, whose body applies it to every component in order
     * (`tuple_body/3` and `chain_built/3`).
     */
-  private def tupleClosure(remaining: Int, components: Vector[Term]): Term =
+  private def tupleClosure(remaining: Int, components: Vector[ProgramTerm]): ProgramTerm =
     if remaining == 0 then
       λ(continuation =>
-        components.foldLeft(continuation)((function, component) => function(component))
+        components.foldLeft[ProgramTerm](continuation)((function, component) => function(component))
       )
     else λ(component => tupleClosure(remaining - 1, components :+ component))
 
   /** `nat_fold zero (compose successor successor) numeral` with a numeral of
     * `size` successors (`program(folds, ...)` of the Prolog cost comparison).
     */
-  def fold(size: Int): Term =
+  def fold(size: Int): ProgramTerm =
     naturalFold(zero)(compose(successor)(successor))(numeral(size))
 
   /** The programs of `coverage_program/3`, by name, in the order of that
     * file.
     */
-  val coverage: Vector[(String, Term)] = Vector(
+  val coverage: Vector[(String, ProgramTerm)] = Vector(
     "successor_zero" -> successor(zero),
     "successor_successor_zero" -> successor(successor(zero)),
     "boolean_not_true" -> booleanNot(trueValue),

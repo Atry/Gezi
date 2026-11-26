@@ -6,7 +6,7 @@ import gezi.contest.entry.EntryDataError
 import gezi.contest.entry.ExecutorModule
 import gezi.contest.entry.ExecutorModuleInputs
 import gezi.hotspot.Executor
-import gezi.ir.Instruction
+import gezi.ir.{Configured, NativeSpecializer, NoFacts, Pure, Value}
 import gezi.knowledgereading.KnowledgeReading
 import gezi.knowledgereading.KnowledgeReadingError
 import gezi.weakhead.Computation
@@ -31,15 +31,15 @@ import gezi.weakhead.Computation
   * @param bits64
   *   the criterion of a value type of 64 bits
   */
-final case class MooreCriteria(
-    state: Instruction,
-    methodSymbols: Instruction,
-    symbols: Instruction,
-    boolean: Instruction,
-    bits8: Instruction,
-    bits16: Instruction,
-    bits32: Instruction,
-    bits64: Instruction
+final case class MooreCriteria[C <: NativeSpecializer & Singleton](
+    state: Configured[C],
+    methodSymbols: Configured[C],
+    symbols: Configured[C],
+    boolean: Configured[C],
+    bits8: Configured[C],
+    bits16: Configured[C],
+    bits32: Configured[C],
+    bits64: Configured[C]
 )
 
 /** The executor module that runs FFI programs: the framework's
@@ -57,22 +57,31 @@ final class MooreModule extends ExecutorModule:
   /** The executor of the inputs. Throws `EntryDataError` for parameters that
     * are no tuple of the eight fields of `MooreCriteria`.
     */
-  def executor(parameters: Instruction, inputs: ExecutorModuleInputs): Executor[?] =
+  def executor[C <: NativeSpecializer & Singleton](parameters: Configured[NoFacts.type], inputs: ExecutorModuleInputs[C]): Executor[C, ?] =
+    given NoFacts.type = NoFacts
+    val specializer = inputs.jit.configuration.specializer
+    // A criterion is a library term, a pure key, the same under every configuration: read under no facts, then
+    // brought into the entry's by `Configured.fromPure`. A criterion that is no pure term is a bad configuration.
+    def criterion(term: gezi.ir.Value[NoFacts.type]): Configured[C] =
+      Pure
+        .of(KnowledgeReading.term(term, Set.empty))
+        .map(Configured.fromPure(specializer))
+        .getOrElse(throw EntryDataError("the Moore module's criteria are library terms with no parallel"))
     val criteria =
       try
         KnowledgeReading.run(
-          KnowledgeReading.fields(parameters, 8).flatMap {
+          KnowledgeReading.fields(Value.of(parameters), 8).flatMap {
             case Vector(state, methodSymbols, symbols, boolean, bits8, bits16, bits32, bits64) =>
               Computation.pure(
-                MooreCriteria(
-                  KnowledgeReading.term(state, Set.empty),
-                  KnowledgeReading.term(methodSymbols, Set.empty),
-                  KnowledgeReading.term(symbols, Set.empty),
-                  KnowledgeReading.term(boolean, Set.empty),
-                  KnowledgeReading.term(bits8, Set.empty),
-                  KnowledgeReading.term(bits16, Set.empty),
-                  KnowledgeReading.term(bits32, Set.empty),
-                  KnowledgeReading.term(bits64, Set.empty)
+                MooreCriteria[C](
+                  criterion(state),
+                  criterion(methodSymbols),
+                  criterion(symbols),
+                  criterion(boolean),
+                  criterion(bits8),
+                  criterion(bits16),
+                  criterion(bits32),
+                  criterion(bits64)
                 )
               )
             case fields => throw EntryDataError(s"the Moore module's parameters have ${fields.size} fields, not 8")
@@ -80,7 +89,7 @@ final class MooreModule extends ExecutorModule:
           MooreModule.parametersReadingLimit
         )
       catch case KnowledgeReadingError(reason) => throw EntryDataError(s"the Moore module's parameters: $reason")
-    MooreExecutor(Defaults.executor(inputs.jit, inputs.reading), inputs.jit, criteria)
+    MooreExecutor[C](Defaults.executor(inputs.jit, inputs.reading), inputs.jit, criteria)
 
 object MooreModule:
 

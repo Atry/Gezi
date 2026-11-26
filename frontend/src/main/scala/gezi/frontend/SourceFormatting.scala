@@ -51,10 +51,10 @@ object SourceFormatting:
     * formatted text reads to another term or holds other comments, a defect
     * of the formatter.
     */
-  def formatted(enclosing: Vector[String], text: String): String =
+  def formatted(enclosing: Vector[String], text: String)(using access: gezi.ir.StorageAccess): String =
     val (term, spans) = Lambdalattice.locatedInScope(enclosing, text)
-    val (instruction, map) = Defunctionalization.locatedThunkInstruction(term, spans, uri)
-    val printed = ReadableText.writtenBack(instruction, map, ReadableText.SourceText.of(uri, text), enclosing.size)
+    val (instruction, map) = Defunctionalization.locatedThunkInstruction(term, spans, uri)(using gezi.ir.NoFacts)
+    val printed = ReadableText.writtenBack(instruction, map, ReadableText.SourceText.of(uri, text), enclosing.size)(using gezi.ir.NoFacts, access)
     val written = laidOut(printed, layoutRuns(Lambdalattice.lexemes(text)))
     if Lambdalattice.locatedInScope(enclosing, written)._1 != term then
       throw IllegalStateException(s"the formatted text reads to another term:\n$written")
@@ -132,7 +132,7 @@ object SourceFormatting:
     * when it spans lines and is no right spine (`LambdalatticeLayout.isSpine`),
     * and laid out with `ParameterLists.Prefixed`.
     */
-  private def laidOut(printed: ReadableText.Printed, runs: Vector[LayoutRun]): String =
+  private def laidOut[C <: gezi.ir.NativeSpecializer & Singleton](printed: ReadableText.Printed[C], runs: Vector[LayoutRun]): String =
     val marks = sourceMarks(printed.pieces)
     // The tokens of the text on one line, which are the broken text's.
     val tokens = Lambdalattice.lexemes(printed.text).collect { case token: Lexeme.Token => token }

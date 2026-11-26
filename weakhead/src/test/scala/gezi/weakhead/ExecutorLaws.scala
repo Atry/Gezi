@@ -1,24 +1,24 @@
 package gezi.weakhead
 
+import gezi.ir.NoFacts
+import gezi.ir.Configured
 import hedgehog.Result
 import gezi.frontend.DeBruijnTerm
 import gezi.frontend.Defunctionalization
 import gezi.hotspot.Budget
-import gezi.hotspot.CompilationUnit
 import gezi.hotspot.ExecutionDependencies
 import gezi.hotspot.ExpansionSource
 import gezi.hotspot.Executor
-import gezi.hotspot.NormalForm
 import gezi.hotspot.Progress
 import gezi.hotspot.baselines.BaselineCaches
 import gezi.ir.Apply
 import gezi.ir.Choice
 import gezi.ir.Code
-import gezi.ir.Instruction
 import gezi.ir.Parallel
 import gezi.ir.Thunk
 import gezi.saturation.StopSignal
 import scala.annotation.tailrec
+import gezi.ir.NativeSpecializer
 
 /** The laws of an executor (`gezi.hotspot.Executor`, `gezi.hotspot.Budget`)
   * that an executor of the baseline is checked against, on a closed term
@@ -29,6 +29,8 @@ import scala.annotation.tailrec
   * is `None`, so it has no check here.
   */
 object ExecutorLaws:
+
+  given NoFacts.type = NoFacts
 
   /** The steps an uninterrupted execution may take; a term whose reading
     * takes more is read as not finishing, and its laws hold vacuously.
@@ -43,8 +45,8 @@ object ExecutorLaws:
   /** The term defunctionalized and interned, and dependencies with an empty
     * cache service.
     */
-  def interned(term: DeBruijnTerm): (Instruction, ExecutionDependencies) =
-    val instruction = Defunctionalization.thunkInstruction(term)
+  def interned(term: DeBruijnTerm): (Configured[NoFacts.type], ExecutionDependencies) =
+    val instruction = Defunctionalization.thunkInstruction[NoFacts.type](term)
     (instruction, ExecutionDependencies(BaselineCaches.provider(), ExpansionSource.fresh()))
 
   /** The resume law (4.2): a reading interrupted by small budgets and
@@ -63,7 +65,7 @@ object ExecutorLaws:
     * with no normal form while the reader under the same mode ran past
     * `largeSteps`).
     */
-  def resumeLaw[Suspension](executor: Executor[Suspension], mode: Mode, term: DeBruijnTerm, stop: StopSignal): Result =
+  def resumeLaw[Suspension](executor: Executor[NoFacts.type, Suspension], mode: Mode, term: DeBruijnTerm, stop: StopSignal): Result =
     val (instruction, dependencies) = interned(term)
     val (_, _, whole) = executor.executed(instruction, dependencies, Budget(largeSteps, countedUnits = false, stop))
     whole.suspension match
@@ -71,10 +73,10 @@ object ExecutorLaws:
       case None =>
         val (afterFirst, firstDependencies, first) = executor.executed(instruction, dependencies, Budget(firstSteps, countedUnits = false, stop))
         val split = resumedToTheEnd(afterFirst, firstDependencies, first, firstSteps, first.found, stop)
-        val readerAgrees = NormalForms.normalForms(mode, instruction).result(ReadingState.fresh(largeSteps)) match
-          case Computed.Done(normalForms, _) => Result.diff(normalForms, whole.found)(_ == _)
+        val readerAgrees = NormalForms.normalForms(mode, gezi.ir.Value.of(instruction)).result(ReadingState.fresh(largeSteps, gezi.weakhead.ReadingConfiguration.withoutFacts)) match
+          case Computed.Done(normalForms, _) => Result.diff(normalForms, whole.found)(EvaluatorTesting.sameInstructions)
           case Computed.Stopped(_)           => Result.success
-        Result.all(List(Result.diff(split, whole.found)(_ == _), readerAgrees, resumedTwice(afterFirst, firstDependencies, first, stop))
+        Result.all(List(Result.diff(split, whole.found)(EvaluatorTesting.sameInstructions), readerAgrees, resumedTwice(afterFirst, firstDependencies, first, stop))
         ).log(s"the term: ${gezi.frontend.Lambdalattice.text(term, Map.empty)}")
 
   /** The residual law (`gezi.hotspot.Executor`): a suspension exported as a residual r (`exported`)
@@ -86,7 +88,7 @@ object ExecutorLaws:
     * allows. Its purpose is to catch a residual that drops a normal form the
     * term has, or adds one it has not.
     */
-  def residualLaw[Suspension](executor: Executor[Suspension], term: DeBruijnTerm, stop: StopSignal): Result =
+  def residualLaw[Suspension](executor: Executor[NoFacts.type, Suspension], term: DeBruijnTerm, stop: StopSignal): Result =
     val (instruction, dependencies) = interned(term)
     val (_, _, whole) = executor.executed(instruction, dependencies, Budget(largeSteps, countedUnits = false, stop))
     whole.suspension match
@@ -110,24 +112,24 @@ object ExecutorLaws:
     * and budget finds the same normal forms and spends the same steps (a suspension may be resumed more than once), so
     * that a suspension that holds a continuation usable once breaks the law.
     */
-  private def resumedTwice[Suspension](executor: Executor[Suspension], dependencies: ExecutionDependencies, progress: Progress[Suspension], stop: StopSignal): Result =
+  private def resumedTwice[Suspension](executor: Executor[NoFacts.type, Suspension], dependencies: ExecutionDependencies, progress: Progress[NoFacts.type, Suspension], stop: StopSignal): Result =
     progress.suspension match
       case None => Result.success
       case Some(suspension) =>
         val budget = Budget(2 * firstSteps, countedUnits = false, stop)
         val (_, _, once) = executor.resumed(suspension, dependencies, budget)
         val (_, _, twice) = executor.resumed(suspension, dependencies, budget)
-        Result.all(List(Result.diff(twice.found, once.found)(_ == _), Result.diff(twice.spent, once.spent)(_ == _)))
+        Result.all(List(Result.diff(twice.found, once.found)(EvaluatorTesting.sameInstructions), Result.diff(twice.spent, once.spent)(_ == _)))
 
   @tailrec
   private def resumedToTheEnd[Suspension](
-      executor: Executor[Suspension],
+      executor: Executor[NoFacts.type, Suspension],
       dependencies: ExecutionDependencies,
-      progress: Progress[Suspension],
+      progress: Progress[NoFacts.type, Suspension],
       steps: Long,
-      found: Vector[NormalForm],
+      found: Vector[Configured[NoFacts.type]],
       stop: StopSignal
-  ): Vector[NormalForm] =
+  ): Vector[Configured[NoFacts.type]] =
     progress.suspension match
       case None => found
       case Some(suspension) =>
@@ -147,11 +149,11 @@ object ExecutorLaws:
     * charged for it, a table keyed by it, a branch taken on it.
     */
   def countingUnobservableLaw[Suspension](
-      executor: Executor[Suspension],
+      executor: Executor[NoFacts.type, Suspension],
       term: DeBruijnTerm,
       steps: Long,
       stop: StopSignal,
-      keptAlike: (Executor[Suspension], Executor[Suspension]) => Result
+      keptAlike: (Executor[NoFacts.type, Suspension], Executor[NoFacts.type, Suspension]) => Result
   ): Result =
     val (instruction, dependencies) = interned(term)
     val (afterCounted, countedDependencies, counted) = executor.executed(instruction, dependencies, Budget(steps, countedUnits = true, stop))
@@ -178,9 +180,11 @@ object ExecutorLaws:
     * stream, a closure that compares by identity, so the producers are not
     * compared.
     */
-  def readingTablesAlike(left: Executor[ReadingSuspension], right: Executor[ReadingSuspension]): Result =
+  def readingTablesAlike(left: Executor[NoFacts.type, ReadingSuspension[NoFacts.type]], right: Executor[NoFacts.type, ReadingSuspension[NoFacts.type]]): Result =
     (left, right) match
-      case (leftReading: ReadingExecutor, rightReading: ReadingExecutor) =>
+      // A type test on the executor's class, its configuration a wildcard; the tables of the two are compared as the
+      // sets and maps they are.
+      case (leftReading: ReadingExecutor[?], rightReading: ReadingExecutor[?]) =>
         Result.all(
           List(
             Result.diff(leftReading.tables.complete, rightReading.tables.complete)(_ == _),
@@ -191,10 +195,10 @@ object ExecutorLaws:
       case _ => Result.failure.log(s"not reading executors: $left, $right")
 
   /** Two progresses alike but for their counts of applications. */
-  private def progressAlike[Suspension](counted: Progress[Suspension], plain: Progress[Suspension]): Result =
+  private def progressAlike[Suspension](counted: Progress[NoFacts.type, Suspension], plain: Progress[NoFacts.type, Suspension]): Result =
     Result.all(
       List(
-        Result.diff(counted.found, plain.found)(_ == _),
+        Result.diff(counted.found, plain.found)(EvaluatorTesting.sameInstructions),
         Result.diff(counted.suspension.isDefined, plain.suspension.isDefined)(_ == _),
         Result.diff(counted.spent.steps, plain.spent.steps)(_ == _),
         Result.diff(plain.spent.applications, Map.empty)(_ == _)
@@ -216,7 +220,7 @@ object ExecutorLaws:
     * anything but the reading.
     */
   def honestCountsLaw[Suspension](
-      executor: Executor[Suspension],
+      executor: Executor[NoFacts.type, Suspension],
       term: DeBruijnTerm,
       steps: Long,
       stop: StopSignal,
@@ -233,10 +237,7 @@ object ExecutorLaws:
         List(
           Result.diff(second.spent.applications, counts)(_ == _),
           Result.assert(counts.values.forall(_ > 0)).log(s"the counts: $counts"),
-          Result.assert(counts.keys.forall {
-            case CompilationUnit.Code(code) => reached.contains(code)
-            case _                          => false
-          }).log(s"the counts: $counts"),
+          Result.assert(counts.keys.forall(reached.contains)).log(s"the counts: $counts"),
           if withinSteps then Result.assert(counts.values.sum <= first.spent.steps).log(s"${counts.values.sum} counted in ${first.spent.steps} steps")
           else Result.success
         )
@@ -247,9 +248,9 @@ object ExecutorLaws:
     * thunk layers, and of the thunks nested in those codes, whose instances
     * are the only thunks a reading of the instruction makes.
     */
-  def reachedCodes(instruction: Instruction): Set[Code] =
+  def reachedCodes[C <: NativeSpecializer & Singleton](instruction: Configured[C])(using C): Set[Code] =
     @tailrec
-    def walked(instructions: List[Instruction], codes: List[Code], seenInstructions: Set[Instruction], found: Set[Code]): Set[Code] =
+    def walked(instructions: List[Configured[C]], codes: List[Code], seenInstructions: Set[Configured[C]], found: Set[Code]): Set[Code] =
       codes match
         case code :: laterCodes =>
           if found.contains(code) then walked(instructions, laterCodes, seenInstructions, found)
@@ -341,19 +342,19 @@ object ExecutorLaws:
     * catch a machine that misses an entry (a last hole filled, a thunk with
     * no hole) or counts one twice.
     */
-  def exactCountLaw[Suspension](executor: Executor[Suspension], n: Int, stop: StopSignal): Result =
+  def exactCountLaw[Suspension](executor: Executor[NoFacts.type, Suspension], n: Int, stop: StopSignal): Result =
     val (instruction, dependencies) = interned(iteratedBox(n))
-    val boxCode = Defunctionalization.thunkInstruction(box).layer match
+    val boxCode = Defunctionalization.thunkInstruction[NoFacts.type](box).layer match
       case Thunk(code, _, _) => code
       case other             => throw IllegalStateException(s"the box's instruction is a thunk, not $other")
-    val others = reachedCodes(Defunctionalization.thunkInstruction(churchNumeral(n))) ++ reachedCodes(Defunctionalization.thunkInstruction(identity))
+    val others = reachedCodes(Defunctionalization.thunkInstruction[NoFacts.type](churchNumeral(n))) ++ reachedCodes(Defunctionalization.thunkInstruction[NoFacts.type](identity))
     val (_, _, progress) = executor.executed(instruction, dependencies, Budget(largeSteps, countedUnits = true, stop))
     Result
       .all(
         List(
           Result.diff(others.contains(boxCode), false)(_ == _),
           Result.diff(progress.suspension.isEmpty, true)(_ == _),
-          Result.diff(progress.spent.applications.getOrElse(CompilationUnit.Code(boxCode), 0L), n.toLong)(_ == _)
+          Result.diff(progress.spent.applications.getOrElse(boxCode, 0L), n.toLong)(_ == _)
         )
       )
       .log(s"the counts: ${progress.spent.applications}")
@@ -366,7 +367,7 @@ object ExecutorLaws:
     * `weakhead`), so a reported step count that the budget did not charge
     * breaks the law.
     */
-  def honestCostsLaw[Suspension](executor: Executor[Suspension], term: DeBruijnTerm, steps: Long, stop: StopSignal): Result =
+  def honestCostsLaw[Suspension](executor: Executor[NoFacts.type, Suspension], term: DeBruijnTerm, steps: Long, stop: StopSignal): Result =
     val (instruction, dependencies) = interned(term)
     val (_, _, progress) = executor.executed(instruction, dependencies, Budget(steps, countedUnits = false, stop))
     val spent = progress.spent.steps
@@ -379,7 +380,7 @@ object ExecutorLaws:
             Result.assert(spent <= steps),
             Result.diff(exact.suspension.isEmpty, true)(_ == _),
             Result.diff(exact.spent.steps, spent)(_ == _),
-            Result.diff(exact.found, progress.found)(_ == _)
+            Result.diff(exact.found, progress.found)(EvaluatorTesting.sameInstructions)
           )
         )
         if spent == 0 then exactHolds

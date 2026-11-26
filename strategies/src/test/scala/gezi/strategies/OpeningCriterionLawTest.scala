@@ -14,7 +14,8 @@ import gezi.generatedinputs.LambdalatticeText
 import gezi.generatedinputs.SeededSnapshots
 import snapshot4s.generated.snapshotConfig
 import gezi.ir.BuiltInRule
-import gezi.ir.Instruction
+import gezi.ir.Configured
+import gezi.ir.NoFacts
 import gezi.ir.LemmaIdentifier
 import gezi.ir.Pattern
 import gezi.ir.Store
@@ -56,7 +57,9 @@ import gezi.standardlibrary.StandardLibraryIndex
   */
 class OpeningCriterionLawTest extends GeneratedProperties with SeededSnapshots:
 
-  private def closed(text: String): Instruction = Defunctionalization.thunkInstruction(Lambdalattice.term(text))
+  private given NoFacts.type = NoFacts
+
+  private def closed(text: String): Configured[NoFacts.type] = Defunctionalization.thunkInstruction[gezi.ir.NoFacts.type](Lambdalattice.term(text))(using gezi.ir.NoFacts)
 
   /** The head: a closed term no generated program spells otherwise. */
   private val headText = "(λh1. λh2. λh3. λh4. h4 h3 h2 h1)"
@@ -70,7 +73,7 @@ class OpeningCriterionLawTest extends GeneratedProperties with SeededSnapshots:
   /** One argument of the head's spine in a left side: its text over its own
     * metavariables (`binders`), and as a pattern.
     */
-  private final case class SpineArgument(text: String, binders: Vector[String], pattern: Pattern)
+  private final case class SpineArgument(text: String, binders: Vector[String], pattern: Pattern[NoFacts.type])
 
   private def spineArgument(kind: Int, position: Int): SpineArgument =
     val (first, second) = (s"a$position", s"b$position")
@@ -93,7 +96,7 @@ class OpeningCriterionLawTest extends GeneratedProperties with SeededSnapshots:
     * side the marker applied to the spine's metavariables and identities
     * after them.
     */
-  private def headLemma(spine: Vector[SpineArgument]): LemmaSides =
+  private def headLemma(spine: Vector[SpineArgument]): LemmaSides[NoFacts.type] =
     val binders = spine.flatMap(_.binders)
     val lambdas = binders.map(binder => s"λ$binder.").mkString(" ")
     val markerArguments = (binders ++ Vector.fill(4 - binders.size)("(λu. u)")).mkString(" ")
@@ -105,8 +108,8 @@ class OpeningCriterionLawTest extends GeneratedProperties with SeededSnapshots:
 
   private val idempotence = LemmaSides(LemmaIdentifier(1), closed("λm. (m + m)"), closed("λm. m"))
 
-  private def index(lemmas: Vector[LemmaSides]): StandardLibraryIndex =
-    StandardLibraryIndex(Vector.empty, lemmas, Vector.empty, Vector.empty)
+  private def index(lemmas: Vector[LemmaSides[NoFacts.type]]): StandardLibraryIndex[NoFacts.type] =
+    StandardLibraryIndex(NoFacts, Vector.empty, lemmas, Vector.empty, Vector.empty)
 
   /** The round's instances: twice the most a generated program's round took
     * under the default (MEASURED 2026-11-21, the second law's run of 20
@@ -116,8 +119,8 @@ class OpeningCriterionLawTest extends GeneratedProperties with SeededSnapshots:
     */
   private val budget = 8
 
-  private def options(lemmas: Vector[LemmaSides]): SaturationOptions =
-    SaturationOptions(lemmas.map(_.lemma), BuiltInRule.all, budget, BaselineLemmaEncoding, ClosureCompilation, StandardIndexer, StandardOrientationCompiler, MemoRetention.Kept)
+  private def options(lemmas: Vector[LemmaSides[NoFacts.type]]): SaturationOptions[NoFacts.type] =
+    SaturationOptions(lemmas.map(_.lemma), BuiltInRule.beforeOptIn, budget, BaselineLemmaEncoding, ClosureCompilation, StandardIndexer.of[gezi.ir.NoFacts.type], StandardOrientationCompiler, MemoRetention.Kept, gezi.ir.TermConstruction(gezi.ir.NoFacts))
 
   private val closedText: Gen[String] = HoasGenerators.closedTerm.map(LambdalatticeText.text)
 
@@ -140,27 +143,27 @@ class OpeningCriterionLawTest extends GeneratedProperties with SeededSnapshots:
       case 6 => s"λz. (((λw. w) z) + $headText ($first) z)"
       case _ => s"λz. ((z + z) ∥ $headText ($first) z)"
 
-  private val writeBack = Some(LocalExtraction(Vector(Compression), _ => Set.empty, MemoRetention.Kept))
+  private val writeBack = Some(LocalExtraction(Vector(Compression.at[gezi.ir.NoFacts.type]), _ => Set.empty, SpellingRetention.KeptWithinAPass))
 
   property("the closures the narrower criterion opens are among those the default opens") {
     for
       program <- programs.forAllWithLog(identity)
       spine <- spines.forAll
     yield
-      val (graph, _) = EGraph.empty(Store(Set.empty), Map.empty, explained = false).instructionAdded(closed(program))
+      val (graph, _) = EGraph.empty(Store(Set.empty, gezi.ir.TermConstruction(gezi.ir.NoFacts)), Map.empty, explained = false).instructionAdded(closed(program))
       val heads = Map(head -> 2)
       val scope = BodyOpening.classesUnder(graph, graph.liveNodes.map(_.root), Set.empty)
-      def openedClosures(criterion: OpeningCriterion): Set[Int] =
+      def openedClosures(criterion: OpeningCriterion[NoFacts.type]): Set[Int] =
         BodyOpening.opened(graph, Vector.empty, 8, scope, heads, Set.empty, criterion)._2.map(opening => graph.root(opening.closure)).toSet
       val narrower = openedClosures(OpeningCriterion.CallsAHeadWithMatchingArguments(Map(head -> Vector(spine.map(_.pattern)))))
-      val default = openedClosures(OpeningCriterion.CallsAHead)
+      val default = openedClosures(OpeningCriterion.CallsAHead[gezi.ir.NoFacts.type]())
       Result.assert(narrower.subsetOf(default)).log(s"opened by the narrower criterion only: ${narrower -- default}")
   }
 
   /** The instances of the round under the choice, when it reaches its fixed
     * point.
     */
-  private def instances(lemmas: Vector[LemmaSides], program: String, choice: OpeningCriterionChoice, stop: StopSignal): Option[Int] =
+  private def instances(lemmas: Vector[LemmaSides[NoFacts.type]], program: String, choice: OpeningCriterionChoice, stop: StopSignal): Option[Int] =
     val run = HigherOrderSaturator(options(lemmas), writeBack, None, choice).saturated(index(lemmas), Vector(closed(program)), explained = false, stop)
     run.end match
       case End.FixedPoint(_) => Some(run.graph.instanceKeys.size)
@@ -193,15 +196,16 @@ class OpeningCriterionLawTest extends GeneratedProperties with SeededSnapshots:
       if application then (Vector(spineArgument(0, 0), spineArgument(3, 1)), s"λz. (((λw. w) z) + $headText ($first) z)")
       else (Vector(spineArgument(0, 0), spineArgument(1, 1)), s"λz. ((z + z) ∥ $headText ($first) z)")
 
-  test("the witnesses: the instances of the default's round and of the narrower one's") {
+  stoppableTest("the witnesses: the instances of the default's round and of the narrower one's") { stopped =>
+    val stop = StopSignal.completedWith(stopped)
     assertSeededSnapshot(witnesses, 20261121L, 8, "opening-criterion/witnesses.txt")(
       (spine, program) => s"${spine.map(_.text).mkString(" ")} in $program",
       { case (default, narrower) => s"default $default, narrower $narrower" }
     ) { (spine, program) =>
       val lemmas = Vector(headLemma(spine), idempotence)
       (
-        instances(lemmas, program, OpeningCriterionChoice.CallsAHead, StopSignal.NeverStopped),
-        instances(lemmas, program, OpeningCriterionChoice.CallsAHeadWithMatchingArguments, StopSignal.NeverStopped)
+        instances(lemmas, program, OpeningCriterionChoice.CallsAHead, stop),
+        instances(lemmas, program, OpeningCriterionChoice.CallsAHeadWithMatchingArguments, stop)
       )
     }
   }

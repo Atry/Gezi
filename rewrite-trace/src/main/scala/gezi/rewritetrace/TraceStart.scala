@@ -8,15 +8,18 @@ import gezi.frontend.NameSpelling
 import gezi.frontend.ReadableText
 import gezi.frontend.DeBruijnTerm
 import gezi.frontend.Literal
-import gezi.ir.Instruction
+import gezi.ir.NoFacts
 import gezi.ir.Opaque
+import gezi.ir.StorageAccess
 import gezi.ir.UriNode
+import gezi.ir.{Apply, Thunk}
 import gezi.knowledgereading.KnowledgeReading
 import gezi.knowledgereading.KnowledgeReadingError
 import gezi.knowledgereading.Reading
 import gezi.locations.BinderOrigin
 import gezi.locations.SourceMap
-import gezi.weakhead.Value
+import gezi.ir.Value
+import gezi.ir.{Configured, NativeSpecializer}
 
 /** The term a trace's first round starts from, read with its source map: the
   * locations of its places in its text and the origin of each binder
@@ -24,7 +27,7 @@ import gezi.weakhead.Value
   * name for display, each with its name (`TraceStart.written` with `known`),
   * a name the printer synthesized (`NameSpelling.shared`) left out.
   */
-final case class LocatedStart(start: Instruction, map: SourceMap, names: Map[Instruction, String])
+final case class LocatedStart(start: Configured[NoFacts.type], map: SourceMap, names: Map[Configured[NoFacts.type], String])
 
 /** The text of the term a trace starts from. A trace holds no start: the
   * start is a program the front end reads with its locations, written beside the
@@ -50,25 +53,36 @@ final case class LocatedStart(start: Instruction, map: SourceMap, names: Map[Ins
   */
 object TraceStart:
 
+  /** The configuration a start's text is read in: the player's, which knows no facts; the text writes a storage as
+    * its view.
+    */
+  private type Read = NoFacts.type
+
+  private given Read = NoFacts
+
   /** The text of the start, its binders named from the program's source
     * when the source is given (the front end's reading of it, with its
     * locations), else printed nameless (`ReadableText.printedNameless`).
     * Throws `TraceTextError` when the front end reads the source as another
     * instruction than the start, or the text back as another.
     */
-  def written(start: Instruction, source: Option[String]): String = written(start, source, Map.empty)
+  def written[C <: NativeSpecializer & Singleton](start: Configured[C], source: Option[String])(using C, StorageAccess): String =
+    written(start, source, Map.empty[Configured[C], String])
 
   /** `written`, each instruction of `known` bound at TERM's start and named
     * by its name there (`ReadableText.KnownNames.Bound`): the library
     * terms a trace's lemmas name (`TraceText.namesUsed`), so that the start
     * reads as the player shows the steps.
     */
-  def written(start: Instruction, source: Option[String], known: Map[Instruction, String]): String =
+  def written[C <: NativeSpecializer & Singleton](start: Configured[C], source: Option[String], known: Map[Configured[C], String])(using
+      C,
+      StorageAccess
+  ): String =
     val printed = source match
       case Some(text) =>
         val read = Lambdalattice.located(text, FreeNames.Rejected)
-        val (instruction, map) = Defunctionalization.locatedThunkInstruction(read.term, read.spans, sourceUri)
-        if !(instruction eq start) then
+        val (instruction, map) = Defunctionalization.locatedThunkInstruction[C](read.term, read.spans, sourceUri)
+        if !Configured.same(instruction, start) then
           throw TraceTextError(s"the front end reads the source of the start as $instruction, not as the start $start")
         ReadableText.printed(instruction, map, ReadableText.KnownNames.Bound(known))
       case None => ReadableText.printedNameless(start, ReadableText.KnownNames.Bound(known))
@@ -83,8 +97,38 @@ object TraceStart:
       )
       .stripTrailing
     val again = readLocated(text, sourceUri).start
-    if !(again eq start) then throw TraceTextError(s"the text of the start $start reads back as $again")
+    if !sameAcross(start, again) then throw TraceTextError(s"the text of the start $start reads back as $again")
     text
+
+  /** Whether the term of the configuration and the term the start's text reads back as, with no facts, are one term
+    * written: one layer of the same shape at each pair, a storage read through its view `v ∥ T` as the parallel the
+    * text writes, opaque terms of one name or URI. A walk of the pairs pending, each pair once, so that it is linear in
+    * the terms' graphs; the formatter's check of its own text.
+    */
+  private def sameAcross[C <: NativeSpecializer & Singleton](term: Configured[C], again: Configured[Read])(using C, StorageAccess): Boolean =
+    @scala.annotation.tailrec
+    def compared(pending: List[(Configured[C], Configured[Read])], seen: Set[(Configured[C], Configured[Read])]): Boolean =
+      pending match
+        case Nil                                   => true
+        case pair :: rest if seen.contains(pair) => compared(rest, seen)
+        case (left, right) :: rest =>
+          if left.opaque || right.opaque then
+            left.opaque && right.opaque && leafName(left) == leafName(right) && compared(rest, seen + ((left, right)))
+          else
+            (Positions.layerOf(left), Positions.layerOf(right)) match
+              case (gezi.ir.Thunk(code, holes, fillings), gezi.ir.Thunk(againCode, againHoles, againFillings))
+                  if code == againCode && holes == againHoles && fillings.size == againFillings.size =>
+                compared(fillings.zip(againFillings).toList ++ rest, seen + ((left, right)))
+              case (gezi.ir.Apply(function, argument), gezi.ir.Apply(againFunction, againArgument)) =>
+                compared((function, againFunction) :: (argument, againArgument) :: rest, seen + ((left, right)))
+              case (gezi.ir.Choice(first, second), gezi.ir.Choice(againFirst, againSecond)) =>
+                compared((first, againFirst) :: (second, againSecond) :: rest, seen + ((left, right)))
+              case (leftLayer @ (gezi.ir.Parallel(_, _) | gezi.ir.StorageView(_, _)), gezi.ir.Parallel(againFirst, againSecond)) =>
+                import gezi.ir.Apply.children
+                val Vector(first, second) = leftLayer.children: @unchecked
+                compared((first, againFirst) :: (second, againSecond) :: rest, seen + ((left, right)))
+              case _ => false
+    compared(List((term, again)), Set.empty)
 
   /** The opaque instructions of the start, URI nodes and opaque terms, each
     * once, in the order a walk first meets them. The surface syntax spells
@@ -95,14 +139,14 @@ object TraceStart:
     * the instruction (`leafContracted`), so that the text stays a closed term
     * with no free name.
     */
-  private def opaqueLeaves(start: Instruction): Vector[Instruction] =
+  private def opaqueLeaves[C <: NativeSpecializer & Singleton](start: Configured[C])(using C, StorageAccess): Vector[Configured[C]] =
     @scala.annotation.tailrec
-    def walked(pending: List[Instruction], visited: Set[Instruction], found: Vector[Instruction]): Vector[Instruction] =
+    def walked(pending: List[Configured[C]], visited: Set[Configured[C]], found: Vector[Configured[C]]): Vector[Configured[C]] =
       pending match
         case Nil                                    => found
         case next :: rest if visited.contains(next) => walked(rest, visited, found)
         case next :: rest if next.opaque            => walked(rest, visited + next, found :+ next)
-        case next :: rest                           => walked(next.layer.children.toList ++ rest, visited + next, found)
+        case next :: rest                           => walked(Positions.layerOf(next).children.toList ++ rest, visited + next, found)
     val leaves = walked(List(start), Set.empty, Vector.empty)
     val names = leaves.map(leaf => NameSpelling.escaped(leafName(leaf)))
     if names.distinct.size != names.size then
@@ -112,7 +156,7 @@ object TraceStart:
   /** The text the printer names an opaque instruction by: an opaque term's
     * name, a URI node's URI (`ReadableText`'s names of constants).
     */
-  private def leafName(leaf: Instruction): String = leaf.layer match
+  private def leafName[C <: NativeSpecializer & Singleton](leaf: Configured[C])(using C): String = leaf.layer match
     case Opaque(name) => name
     case UriNode(uri) => uri.toString
     case other        => throw IllegalStateException(s"no opaque instruction: $other")
@@ -122,7 +166,7 @@ object TraceStart:
     * node's URI as a text string under tag 32, the tag RFC 8949 gives a URI
     * (section 3.4.5.3), in parentheses, where a number touching `(` is a tag.
     */
-  private def leafLiteralText(leaf: Instruction): String = leaf.layer match
+  private def leafLiteralText[C <: NativeSpecializer & Singleton](leaf: Configured[C])(using C): String = leaf.layer match
     case Opaque(name) => textNotation(name)
     case UriNode(uri) => s"(32(${textNotation(uri.toString)}))"
     case other        => throw IllegalStateException(s"no opaque instruction: $other")
@@ -145,14 +189,14 @@ object TraceStart:
     * string under tag 32 a URI node of the text, a text string an opaque
     * term of the name. Throws `TraceTextError` for any other literal.
     */
-  private def leafOfLiteral(literal: Literal): Instruction =
+  private def leafOfLiteral(literal: Literal): Configured[Read] =
     val bytes = literal.bytes.toVector
     def textOf(textBytes: Vector[Byte]): String =
       Literal.textRead(Literal(IArray.from(textBytes))).fold(reason => throw TraceTextError(s"a leaf's literal holds no text: $reason"), identity)
     bytes match
       case uriTagFirst +: uriTagSecond +: rest if uriTagFirst == 0xd8.toByte && uriTagSecond == 32.toByte =>
-        Instruction.uri(java.net.URI(textOf(rest)))
-      case _ => Instruction.opaque(textOf(bytes))
+        NoFacts.uri(java.net.URI(textOf(rest)))
+      case _ => NoFacts.opaque(textOf(bytes))
 
   /** The URI the places of a source of the start are located under while
     * it is printed; the printed text's own places are located when read.
@@ -168,11 +212,11 @@ object TraceStart:
     */
   def readLocated(text: String, uri: java.net.URI): LocatedStart =
     val read = Lambdalattice.located(text, FreeNames.Rejected)
-    val (whole, wholeMap) = Defunctionalization.locatedThunkInstruction(read.term, read.spans, uri)
-    val (bindings, term) = KnowledgeReading.run(startRead(whole), readingLimit)
-    val termMap = whole match
-      case Instruction.Thunk(_, _, fillings) =>
-        fillings.indexWhere(_ eq term) match
+    val (whole, wholeMap) = Defunctionalization.locatedThunkInstruction[Read](read.term, read.spans, uri)
+    val (bindings, term) = KnowledgeReading.run(startRead(Value.of(whole)), readingLimit)
+    val termMap = whole.layer match
+      case Thunk(_, _, fillings) =>
+        fillings.indexWhere(Configured.same(_, term)) match
           case -1    => throw TraceTextError(s"the term of the start is no filling of the text's thunk $whole")
           case index => wholeMap.children.lift(index).getOrElse(SourceMap.unlocated)
       case other => throw TraceTextError(s"the text of a start reads as no thunk: $other")
@@ -189,7 +233,7 @@ object TraceStart:
   private val readingLimit: Long = 46L + 4L * 24L
 
   /** BINDINGS and TERM of the text's tuple. */
-  private def startRead(value: Value): Reading[(Int, Instruction)] =
+  private def startRead(value: Value[Read]): Reading[Read, (Int, Configured[Read])] =
     KnowledgeReading.fields(value, 2).flatMap {
       case Vector(bindings, term) =>
         KnowledgeReading.trieInteger(bindings).map(count =>
@@ -203,15 +247,18 @@ object TraceStart:
     * with the name m is written with, when it is no name the printer
     * synthesized.
     */
-  private def bindingName(located: LocatedStart): Option[(Instruction, String)] =
-    located.start match
-      case Instruction.Apply(Instruction.Thunk(_, Vector(_), Vector(value)), Instruction.Thunk(_, _, _)) =>
-        located.map.children
-          .lift(1)
-          .flatMap(_.binders.headOption)
-          .flatMap(_.collectFirst { case BinderOrigin.Written(name, _) => name })
-          .filterNot(NameSpelling.sharedParts(_).nonEmpty)
-          .map(value -> _)
+  private def bindingName(located: LocatedStart): Option[(Configured[Read], String)] =
+    located.start.layer match
+      case Apply(helper, body) =>
+        (helper.layer, body.layer) match
+          case (Thunk(_, Vector(_), Vector(value)), Thunk(_, _, _)) =>
+            located.map.children
+              .lift(1)
+              .flatMap(_.binders.headOption)
+              .flatMap(_.collectFirst { case BinderOrigin.Written(name, _) => name })
+              .filterNot(NameSpelling.sharedParts(_).nonEmpty)
+              .map(value -> _)
+          case _ => None
       case _ => None
 
   /** The binding at the start's root contracted with its map: a binding of
@@ -233,22 +280,27 @@ object TraceStart:
     * `TraceTextError` for a root of another shape.
     */
   private def leafContracted(located: LocatedStart): LocatedStart =
-    located.start match
-      case Instruction.Apply(helper @ Instruction.Thunk(_, Vector(_), _), body @ Instruction.Thunk(_, _ +: _, _)) =>
-        val bits = Defunctionalization.instructionTerm(helper) match
-          case DeBruijnTerm.Lambda(applied) => argumentCount(applied, 0)
-          case other                         => throw TraceTextError(s"a leaf's helper is no abstraction: $other")
-        val literal = KnowledgeReading.run(KnowledgeReading.trieLiteralWritten(helper), leafReadingLimit(bits)) match
-          case Some(read) => read
-          case None       => throw TraceTextError(s"the start's root is no binding (λt. t V) λm. BODY: ${located.start}")
-        val leaf = leafOfLiteral(literal)
-        val leafHelper =
-          Defunctionalization.thunkInstruction(DeBruijnTerm.Lambda(DeBruijnTerm.Apply(DeBruijnTerm.Variable(0), DeBruijnTerm.Constant(leaf))))
-        val map = located.map.copy(children = located.map.children.updated(0, SourceMap.unlocated))
-        ReadableText.contracted(Instruction.Apply(leafHelper, body), map) match
-          case Some((start, contractedMap)) => LocatedStart(start, contractedMap, located.names)
-          case None => throw TraceTextError(s"the binding of the leaf $leaf does not contract: ${located.start}")
-      case _ => throw TraceTextError(s"the start's root is no binding (λt. t V) λm. BODY: ${located.start}")
+    def unbound: Nothing = throw TraceTextError(s"the start's root is no binding (λt. t V) λm. BODY: ${located.start}")
+    located.start.layer match
+      case Apply(helper, body) =>
+        (helper.layer, body.layer) match
+          case (Thunk(_, Vector(_), _), Thunk(_, _ +: _, _)) =>
+            val bits = Defunctionalization.instructionTerm(helper) match
+              case DeBruijnTerm.Lambda(applied) => argumentCount(applied, 0)
+              case other                        => throw TraceTextError(s"a leaf's helper is no abstraction: $other")
+            val literal = KnowledgeReading.run(KnowledgeReading.trieLiteralWritten(Value.of(helper)), leafReadingLimit(bits)) match
+              case Some(read) => read
+              case None       => unbound
+            val leaf = leafOfLiteral(literal)
+            val leafHelper = Defunctionalization.thunkInstruction[Read](
+              DeBruijnTerm.Lambda(DeBruijnTerm.Apply(DeBruijnTerm.Variable(0), DeBruijnTerm.Constant(leaf)))
+            )
+            val map = located.map.copy(children = located.map.children.updated(0, SourceMap.unlocated))
+            ReadableText.contracted(NoFacts.application(leafHelper, body), map) match
+              case Some((start, contractedMap)) => LocatedStart(start, contractedMap, located.names)
+              case None => throw TraceTextError(s"the binding of the leaf $leaf does not contract: ${located.start}")
+          case _ => unbound
+      case _ => unbound
 
   /** The evaluator steps reading a leaf's literal of the bits takes at most:
     * `readingLimit`'s 46 steps of a tuple and 24 for each byte of a trie
@@ -258,6 +310,6 @@ object TraceStart:
 
   /** The arguments of the term's application spine. */
   @scala.annotation.tailrec
-  private def argumentCount(term: DeBruijnTerm, counted: Int): Int = term match
+  private def argumentCount[Constant](term: gezi.frontend.DeBruijnTermOf[Constant], counted: Int): Int = term match
     case DeBruijnTerm.Apply(function, _) => argumentCount(function, counted + 1)
     case _                               => counted

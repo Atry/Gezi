@@ -8,7 +8,9 @@ import java.math.BigInteger
 import gezi.generatedinputs.GeneratedProperties
 import gezi.ir.Code
 import gezi.ir.Hole
-import gezi.ir.Instruction
+import gezi.ir.Configured
+import gezi.ir.NoFacts
+import gezi.ir.Pure
 import gezi.jit.BinaryNaturalNatives
 import gezi.jit.Native
 import gezi.jit.NativeArgument
@@ -20,6 +22,8 @@ import gezi.jit.Representation
 import gezi.jit.StaticBlockMethod
 import gezi.saturation.StopSignal
 import gezi.standardlibrary.NativeBound
+
+private given narrowNaturalListPlaceLawTestNoFacts: NoFacts.type = NoFacts
 
 /** The static method of the law's native: the sum of the list's elements and
   * of a natural. Public, since a block's generated class calls it.
@@ -67,40 +71,40 @@ class NarrowNaturalListPlaceLawTest extends GeneratedProperties:
   /** λx y. x y (y x), a term of no other name of the library, bound to the
     * native. The law reads the calling convention, so its body is not read.
     */
-  private val listSum: Instruction =
-    Instruction.Thunk(
+  private val listSum: Configured[NoFacts.type] =
+    NoFacts.thunkOrInstance(
       Code.Apply(Code.Apply(Code.Slot(0), Code.Slot(1)), Code.Apply(Code.Slot(1), Code.Slot(0))),
       Vector(Hole.Bound(0), Hole.Bound(1)),
       Vector.empty
     )
 
   /** λx y. y x (x y), bound to the native whose places declare the positive naturals. */
-  private val positiveListSum: Instruction =
-    Instruction.Thunk(
+  private val positiveListSum: Configured[NoFacts.type] =
+    NoFacts.thunkOrInstance(
       Code.Apply(Code.Apply(Code.Slot(1), Code.Slot(0)), Code.Apply(Code.Slot(0), Code.Slot(1))),
       Vector(Hole.Bound(0), Hole.Bound(1)),
       Vector.empty
     )
 
   /** λx y. y (x y) x, bound to the native with a positive place and no list place. */
-  private val positiveDivisorQuotient: Instruction =
-    Instruction.Thunk(
+  private val positiveDivisorQuotient: Configured[NoFacts.type] =
+    NoFacts.thunkOrInstance(
       Code.Apply(Code.Apply(Code.Slot(1), Code.Apply(Code.Slot(0), Code.Slot(1))), Code.Slot(0)),
       Vector(Hole.Bound(0), Hole.Bound(1)),
       Vector.empty
     )
 
   /** λx y. x (y x) y, bound to a native whose result a block cannot hold. */
-  private val unheldResultQuotient: Instruction =
-    Instruction.Thunk(
+  private val unheldResultQuotient: Configured[NoFacts.type] =
+    NoFacts.thunkOrInstance(
       Code.Apply(Code.Apply(Code.Slot(0), Code.Apply(Code.Slot(1), Code.Slot(0))), Code.Slot(1)),
       Vector(Hole.Bound(0), Hole.Bound(1)),
       Vector.empty
     )
 
   /** λx y. y x y, bound to a native with a place the block does not license. */
-  private val unlicensedPlaceQuotient: Instruction =
-    Instruction.Thunk(
+  private val unlicensedPlaceQuotient: Configured[NoFacts.type] =
+    NoFacts.thunkOrInstance(
       Code.Apply(Code.Apply(Code.Slot(1), Code.Slot(0)), Code.Slot(1)),
       Vector(Hole.Bound(0), Hole.Bound(1)),
       Vector.empty
@@ -108,11 +112,11 @@ class NarrowNaturalListPlaceLawTest extends GeneratedProperties:
 
   private val index = compilation.index.copy(nativeBound =
     compilation.index.nativeBound ++ Vector(
-      NativeBound(listSum, "natural_list_sum"),
-      NativeBound(positiveListSum, "positive_list_sum"),
-      NativeBound(positiveDivisorQuotient, "positive_divisor_quotient"),
-      NativeBound(unheldResultQuotient, "unheld_result_quotient"),
-      NativeBound(unlicensedPlaceQuotient, "unlicensed_place_quotient")
+      NativeBound(Pure.required(listSum), "natural_list_sum"),
+      NativeBound(Pure.required(positiveListSum), "positive_list_sum"),
+      NativeBound(Pure.required(positiveDivisorQuotient), "positive_divisor_quotient"),
+      NativeBound(Pure.required(unheldResultQuotient), "unheld_result_quotient"),
+      NativeBound(Pure.required(unlicensedPlaceQuotient), "unlicensed_place_quotient")
     )
   )
 
@@ -149,19 +153,19 @@ class NarrowNaturalListPlaceLawTest extends GeneratedProperties:
     )
   )
 
-  private val listBlocks = NarrowBlockCompilation(index, natives)
+  private val listBlocks = NarrowBlockCompilation(index, natives, gezi.weakhead.ReadingConfiguration.withoutFacts)
 
   private val value: Gen[Int] = Gen.int(Range.constant(0, 7))
 
   private val elements: Gen[Vector[Int]] = Gen.list(value, Range.linear(0, 6)).map(_.toVector)
 
-  private def called(operand: Instruction, base: Int): Instruction =
-    Instruction.Apply(Instruction.Apply(listSum, operand), numeral(base))
+  private def called(operand: Configured[NoFacts.type], base: Int): Configured[NoFacts.type] =
+    NoFacts.application(NoFacts.application(listSum, operand), numeral(base))
 
-  private def filteredList(numbers: Vector[Int]): Instruction =
-    Instruction.Parallel(list(numbers.map((_, false))), listCriterion(true))
+  private def filteredList(numbers: Vector[Int]): Configured[NoFacts.type] =
+    NoFacts.parallel(list(numbers.map((_, false))), listCriterion(true))
 
-  private def ran(compilation: NarrowBlockCompilation, program: Instruction, stop: StopSignal): Either[String, Vector[Option[BigInt]]] =
+  private def ran(compilation: NarrowBlockCompilation, program: Configured[NoFacts.type], stop: StopSignal): Either[String, Vector[Option[BigInt]]] =
     compilation
       .compiled(compilation.blocks(program), DebugAttributes.Omitted, stop)
       .map(_.map(_.run(stop).map(BigInt(_))))
@@ -187,14 +191,14 @@ class NarrowNaturalListPlaceLawTest extends GeneratedProperties:
       number <- value.forAll
       base <- value.forAll
     yield refusedAtPlace(
-      ran(listBlocks, called(Instruction.Parallel(numeral(number), criterion(true)), base), StopSignal.completedWith(stopped))
+      ran(listBlocks, called(NoFacts.parallel(numeral(number), criterion(true)), base), StopSignal.completedWith(stopped))
     )
   }
 
-  private def positiveCalled(listAdmitsZero: Boolean, numbers: Vector[Int], baseAdmitsZero: Boolean, base: Int): Instruction =
-    Instruction.Apply(
-      Instruction.Apply(positiveListSum, Instruction.Parallel(list(numbers.map((_, false))), listCriterion(listAdmitsZero))),
-      Instruction.Parallel(numeral(base), criterion(baseAdmitsZero))
+  private def positiveCalled(listAdmitsZero: Boolean, numbers: Vector[Int], baseAdmitsZero: Boolean, base: Int): Configured[NoFacts.type] =
+    NoFacts.application(
+      NoFacts.application(positiveListSum, NoFacts.parallel(list(numbers.map((_, false))), listCriterion(listAdmitsZero))),
+      NoFacts.parallel(numeral(base), criterion(baseAdmitsZero))
     )
 
   private val positiveValue: Gen[Int] = Gen.int(Range.constant(1, 7))
@@ -225,10 +229,10 @@ class NarrowNaturalListPlaceLawTest extends GeneratedProperties:
     yield refusedAtPlace(ran(listBlocks, positiveCalled(false, numbers, true, base), StopSignal.completedWith(stopped)))
   }
 
-  private def quotientCalled(dividend: Int, divisorAdmitsZero: Boolean, divisor: Int): Instruction =
-    Instruction.Apply(
-      Instruction.Apply(positiveDivisorQuotient, Instruction.Parallel(numeral(dividend), criterion(true))),
-      Instruction.Parallel(numeral(divisor), criterion(divisorAdmitsZero))
+  private def quotientCalled(dividend: Int, divisorAdmitsZero: Boolean, divisor: Int): Configured[NoFacts.type] =
+    NoFacts.application(
+      NoFacts.application(positiveDivisorQuotient, NoFacts.parallel(numeral(dividend), criterion(true))),
+      NoFacts.parallel(numeral(divisor), criterion(divisorAdmitsZero))
     )
 
   stoppableProperty("a closed call of a native with no list place is computed when its filters name its places") { stopped =>
@@ -248,10 +252,10 @@ class NarrowNaturalListPlaceLawTest extends GeneratedProperties:
     yield refusedAtPlace(ran(listBlocks, quotientCalled(dividend, true, divisor), StopSignal.completedWith(stopped)))
   }
 
-  private def filteredCall(function: Instruction, first: Int, second: Int): Instruction =
-    Instruction.Apply(
-      Instruction.Apply(function, Instruction.Parallel(numeral(first), criterion(true))),
-      Instruction.Parallel(numeral(second), criterion(true))
+  private def filteredCall(function: Configured[NoFacts.type], first: Int, second: Int): Configured[NoFacts.type] =
+    NoFacts.application(
+      NoFacts.application(function, NoFacts.parallel(numeral(first), criterion(true))),
+      NoFacts.parallel(numeral(second), criterion(true))
     )
 
   stoppableProperty("a native whose result a block cannot hold compiles no call") { stopped =>
@@ -276,7 +280,7 @@ class NarrowNaturalListPlaceLawTest extends GeneratedProperties:
       divisor <- value.forAll
       divisorAdmitsZero <- Gen.boolean.forAll
     yield
-      val withoutLists = gezi.narrowblocks.NarrowBlockCompilation(index, natives)
+      val withoutLists = gezi.narrowblocks.NarrowBlockCompilation(index, natives, gezi.weakhead.ReadingConfiguration.withoutFacts)
       val program = quotientCalled(dividend, divisorAdmitsZero, divisor)
       Result.all(
         List(
@@ -295,7 +299,7 @@ class NarrowNaturalListPlaceLawTest extends GeneratedProperties:
       numbers <- elements.forAll
       base <- value.forAll
     yield
-      val withoutLists = gezi.narrowblocks.NarrowBlockCompilation(index, natives)
+      val withoutLists = gezi.narrowblocks.NarrowBlockCompilation(index, natives, gezi.weakhead.ReadingConfiguration.withoutFacts)
       val program = called(filteredList(numbers), base)
       Result.all(
         List(

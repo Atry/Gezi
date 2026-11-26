@@ -1,164 +1,164 @@
 # default
-0	(λx_0. x_0 ∥ λx_0. x_0) (λx_0. x_0 x_0 ∥ λx_0. x_0 + (λx_0. x_0) (λx_0. x_0 ∥ λx_0. x_0))	finished(1)	steps=86	entries=5	hits=6	held=4
-1	(λx_0. x_0) ((λx_0. (λx_1. x_0 (x_1 x_1)) (λx_1. x_0 (x_1 x_1))) (λx_0. λx_1. (x_0 ∥ x_1))) (λx_0. x_0 ∥ λx_0. x_0)	finished(0)	steps=37	entries=12	hits=6	held=9
-2	(λx_0. x_0) (λx_0. ((λx_1. (λx_2. x_1 (x_2 x_2)) (λx_2. x_1 (x_2 x_2))) (λx_1. λx_2. (x_1 ∥ x_2)) ∥ λx_1. λx_2. (x_1 ∥ x_0 ∥ x_2)) x_0)	finished(0)	steps=33	entries=14	hits=9	held=11
-3	(λx_0. x_0) (λx_0. x_0)	finished(1)	steps=11	entries=15	hits=10	held=12
-4	(λx_0. λx_1. x_1 x_1) ((λx_0. x_0) (λx_0. x_0) (λx_0. x_0)) (((λx_0. (λx_1. x_0 (x_1 x_1)) (λx_1. x_0 (x_1 x_1))) (λx_0. λx_1. (x_0 ∥ x_1)) ∥ λx_0. x_0) (λx_0. x_0))	finished(0)	steps=136	entries=26	hits=25	held=17
-5	(λx_0. (λx_1. x_0) (x_0 x_0 x_0)) (λx_0. x_0)	finished(1)	steps=12	entries=27	hits=27	held=18
-6	(λx_0. x_0 x_0) (λx_0. (x_0 + x_0) ∥ λx_0. x_0)	finished(1)	steps=41	entries=34	hits=29	held=23
-7	(λx_0. x_0) (λx_0. λx_1. λx_2. x_0 x_2 ∥ ((λx_0. x_0 + λx_0. x_0 + λx_0. x_0) (λx_0. x_0) (λx_0. x_0) ∥ λx_0. x_0) (λx_0. x_0))	finished(0)	steps=130	entries=36	hits=46	held=25
-8	(λx_0. (λx_1. x_0 (x_1 x_1)) (λx_1. x_0 (x_1 x_1))) (λx_0. λx_1. (x_0 ∥ x_1)) (λx_0. (x_0 x_0 ∥ x_0)) (λx_0. x_0)	finished(0)	steps=55	entries=38	hits=53	held=27
-9	(λx_0. x_0) ((λx_0. x_0 + λx_0. x_0) (λx_0. x_0)) ((λx_0. x_0 x_0) (λx_0. x_0 + λx_0. x_0) (λx_0. x_0))	finished(1)	steps=40	entries=44	hits=57	held=32
-10	(λx_0. λx_1. x_1) ((λx_0. λx_1. λx_2. x_2 x_1) (λx_0. (λx_1. x_1) (x_0 + x_0)))	finished(1)	steps=9	entries=44	hits=58	held=32
-11	(λx_0. x_0) (λx_0. x_0) (λx_0. x_0) (λx_0. x_0)	finished(1)	steps=19	entries=44	hits=62	held=32
-12	(λx_0. (λx_1. x_0 (x_1 x_1)) (λx_1. x_0 (x_1 x_1))) (λx_0. λx_1. (x_0 ∥ x_1)) (λx_0. x_0) ((λx_0. x_0) (λx_0. x_0))	finished(0)	steps=57	entries=46	hits=70	held=34
-13	(λx_0. λx_1. (λx_2. x_2) x_0 x_1) ((λx_0. (λx_1. x_0 (x_1 x_1)) (λx_1. x_0 (x_1 x_1))) (λx_0. λx_1. (x_0 ∥ x_1)) (λx_0. x_0))	finished(0)	steps=47	entries=48	hits=76	held=36
-14	(λx_0. x_0) (λx_0. x_0) (λx_0. (λx_1. λx_2. (x_1 ∥ x_2)) (x_0 x_0 + λx_1. x_1))	finished(0)	steps=32	entries=51	hits=77	held=39
-15	(λx_0. (x_0 + x_0)) ((λx_0. x_0 + λx_0. x_0 + λx_0. x_0) ((λx_0. x_0) ((λx_0. x_0) (λx_0. x_0)))) (λx_0. x_0)	finished(1)	steps=38	entries=54	hits=83	held=42
-16	((λx_0. x_0) (λx_0. x_0) ∥ λx_0. x_0 (λx_1. x_0 x_0)) (λx_0. x_0)	finished(0)	steps=42	entries=58	hits=87	held=46
-17	(λx_0. λx_1. λx_2. (λx_3. x_2 ((λx_4. x_3) x_3) ∥ (x_1 ∥ x_1))) (λx_0. x_0 ∥ λx_0. x_0)	finished(0)	steps=30	entries=61	hits=87	held=49
-18	(λx_0. x_0 (λx_1. x_1) x_0) (λx_0. x_0 x_0 + (λx_0. x_0) (λx_0. x_0) (λx_0. x_0))	finished(2)	steps=46	entries=65	hits=94	held=52
-19	(λx_0. x_0) ((λx_0. (λx_1. x_0 (x_1 x_1)) (λx_1. x_0 (x_1 x_1))) (λx_0. λx_1. (x_0 ∥ x_1)))	finished(0)	steps=18	entries=65	hits=97	held=52
-20	(λx_0. x_0) (λx_0. λx_1. x_0 (λx_2. x_0) ∥ (λx_0. (λx_1. x_1 x_1 ∥ x_0)) (λx_0. x_0))	finished(0)	steps=41	entries=68	hits=99	held=55
-21	(λx_0. x_0) ((λx_0. (x_0 ∥ x_0) x_0) (λx_0. x_0) + (λx_0. (x_0 + x_0)) (λx_0. x_0))	finished(1)	steps=40	entries=71	hits=103	held=58
-22	((λx_0. x_0) (λx_0. x_0) (λx_0. x_0) ∥ λx_0. x_0) (λx_0. (λx_1. x_1 x_1) x_0)	finished(1)	steps=33	entries=74	hits=106	held=60
-23	(λx_0. (λx_1. x_1) x_0) ((λx_0. x_0) ((λx_0. x_0) (λx_0. x_0))) (λx_0. x_0 ∥ λx_0. x_0) (λx_0. x_0)	finished(1)	steps=32	entries=75	hits=111	held=61
-24	(λx_0. x_0) (λx_0. (λx_1. λx_2. x_1 ∥ λx_1. λx_2. λx_3. λx_4. λx_5. x_3 ∥ x_0))	finished(0)	steps=15	entries=77	hits=111	held=63
-25	(λx_0. x_0) (λx_0. x_0) (λx_0. x_0) ((λx_0. x_0) (λx_0. x_0) (λx_0. x_0)) (λx_0. x_0) ((λx_0. x_0 + λx_0. x_0) (λx_0. x_0))	finished(1)	steps=35	entries=78	hits=118	held=64
-26	(λx_0. (λx_1. x_0 x_0) x_0) (λx_0. (λx_1. λx_2. x_2) x_0) (λx_0. x_0)	finished(1)	steps=21	entries=81	hits=120	held=67
-27	(λx_0. x_0) (λx_0. x_0)	finished(1)	steps=11	entries=81	hits=122	held=67
-28	(λx_0. (λx_1. λx_2. (λx_3. x_3 (x_0 x_0 x_1)) x_0) x_0) (λx_0. x_0 ∥ λx_0. x_0)	finished(1)	steps=120	entries=98	hits=126	held=72
-29	(λx_0. x_0) (λx_0. x_0)	finished(1)	steps=11	entries=98	hits=128	held=72
-30	(λx_0. (λx_1. x_0 x_1 ∥ x_0 (λx_1. (λx_2. x_2) x_0))) (λx_0. (x_0 + x_0 + x_0))	finished(0)	steps=44	entries=105	hits=128	held=79
-31	(λx_0. x_0 (x_0 (λx_1. λx_2. λx_3. x_2)) (x_0 + x_0)) ((λx_0. x_0) (λx_0. x_0))	finished(1)	steps=28	entries=108	hits=131	held=82
-32	(λx_0. λx_1. x_1) ((λx_0. x_0) (λx_0. x_0) (λx_0. x_0)) (λx_0. x_0 ∥ λx_0. x_0) (λx_0. (x_0 ∥ x_0) x_0)	finished(1)	steps=35	entries=111	hits=132	held=84
-33	(λx_0. λx_1. x_1 x_1) (λx_0. λx_1. ((x_0 ∥ x_0) (λx_2. x_2) ∥ (x_0 ∥ x_0 ∥ x_0)))	finished(1)	steps=11	entries=111	hits=133	held=84
-34	(λx_0. x_0) (λx_0. λx_1. λx_2. x_1 x_2 (λx_3. (x_1 ∥ x_0)) (x_2 (x_2 x_0)))	finished(0)	steps=32	entries=114	hits=133	held=87
-35	(λx_0. x_0) (λx_0. x_0) (λx_0. x_0 + λx_0. x_0) (λx_0. x_0) ((λx_0. (x_0 ∥ x_0)) ((λx_0. x_0) (λx_0. x_0)))	finished(1)	steps=33	entries=116	hits=139	held=89
-36	(λx_0. λx_1. x_1 x_0) ((λx_0. x_0) (λx_0. x_0)) (λx_0. x_0) ((λx_0. x_0) ((λx_0. x_0) (λx_0. x_0)) (λx_0. x_0))	finished(1)	steps=29	entries=118	hits=143	held=91
-37	(λx_0. x_0) (λx_0. (λx_1. x_1 x_1 x_1 + (x_0 x_0 ∥ x_0) + x_0 x_0 x_0))	finished(2)	steps=39	entries=121	hits=143	held=94
-38	(λx_0. λx_1. (x_1 x_0 ∥ x_1)) ((λx_0. x_0) ((λx_0. x_0) (λx_0. x_0))) (λx_0. (x_0 + x_0))	finished(1)	steps=31	entries=123	hits=147	held=96
-39	((λx_0. (λx_1. x_0 (x_1 x_1)) (λx_1. x_0 (x_1 x_1))) (λx_0. λx_1. (x_0 ∥ x_1)) + (λx_0. x_0 ∥ λx_0. x_0)) ((λx_0. x_0) (λx_0. x_0)) ((λx_0. x_0) (λx_0. x_0))	finished(1)	steps=87	entries=123	hits=162	held=96
+0	(λx_0. x_0 ∥ λx_0. x_0) (λx_0. x_0 x_0 ∥ λx_0. x_0 + (λx_0. x_0) (λx_0. x_0 ∥ λx_0. x_0))	finished(1)	steps=61	entries=5	hits=3	held=4
+1	(λx_0. x_0) ((λx_0. (λx_1. x_0 (x_1 x_1)) (λx_1. x_0 (x_1 x_1))) (λx_0. λx_1. (x_0 ∥ x_1))) (λx_0. x_0 ∥ λx_0. x_0)	finished(0)	steps=37	entries=12	hits=3	held=9
+2	(λx_0. x_0) (λx_0. ((λx_1. (λx_2. x_1 (x_2 x_2)) (λx_2. x_1 (x_2 x_2))) (λx_1. λx_2. (x_1 ∥ x_2)) ∥ λx_1. λx_2. (x_1 ∥ x_0 ∥ x_2)) x_0)	finished(0)	steps=33	entries=14	hits=6	held=11
+3	(λx_0. x_0) (λx_0. x_0)	finished(1)	steps=11	entries=15	hits=7	held=12
+4	(λx_0. λx_1. x_1 x_1) ((λx_0. x_0) (λx_0. x_0) (λx_0. x_0)) (((λx_0. (λx_1. x_0 (x_1 x_1)) (λx_1. x_0 (x_1 x_1))) (λx_0. λx_1. (x_0 ∥ x_1)) ∥ λx_0. x_0) (λx_0. x_0))	finished(0)	steps=134	entries=25	hits=22	held=16
+5	(λx_0. (λx_1. x_0) (x_0 x_0 x_0)) (λx_0. x_0)	finished(1)	steps=12	entries=26	hits=24	held=17
+6	(λx_0. x_0 x_0) (λx_0. (x_0 + x_0) ∥ λx_0. x_0)	finished(1)	steps=44	entries=32	hits=27	held=21
+7	(λx_0. x_0) (λx_0. λx_1. λx_2. x_0 x_2 ∥ ((λx_0. x_0 + λx_0. x_0 + λx_0. x_0) (λx_0. x_0) (λx_0. x_0) ∥ λx_0. x_0) (λx_0. x_0))	finished(0)	steps=87	entries=34	hits=39	held=23
+8	(λx_0. (λx_1. x_0 (x_1 x_1)) (λx_1. x_0 (x_1 x_1))) (λx_0. λx_1. (x_0 ∥ x_1)) (λx_0. (x_0 x_0 ∥ x_0)) (λx_0. x_0)	finished(0)	steps=55	entries=36	hits=46	held=25
+9	(λx_0. x_0) ((λx_0. x_0 + λx_0. x_0) (λx_0. x_0)) ((λx_0. x_0 x_0) (λx_0. x_0 + λx_0. x_0) (λx_0. x_0))	finished(1)	steps=38	entries=41	hits=50	held=29
+10	(λx_0. λx_1. x_1) ((λx_0. λx_1. λx_2. x_2 x_1) (λx_0. (λx_1. x_1) (x_0 + x_0)))	finished(1)	steps=9	entries=41	hits=51	held=29
+11	(λx_0. x_0) (λx_0. x_0) (λx_0. x_0) (λx_0. x_0)	finished(1)	steps=19	entries=41	hits=55	held=29
+12	(λx_0. (λx_1. x_0 (x_1 x_1)) (λx_1. x_0 (x_1 x_1))) (λx_0. λx_1. (x_0 ∥ x_1)) (λx_0. x_0) ((λx_0. x_0) (λx_0. x_0))	finished(0)	steps=57	entries=43	hits=63	held=31
+13	(λx_0. λx_1. (λx_2. x_2) x_0 x_1) ((λx_0. (λx_1. x_0 (x_1 x_1)) (λx_1. x_0 (x_1 x_1))) (λx_0. λx_1. (x_0 ∥ x_1)) (λx_0. x_0))	finished(0)	steps=47	entries=45	hits=69	held=33
+14	(λx_0. x_0) (λx_0. x_0) (λx_0. (λx_1. λx_2. (x_1 ∥ x_2)) (x_0 x_0 + λx_1. x_1))	finished(0)	steps=36	entries=48	hits=70	held=36
+15	(λx_0. (x_0 + x_0)) ((λx_0. x_0 + λx_0. x_0 + λx_0. x_0) ((λx_0. x_0) ((λx_0. x_0) (λx_0. x_0)))) (λx_0. x_0)	finished(1)	steps=35	entries=51	hits=76	held=39
+16	((λx_0. x_0) (λx_0. x_0) ∥ λx_0. x_0 (λx_1. x_0 x_0)) (λx_0. x_0)	finished(0)	steps=46	entries=55	hits=81	held=43
+17	(λx_0. λx_1. λx_2. (λx_3. x_2 ((λx_4. x_3) x_3) ∥ (x_1 ∥ x_1))) (λx_0. x_0 ∥ λx_0. x_0)	finished(0)	steps=31	entries=58	hits=81	held=46
+18	(λx_0. x_0 (λx_1. x_1) x_0) (λx_0. x_0 x_0 + (λx_0. x_0) (λx_0. x_0) (λx_0. x_0))	finished(2)	steps=44	entries=61	hits=88	held=48
+19	(λx_0. x_0) ((λx_0. (λx_1. x_0 (x_1 x_1)) (λx_1. x_0 (x_1 x_1))) (λx_0. λx_1. (x_0 ∥ x_1)))	finished(0)	steps=18	entries=61	hits=91	held=48
+20	(λx_0. x_0) (λx_0. λx_1. x_0 (λx_2. x_0) ∥ (λx_0. (λx_1. x_1 x_1 ∥ x_0)) (λx_0. x_0))	finished(0)	steps=58	entries=64	hits=95	held=51
+21	(λx_0. x_0) ((λx_0. (x_0 ∥ x_0) x_0) (λx_0. x_0) + (λx_0. (x_0 + x_0)) (λx_0. x_0))	finished(1)	steps=34	entries=67	hits=98	held=54
+22	((λx_0. x_0) (λx_0. x_0) (λx_0. x_0) ∥ λx_0. x_0) (λx_0. (λx_1. x_1 x_1) x_0)	finished(1)	steps=33	entries=70	hits=101	held=56
+23	(λx_0. (λx_1. x_1) x_0) ((λx_0. x_0) ((λx_0. x_0) (λx_0. x_0))) (λx_0. x_0 ∥ λx_0. x_0) (λx_0. x_0)	finished(1)	steps=32	entries=71	hits=106	held=57
+24	(λx_0. x_0) (λx_0. (λx_1. λx_2. x_1 ∥ λx_1. λx_2. λx_3. λx_4. λx_5. x_3 ∥ x_0))	finished(0)	steps=15	entries=73	hits=106	held=59
+25	(λx_0. x_0) (λx_0. x_0) (λx_0. x_0) ((λx_0. x_0) (λx_0. x_0) (λx_0. x_0)) (λx_0. x_0) ((λx_0. x_0 + λx_0. x_0) (λx_0. x_0))	finished(1)	steps=35	entries=74	hits=113	held=60
+26	(λx_0. (λx_1. x_0 x_0) x_0) (λx_0. (λx_1. λx_2. x_2) x_0) (λx_0. x_0)	finished(1)	steps=21	entries=77	hits=115	held=63
+27	(λx_0. x_0) (λx_0. x_0)	finished(1)	steps=11	entries=77	hits=117	held=63
+28	(λx_0. (λx_1. λx_2. (λx_3. x_3 (x_0 x_0 x_1)) x_0) x_0) (λx_0. x_0 ∥ λx_0. x_0)	finished(1)	steps=129	entries=82	hits=132	held=67
+29	(λx_0. x_0) (λx_0. x_0)	finished(1)	steps=11	entries=82	hits=134	held=67
+30	(λx_0. (λx_1. x_0 x_1 ∥ x_0 (λx_1. (λx_2. x_2) x_0))) (λx_0. (x_0 + x_0 + x_0))	finished(0)	steps=48	entries=89	hits=135	held=74
+31	(λx_0. x_0 (x_0 (λx_1. λx_2. λx_3. x_2)) (x_0 + x_0)) ((λx_0. x_0) (λx_0. x_0))	finished(1)	steps=28	entries=92	hits=138	held=77
+32	(λx_0. λx_1. x_1) ((λx_0. x_0) (λx_0. x_0) (λx_0. x_0)) (λx_0. x_0 ∥ λx_0. x_0) (λx_0. (x_0 ∥ x_0) x_0)	finished(1)	steps=35	entries=95	hits=139	held=79
+33	(λx_0. λx_1. x_1 x_1) (λx_0. λx_1. ((x_0 ∥ x_0) (λx_2. x_2) ∥ (x_0 ∥ x_0 ∥ x_0)))	finished(1)	steps=11	entries=95	hits=140	held=79
+34	(λx_0. x_0) (λx_0. λx_1. λx_2. x_1 x_2 (λx_3. (x_1 ∥ x_0)) (x_2 (x_2 x_0)))	finished(0)	steps=33	entries=98	hits=140	held=82
+35	(λx_0. x_0) (λx_0. x_0) (λx_0. x_0 + λx_0. x_0) (λx_0. x_0) ((λx_0. (x_0 ∥ x_0)) ((λx_0. x_0) (λx_0. x_0)))	finished(1)	steps=31	entries=100	hits=146	held=84
+36	(λx_0. λx_1. x_1 x_0) ((λx_0. x_0) (λx_0. x_0)) (λx_0. x_0) ((λx_0. x_0) ((λx_0. x_0) (λx_0. x_0)) (λx_0. x_0))	finished(1)	steps=29	entries=102	hits=150	held=86
+37	(λx_0. x_0) (λx_0. (λx_1. x_1 x_1 x_1 + (x_0 x_0 ∥ x_0) + x_0 x_0 x_0))	finished(2)	steps=43	entries=105	hits=150	held=89
+38	(λx_0. λx_1. (x_1 x_0 ∥ x_1)) ((λx_0. x_0) ((λx_0. x_0) (λx_0. x_0))) (λx_0. (x_0 + x_0))	finished(1)	steps=36	entries=107	hits=155	held=91
+39	((λx_0. (λx_1. x_0 (x_1 x_1)) (λx_1. x_0 (x_1 x_1))) (λx_0. λx_1. (x_0 ∥ x_1)) + (λx_0. x_0 ∥ λx_0. x_0)) ((λx_0. x_0) (λx_0. x_0)) ((λx_0. x_0) (λx_0. x_0))	finished(1)	steps=81	entries=107	hits=171	held=91
 # every 0 steps
-0	(λx_0. x_0 ∥ λx_0. x_0) (λx_0. x_0 x_0 ∥ λx_0. x_0 + (λx_0. x_0) (λx_0. x_0 ∥ λx_0. x_0))	finished(1)	steps=86	entries=5	hits=6	held=4
-1	(λx_0. x_0) ((λx_0. (λx_1. x_0 (x_1 x_1)) (λx_1. x_0 (x_1 x_1))) (λx_0. λx_1. (x_0 ∥ x_1))) (λx_0. x_0 ∥ λx_0. x_0)	finished(0)	steps=37	entries=12	hits=6	held=9
-2	(λx_0. x_0) (λx_0. ((λx_1. (λx_2. x_1 (x_2 x_2)) (λx_2. x_1 (x_2 x_2))) (λx_1. λx_2. (x_1 ∥ x_2)) ∥ λx_1. λx_2. (x_1 ∥ x_0 ∥ x_2)) x_0)	finished(0)	steps=33	entries=14	hits=9	held=11
-3	(λx_0. x_0) (λx_0. x_0)	finished(1)	steps=11	entries=15	hits=10	held=12
-4	(λx_0. λx_1. x_1 x_1) ((λx_0. x_0) (λx_0. x_0) (λx_0. x_0)) (((λx_0. (λx_1. x_0 (x_1 x_1)) (λx_1. x_0 (x_1 x_1))) (λx_0. λx_1. (x_0 ∥ x_1)) ∥ λx_0. x_0) (λx_0. x_0))	finished(0)	steps=136	entries=26	hits=25	held=17
-5	(λx_0. (λx_1. x_0) (x_0 x_0 x_0)) (λx_0. x_0)	finished(1)	steps=12	entries=27	hits=27	held=18
-6	(λx_0. x_0 x_0) (λx_0. (x_0 + x_0) ∥ λx_0. x_0)	finished(1)	steps=41	entries=34	hits=29	held=23
-7	(λx_0. x_0) (λx_0. λx_1. λx_2. x_0 x_2 ∥ ((λx_0. x_0 + λx_0. x_0 + λx_0. x_0) (λx_0. x_0) (λx_0. x_0) ∥ λx_0. x_0) (λx_0. x_0))	finished(0)	steps=130	entries=36	hits=46	held=25
-8	(λx_0. (λx_1. x_0 (x_1 x_1)) (λx_1. x_0 (x_1 x_1))) (λx_0. λx_1. (x_0 ∥ x_1)) (λx_0. (x_0 x_0 ∥ x_0)) (λx_0. x_0)	finished(0)	steps=55	entries=38	hits=53	held=27
-9	(λx_0. x_0) ((λx_0. x_0 + λx_0. x_0) (λx_0. x_0)) ((λx_0. x_0 x_0) (λx_0. x_0 + λx_0. x_0) (λx_0. x_0))	finished(1)	steps=40	entries=44	hits=57	held=32
-10	(λx_0. λx_1. x_1) ((λx_0. λx_1. λx_2. x_2 x_1) (λx_0. (λx_1. x_1) (x_0 + x_0)))	finished(1)	steps=9	entries=44	hits=58	held=32
-11	(λx_0. x_0) (λx_0. x_0) (λx_0. x_0) (λx_0. x_0)	finished(1)	steps=19	entries=44	hits=62	held=32
-12	(λx_0. (λx_1. x_0 (x_1 x_1)) (λx_1. x_0 (x_1 x_1))) (λx_0. λx_1. (x_0 ∥ x_1)) (λx_0. x_0) ((λx_0. x_0) (λx_0. x_0))	finished(0)	steps=57	entries=46	hits=70	held=34
-13	(λx_0. λx_1. (λx_2. x_2) x_0 x_1) ((λx_0. (λx_1. x_0 (x_1 x_1)) (λx_1. x_0 (x_1 x_1))) (λx_0. λx_1. (x_0 ∥ x_1)) (λx_0. x_0))	finished(0)	steps=47	entries=48	hits=76	held=36
-14	(λx_0. x_0) (λx_0. x_0) (λx_0. (λx_1. λx_2. (x_1 ∥ x_2)) (x_0 x_0 + λx_1. x_1))	finished(0)	steps=32	entries=51	hits=77	held=39
-15	(λx_0. (x_0 + x_0)) ((λx_0. x_0 + λx_0. x_0 + λx_0. x_0) ((λx_0. x_0) ((λx_0. x_0) (λx_0. x_0)))) (λx_0. x_0)	finished(1)	steps=38	entries=54	hits=83	held=42
-16	((λx_0. x_0) (λx_0. x_0) ∥ λx_0. x_0 (λx_1. x_0 x_0)) (λx_0. x_0)	finished(0)	steps=42	entries=58	hits=87	held=46
-17	(λx_0. λx_1. λx_2. (λx_3. x_2 ((λx_4. x_3) x_3) ∥ (x_1 ∥ x_1))) (λx_0. x_0 ∥ λx_0. x_0)	finished(0)	steps=30	entries=61	hits=87	held=49
-18	(λx_0. x_0 (λx_1. x_1) x_0) (λx_0. x_0 x_0 + (λx_0. x_0) (λx_0. x_0) (λx_0. x_0))	finished(2)	steps=46	entries=65	hits=94	held=52
-19	(λx_0. x_0) ((λx_0. (λx_1. x_0 (x_1 x_1)) (λx_1. x_0 (x_1 x_1))) (λx_0. λx_1. (x_0 ∥ x_1)))	finished(0)	steps=18	entries=65	hits=97	held=52
-20	(λx_0. x_0) (λx_0. λx_1. x_0 (λx_2. x_0) ∥ (λx_0. (λx_1. x_1 x_1 ∥ x_0)) (λx_0. x_0))	finished(0)	steps=41	entries=68	hits=99	held=55
-21	(λx_0. x_0) ((λx_0. (x_0 ∥ x_0) x_0) (λx_0. x_0) + (λx_0. (x_0 + x_0)) (λx_0. x_0))	finished(1)	steps=40	entries=71	hits=103	held=58
-22	((λx_0. x_0) (λx_0. x_0) (λx_0. x_0) ∥ λx_0. x_0) (λx_0. (λx_1. x_1 x_1) x_0)	finished(1)	steps=33	entries=74	hits=106	held=60
-23	(λx_0. (λx_1. x_1) x_0) ((λx_0. x_0) ((λx_0. x_0) (λx_0. x_0))) (λx_0. x_0 ∥ λx_0. x_0) (λx_0. x_0)	finished(1)	steps=32	entries=75	hits=111	held=61
-24	(λx_0. x_0) (λx_0. (λx_1. λx_2. x_1 ∥ λx_1. λx_2. λx_3. λx_4. λx_5. x_3 ∥ x_0))	finished(0)	steps=15	entries=77	hits=111	held=63
-25	(λx_0. x_0) (λx_0. x_0) (λx_0. x_0) ((λx_0. x_0) (λx_0. x_0) (λx_0. x_0)) (λx_0. x_0) ((λx_0. x_0 + λx_0. x_0) (λx_0. x_0))	finished(1)	steps=35	entries=78	hits=118	held=64
-26	(λx_0. (λx_1. x_0 x_0) x_0) (λx_0. (λx_1. λx_2. x_2) x_0) (λx_0. x_0)	finished(1)	steps=21	entries=81	hits=120	held=67
-27	(λx_0. x_0) (λx_0. x_0)	finished(1)	steps=11	entries=81	hits=122	held=67
-28	(λx_0. (λx_1. λx_2. (λx_3. x_3 (x_0 x_0 x_1)) x_0) x_0) (λx_0. x_0 ∥ λx_0. x_0)	finished(1)	steps=120	entries=98	hits=126	held=72
-29	(λx_0. x_0) (λx_0. x_0)	finished(1)	steps=11	entries=98	hits=128	held=72
-30	(λx_0. (λx_1. x_0 x_1 ∥ x_0 (λx_1. (λx_2. x_2) x_0))) (λx_0. (x_0 + x_0 + x_0))	finished(0)	steps=44	entries=105	hits=128	held=79
-31	(λx_0. x_0 (x_0 (λx_1. λx_2. λx_3. x_2)) (x_0 + x_0)) ((λx_0. x_0) (λx_0. x_0))	finished(1)	steps=28	entries=108	hits=131	held=82
-32	(λx_0. λx_1. x_1) ((λx_0. x_0) (λx_0. x_0) (λx_0. x_0)) (λx_0. x_0 ∥ λx_0. x_0) (λx_0. (x_0 ∥ x_0) x_0)	finished(1)	steps=35	entries=111	hits=132	held=84
-33	(λx_0. λx_1. x_1 x_1) (λx_0. λx_1. ((x_0 ∥ x_0) (λx_2. x_2) ∥ (x_0 ∥ x_0 ∥ x_0)))	finished(1)	steps=11	entries=111	hits=133	held=84
-34	(λx_0. x_0) (λx_0. λx_1. λx_2. x_1 x_2 (λx_3. (x_1 ∥ x_0)) (x_2 (x_2 x_0)))	finished(0)	steps=32	entries=114	hits=133	held=87
-35	(λx_0. x_0) (λx_0. x_0) (λx_0. x_0 + λx_0. x_0) (λx_0. x_0) ((λx_0. (x_0 ∥ x_0)) ((λx_0. x_0) (λx_0. x_0)))	finished(1)	steps=33	entries=116	hits=139	held=89
-36	(λx_0. λx_1. x_1 x_0) ((λx_0. x_0) (λx_0. x_0)) (λx_0. x_0) ((λx_0. x_0) ((λx_0. x_0) (λx_0. x_0)) (λx_0. x_0))	finished(1)	steps=29	entries=118	hits=143	held=91
-37	(λx_0. x_0) (λx_0. (λx_1. x_1 x_1 x_1 + (x_0 x_0 ∥ x_0) + x_0 x_0 x_0))	finished(2)	steps=39	entries=121	hits=143	held=94
-38	(λx_0. λx_1. (x_1 x_0 ∥ x_1)) ((λx_0. x_0) ((λx_0. x_0) (λx_0. x_0))) (λx_0. (x_0 + x_0))	finished(1)	steps=31	entries=123	hits=147	held=96
-39	((λx_0. (λx_1. x_0 (x_1 x_1)) (λx_1. x_0 (x_1 x_1))) (λx_0. λx_1. (x_0 ∥ x_1)) + (λx_0. x_0 ∥ λx_0. x_0)) ((λx_0. x_0) (λx_0. x_0)) ((λx_0. x_0) (λx_0. x_0))	finished(1)	steps=87	entries=123	hits=162	held=96
+0	(λx_0. x_0 ∥ λx_0. x_0) (λx_0. x_0 x_0 ∥ λx_0. x_0 + (λx_0. x_0) (λx_0. x_0 ∥ λx_0. x_0))	finished(1)	steps=61	entries=5	hits=3	held=4
+1	(λx_0. x_0) ((λx_0. (λx_1. x_0 (x_1 x_1)) (λx_1. x_0 (x_1 x_1))) (λx_0. λx_1. (x_0 ∥ x_1))) (λx_0. x_0 ∥ λx_0. x_0)	finished(0)	steps=37	entries=12	hits=3	held=9
+2	(λx_0. x_0) (λx_0. ((λx_1. (λx_2. x_1 (x_2 x_2)) (λx_2. x_1 (x_2 x_2))) (λx_1. λx_2. (x_1 ∥ x_2)) ∥ λx_1. λx_2. (x_1 ∥ x_0 ∥ x_2)) x_0)	finished(0)	steps=33	entries=14	hits=6	held=11
+3	(λx_0. x_0) (λx_0. x_0)	finished(1)	steps=11	entries=15	hits=7	held=12
+4	(λx_0. λx_1. x_1 x_1) ((λx_0. x_0) (λx_0. x_0) (λx_0. x_0)) (((λx_0. (λx_1. x_0 (x_1 x_1)) (λx_1. x_0 (x_1 x_1))) (λx_0. λx_1. (x_0 ∥ x_1)) ∥ λx_0. x_0) (λx_0. x_0))	finished(0)	steps=134	entries=25	hits=22	held=16
+5	(λx_0. (λx_1. x_0) (x_0 x_0 x_0)) (λx_0. x_0)	finished(1)	steps=12	entries=26	hits=24	held=17
+6	(λx_0. x_0 x_0) (λx_0. (x_0 + x_0) ∥ λx_0. x_0)	finished(1)	steps=44	entries=32	hits=27	held=21
+7	(λx_0. x_0) (λx_0. λx_1. λx_2. x_0 x_2 ∥ ((λx_0. x_0 + λx_0. x_0 + λx_0. x_0) (λx_0. x_0) (λx_0. x_0) ∥ λx_0. x_0) (λx_0. x_0))	finished(0)	steps=87	entries=34	hits=39	held=23
+8	(λx_0. (λx_1. x_0 (x_1 x_1)) (λx_1. x_0 (x_1 x_1))) (λx_0. λx_1. (x_0 ∥ x_1)) (λx_0. (x_0 x_0 ∥ x_0)) (λx_0. x_0)	finished(0)	steps=55	entries=36	hits=46	held=25
+9	(λx_0. x_0) ((λx_0. x_0 + λx_0. x_0) (λx_0. x_0)) ((λx_0. x_0 x_0) (λx_0. x_0 + λx_0. x_0) (λx_0. x_0))	finished(1)	steps=38	entries=41	hits=50	held=29
+10	(λx_0. λx_1. x_1) ((λx_0. λx_1. λx_2. x_2 x_1) (λx_0. (λx_1. x_1) (x_0 + x_0)))	finished(1)	steps=9	entries=41	hits=51	held=29
+11	(λx_0. x_0) (λx_0. x_0) (λx_0. x_0) (λx_0. x_0)	finished(1)	steps=19	entries=41	hits=55	held=29
+12	(λx_0. (λx_1. x_0 (x_1 x_1)) (λx_1. x_0 (x_1 x_1))) (λx_0. λx_1. (x_0 ∥ x_1)) (λx_0. x_0) ((λx_0. x_0) (λx_0. x_0))	finished(0)	steps=57	entries=43	hits=63	held=31
+13	(λx_0. λx_1. (λx_2. x_2) x_0 x_1) ((λx_0. (λx_1. x_0 (x_1 x_1)) (λx_1. x_0 (x_1 x_1))) (λx_0. λx_1. (x_0 ∥ x_1)) (λx_0. x_0))	finished(0)	steps=47	entries=45	hits=69	held=33
+14	(λx_0. x_0) (λx_0. x_0) (λx_0. (λx_1. λx_2. (x_1 ∥ x_2)) (x_0 x_0 + λx_1. x_1))	finished(0)	steps=36	entries=48	hits=70	held=36
+15	(λx_0. (x_0 + x_0)) ((λx_0. x_0 + λx_0. x_0 + λx_0. x_0) ((λx_0. x_0) ((λx_0. x_0) (λx_0. x_0)))) (λx_0. x_0)	finished(1)	steps=35	entries=51	hits=76	held=39
+16	((λx_0. x_0) (λx_0. x_0) ∥ λx_0. x_0 (λx_1. x_0 x_0)) (λx_0. x_0)	finished(0)	steps=46	entries=55	hits=81	held=43
+17	(λx_0. λx_1. λx_2. (λx_3. x_2 ((λx_4. x_3) x_3) ∥ (x_1 ∥ x_1))) (λx_0. x_0 ∥ λx_0. x_0)	finished(0)	steps=31	entries=58	hits=81	held=46
+18	(λx_0. x_0 (λx_1. x_1) x_0) (λx_0. x_0 x_0 + (λx_0. x_0) (λx_0. x_0) (λx_0. x_0))	finished(2)	steps=44	entries=61	hits=88	held=48
+19	(λx_0. x_0) ((λx_0. (λx_1. x_0 (x_1 x_1)) (λx_1. x_0 (x_1 x_1))) (λx_0. λx_1. (x_0 ∥ x_1)))	finished(0)	steps=18	entries=61	hits=91	held=48
+20	(λx_0. x_0) (λx_0. λx_1. x_0 (λx_2. x_0) ∥ (λx_0. (λx_1. x_1 x_1 ∥ x_0)) (λx_0. x_0))	finished(0)	steps=58	entries=64	hits=95	held=51
+21	(λx_0. x_0) ((λx_0. (x_0 ∥ x_0) x_0) (λx_0. x_0) + (λx_0. (x_0 + x_0)) (λx_0. x_0))	finished(1)	steps=34	entries=67	hits=98	held=54
+22	((λx_0. x_0) (λx_0. x_0) (λx_0. x_0) ∥ λx_0. x_0) (λx_0. (λx_1. x_1 x_1) x_0)	finished(1)	steps=33	entries=70	hits=101	held=56
+23	(λx_0. (λx_1. x_1) x_0) ((λx_0. x_0) ((λx_0. x_0) (λx_0. x_0))) (λx_0. x_0 ∥ λx_0. x_0) (λx_0. x_0)	finished(1)	steps=32	entries=71	hits=106	held=57
+24	(λx_0. x_0) (λx_0. (λx_1. λx_2. x_1 ∥ λx_1. λx_2. λx_3. λx_4. λx_5. x_3 ∥ x_0))	finished(0)	steps=15	entries=73	hits=106	held=59
+25	(λx_0. x_0) (λx_0. x_0) (λx_0. x_0) ((λx_0. x_0) (λx_0. x_0) (λx_0. x_0)) (λx_0. x_0) ((λx_0. x_0 + λx_0. x_0) (λx_0. x_0))	finished(1)	steps=35	entries=74	hits=113	held=60
+26	(λx_0. (λx_1. x_0 x_0) x_0) (λx_0. (λx_1. λx_2. x_2) x_0) (λx_0. x_0)	finished(1)	steps=21	entries=77	hits=115	held=63
+27	(λx_0. x_0) (λx_0. x_0)	finished(1)	steps=11	entries=77	hits=117	held=63
+28	(λx_0. (λx_1. λx_2. (λx_3. x_3 (x_0 x_0 x_1)) x_0) x_0) (λx_0. x_0 ∥ λx_0. x_0)	finished(1)	steps=129	entries=82	hits=132	held=67
+29	(λx_0. x_0) (λx_0. x_0)	finished(1)	steps=11	entries=82	hits=134	held=67
+30	(λx_0. (λx_1. x_0 x_1 ∥ x_0 (λx_1. (λx_2. x_2) x_0))) (λx_0. (x_0 + x_0 + x_0))	finished(0)	steps=48	entries=89	hits=135	held=74
+31	(λx_0. x_0 (x_0 (λx_1. λx_2. λx_3. x_2)) (x_0 + x_0)) ((λx_0. x_0) (λx_0. x_0))	finished(1)	steps=28	entries=92	hits=138	held=77
+32	(λx_0. λx_1. x_1) ((λx_0. x_0) (λx_0. x_0) (λx_0. x_0)) (λx_0. x_0 ∥ λx_0. x_0) (λx_0. (x_0 ∥ x_0) x_0)	finished(1)	steps=35	entries=95	hits=139	held=79
+33	(λx_0. λx_1. x_1 x_1) (λx_0. λx_1. ((x_0 ∥ x_0) (λx_2. x_2) ∥ (x_0 ∥ x_0 ∥ x_0)))	finished(1)	steps=11	entries=95	hits=140	held=79
+34	(λx_0. x_0) (λx_0. λx_1. λx_2. x_1 x_2 (λx_3. (x_1 ∥ x_0)) (x_2 (x_2 x_0)))	finished(0)	steps=33	entries=98	hits=140	held=82
+35	(λx_0. x_0) (λx_0. x_0) (λx_0. x_0 + λx_0. x_0) (λx_0. x_0) ((λx_0. (x_0 ∥ x_0)) ((λx_0. x_0) (λx_0. x_0)))	finished(1)	steps=31	entries=100	hits=146	held=84
+36	(λx_0. λx_1. x_1 x_0) ((λx_0. x_0) (λx_0. x_0)) (λx_0. x_0) ((λx_0. x_0) ((λx_0. x_0) (λx_0. x_0)) (λx_0. x_0))	finished(1)	steps=29	entries=102	hits=150	held=86
+37	(λx_0. x_0) (λx_0. (λx_1. x_1 x_1 x_1 + (x_0 x_0 ∥ x_0) + x_0 x_0 x_0))	finished(2)	steps=43	entries=105	hits=150	held=89
+38	(λx_0. λx_1. (x_1 x_0 ∥ x_1)) ((λx_0. x_0) ((λx_0. x_0) (λx_0. x_0))) (λx_0. (x_0 + x_0))	finished(1)	steps=36	entries=107	hits=155	held=91
+39	((λx_0. (λx_1. x_0 (x_1 x_1)) (λx_1. x_0 (x_1 x_1))) (λx_0. λx_1. (x_0 ∥ x_1)) + (λx_0. x_0 ∥ λx_0. x_0)) ((λx_0. x_0) (λx_0. x_0)) ((λx_0. x_0) (λx_0. x_0))	finished(1)	steps=81	entries=107	hits=171	held=91
 # every 50 steps
-0	(λx_0. x_0 ∥ λx_0. x_0) (λx_0. x_0 x_0 ∥ λx_0. x_0 + (λx_0. x_0) (λx_0. x_0 ∥ λx_0. x_0))	finished(1)	steps=88	entries=4	hits=4	held=3
-1	(λx_0. x_0) ((λx_0. (λx_1. x_0 (x_1 x_1)) (λx_1. x_0 (x_1 x_1))) (λx_0. λx_1. (x_0 ∥ x_1))) (λx_0. x_0 ∥ λx_0. x_0)	finished(0)	steps=41	entries=5	hits=4	held=4
-2	(λx_0. x_0) (λx_0. ((λx_1. (λx_2. x_1 (x_2 x_2)) (λx_2. x_1 (x_2 x_2))) (λx_1. λx_2. (x_1 ∥ x_2)) ∥ λx_1. λx_2. (x_1 ∥ x_0 ∥ x_2)) x_0)	finished(0)	steps=37	entries=6	hits=4	held=5
-3	(λx_0. x_0) (λx_0. x_0)	finished(1)	steps=11	entries=7	hits=5	held=6
-4	(λx_0. λx_1. x_1 x_1) ((λx_0. x_0) (λx_0. x_0) (λx_0. x_0)) (((λx_0. (λx_1. x_0 (x_1 x_1)) (λx_1. x_0 (x_1 x_1))) (λx_0. λx_1. (x_0 ∥ x_1)) ∥ λx_0. x_0) (λx_0. x_0))	finished(0)	steps=143	entries=23	hits=9	held=12
-5	(λx_0. (λx_1. x_0) (x_0 x_0 x_0)) (λx_0. x_0)	finished(1)	steps=12	entries=23	hits=11	held=12
-6	(λx_0. x_0 x_0) (λx_0. (x_0 + x_0) ∥ λx_0. x_0)	finished(1)	steps=65	entries=27	hits=15	held=14
-7	(λx_0. x_0) (λx_0. λx_1. λx_2. x_0 x_2 ∥ ((λx_0. x_0 + λx_0. x_0 + λx_0. x_0) (λx_0. x_0) (λx_0. x_0) ∥ λx_0. x_0) (λx_0. x_0))	finished(0)	steps=132	entries=29	hits=30	held=16
-8	(λx_0. (λx_1. x_0 (x_1 x_1)) (λx_1. x_0 (x_1 x_1))) (λx_0. λx_1. (x_0 ∥ x_1)) (λx_0. (x_0 x_0 ∥ x_0)) (λx_0. x_0)	finished(0)	steps=55	entries=29	hits=37	held=16
-9	(λx_0. x_0) ((λx_0. x_0 + λx_0. x_0) (λx_0. x_0)) ((λx_0. x_0 x_0) (λx_0. x_0 + λx_0. x_0) (λx_0. x_0))	finished(1)	steps=40	entries=34	hits=41	held=20
-10	(λx_0. λx_1. x_1) ((λx_0. λx_1. λx_2. x_2 x_1) (λx_0. (λx_1. x_1) (x_0 + x_0)))	finished(1)	steps=9	entries=34	hits=42	held=20
-11	(λx_0. x_0) (λx_0. x_0) (λx_0. x_0) (λx_0. x_0)	finished(1)	steps=19	entries=34	hits=46	held=20
-12	(λx_0. (λx_1. x_0 (x_1 x_1)) (λx_1. x_0 (x_1 x_1))) (λx_0. λx_1. (x_0 ∥ x_1)) (λx_0. x_0) ((λx_0. x_0) (λx_0. x_0))	finished(0)	steps=57	entries=35	hits=54	held=21
-13	(λx_0. λx_1. (λx_2. x_2) x_0 x_1) ((λx_0. (λx_1. x_0 (x_1 x_1)) (λx_1. x_0 (x_1 x_1))) (λx_0. λx_1. (x_0 ∥ x_1)) (λx_0. x_0))	finished(0)	steps=47	entries=36	hits=60	held=22
-14	(λx_0. x_0) (λx_0. x_0) (λx_0. (λx_1. λx_2. (x_1 ∥ x_2)) (x_0 x_0 + λx_1. x_1))	finished(0)	steps=32	entries=37	hits=61	held=23
-15	(λx_0. (x_0 + x_0)) ((λx_0. x_0 + λx_0. x_0 + λx_0. x_0) ((λx_0. x_0) ((λx_0. x_0) (λx_0. x_0)))) (λx_0. x_0)	finished(1)	steps=47	entries=39	hits=69	held=25
-16	((λx_0. x_0) (λx_0. x_0) ∥ λx_0. x_0 (λx_1. x_0 x_0)) (λx_0. x_0)	finished(0)	steps=42	entries=41	hits=73	held=27
-17	(λx_0. λx_1. λx_2. (λx_3. x_2 ((λx_4. x_3) x_3) ∥ (x_1 ∥ x_1))) (λx_0. x_0 ∥ λx_0. x_0)	finished(0)	steps=30	entries=42	hits=73	held=28
-18	(λx_0. x_0 (λx_1. x_1) x_0) (λx_0. x_0 x_0 + (λx_0. x_0) (λx_0. x_0) (λx_0. x_0))	finished(2)	steps=65	entries=45	hits=80	held=30
-19	(λx_0. x_0) ((λx_0. (λx_1. x_0 (x_1 x_1)) (λx_1. x_0 (x_1 x_1))) (λx_0. λx_1. (x_0 ∥ x_1)))	finished(0)	steps=18	entries=45	hits=83	held=30
-20	(λx_0. x_0) (λx_0. λx_1. x_0 (λx_2. x_0) ∥ (λx_0. (λx_1. x_1 x_1 ∥ x_0)) (λx_0. x_0))	finished(0)	steps=42	entries=46	hits=84	held=31
-21	(λx_0. x_0) ((λx_0. (x_0 ∥ x_0) x_0) (λx_0. x_0) + (λx_0. (x_0 + x_0)) (λx_0. x_0))	finished(1)	steps=40	entries=47	hits=88	held=32
-22	((λx_0. x_0) (λx_0. x_0) (λx_0. x_0) ∥ λx_0. x_0) (λx_0. (λx_1. x_1 x_1) x_0)	finished(1)	steps=34	entries=49	hits=90	held=33
-23	(λx_0. (λx_1. x_1) x_0) ((λx_0. x_0) ((λx_0. x_0) (λx_0. x_0))) (λx_0. x_0 ∥ λx_0. x_0) (λx_0. x_0)	finished(1)	steps=32	entries=49	hits=95	held=33
-24	(λx_0. x_0) (λx_0. (λx_1. λx_2. x_1 ∥ λx_1. λx_2. λx_3. λx_4. λx_5. x_3 ∥ x_0))	finished(0)	steps=15	entries=50	hits=95	held=34
-25	(λx_0. x_0) (λx_0. x_0) (λx_0. x_0) ((λx_0. x_0) (λx_0. x_0) (λx_0. x_0)) (λx_0. x_0) ((λx_0. x_0 + λx_0. x_0) (λx_0. x_0))	finished(1)	steps=35	entries=51	hits=102	held=35
-26	(λx_0. (λx_1. x_0 x_0) x_0) (λx_0. (λx_1. λx_2. x_2) x_0) (λx_0. x_0)	finished(1)	steps=21	entries=51	hits=104	held=35
-27	(λx_0. x_0) (λx_0. x_0)	finished(1)	steps=11	entries=51	hits=106	held=35
-28	(λx_0. (λx_1. λx_2. (λx_3. x_3 (x_0 x_0 x_1)) x_0) x_0) (λx_0. x_0 ∥ λx_0. x_0)	finished(1)	steps=120	entries=65	hits=110	held=37
-29	(λx_0. x_0) (λx_0. x_0)	finished(1)	steps=11	entries=65	hits=112	held=37
-30	(λx_0. (λx_1. x_0 x_1 ∥ x_0 (λx_1. (λx_2. x_2) x_0))) (λx_0. (x_0 + x_0 + x_0))	finished(0)	steps=118	entries=68	hits=114	held=40
-31	(λx_0. x_0 (x_0 (λx_1. λx_2. λx_3. x_2)) (x_0 + x_0)) ((λx_0. x_0) (λx_0. x_0))	finished(1)	steps=28	entries=70	hits=117	held=42
-32	(λx_0. λx_1. x_1) ((λx_0. x_0) (λx_0. x_0) (λx_0. x_0)) (λx_0. x_0 ∥ λx_0. x_0) (λx_0. (x_0 ∥ x_0) x_0)	finished(1)	steps=35	entries=72	hits=118	held=43
-33	(λx_0. λx_1. x_1 x_1) (λx_0. λx_1. ((x_0 ∥ x_0) (λx_2. x_2) ∥ (x_0 ∥ x_0 ∥ x_0)))	finished(1)	steps=12	entries=72	hits=118	held=43
-34	(λx_0. x_0) (λx_0. λx_1. λx_2. x_1 x_2 (λx_3. (x_1 ∥ x_0)) (x_2 (x_2 x_0)))	finished(0)	steps=32	entries=73	hits=118	held=44
-35	(λx_0. x_0) (λx_0. x_0) (λx_0. x_0 + λx_0. x_0) (λx_0. x_0) ((λx_0. (x_0 ∥ x_0)) ((λx_0. x_0) (λx_0. x_0)))	finished(1)	steps=33	entries=74	hits=124	held=45
-36	(λx_0. λx_1. x_1 x_0) ((λx_0. x_0) (λx_0. x_0)) (λx_0. x_0) ((λx_0. x_0) ((λx_0. x_0) (λx_0. x_0)) (λx_0. x_0))	finished(1)	steps=29	entries=75	hits=128	held=46
-37	(λx_0. x_0) (λx_0. (λx_1. x_1 x_1 x_1 + (x_0 x_0 ∥ x_0) + x_0 x_0 x_0))	finished(2)	steps=39	entries=76	hits=128	held=47
-38	(λx_0. λx_1. (x_1 x_0 ∥ x_1)) ((λx_0. x_0) ((λx_0. x_0) (λx_0. x_0))) (λx_0. (x_0 + x_0))	finished(1)	steps=48	entries=76	hits=132	held=47
-39	((λx_0. (λx_1. x_0 (x_1 x_1)) (λx_1. x_0 (x_1 x_1))) (λx_0. λx_1. (x_0 ∥ x_1)) + (λx_0. x_0 ∥ λx_0. x_0)) ((λx_0. x_0) (λx_0. x_0)) ((λx_0. x_0) (λx_0. x_0))	finished(1)	steps=87	entries=76	hits=145	held=47
+0	(λx_0. x_0 ∥ λx_0. x_0) (λx_0. x_0 x_0 ∥ λx_0. x_0 + (λx_0. x_0) (λx_0. x_0 ∥ λx_0. x_0))	finished(1)	steps=61	entries=4	hits=3	held=3
+1	(λx_0. x_0) ((λx_0. (λx_1. x_0 (x_1 x_1)) (λx_1. x_0 (x_1 x_1))) (λx_0. λx_1. (x_0 ∥ x_1))) (λx_0. x_0 ∥ λx_0. x_0)	finished(0)	steps=41	entries=5	hits=3	held=4
+2	(λx_0. x_0) (λx_0. ((λx_1. (λx_2. x_1 (x_2 x_2)) (λx_2. x_1 (x_2 x_2))) (λx_1. λx_2. (x_1 ∥ x_2)) ∥ λx_1. λx_2. (x_1 ∥ x_0 ∥ x_2)) x_0)	finished(0)	steps=37	entries=6	hits=3	held=5
+3	(λx_0. x_0) (λx_0. x_0)	finished(1)	steps=11	entries=7	hits=4	held=6
+4	(λx_0. λx_1. x_1 x_1) ((λx_0. x_0) (λx_0. x_0) (λx_0. x_0)) (((λx_0. (λx_1. x_0 (x_1 x_1)) (λx_1. x_0 (x_1 x_1))) (λx_0. λx_1. (x_0 ∥ x_1)) ∥ λx_0. x_0) (λx_0. x_0))	finished(0)	steps=141	entries=22	hits=8	held=11
+5	(λx_0. (λx_1. x_0) (x_0 x_0 x_0)) (λx_0. x_0)	finished(1)	steps=12	entries=22	hits=10	held=11
+6	(λx_0. x_0 x_0) (λx_0. (x_0 + x_0) ∥ λx_0. x_0)	finished(1)	steps=46	entries=25	hits=13	held=12
+7	(λx_0. x_0) (λx_0. λx_1. λx_2. x_0 x_2 ∥ ((λx_0. x_0 + λx_0. x_0 + λx_0. x_0) (λx_0. x_0) (λx_0. x_0) ∥ λx_0. x_0) (λx_0. x_0))	finished(0)	steps=87	entries=26	hits=25	held=13
+8	(λx_0. (λx_1. x_0 (x_1 x_1)) (λx_1. x_0 (x_1 x_1))) (λx_0. λx_1. (x_0 ∥ x_1)) (λx_0. (x_0 x_0 ∥ x_0)) (λx_0. x_0)	finished(0)	steps=55	entries=26	hits=32	held=13
+9	(λx_0. x_0) ((λx_0. x_0 + λx_0. x_0) (λx_0. x_0)) ((λx_0. x_0 x_0) (λx_0. x_0 + λx_0. x_0) (λx_0. x_0))	finished(1)	steps=38	entries=30	hits=36	held=16
+10	(λx_0. λx_1. x_1) ((λx_0. λx_1. λx_2. x_2 x_1) (λx_0. (λx_1. x_1) (x_0 + x_0)))	finished(1)	steps=9	entries=30	hits=37	held=16
+11	(λx_0. x_0) (λx_0. x_0) (λx_0. x_0) (λx_0. x_0)	finished(1)	steps=19	entries=30	hits=41	held=16
+12	(λx_0. (λx_1. x_0 (x_1 x_1)) (λx_1. x_0 (x_1 x_1))) (λx_0. λx_1. (x_0 ∥ x_1)) (λx_0. x_0) ((λx_0. x_0) (λx_0. x_0))	finished(0)	steps=57	entries=31	hits=49	held=17
+13	(λx_0. λx_1. (λx_2. x_2) x_0 x_1) ((λx_0. (λx_1. x_0 (x_1 x_1)) (λx_1. x_0 (x_1 x_1))) (λx_0. λx_1. (x_0 ∥ x_1)) (λx_0. x_0))	finished(0)	steps=47	entries=32	hits=55	held=18
+14	(λx_0. x_0) (λx_0. x_0) (λx_0. (λx_1. λx_2. (x_1 ∥ x_2)) (x_0 x_0 + λx_1. x_1))	finished(0)	steps=36	entries=33	hits=56	held=19
+15	(λx_0. (x_0 + x_0)) ((λx_0. x_0 + λx_0. x_0 + λx_0. x_0) ((λx_0. x_0) ((λx_0. x_0) (λx_0. x_0)))) (λx_0. x_0)	finished(1)	steps=38	entries=35	hits=63	held=21
+16	((λx_0. x_0) (λx_0. x_0) ∥ λx_0. x_0 (λx_1. x_0 x_0)) (λx_0. x_0)	finished(0)	steps=46	entries=37	hits=68	held=23
+17	(λx_0. λx_1. λx_2. (λx_3. x_2 ((λx_4. x_3) x_3) ∥ (x_1 ∥ x_1))) (λx_0. x_0 ∥ λx_0. x_0)	finished(0)	steps=31	entries=38	hits=68	held=24
+18	(λx_0. x_0 (λx_1. x_1) x_0) (λx_0. x_0 x_0 + (λx_0. x_0) (λx_0. x_0) (λx_0. x_0))	finished(2)	steps=48	entries=40	hits=74	held=25
+19	(λx_0. x_0) ((λx_0. (λx_1. x_0 (x_1 x_1)) (λx_1. x_0 (x_1 x_1))) (λx_0. λx_1. (x_0 ∥ x_1)))	finished(0)	steps=18	entries=40	hits=77	held=25
+20	(λx_0. x_0) (λx_0. λx_1. x_0 (λx_2. x_0) ∥ (λx_0. (λx_1. x_1 x_1 ∥ x_0)) (λx_0. x_0))	finished(0)	steps=60	entries=41	hits=79	held=26
+21	(λx_0. x_0) ((λx_0. (x_0 ∥ x_0) x_0) (λx_0. x_0) + (λx_0. (x_0 + x_0)) (λx_0. x_0))	finished(1)	steps=34	entries=42	hits=82	held=27
+22	((λx_0. x_0) (λx_0. x_0) (λx_0. x_0) ∥ λx_0. x_0) (λx_0. (λx_1. x_1 x_1) x_0)	finished(1)	steps=34	entries=44	hits=84	held=28
+23	(λx_0. (λx_1. x_1) x_0) ((λx_0. x_0) ((λx_0. x_0) (λx_0. x_0))) (λx_0. x_0 ∥ λx_0. x_0) (λx_0. x_0)	finished(1)	steps=32	entries=44	hits=89	held=28
+24	(λx_0. x_0) (λx_0. (λx_1. λx_2. x_1 ∥ λx_1. λx_2. λx_3. λx_4. λx_5. x_3 ∥ x_0))	finished(0)	steps=15	entries=45	hits=89	held=29
+25	(λx_0. x_0) (λx_0. x_0) (λx_0. x_0) ((λx_0. x_0) (λx_0. x_0) (λx_0. x_0)) (λx_0. x_0) ((λx_0. x_0 + λx_0. x_0) (λx_0. x_0))	finished(1)	steps=35	entries=46	hits=96	held=30
+26	(λx_0. (λx_1. x_0 x_0) x_0) (λx_0. (λx_1. λx_2. x_2) x_0) (λx_0. x_0)	finished(1)	steps=21	entries=46	hits=98	held=30
+27	(λx_0. x_0) (λx_0. x_0)	finished(1)	steps=11	entries=46	hits=100	held=30
+28	(λx_0. (λx_1. λx_2. (λx_3. x_3 (x_0 x_0 x_1)) x_0) x_0) (λx_0. x_0 ∥ λx_0. x_0)	finished(1)	steps=129	entries=48	hits=115	held=31
+29	(λx_0. x_0) (λx_0. x_0)	finished(1)	steps=11	entries=48	hits=117	held=31
+30	(λx_0. (λx_1. x_0 x_1 ∥ x_0 (λx_1. (λx_2. x_2) x_0))) (λx_0. (x_0 + x_0 + x_0))	finished(0)	steps=48	entries=49	hits=118	held=32
+31	(λx_0. x_0 (x_0 (λx_1. λx_2. λx_3. x_2)) (x_0 + x_0)) ((λx_0. x_0) (λx_0. x_0))	finished(1)	steps=28	entries=51	hits=121	held=34
+32	(λx_0. λx_1. x_1) ((λx_0. x_0) (λx_0. x_0) (λx_0. x_0)) (λx_0. x_0 ∥ λx_0. x_0) (λx_0. (x_0 ∥ x_0) x_0)	finished(1)	steps=35	entries=53	hits=122	held=35
+33	(λx_0. λx_1. x_1 x_1) (λx_0. λx_1. ((x_0 ∥ x_0) (λx_2. x_2) ∥ (x_0 ∥ x_0 ∥ x_0)))	finished(1)	steps=12	entries=53	hits=122	held=35
+34	(λx_0. x_0) (λx_0. λx_1. λx_2. x_1 x_2 (λx_3. (x_1 ∥ x_0)) (x_2 (x_2 x_0)))	finished(0)	steps=33	entries=54	hits=122	held=36
+35	(λx_0. x_0) (λx_0. x_0) (λx_0. x_0 + λx_0. x_0) (λx_0. x_0) ((λx_0. (x_0 ∥ x_0)) ((λx_0. x_0) (λx_0. x_0)))	finished(1)	steps=31	entries=55	hits=128	held=37
+36	(λx_0. λx_1. x_1 x_0) ((λx_0. x_0) (λx_0. x_0)) (λx_0. x_0) ((λx_0. x_0) ((λx_0. x_0) (λx_0. x_0)) (λx_0. x_0))	finished(1)	steps=29	entries=56	hits=132	held=38
+37	(λx_0. x_0) (λx_0. (λx_1. x_1 x_1 x_1 + (x_0 x_0 ∥ x_0) + x_0 x_0 x_0))	finished(2)	steps=43	entries=57	hits=132	held=39
+38	(λx_0. λx_1. (x_1 x_0 ∥ x_1)) ((λx_0. x_0) ((λx_0. x_0) (λx_0. x_0))) (λx_0. (x_0 + x_0))	finished(1)	steps=36	entries=57	hits=136	held=39
+39	((λx_0. (λx_1. x_0 (x_1 x_1)) (λx_1. x_0 (x_1 x_1))) (λx_0. λx_1. (x_0 ∥ x_1)) + (λx_0. x_0 ∥ λx_0. x_0)) ((λx_0. x_0) (λx_0. x_0)) ((λx_0. x_0) (λx_0. x_0))	finished(1)	steps=81	entries=57	hits=150	held=39
 # every 500 steps
-0	(λx_0. x_0 ∥ λx_0. x_0) (λx_0. x_0 x_0 ∥ λx_0. x_0 + (λx_0. x_0) (λx_0. x_0 ∥ λx_0. x_0))	finished(1)	steps=88	entries=4	hits=4	held=3
-1	(λx_0. x_0) ((λx_0. (λx_1. x_0 (x_1 x_1)) (λx_1. x_0 (x_1 x_1))) (λx_0. λx_1. (x_0 ∥ x_1))) (λx_0. x_0 ∥ λx_0. x_0)	finished(0)	steps=41	entries=5	hits=4	held=4
-2	(λx_0. x_0) (λx_0. ((λx_1. (λx_2. x_1 (x_2 x_2)) (λx_2. x_1 (x_2 x_2))) (λx_1. λx_2. (x_1 ∥ x_2)) ∥ λx_1. λx_2. (x_1 ∥ x_0 ∥ x_2)) x_0)	finished(0)	steps=37	entries=6	hits=4	held=5
-3	(λx_0. x_0) (λx_0. x_0)	finished(1)	steps=11	entries=7	hits=5	held=6
-4	(λx_0. λx_1. x_1 x_1) ((λx_0. x_0) (λx_0. x_0) (λx_0. x_0)) (((λx_0. (λx_1. x_0 (x_1 x_1)) (λx_1. x_0 (x_1 x_1))) (λx_0. λx_1. (x_0 ∥ x_1)) ∥ λx_0. x_0) (λx_0. x_0))	finished(0)	steps=157	entries=12	hits=9	held=8
-5	(λx_0. (λx_1. x_0) (x_0 x_0 x_0)) (λx_0. x_0)	finished(1)	steps=12	entries=12	hits=11	held=8
-6	(λx_0. x_0 x_0) (λx_0. (x_0 + x_0) ∥ λx_0. x_0)	finished(1)	steps=65	entries=16	hits=15	held=10
-7	(λx_0. x_0) (λx_0. λx_1. λx_2. x_0 x_2 ∥ ((λx_0. x_0 + λx_0. x_0 + λx_0. x_0) (λx_0. x_0) (λx_0. x_0) ∥ λx_0. x_0) (λx_0. x_0))	finished(0)	steps=132	entries=17	hits=30	held=11
-8	(λx_0. (λx_1. x_0 (x_1 x_1)) (λx_1. x_0 (x_1 x_1))) (λx_0. λx_1. (x_0 ∥ x_1)) (λx_0. (x_0 x_0 ∥ x_0)) (λx_0. x_0)	finished(0)	steps=61	entries=17	hits=31	held=11
-9	(λx_0. x_0) ((λx_0. x_0 + λx_0. x_0) (λx_0. x_0)) ((λx_0. x_0 x_0) (λx_0. x_0 + λx_0. x_0) (λx_0. x_0))	finished(1)	steps=40	entries=22	hits=35	held=15
-10	(λx_0. λx_1. x_1) ((λx_0. λx_1. λx_2. x_2 x_1) (λx_0. (λx_1. x_1) (x_0 + x_0)))	finished(1)	steps=9	entries=22	hits=36	held=15
-11	(λx_0. x_0) (λx_0. x_0) (λx_0. x_0) (λx_0. x_0)	finished(1)	steps=19	entries=22	hits=40	held=15
-12	(λx_0. (λx_1. x_0 (x_1 x_1)) (λx_1. x_0 (x_1 x_1))) (λx_0. λx_1. (x_0 ∥ x_1)) (λx_0. x_0) ((λx_0. x_0) (λx_0. x_0))	finished(0)	steps=63	entries=23	hits=42	held=16
-13	(λx_0. λx_1. (λx_2. x_2) x_0 x_1) ((λx_0. (λx_1. x_0 (x_1 x_1)) (λx_1. x_0 (x_1 x_1))) (λx_0. λx_1. (x_0 ∥ x_1)) (λx_0. x_0))	finished(0)	steps=52	entries=24	hits=43	held=17
-14	(λx_0. x_0) (λx_0. x_0) (λx_0. (λx_1. λx_2. (x_1 ∥ x_2)) (x_0 x_0 + λx_1. x_1))	finished(0)	steps=32	entries=25	hits=44	held=18
-15	(λx_0. (x_0 + x_0)) ((λx_0. x_0 + λx_0. x_0 + λx_0. x_0) ((λx_0. x_0) ((λx_0. x_0) (λx_0. x_0)))) (λx_0. x_0)	finished(1)	steps=47	entries=27	hits=52	held=20
-16	((λx_0. x_0) (λx_0. x_0) ∥ λx_0. x_0 (λx_1. x_0 x_0)) (λx_0. x_0)	finished(0)	steps=42	entries=29	hits=56	held=22
-17	(λx_0. λx_1. λx_2. (λx_3. x_2 ((λx_4. x_3) x_3) ∥ (x_1 ∥ x_1))) (λx_0. x_0 ∥ λx_0. x_0)	finished(0)	steps=30	entries=30	hits=56	held=23
-18	(λx_0. x_0 (λx_1. x_1) x_0) (λx_0. x_0 x_0 + (λx_0. x_0) (λx_0. x_0) (λx_0. x_0))	finished(2)	steps=65	entries=33	hits=63	held=25
-19	(λx_0. x_0) ((λx_0. (λx_1. x_0 (x_1 x_1)) (λx_1. x_0 (x_1 x_1))) (λx_0. λx_1. (x_0 ∥ x_1)))	finished(0)	steps=19	entries=33	hits=64	held=25
-20	(λx_0. x_0) (λx_0. λx_1. x_0 (λx_2. x_0) ∥ (λx_0. (λx_1. x_1 x_1 ∥ x_0)) (λx_0. x_0))	finished(0)	steps=42	entries=34	hits=65	held=26
-21	(λx_0. x_0) ((λx_0. (x_0 ∥ x_0) x_0) (λx_0. x_0) + (λx_0. (x_0 + x_0)) (λx_0. x_0))	finished(1)	steps=40	entries=35	hits=69	held=27
-22	((λx_0. x_0) (λx_0. x_0) (λx_0. x_0) ∥ λx_0. x_0) (λx_0. (λx_1. x_1 x_1) x_0)	finished(1)	steps=34	entries=37	hits=71	held=28
-23	(λx_0. (λx_1. x_1) x_0) ((λx_0. x_0) ((λx_0. x_0) (λx_0. x_0))) (λx_0. x_0 ∥ λx_0. x_0) (λx_0. x_0)	finished(1)	steps=32	entries=37	hits=76	held=28
-24	(λx_0. x_0) (λx_0. (λx_1. λx_2. x_1 ∥ λx_1. λx_2. λx_3. λx_4. λx_5. x_3 ∥ x_0))	finished(0)	steps=15	entries=38	hits=76	held=29
-25	(λx_0. x_0) (λx_0. x_0) (λx_0. x_0) ((λx_0. x_0) (λx_0. x_0) (λx_0. x_0)) (λx_0. x_0) ((λx_0. x_0 + λx_0. x_0) (λx_0. x_0))	finished(1)	steps=35	entries=39	hits=83	held=30
-26	(λx_0. (λx_1. x_0 x_0) x_0) (λx_0. (λx_1. λx_2. x_2) x_0) (λx_0. x_0)	finished(1)	steps=21	entries=39	hits=85	held=30
-27	(λx_0. x_0) (λx_0. x_0)	finished(1)	steps=11	entries=39	hits=87	held=30
-28	(λx_0. (λx_1. λx_2. (λx_3. x_3 (x_0 x_0 x_1)) x_0) x_0) (λx_0. x_0 ∥ λx_0. x_0)	finished(1)	steps=120	entries=53	hits=91	held=32
-29	(λx_0. x_0) (λx_0. x_0)	finished(1)	steps=11	entries=53	hits=93	held=32
-30	(λx_0. (λx_1. x_0 x_1 ∥ x_0 (λx_1. (λx_2. x_2) x_0))) (λx_0. (x_0 + x_0 + x_0))	finished(0)	steps=122	entries=54	hits=95	held=33
-31	(λx_0. x_0 (x_0 (λx_1. λx_2. λx_3. x_2)) (x_0 + x_0)) ((λx_0. x_0) (λx_0. x_0))	finished(1)	steps=28	entries=56	hits=98	held=35
-32	(λx_0. λx_1. x_1) ((λx_0. x_0) (λx_0. x_0) (λx_0. x_0)) (λx_0. x_0 ∥ λx_0. x_0) (λx_0. (x_0 ∥ x_0) x_0)	finished(1)	steps=35	entries=58	hits=99	held=36
-33	(λx_0. λx_1. x_1 x_1) (λx_0. λx_1. ((x_0 ∥ x_0) (λx_2. x_2) ∥ (x_0 ∥ x_0 ∥ x_0)))	finished(1)	steps=12	entries=58	hits=99	held=36
-34	(λx_0. x_0) (λx_0. λx_1. λx_2. x_1 x_2 (λx_3. (x_1 ∥ x_0)) (x_2 (x_2 x_0)))	finished(0)	steps=32	entries=59	hits=99	held=37
-35	(λx_0. x_0) (λx_0. x_0) (λx_0. x_0 + λx_0. x_0) (λx_0. x_0) ((λx_0. (x_0 ∥ x_0)) ((λx_0. x_0) (λx_0. x_0)))	finished(1)	steps=33	entries=60	hits=105	held=38
-36	(λx_0. λx_1. x_1 x_0) ((λx_0. x_0) (λx_0. x_0)) (λx_0. x_0) ((λx_0. x_0) ((λx_0. x_0) (λx_0. x_0)) (λx_0. x_0))	finished(1)	steps=29	entries=61	hits=109	held=39
-37	(λx_0. x_0) (λx_0. (λx_1. x_1 x_1 x_1 + (x_0 x_0 ∥ x_0) + x_0 x_0 x_0))	finished(2)	steps=39	entries=62	hits=109	held=40
-38	(λx_0. λx_1. (x_1 x_0 ∥ x_1)) ((λx_0. x_0) ((λx_0. x_0) (λx_0. x_0))) (λx_0. (x_0 + x_0))	finished(1)	steps=48	entries=62	hits=113	held=40
-39	((λx_0. (λx_1. x_0 (x_1 x_1)) (λx_1. x_0 (x_1 x_1))) (λx_0. λx_1. (x_0 ∥ x_1)) + (λx_0. x_0 ∥ λx_0. x_0)) ((λx_0. x_0) (λx_0. x_0)) ((λx_0. x_0) (λx_0. x_0))	finished(1)	steps=93	entries=62	hits=121	held=40
+0	(λx_0. x_0 ∥ λx_0. x_0) (λx_0. x_0 x_0 ∥ λx_0. x_0 + (λx_0. x_0) (λx_0. x_0 ∥ λx_0. x_0))	finished(1)	steps=61	entries=4	hits=3	held=3
+1	(λx_0. x_0) ((λx_0. (λx_1. x_0 (x_1 x_1)) (λx_1. x_0 (x_1 x_1))) (λx_0. λx_1. (x_0 ∥ x_1))) (λx_0. x_0 ∥ λx_0. x_0)	finished(0)	steps=41	entries=5	hits=3	held=4
+2	(λx_0. x_0) (λx_0. ((λx_1. (λx_2. x_1 (x_2 x_2)) (λx_2. x_1 (x_2 x_2))) (λx_1. λx_2. (x_1 ∥ x_2)) ∥ λx_1. λx_2. (x_1 ∥ x_0 ∥ x_2)) x_0)	finished(0)	steps=37	entries=6	hits=3	held=5
+3	(λx_0. x_0) (λx_0. x_0)	finished(1)	steps=11	entries=7	hits=4	held=6
+4	(λx_0. λx_1. x_1 x_1) ((λx_0. x_0) (λx_0. x_0) (λx_0. x_0)) (((λx_0. (λx_1. x_0 (x_1 x_1)) (λx_1. x_0 (x_1 x_1))) (λx_0. λx_1. (x_0 ∥ x_1)) ∥ λx_0. x_0) (λx_0. x_0))	finished(0)	steps=155	entries=11	hits=8	held=7
+5	(λx_0. (λx_1. x_0) (x_0 x_0 x_0)) (λx_0. x_0)	finished(1)	steps=12	entries=11	hits=10	held=7
+6	(λx_0. x_0 x_0) (λx_0. (x_0 + x_0) ∥ λx_0. x_0)	finished(1)	steps=46	entries=14	hits=13	held=8
+7	(λx_0. x_0) (λx_0. λx_1. λx_2. x_0 x_2 ∥ ((λx_0. x_0 + λx_0. x_0 + λx_0. x_0) (λx_0. x_0) (λx_0. x_0) ∥ λx_0. x_0) (λx_0. x_0))	finished(0)	steps=87	entries=15	hits=25	held=9
+8	(λx_0. (λx_1. x_0 (x_1 x_1)) (λx_1. x_0 (x_1 x_1))) (λx_0. λx_1. (x_0 ∥ x_1)) (λx_0. (x_0 x_0 ∥ x_0)) (λx_0. x_0)	finished(0)	steps=61	entries=15	hits=26	held=9
+9	(λx_0. x_0) ((λx_0. x_0 + λx_0. x_0) (λx_0. x_0)) ((λx_0. x_0 x_0) (λx_0. x_0 + λx_0. x_0) (λx_0. x_0))	finished(1)	steps=38	entries=19	hits=30	held=12
+10	(λx_0. λx_1. x_1) ((λx_0. λx_1. λx_2. x_2 x_1) (λx_0. (λx_1. x_1) (x_0 + x_0)))	finished(1)	steps=9	entries=19	hits=31	held=12
+11	(λx_0. x_0) (λx_0. x_0) (λx_0. x_0) (λx_0. x_0)	finished(1)	steps=19	entries=19	hits=35	held=12
+12	(λx_0. (λx_1. x_0 (x_1 x_1)) (λx_1. x_0 (x_1 x_1))) (λx_0. λx_1. (x_0 ∥ x_1)) (λx_0. x_0) ((λx_0. x_0) (λx_0. x_0))	finished(0)	steps=63	entries=20	hits=37	held=13
+13	(λx_0. λx_1. (λx_2. x_2) x_0 x_1) ((λx_0. (λx_1. x_0 (x_1 x_1)) (λx_1. x_0 (x_1 x_1))) (λx_0. λx_1. (x_0 ∥ x_1)) (λx_0. x_0))	finished(0)	steps=52	entries=21	hits=38	held=14
+14	(λx_0. x_0) (λx_0. x_0) (λx_0. (λx_1. λx_2. (x_1 ∥ x_2)) (x_0 x_0 + λx_1. x_1))	finished(0)	steps=36	entries=22	hits=39	held=15
+15	(λx_0. (x_0 + x_0)) ((λx_0. x_0 + λx_0. x_0 + λx_0. x_0) ((λx_0. x_0) ((λx_0. x_0) (λx_0. x_0)))) (λx_0. x_0)	finished(1)	steps=38	entries=24	hits=46	held=17
+16	((λx_0. x_0) (λx_0. x_0) ∥ λx_0. x_0 (λx_1. x_0 x_0)) (λx_0. x_0)	finished(0)	steps=46	entries=26	hits=51	held=19
+17	(λx_0. λx_1. λx_2. (λx_3. x_2 ((λx_4. x_3) x_3) ∥ (x_1 ∥ x_1))) (λx_0. x_0 ∥ λx_0. x_0)	finished(0)	steps=31	entries=27	hits=51	held=20
+18	(λx_0. x_0 (λx_1. x_1) x_0) (λx_0. x_0 x_0 + (λx_0. x_0) (λx_0. x_0) (λx_0. x_0))	finished(2)	steps=48	entries=29	hits=57	held=21
+19	(λx_0. x_0) ((λx_0. (λx_1. x_0 (x_1 x_1)) (λx_1. x_0 (x_1 x_1))) (λx_0. λx_1. (x_0 ∥ x_1)))	finished(0)	steps=19	entries=29	hits=58	held=21
+20	(λx_0. x_0) (λx_0. λx_1. x_0 (λx_2. x_0) ∥ (λx_0. (λx_1. x_1 x_1 ∥ x_0)) (λx_0. x_0))	finished(0)	steps=60	entries=30	hits=60	held=22
+21	(λx_0. x_0) ((λx_0. (x_0 ∥ x_0) x_0) (λx_0. x_0) + (λx_0. (x_0 + x_0)) (λx_0. x_0))	finished(1)	steps=34	entries=31	hits=63	held=23
+22	((λx_0. x_0) (λx_0. x_0) (λx_0. x_0) ∥ λx_0. x_0) (λx_0. (λx_1. x_1 x_1) x_0)	finished(1)	steps=34	entries=33	hits=65	held=24
+23	(λx_0. (λx_1. x_1) x_0) ((λx_0. x_0) ((λx_0. x_0) (λx_0. x_0))) (λx_0. x_0 ∥ λx_0. x_0) (λx_0. x_0)	finished(1)	steps=32	entries=33	hits=70	held=24
+24	(λx_0. x_0) (λx_0. (λx_1. λx_2. x_1 ∥ λx_1. λx_2. λx_3. λx_4. λx_5. x_3 ∥ x_0))	finished(0)	steps=15	entries=34	hits=70	held=25
+25	(λx_0. x_0) (λx_0. x_0) (λx_0. x_0) ((λx_0. x_0) (λx_0. x_0) (λx_0. x_0)) (λx_0. x_0) ((λx_0. x_0 + λx_0. x_0) (λx_0. x_0))	finished(1)	steps=35	entries=35	hits=77	held=26
+26	(λx_0. (λx_1. x_0 x_0) x_0) (λx_0. (λx_1. λx_2. x_2) x_0) (λx_0. x_0)	finished(1)	steps=21	entries=35	hits=79	held=26
+27	(λx_0. x_0) (λx_0. x_0)	finished(1)	steps=11	entries=35	hits=81	held=26
+28	(λx_0. (λx_1. λx_2. (λx_3. x_3 (x_0 x_0 x_1)) x_0) x_0) (λx_0. x_0 ∥ λx_0. x_0)	finished(1)	steps=129	entries=37	hits=96	held=27
+29	(λx_0. x_0) (λx_0. x_0)	finished(1)	steps=11	entries=37	hits=98	held=27
+30	(λx_0. (λx_1. x_0 x_1 ∥ x_0 (λx_1. (λx_2. x_2) x_0))) (λx_0. (x_0 + x_0 + x_0))	finished(0)	steps=48	entries=38	hits=99	held=28
+31	(λx_0. x_0 (x_0 (λx_1. λx_2. λx_3. x_2)) (x_0 + x_0)) ((λx_0. x_0) (λx_0. x_0))	finished(1)	steps=28	entries=40	hits=102	held=30
+32	(λx_0. λx_1. x_1) ((λx_0. x_0) (λx_0. x_0) (λx_0. x_0)) (λx_0. x_0 ∥ λx_0. x_0) (λx_0. (x_0 ∥ x_0) x_0)	finished(1)	steps=35	entries=42	hits=103	held=31
+33	(λx_0. λx_1. x_1 x_1) (λx_0. λx_1. ((x_0 ∥ x_0) (λx_2. x_2) ∥ (x_0 ∥ x_0 ∥ x_0)))	finished(1)	steps=12	entries=42	hits=103	held=31
+34	(λx_0. x_0) (λx_0. λx_1. λx_2. x_1 x_2 (λx_3. (x_1 ∥ x_0)) (x_2 (x_2 x_0)))	finished(0)	steps=33	entries=43	hits=103	held=32
+35	(λx_0. x_0) (λx_0. x_0) (λx_0. x_0 + λx_0. x_0) (λx_0. x_0) ((λx_0. (x_0 ∥ x_0)) ((λx_0. x_0) (λx_0. x_0)))	finished(1)	steps=31	entries=44	hits=109	held=33
+36	(λx_0. λx_1. x_1 x_0) ((λx_0. x_0) (λx_0. x_0)) (λx_0. x_0) ((λx_0. x_0) ((λx_0. x_0) (λx_0. x_0)) (λx_0. x_0))	finished(1)	steps=29	entries=45	hits=113	held=34
+37	(λx_0. x_0) (λx_0. (λx_1. x_1 x_1 x_1 + (x_0 x_0 ∥ x_0) + x_0 x_0 x_0))	finished(2)	steps=43	entries=46	hits=113	held=35
+38	(λx_0. λx_1. (x_1 x_0 ∥ x_1)) ((λx_0. x_0) ((λx_0. x_0) (λx_0. x_0))) (λx_0. (x_0 + x_0))	finished(1)	steps=36	entries=46	hits=117	held=35
+39	((λx_0. (λx_1. x_0 (x_1 x_1)) (λx_1. x_0 (x_1 x_1))) (λx_0. λx_1. (x_0 ∥ x_1)) + (λx_0. x_0 ∥ λx_0. x_0)) ((λx_0. x_0) (λx_0. x_0)) ((λx_0. x_0) (λx_0. x_0))	finished(1)	steps=87	entries=46	hits=126	held=35

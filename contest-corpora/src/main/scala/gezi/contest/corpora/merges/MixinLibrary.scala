@@ -31,7 +31,7 @@ final case class Hierarchy(name: String, slots: Vector[String]):
   * its module and the variable the program refers to it by
   * (`module(Library, Hierarchy, Variable)`).
   */
-final case class LibraryModule(library: String, hierarchy: Hierarchy, variable: Term)
+final case class LibraryModule(library: String, hierarchy: Hierarchy, variable: ProblemTerm)
 
 /** The modules a program under `MixinLibrary.withMixinLibrary` refers to
   * (`names(Modules)`).
@@ -85,10 +85,10 @@ final class MixinLibrary(problems: ProblemFamilies):
   val binary: Hierarchy = hierarchy("binary")
 
   /** `\t. \f. t`. */
-  def trueTerm: Term = file.program("true_term")
+  def trueTerm: ProblemTerm = file.program("true_term")
 
   /** `\t. \f. f`. */
-  def falseTerm: Term = file.program("false_term")
+  def falseTerm: ProblemTerm = file.program("false_term")
 
   private def fileAtoms(predicate: String, library: String): Vector[String] =
     file.rowsWith(predicate, Map(0 -> library)) match
@@ -117,9 +117,9 @@ final class MixinLibrary(problems: ProblemFamilies):
   /** `\self. \c1. ... \cW. cm body`, the slot the m-th of the hierarchy and
     * the body a function of self (`self_mixin/5`).
     */
-  def selfMixin(hierarchy: Hierarchy, slot: String, body: Term => Term): Term =
+  def selfMixin(hierarchy: Hierarchy, slot: String, body: ProblemTerm => ProblemTerm): ProblemTerm =
     val index = hierarchy.index(slot)
-    def handlers(bound: Vector[Term], self: Term): Term =
+    def handlers(bound: Vector[ProblemTerm], self: ProblemTerm): ProblemTerm =
       if bound.length == hierarchy.width then bound(index)(body(self))
       else λ(handler => handlers(bound :+ handler, self))
     λ(self => handlers(Vector.empty, self))
@@ -128,7 +128,7 @@ final class MixinLibrary(problems: ProblemFamilies):
     * reading nothing of self: the wrapper itself for one definition, the
     * choice of them for several (`value_mixin/3`). Throws on none.
     */
-  def valueMixin(hierarchy: Hierarchy, definitions: (String, Term)*): Term =
+  def valueMixin(hierarchy: Hierarchy, definitions: (String, ProblemTerm)*): ProblemTerm =
     definitions.map((slot, value) => selfMixin(hierarchy, slot, _ => value)).toVector match
       case Vector()       => throw IllegalArgumentException("a value mixin defines a slot")
       case Vector(single) => single
@@ -137,15 +137,15 @@ final class MixinLibrary(problems: ProblemFamilies):
   /** The slot read from the object, `o o c1 ... cW` with the identity for
     * the slot's handler (`read_slot/4`).
     */
-  def readSlot(hierarchy: Hierarchy, slot: String, objectTerm: Term): Term =
+  def readSlot(hierarchy: Hierarchy, slot: String, objectTerm: ProblemTerm): ProblemTerm =
     readHandled(hierarchy, slot, objectTerm, λ(value => value))
 
   /** The read applied to the arguments, with the handler
     * `\v. v a1 ... ak` (`slot_applied/5`). Throws on no argument.
     */
-  def slotApplied(hierarchy: Hierarchy, slot: String, objectTerm: Term, arguments: Term*): Term =
+  def slotApplied(hierarchy: Hierarchy, slot: String, objectTerm: ProblemTerm, arguments: ProblemTerm*): ProblemTerm =
     if arguments.isEmpty then throw IllegalArgumentException(s"$slot is applied to no argument")
-    readHandled(hierarchy, slot, objectTerm, λ(value => arguments.foldLeft(value)(_(_))))
+    readHandled(hierarchy, slot, objectTerm, λ(value => arguments.foldLeft[ProblemTerm](value)(_(_))))
 
   /** `o o c1 ... cW`; an object that is not a variable let bound first,
     * `(\o. o o c1 ... cW) Object` (`read_handled/5`).
@@ -161,10 +161,10 @@ final class MixinLibrary(problems: ProblemFamilies):
     * (three ways forward are open, none decided). The same holds for
     * the failure of `MixinDatalog.guard`.
     */
-  private def readHandled(hierarchy: Hierarchy, slot: String, objectTerm: Term, handler: Term): Term =
+  private def readHandled(hierarchy: Hierarchy, slot: String, objectTerm: ProblemTerm, handler: ProblemTerm): ProblemTerm =
     val index = hierarchy.index(slot)
     val handlers = (0 until hierarchy.width).map(position => if position == index then handler else Term.top)
-    def read(bound: Term): Term = handlers.foldLeft(bound(bound))(_(_))
+    def read(bound: ProblemTerm): ProblemTerm = handlers.foldLeft(bound(bound))(_(_))
     objectTerm match
       case Term.BoundVariable(_) => read(objectTerm)
       case _                     => λ(bound => read(bound))(objectTerm)
@@ -173,8 +173,8 @@ final class MixinLibrary(problems: ProblemFamilies):
     * (`with_mixin_library/5`): the body refers to the modules by the names
     * it is given.
     */
-  def withMixinLibrary(libraries: Vector[String], body: LibraryNames => Term): Term =
-    def bound(remaining: Vector[String], modules: Vector[LibraryModule]): Term =
+  def withMixinLibrary(libraries: Vector[String], body: LibraryNames => ProblemTerm): ProblemTerm =
+    def bound(remaining: Vector[String], modules: Vector[LibraryModule]): ProblemTerm =
       if remaining.isEmpty then body(LibraryNames(modules))
       else
         val library = remaining.head
@@ -185,7 +185,7 @@ final class MixinLibrary(problems: ProblemFamilies):
     bound(libraries, Vector.empty)
 
   /** The library's class read from its module (`library_class/4`). */
-  def libraryClass(names: LibraryNames, library: String, className: String): Term =
+  def libraryClass(names: LibraryNames, library: String, className: String): ProblemTerm =
     names.modules.find(_.library == library) match
       case Some(module) => readSlot(module.hierarchy, className, module.variable)
       case None         => throw IllegalArgumentException(s"the program lets no library $library")
@@ -193,7 +193,7 @@ final class MixinLibrary(problems: ProblemFamilies):
   /** The class of the one library of the program that has it
     * (`library_class/3`).
     */
-  def libraryClass(names: LibraryNames, className: String): Term =
+  def libraryClass(names: LibraryNames, className: String): ProblemTerm =
     names.modules.filter(_.hierarchy.slots.contains(className)) match
       case Vector(module) => readSlot(module.hierarchy, className, module.variable)
       case found =>
@@ -202,21 +202,21 @@ final class MixinLibrary(problems: ProblemFamilies):
   /** The natural `count` of the library `natural`: zero, or `{successor,
     * predecessor : n}` (`natural_instance/3`).
     */
-  def naturalInstance(names: LibraryNames, count: Int): Term =
+  def naturalInstance(names: LibraryNames, count: Int): ProblemTerm =
     require(count >= 0, s"a natural is not negative: $count")
     (1 to count).foldLeft(libraryClass(names, "natural", "zero"))((predecessor, _) =>
       successorClass(names, predecessor)
     )
 
   /** `{successor, predecessor : predecessor}` (`successor_class/3`). */
-  def successorClass(names: LibraryNames, predecessor: Term): Term =
+  def successorClass(names: LibraryNames, predecessor: ProblemTerm): ProblemTerm =
     choice(libraryClass(names, "natural", "successor"), valueMixin(natural, "predecessor" -> predecessor))
 
   /** `count` of the library `binary`, least significant bit outermost: zero,
     * `{even, half : h}` or `{odd, half_of_predecessor : h}`
     * (`binary_instance/3`).
     */
-  def binaryInstance(names: LibraryNames, count: BigInt): Term =
+  def binaryInstance(names: LibraryNames, count: BigInt): ProblemTerm =
     require(count >= 0, s"a natural is not negative: $count")
     if count == 0 then libraryClass(names, "binary", "zero")
     else
@@ -232,7 +232,7 @@ final class MixinLibrary(problems: ProblemFamilies):
     * contributes to, whose body is the contribution over the module's self
     * (`library_file_mixin/4`).
     */
-  private def fileMixin(moduleHierarchy: Hierarchy, fileName: String): Term =
+  private def fileMixin(moduleHierarchy: Hierarchy, fileName: String): ProblemTerm =
     moduleHierarchy.slots.flatMap(className =>
       contribution(fileName, className).map(body => selfMixin(moduleHierarchy, className, module =>
         body(ModuleContext(moduleHierarchy, module))
@@ -245,13 +245,13 @@ final class MixinLibrary(problems: ProblemFamilies):
   /** The module's hierarchy and its self, which a contribution reads its
     * classes through.
     */
-  private final case class ModuleContext(hierarchy: Hierarchy, module: Term):
-    def moduleClass(className: String): Term = readSlot(hierarchy, className, module)
+  private final case class ModuleContext(hierarchy: Hierarchy, module: ProblemTerm):
+    def moduleClass(className: String): ProblemTerm = readSlot(hierarchy, className, module)
 
   /** The file's contribution to the class, as a function of the module's
     * context (`contribution/4`).
     */
-  private def contribution(fileName: String, className: String): Option[ModuleContext => Term] =
+  private def contribution(fileName: String, className: String): Option[ModuleContext => ProblemTerm] =
     (fileName, className) match
       case ("boolean_data", "true")  => Some(_ => valueMixin(boolean, "church" -> trueTerm))
       case ("boolean_data", "false") => Some(_ => valueMixin(boolean, "church" -> falseTerm))
@@ -461,13 +461,13 @@ final class MixinLibrary(problems: ProblemFamilies):
       case _ => None
 
   /** The object `{class, field : half.plus(addendHalf)}` (`half_sum/6`). */
-  private def halfSum(context: ModuleContext, className: String, field: String, half: Term, addendHalf: Term): Term =
+  private def halfSum(context: ModuleContext, className: String, field: String, half: ProblemTerm, addendHalf: ProblemTerm): ProblemTerm =
     binaryFieldClass(context, className, field, slotApplied(binary, "plus", half, addendHalf))
 
   /** `(h m).plus(h m)`, h self's field, read at each use
     * (`doubled_half_product/4`).
     */
-  private def doubledHalfProduct(self: Term, field: String, multiplicand: Term): Term =
+  private def doubledHalfProduct(self: ProblemTerm, field: String, multiplicand: ProblemTerm): ProblemTerm =
     val halfProduct = slotApplied(binary, "times", readSlot(binary, field, self), multiplicand)
     val halfProductAgain = slotApplied(binary, "times", readSlot(binary, field, self), multiplicand)
     slotApplied(binary, "plus", halfProductAgain, halfProduct)
@@ -475,5 +475,5 @@ final class MixinLibrary(problems: ProblemFamilies):
   /** The class `{class, field : value}`, the class read through the module's
     * self (`binary_field_class/5`).
     */
-  private def binaryFieldClass(context: ModuleContext, className: String, field: String, value: Term): Term =
+  private def binaryFieldClass(context: ModuleContext, className: String, field: String, value: ProblemTerm): ProblemTerm =
     choice(context.moduleClass(className), valueMixin(binary, field -> value))

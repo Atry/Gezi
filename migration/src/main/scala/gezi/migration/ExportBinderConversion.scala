@@ -1,5 +1,6 @@
 package gezi.migration
 
+import gezi.ir.{Configured, NoFacts}
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
@@ -11,7 +12,6 @@ import gezi.frontend.SourceFormatting
 import gezi.frontend.SpelledBinder
 import gezi.frontend.SyntaxSpans
 import gezi.frontend.TokenKind
-import gezi.ir.Instruction
 import gezi.knowledgereading.KnowledgeReading
 import gezi.knowledgereading.KnowledgeReadingError
 import gezi.knowledgereading.Reading
@@ -20,6 +20,9 @@ import scala.annotation.tailrec
 import scala.util.control.TailCalls.TailRec
 import scala.util.control.TailCalls.done
 import scala.util.control.TailCalls.tailcall
+
+/** The configuration of the terms here: no facts. */
+private given exportBinderConversionNoFacts: NoFacts.type = NoFacts
 
 /** The conversion of a lambdalattice file's export from a Scott tuple at the
   * end of the file's spine, `… λx tuple. tuple M1 … Mn`, to an abstraction
@@ -85,7 +88,7 @@ object ExportBinderConversion:
   /** The text of the file converted, read in the scope of its own place in
     * its tree (`DirectoryTree.scope`). Throws as `converted` of a text does.
     */
-  def converted(file: Path): String =
+  def converted(file: Path)(using gezi.ir.StorageAccess): String =
     converted(DirectoryTree.scope(file.toAbsolutePath.normalize), Files.readString(file))
 
   /** The text converted, read in the scope of the enclosing names, then
@@ -94,7 +97,7 @@ object ExportBinderConversion:
     * remove, and `IllegalStateException` when a check fails, a defect of the
     * conversion.
     */
-  def converted(enclosing: Vector[String], text: String): String =
+  def converted(enclosing: Vector[String], text: String)(using gezi.ir.StorageAccess): String =
     val (term, spans) = Lambdalattice.locatedInScope(enclosing, text)
     val body = under(term, enclosing.size)
     val bodySpans = Vector.fill(enclosing.size)(0).foldLeft(spans)((current, position) => current.child(position))
@@ -299,15 +302,15 @@ object ExportBinderConversion:
     * with the evaluator steps and the tables the read took; or why it
     * stopped.
     */
-  final case class FieldsRead(fields: Vector[Instruction], steps: Long, tables: Int)
+  final case class FieldsRead(fields: Vector[Configured[NoFacts.type]], steps: Long, tables: Int)
 
   /** The fields of the file's tuple read from the tree's visible root under
     * the compilation's reading state, within `readingLimit`.
     */
   def fieldsRead(visible: Path, file: Path): Either[String, FieldsRead] =
     val instance = DirectoryTree.instance(visible, file)
-    val reading: Reading[Vector[Instruction]] =
-      KnowledgeReading.alternative(instance, 1).map(_._2.map(KnowledgeReading.term(_, Set.empty)))
+    val reading: Reading[NoFacts.type, Vector[Configured[NoFacts.type]]] =
+      KnowledgeReading.alternative(gezi.ir.Value.of(instance)(using NoFacts), 1)(using NoFacts).map(_._2.map(KnowledgeReading.term(_, Set.empty)))
     try
       val (fields, after) = KnowledgeReading.run(reading, readingLimit, KnowledgeReading.compilationState)
       Right(FieldsRead(fields, after.budget.spent, after.tables.complete.size + after.tables.open.size))
@@ -321,6 +324,8 @@ object ExportBinderConversion:
   * failure when any does.
   */
 @main def convertExportBinders(visible: String, directories: String*): Unit =
+  // The command line is where this tool sets up its reader: the text it formats reads no storage's view.
+  given gezi.ir.StorageAccess = gezi.ir.StorageAccess.granted()
   val visibleRoot = Paths.get(visible).toAbsolutePath.normalize
   val all = LambdalatticeFormatting.files(directories.toVector.map(Paths.get(_).toAbsolutePath.normalize))
   val conversions = all.map(file =>

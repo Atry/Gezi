@@ -1,11 +1,10 @@
 package gezi.strategies
 
 import gezi.egraph.EGraph
-import gezi.egraph.MemoRetention
 import gezi.egraph.Justification
 import gezi.egraph.LiveNode
 import gezi.ematching.indexing.Indexing
-import gezi.ir.Instruction
+import gezi.ir.{Configured, NativeSpecializer}
 import gezi.ir.Layer
 import gezi.ir.Pattern
 import gezi.ir.Reachability
@@ -50,27 +49,29 @@ import gezi.ir.Thunk
   * here reads a type or names a lemma (`CONTRIBUTING.md`, "Types live only
   * in the term").
   */
-final case class HigherOrderSaturator(
-    options: SaturationOptions,
-    writeBack: Option[LocalExtraction],
-    round: Option[FixpointEgraph.CompiledRound],
+final case class HigherOrderSaturator[C <: NativeSpecializer & Singleton](
+    options: SaturationOptions[C],
+    writeBack: Option[LocalExtraction[C]],
+    round: Option[FixpointEgraph.CompiledRound[C]],
     openingChoice: OpeningCriterionChoice
-) extends Saturator:
+) extends Saturator[C]:
+
+  private given C = options.construction.specializer
 
   round.foreach(compiled =>
     require(compiled.options == options, s"the compiled round's options are the saturator's: ${compiled.options}")
   )
 
-  def saturated(index: StandardLibraryIndex, inputs: Vector[Instruction], explained: Boolean, stop: StopSignal): Run =
+  def saturated(index: StandardLibraryIndex[C], inputs: Vector[Configured[C]], explained: Boolean, stop: StopSignal): Run[C] =
     begun(index, inputs, options.budget, explained, stop).run
 
-  def lemmas(index: StandardLibraryIndex): Vector[EncodedLemma] =
+  def lemmas(index: StandardLibraryIndex[C]): Vector[EncodedLemma[C]] =
     compiledRound(index).fold(FixpointEgraph.lemmas(index, options))(_.lemmas)
 
   /** The compiled round given, checked to be of this index; none when no
     * round was given, and the round is compiled for each input.
     */
-  private def compiledRound(index: StandardLibraryIndex): Option[FixpointEgraph.CompiledRound] =
+  private def compiledRound(index: StandardLibraryIndex[C]): Option[FixpointEgraph.CompiledRound[C]] =
     round.map(compiled =>
       require(compiled.index eq index, "the compiled round is of the index the saturator is given")
       compiled
@@ -79,16 +80,16 @@ final case class HigherOrderSaturator(
   /** A saturator that compiles its round once for the index, to be kept and
     * given every input of the round.
     */
-  def prepared(index: StandardLibraryIndex): HigherOrderSaturator =
+  def prepared(index: StandardLibraryIndex[C]): HigherOrderSaturator[C] =
     copy(round = Some(FixpointEgraph.compiledRound(index, options)))
 
   def begun(
-      index: StandardLibraryIndex,
-      inputs: Vector[Instruction],
+      index: StandardLibraryIndex[C],
+      inputs: Vector[Configured[C]],
       budget: Int,
       explained: Boolean,
       stop: StopSignal
-  ): SaturationProgress =
+  ): SaturationProgress[C] =
     require(budget >= 0, s"a budget is not negative: $budget")
     val enabled = lemmas(index)
     val higherOrder = enabled.filter(lemma => HigherOrderMatching.higherOrderMetavariables(lemma.left).nonEmpty)
@@ -98,6 +99,7 @@ final case class HigherOrderSaturator(
       higherOrder,
       Vector.empty,
       Map.empty,
+      None,
       Map.empty,
       budget,
       stop
@@ -109,13 +111,13 @@ final case class HigherOrderSaturator(
     * (`prepared`), and its round is one of `shared`.
     */
   def begunOn(
-      index: StandardLibraryIndex,
-      graph: EGraph,
-      shared: Vector[FixpointEgraph.CompiledRound],
-      inputs: Vector[Instruction],
+      index: StandardLibraryIndex[C],
+      graph: EGraph[C],
+      shared: Vector[FixpointEgraph.CompiledRound[C]],
+      inputs: Vector[Configured[C]],
       budget: Int,
       stop: StopSignal
-  ): SaturationProgress =
+  ): SaturationProgress[C] =
     require(budget >= 0, s"a budget is not negative: $budget")
     require(
       compiledRound(index).exists(compiled => shared.exists(_ eq compiled)),
@@ -131,6 +133,7 @@ final case class HigherOrderSaturator(
       higherOrder,
       Vector.empty,
       Map.empty,
+      None,
       Map.empty,
       start + budget,
       stop
@@ -145,14 +148,14 @@ final case class HigherOrderSaturator(
     * module contest-modules-wren.
     */
   private def rootReversed(
-      index: StandardLibraryIndex,
-      inputs: Vector[Instruction],
-      enabled: Vector[EncodedLemma],
+      index: StandardLibraryIndex[C],
+      inputs: Vector[Configured[C]],
+      enabled: Vector[EncodedLemma[C]],
       budget: Int,
-      sharedGraph: Option[(EGraph, Vector[FixpointEgraph.CompiledRound])],
+      sharedGraph: Option[(EGraph[C], Vector[FixpointEgraph.CompiledRound[C]])],
       explained: Boolean,
       stop: StopSignal
-  ): SaturationProgress =
+  ): SaturationProgress[C] =
     // FIXME (2026-11-07, found in a review): on a shared https://github.com/Atry/private-overlay/issues/1955
     // graph, the root case enumerates the subterms of the inputs only, not
     // the nodes the earlier rounds added. The general e-matching sees those
@@ -170,7 +173,7 @@ final case class HigherOrderSaturator(
     val abstractions = (for
       names <- nameLists
       subterm <- ReverseBeta.holdingAll(inputs, names)
-    yield (subterm, ReverseBeta.redex(subterm, names))).take(budget)
+    yield (subterm, ReverseBeta.redex(subterm, names, options.construction))).take(budget)
     val subterms = abstractions.map(_._1)
     val roots = inputs ++ subterms ++ abstractions.map(_._2)
     val begun = (compiledRound(index), sharedGraph) match
@@ -217,21 +220,22 @@ final case class HigherOrderSaturator(
     */
   @scala.annotation.tailrec
   private def rounds(
-      index: StandardLibraryIndex,
-      progress: SaturationProgress,
-      higherOrder: Vector[EncodedLemma],
-      openings: Vector[Opening],
+      index: StandardLibraryIndex[C],
+      progress: SaturationProgress[C],
+      higherOrder: Vector[EncodedLemma[C]],
+      openings: Vector[Opening[C]],
       written: Map[Int, Int],
-      matchesWritten: Map[LemmaIdentifier, Set[MatchKey]],
+      spellings: Option[CarriedSpellings[C, ModuleCost]],
+      matchesWritten: Map[LemmaIdentifier, Set[MatchKey[C]]],
       budget: Int,
       stop: StopSignal
-  ): SaturationProgress =
+  ): SaturationProgress[C] =
     progress.run.end match
       case End.Stopped(_) | End.BudgetExhausted(_) => progress
       case End.FixedPoint(_) =>
         val graph = progress.run.graph
-        val (afterWriteBack, writtenAfter) =
-          writeBack.fold((graph, written))(spelling => writtenBack(index, spelling, budget, graph, openings, written))
+        val (afterWriteBack, writtenAfter, spellingsAfter) =
+          writeBack.fold((graph, written, spellings))(spelling => writtenBack(index, spelling, budget, graph, openings, written, spellings))
         val keyed = higherOrder.map(lemma =>
           val seen = matchesWritten.getOrElse(lemma.lemma, Set.empty).map(HigherOrderMatching.canonical(graph, _))
           (lemma.lemma, seen, HigherOrderMatching.unseenInstances(graph, lemma.left, lemma.right, seen))
@@ -262,7 +266,7 @@ final case class HigherOrderSaturator(
           val after = synced.copy(run = synced.run.copy(graph = worked))
           if left <= 0 then after.copy(run = after.run.copy(end = End.BudgetExhausted(worked.instances)))
           else
-            rounds(index, after.resumed(left, stop), higherOrder, openings ++ opened, writtenAfter, matchesAfter, budget, stop)
+            rounds(index, after.resumed(left, stop), higherOrder, openings ++ opened, writtenAfter, spellingsAfter, matchesAfter, budget, stop)
 
   /** The names an enabled lemma's left side applies, at the head of an
     * application spine anywhere in it, each with the largest number of
@@ -270,12 +274,12 @@ final case class HigherOrderSaturator(
     * seeds a match, so that a closure that calls one, or calls one applied
     * to fewer arguments than that, may hold a match once opened.
     */
-  private def leftHeads(index: StandardLibraryIndex): Map[Instruction, Int] =
+  private def leftHeads(index: StandardLibraryIndex[C]): Map[Configured[C], Int] =
     lemmas(index)
       .flatMap(lemma => Orientations.positions(lemma.left))
       .collect { case (_, application @ Pattern.Apply(_, _)) => Orientations.spineHead(application) }
       .flatten
-      .foldLeft(Map.empty[Instruction, Int]) { case (bounds, (head, arity)) =>
+      .foldLeft(Map.empty[Configured[C], Int]) { case (bounds, (head, arity)) =>
         bounds.updated(head, bounds.get(head).fold(arity)(_ max arity))
       }
 
@@ -285,9 +289,9 @@ final case class HigherOrderSaturator(
     * (`OpeningCriterion.CallsAHeadWithMatchingArguments`, its patterns the
     * round's enabled left sides').
     */
-  private def openingCriterion(index: StandardLibraryIndex): OpeningCriterion =
+  private def openingCriterion(index: StandardLibraryIndex[C]): OpeningCriterion[C] =
     openingChoice match
-      case OpeningCriterionChoice.CallsAHead => OpeningCriterion.CallsAHead
+      case OpeningCriterionChoice.CallsAHead => OpeningCriterion.CallsAHead[C]()
       case OpeningCriterionChoice.CallsAHeadWithMatchingArguments =>
         OpeningCriterion.CallsAHeadWithMatchingArguments(leftArgumentPatterns(index))
 
@@ -295,12 +299,12 @@ final case class HigherOrderSaturator(
     * lemma's left side, by the name at its head: the spines `leftHeads`
     * bounds, each with its arguments.
     */
-  private def leftArgumentPatterns(index: StandardLibraryIndex): Map[Instruction, Vector[Vector[Pattern]]] =
+  private def leftArgumentPatterns(index: StandardLibraryIndex[C]): Map[Configured[C], Vector[Vector[Pattern[C]]]] =
     lemmas(index)
       .flatMap(lemma => Orientations.positions(lemma.left))
       .collect { case (_, application @ Pattern.Apply(_, _)) => gezi.ir.Spine.of(application) }
       .collect { case (Pattern.InstructionReference(head), arguments) => head -> arguments }
-      .foldLeft(Map.empty[Instruction, Vector[Vector[Pattern]]]) { case (spines, (head, arguments)) =>
+      .foldLeft(Map.empty[Configured[C], Vector[Vector[Pattern[C]]]]) { case (spines, (head, arguments)) =>
         spines.updated(head, spines.getOrElse(head, Vector.empty) :+ arguments)
       }
 
@@ -311,13 +315,13 @@ final case class HigherOrderSaturator(
     * chooses (`openingCriterion`), and the budget bounds the rest. No marker is read: Scala recognizes no hint, a hint being for the
     * lemmas' matching, not for Scala.
     */
-  private def openingScope(index: StandardLibraryIndex, graph: EGraph, openings: Vector[Opening]): Set[Int] =
+  private def openingScope(index: StandardLibraryIndex[C], graph: EGraph[C], openings: Vector[Opening[C]]): Set[Int] =
     BodyOpening.classesUnder(graph, graph.liveNodes.map(_.root) ++ openings.map(_.body), leafRoots(index, graph))
 
   /** The classes of the round's leaves (`StandardLibraryIndex.noinline`),
     * whose bodies are not opened: noinline is what keeps a term unexpanded.
     */
-  private def leafRoots(index: StandardLibraryIndex, graph: EGraph): Set[Int] =
+  private def leafRoots(index: StandardLibraryIndex[C], graph: EGraph[C]): Set[Int] =
     index.noinline.flatMap(graph.instructionNode).map(graph.root)
 
   /** The graph after a step, counted as one instance when it changed the
@@ -325,7 +329,7 @@ final case class HigherOrderSaturator(
     * once for the round, after the program has every code the round's
     * steps made (`codesSynced`).
     */
-  private def counted(budget: Int, before: EGraph, after: EGraph): EGraph =
+  private def counted(budget: Int, before: EGraph[C], after: EGraph[C]): EGraph[C] =
     if before.instances >= budget then before
     else if after.canonicalNodeCount > before.canonicalNodeCount || after.joiningUnionCount > before.joiningUnionCount then after.instanceCounted
     else after
@@ -336,9 +340,9 @@ final case class HigherOrderSaturator(
     * the openings and the write-backs made, which the β rule reads like any
     * other.
     */
-  private def codesSynced(progress: SaturationProgress, graph: EGraph): SaturationProgress =
+  private def codesSynced(progress: SaturationProgress[C], graph: EGraph[C]): SaturationProgress[C] =
     val thunkCodes = graph.liveNodes.collect { case LiveNode(_, _, Thunk(code, _, _)) => code }
-    val missing = Reachability.codesUnder(Vector.empty, thunkCodes).filterNot(progress.program.codes.contains)
+    val missing = Reachability.codesUnder(thunkCodes).filterNot(progress.program.codes.contains)
     if missing.isEmpty then progress
     else
       val program = progress.program.copy(codes =
@@ -355,31 +359,45 @@ final case class HigherOrderSaturator(
     * spelled again, a cost only.
     *
     * The spelling cache is kept from one body to the next within the pass
-    * and dropped at the next pass under `MemoRetention.Kept`, and dropped
-    * after every body under `NotKept` (the write-back's
-    * `LocalExtraction.spellingRetention`).
+    * and dropped at the next pass under `SpellingRetention.KeptWithinAPass`,
+    * dropped after every body under `NotKept`, and under `KeptAcrossPasses`
+    * started from the cache the pass before left (`spellings`), its
+    * entries of classes changed since dropped (`LocalExtraction.carriedCache`),
+    * and left to the next pass with the marks of the graph this pass starts
+    * from, so that the next pass drops what the write-backs, instances,
+    * openings and saturation in between change (the write-back's
+    * `LocalExtraction.spellingRetention`). The carried cache lives as long as
+    * one run of `rounds`.
     */
   private def writtenBack(
-      index: StandardLibraryIndex,
-      spelling: LocalExtraction,
+      index: StandardLibraryIndex[C],
+      spelling: LocalExtraction[C],
       budget: Int,
-      graph: EGraph,
-      openings: Vector[Opening],
-      written: Map[Int, Int]
-  ): (EGraph, Map[Int, Int]) =
+      graph: EGraph[C],
+      openings: Vector[Opening[C]],
+      written: Map[Int, Int],
+      spellings: Option[CarriedSpellings[C, ModuleCost]]
+  ): (EGraph[C], Map[Int, Int], Option[CarriedSpellings[C, ModuleCost]]) =
     val eigenvariables = openings.flatMap(_.eigenvariables).toMap
     val prepared = spelling.prepared(index, graph)
     val openedClosures = openings.map(_.closure).toSet
-    val (afterAll, _, writtenAfter) =
-      openings.reverse.foldLeft((graph, SpellingCache.empty[ModuleCost], written)) { case ((current, cache, done), opening) =>
+    val start = spelling.spellingRetention match
+      case SpellingRetention.KeptAcrossPasses =>
+        spellings.fold(SpellingCache.empty[C, ModuleCost])(LocalExtraction.carriedCache(_, graph, prepared, openedClosures))
+      case SpellingRetention.KeptWithinAPass | SpellingRetention.NotKept => SpellingCache.empty[C, ModuleCost]
+    val (afterAll, finalCache, writtenAfter) =
+      openings.reverse.foldLeft((graph, start, written)) { case ((current, cache, done), opening) =>
         val bodySize = current.classMembers(opening.body).size
         if done.get(opening.closure).contains(bodySize) then (current, cache, done)
         else
           val (bodySpelling, nextCache) = spelling.spelled(prepared, current, opening.body, cache, openedClosures)
           val next = counted(budget, current, BodyOpening.writtenBack(current, opening, bodySpelling, eigenvariables))
           val keptCache = spelling.spellingRetention match
-            case MemoRetention.Kept    => nextCache
-            case MemoRetention.NotKept => SpellingCache.empty[ModuleCost]
+            case SpellingRetention.KeptWithinAPass | SpellingRetention.KeptAcrossPasses => nextCache
+            case SpellingRetention.NotKept                                              => SpellingCache.empty[C, ModuleCost]
           (next, keptCache, done.updated(opening.closure, next.classMembers(opening.body).size))
       }
-    (afterAll, writtenAfter)
+    val carried = spelling.spellingRetention match
+      case SpellingRetention.KeptAcrossPasses => Some(CarriedSpellings(finalCache, prepared, graph.nodeCount, graph.unionCount))
+      case SpellingRetention.KeptWithinAPass | SpellingRetention.NotKept => None
+    (afterAll, writtenAfter, carried)

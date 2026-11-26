@@ -1,5 +1,7 @@
 package gezi.weakhead
 
+import gezi.ir.NoFacts
+
 import gezi.saturation.StopSignal
 import hedgehog.Gen
 import hedgehog.Range
@@ -22,6 +24,8 @@ import gezi.standardlibrary.SplitMix
   */
 class ReadingExecutorLawTest extends GeneratedProperties:
 
+  given NoFacts.type = NoFacts
+
   private val application: Gen[DeBruijnTerm] =
     for
       size <- Gen.int(Range.linear(2, 30))
@@ -39,19 +43,19 @@ class ReadingExecutorLawTest extends GeneratedProperties:
   modes.foreach((name, mode) =>
     stoppableProperty(s"a resumed reading finds what an uninterrupted one finds, under $name") { stopped =>
       for term <- terms.forAll
-      yield ExecutorLaws.resumeLaw(ReadingExecutor(mode, NoJitState), mode, term, StopSignal.completedWith(stopped))
+      yield ExecutorLaws.resumeLaw(ReadingExecutor(mode, gezi.weakhead.ReadingConfiguration.withoutFacts, NoJitState), mode, term, StopSignal.completedWith(stopped))
     }
 
     stoppableProperty(s"a suspension's residual reads with what was found to what the term reads, under $name") { stopped =>
       for term <- terms.forAll
-      yield ExecutorLaws.residualLaw(ReadingExecutor(mode, NoJitState), term, StopSignal.completedWith(stopped))
+      yield ExecutorLaws.residualLaw(ReadingExecutor(mode, gezi.weakhead.ReadingConfiguration.withoutFacts, NoJitState), term, StopSignal.completedWith(stopped))
     }
 
     stoppableProperty(s"an execution spends the least budget it finishes in, under $name") { stopped =>
       for
         term <- terms.forAll
         steps <- Gen.long(Range.linear(0L, 2000L)).forAll
-      yield ExecutorLaws.honestCostsLaw(ReadingExecutor(mode, NoJitState), term, steps, StopSignal.completedWith(stopped))
+      yield ExecutorLaws.honestCostsLaw(ReadingExecutor(mode, gezi.weakhead.ReadingConfiguration.withoutFacts, NoJitState), term, steps, StopSignal.completedWith(stopped))
     }
 
     stoppableProperty(s"counting the applications of codes changes nothing else, under $name") { stopped =>
@@ -59,7 +63,7 @@ class ReadingExecutorLawTest extends GeneratedProperties:
         term <- terms.forAll
         steps <- Gen.long(Range.linear(0L, 2000L)).forAll
       yield ExecutorLaws.countingUnobservableLaw(
-        ReadingExecutor(mode, NoJitState, tableRetention = TableRetention.KeptAll),
+        ReadingExecutor(mode, gezi.weakhead.ReadingConfiguration.withoutFacts, NoJitState, tableRetention = TableRetention.KeptAll),
         term,
         steps,
         StopSignal.completedWith(stopped),
@@ -71,12 +75,12 @@ class ReadingExecutorLawTest extends GeneratedProperties:
       for
         term <- terms.forAll
         steps <- Gen.long(Range.linear(0L, 2000L)).forAll
-      yield ExecutorLaws.honestCountsLaw(ReadingExecutor(mode, NoJitState), term, steps, StopSignal.completedWith(stopped), withinSteps = true, readerCodes = Set.empty)
+      yield ExecutorLaws.honestCountsLaw(ReadingExecutor(mode, gezi.weakhead.ReadingConfiguration.withoutFacts, NoJitState), term, steps, StopSignal.completedWith(stopped), withinSteps = true, readerCodes = Set.empty)
     }
 
     stoppableProperty(s"a numeral of n applies its step function exactly n times, under $name") { stopped =>
       for n <- Gen.int(Range.linear(0, 100)).forAll
-      yield ExecutorLaws.exactCountLaw(ReadingExecutor(mode, NoJitState), n, StopSignal.completedWith(stopped))
+      yield ExecutorLaws.exactCountLaw(ReadingExecutor(mode, gezi.weakhead.ReadingConfiguration.withoutFacts, NoJitState), n, StopSignal.completedWith(stopped))
     }
   )
 
@@ -92,7 +96,7 @@ class ReadingExecutorLawTest extends GeneratedProperties:
       steps <- Gen.long(Range.linear(0L, 2000L)).forAll
     yield
       val stop = StopSignal.completedWith(stopped)
-      val executor = ReadingExecutor(Mode.TablingWeakHead, NoJitState, tableRetention = TableRetention.KeptAll, continuations = ContinuationReading.Packed)
+      val executor = ReadingExecutor(Mode.TablingWeakHead, gezi.weakhead.ReadingConfiguration.withoutFacts, NoJitState, tableRetention = TableRetention.KeptAll, continuations = ContinuationReading.Packed)
       val term = EvaluatorTesting.lambdaTerm(consumers.last)
       hedgehog.Result.all(
         List(
@@ -145,9 +149,9 @@ class ReadingExecutorLawTest extends GeneratedProperties:
       yield
         val stop = StopSignal.completedWith(stopped)
         val budget = gezi.hotspot.Budget(steps, countedUnits = false, stop)
-        val executor = ReadingExecutor(Mode.TablingWeakHead, NoJitState, tableRetention = retention, continuations = continuations)
+        val executor = ReadingExecutor(Mode.TablingWeakHead, gezi.weakhead.ReadingConfiguration.withoutFacts, NoJitState, tableRetention = retention, continuations = continuations)
         val earlier = others.take(position) ++ (last :: others.drop(position))
-        val filled = earlier.foldLeft(executor: gezi.hotspot.Executor[ReadingSuspension]) { (current, term) =>
+        val filled = earlier.foldLeft(executor: gezi.hotspot.Executor[NoFacts.type, ReadingSuspension[NoFacts.type]]) { (current, term) =>
           val (instruction, context) = ExecutorLaws.interned(term)
           current.executed(instruction, context, budget)._1
         }
@@ -179,7 +183,7 @@ class ReadingExecutorLawTest extends GeneratedProperties:
         val stop = StopSignal.completedWith(stopped)
         val budget = gezi.hotspot.Budget(steps, countedUnits = false, stop)
         val large = gezi.hotspot.Budget(ExecutorLaws.largeSteps, countedUnits = false, stop)
-        val executor = ReadingExecutor(Mode.TablingWeakHead, NoJitState, sharedRetention = Some(gezi.hotspot.Retention.Strong), continuations = continuations)
+        val executor = ReadingExecutor(Mode.TablingWeakHead, gezi.weakhead.ReadingConfiguration.withoutFacts, NoJitState, sharedRetention = Some(gezi.hotspot.Retention.Strong), continuations = continuations)
         val (_, shared) = ExecutorLaws.interned(last)
         val earlier = others.take(position) ++ (last :: others.drop(position))
         earlier.foreach(term =>

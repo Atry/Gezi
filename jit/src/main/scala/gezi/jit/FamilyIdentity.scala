@@ -1,7 +1,5 @@
 package gezi.jit
 
-import gezi.ir.Instruction
-
 /** The identity of a data family of the backend (`DataFamily.identity`),
   * the key `NativeBackend.family` finds a family by and the first part of a
   * constructor's name (`NativeName.Constructor`).
@@ -27,7 +25,7 @@ enum FamilyIdentity:
     * entries): the criterion's term, interned, so that two criteria are one
     * family exactly when they are one instruction.
     */
-  case Declared(criterion: Instruction)
+  case Declared(criterion: gezi.ir.Pure)
 
   /** The identity as a message shows it: a codec's name, or the text of a
     * declared family's criterion.

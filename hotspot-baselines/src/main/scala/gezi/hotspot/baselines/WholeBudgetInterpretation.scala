@@ -6,6 +6,7 @@ import gezi.hotspot.CompilationUnit
 import gezi.hotspot.Decision
 import gezi.hotspot.Spent
 import gezi.hotspot.TieringPolicy
+import gezi.ir.NativeSpecializer
 
 /** The tiering policy of the baseline: always
   * interpret, with the whole budget, whatever was spent, so that a tiered
@@ -14,5 +15,5 @@ import gezi.hotspot.TieringPolicy
   * @param budget
   *   the whole budget
   */
-final case class WholeBudgetInterpretation(budget: Budget) extends TieringPolicy:
-  def decided(program: CompilationUnit.Program, spent: Spent, cache: Cache): Decision = Decision.Interpret(budget)
+final case class WholeBudgetInterpretation[C <: NativeSpecializer & Singleton](budget: Budget) extends TieringPolicy[C]:
+  def decided(program: CompilationUnit.Program[C], spent: Spent, cache: Cache): Decision[C] = Decision.Interpret(budget)

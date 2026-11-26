@@ -7,10 +7,11 @@ import hedgehog.Range
 import hedgehog.Result
 import hedgehog.core.SuccessCount
 import gezi.frontend.Term
+import gezi.frontend.TermOf
 import gezi.generatedinputs.GeneratedProperties
 import gezi.generatedinputs.HoasGenerators
 import gezi.hotspot.baselines.BaselineCaches
-import gezi.ir.Instruction
+import gezi.ir.{Configured, NoFacts, Pure}
 import gezi.saturation.StopSignal
 import gezi.strategies.BaselineRounds
 import gezi.strategies.DispatchStrategies
@@ -32,6 +33,8 @@ import gezi.strategies.StrategyTesting
   */
 class NativeInstructionsLawTest extends GeneratedProperties:
 
+  given gezi.ir.StorageAccess = gezi.ir.StorageAccess.granted()
+
   // Measured 2026-11-16 on 2 CPUs (contest-lean.slice, CPUs 10,11, nice 10), the 1-minute load 9 to 22 over the run, every deadline raised to 600 s: the slowest test of NativeInstructionsLawTest, "a native-bound term applied stays an instruction in the refined output", takes 9.270 s; the bound is 1.5 times that rounded up to 5 s.
   // FIXME: this suite exceeds the 3 s default with no reason yet; its slow tests are to be made fast. https://github.com/Atry/private-overlay/issues/1925
   override val munitTimeout: scala.concurrent.duration.Duration = scala.concurrent.duration.Duration(15, "s")
@@ -44,38 +47,46 @@ class NativeInstructionsLawTest extends GeneratedProperties:
     Vector(_ => library, _ => facts, _ => nativeBound, _ => schedule, _ => argumentLeaves)
 
   private lazy val library = NativesTesting.nativesOn
-
   private lazy val facts = BackendFacts.of(library)
 
+  private lazy val encoding: StorageEncoding = facts.storageEncoding
+
+  private given encoding.type = encoding
+
   /** The terms bound by the library's `natives`, each once. */
-  private lazy val nativeBound: Vector[Instruction] = library.index.nativeBound.map(_.instruction).distinct
+  private lazy val nativeBound: Vector[Pure] = library.index.nativeBound.map(_.instruction).distinct
+
+  private def boundTerm(pure: Pure): Configured[encoding.type] = Configured.fromPure(encoding)(pure)
 
   /** The schedule of JitNativesTest, each round within its 600 instances. */
   private lazy val schedule =
-    BaselineRounds.nativeRouteSchedule(library, StrategyTesting.round("prolog_backend_type_check"), 600)
+    BaselineRounds.nativeRouteSchedule[encoding.type](library, StrategyTesting.round("prolog_backend_type_check"), 600)
 
-  private lazy val argumentLeaves: Vector[Term] =
-    JitTesting.nativeRouteLeaves.filter {
-      case Term.Closed(instruction) => !nativeBound.contains(instruction)
+  /** The leaves of the generated programs: the native route's library terms, closed terms of no facts, but the
+    * native-bound ones.
+    */
+  private lazy val argumentLeaves: Vector[TermOf[Configured[NoFacts.type]]] =
+    JitTesting.nativeRouteLeaves[NoFacts.type](using NoFacts).filter {
+      case Term.Closed(instruction) => !nativeBound.exists(pure => Configured.same(Configured.fromPure(NoFacts)(pure), instruction)(using NoFacts))
       case _                        => true
     }
 
   /** Whether the instruction occurs in the term, not looking under a leaf other
     * than the instruction: a library term's body is not the program's.
     */
-  private def occurs(instruction: Instruction, term: Instruction): Boolean =
+  private def occurs(instruction: Configured[encoding.type], term: Configured[encoding.type]): Boolean =
     @tailrec
-    def from(pending: List[Instruction], seen: Set[Instruction]): Boolean = pending match
+    def from(pending: List[Configured[encoding.type]], seen: Set[Configured[encoding.type]]): Boolean = pending match
       case Nil => false
       case head :: rest =>
-        if head == instruction then true
-        else if seen.contains(head) || facts.leaves.contains(head) then from(rest, seen)
+        if Configured.same(head, instruction) then true
+        else if seen.contains(head) || encoding.operations.leaves.contains(head) then from(rest, seen)
         else from(head.layer.children.toList ++ rest, seen + head)
     from(List(term), Set.empty)
 
   test("every term the natives bind is a leaf") {
     assert(nativeBound.nonEmpty, "the natives-on library binds no term to a native")
-    assertEquals(nativeBound.filterNot(facts.leaves.contains), Vector.empty[Instruction])
+    assertEquals(nativeBound.filterNot(facts.leaves.contains), Vector.empty[Pure])
   }
 
   stoppableProperty("a native-bound term applied stays an instruction in the refined output", _.copy(testLimit = SuccessCount(10))) { stopped =>
@@ -84,14 +95,15 @@ class NativeInstructionsLawTest extends GeneratedProperties:
       nodes <- Gen.int(Range.linear(1, 6)).forAll
       open <- HoasGenerators.openTermOver(0, nodes, argumentLeaves).forAll
     yield
-      val program = Term.closed(bound)(open(Vector.empty))
-      val input = StrategyTesting.programInput(library, program)
-      val Dispatched(refined, _, _) = StrategyDispatch.dispatched(
+      val program = Term.closed(Configured.fromPure(NoFacts)(bound))(open(Vector.empty))
+      val inputWithoutFacts = StrategyTesting.programInput(library, program)
+      val input = encoding.crossedAllFromNoFacts(Vector(inputWithoutFacts))(inputWithoutFacts)
+      val Dispatched(refined, _, _) = StrategyDispatch.dispatched[encoding.type](
         CompilationStrategy(DispatchStrategies.fallback, schedule),
         input,
-        facts,
+        encoding,
         BaselineCaches.provider(),
         StopSignal.completedWith(stopped)
       )
-      Result.assert(occurs(bound, refined)).log(s"refined: $refined")
+      Result.assert(occurs(boundTerm(bound), refined)).log(s"refined: $refined")
   }

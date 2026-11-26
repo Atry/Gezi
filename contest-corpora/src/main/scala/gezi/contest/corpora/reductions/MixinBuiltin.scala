@@ -77,7 +77,7 @@ final case class MixinBuiltinLibrary(root: Path):
     * enclosing names of the tree's scope of the file (`DirectoryTree.scope`)
     * from that level on: `λmixin_builtin. … λe. M`, a closed term.
     */
-  private def fileUnit(path: Path, text: String, levels: Int): DeBruijnTerm =
+  private def fileUnit(path: Path, text: String, levels: Int): ProblemDeBruijnTerm =
     Lambdalattice.termInScope(DirectoryTree.scope(path).takeRight(levels), text)
 
   /** The mixin of the directory `mixin_builtin`, its entries `Builtin` and
@@ -86,8 +86,8 @@ final case class MixinBuiltinLibrary(root: Path):
     * + (λ"Builtin". λBuiltin. (λ"c1". U_c1 mixin_builtin Builtin) + …)`.
     * Read once, when first used.
     */
-  lazy val directMixinTerm: DeBruijnTerm =
-    def member(key: String, body: DeBruijnTerm): DeBruijnTerm = Literals.partialFunction(Literal.text(key), body)
+  lazy val directMixinTerm: ProblemDeBruijnTerm =
+    def member(key: String, body: ProblemDeBruijnTerm): ProblemDeBruijnTerm = Literals.partialFunction(Literal.text(key), body)
     val units = builtinKeys.map(key => key -> fileUnit(filePath(builtinDirectory, key), builtinTexts(key), 3))
     val booleanChurch = fileUnit(filePath(directory, MixinBuiltinLibrary.booleanChurchKey), booleanChurchText, 2)
     val builtin = DeBruijnTerm.Lambda(
@@ -107,10 +107,10 @@ final case class MixinBuiltinLibrary(root: Path):
   /** The mixin with its labels renamed (`MixinBuiltinSpelling.relabelled`),
     * each to a name of as many bytes.
     */
-  def mixinTerm(renamed: String => String): DeBruijnTerm = MixinBuiltinSpelling.relabelled(directMixinTerm, labels, renamed)
+  def mixinTerm(renamed: String => String): ProblemDeBruijnTerm = MixinBuiltinSpelling.relabelled(directMixinTerm, labels, renamed)
 
   /** The direct spelling's mixin, converted once. */
-  lazy val directMixin: Term = Term.closed(Defunctionalization.thunkInstruction(directMixinTerm))
+  lazy val directMixin: ProblemTerm = Term.closed(Defunctionalization.thunkInstruction(directMixinTerm)(using gezi.ir.NoFacts))
 
 /** The names of the data the families read. */
 object MixinBuiltinLibrary:
@@ -151,7 +151,7 @@ final case class MixinBuiltinWriting(renamed: String => String):
     * function of the literal (`Literals.partialFunction`), which takes the
     * bits one by one and is top at the first that differs.
     */
-  def member(label: String, body: Term): Term =
+  def member(label: String, body: ProblemTerm): ProblemTerm =
     bits(label).foldRight(body)((bit, rest) =>
       λ(argument => if bit then argument(rest)(MixinBuiltinWriting.top) else argument(MixinBuiltinWriting.top)(rest))
     )
@@ -159,30 +159,30 @@ final case class MixinBuiltinWriting(renamed: String => String):
   /** `λ"L" L. body L`: a definition, a class whose self is named by the
     * label.
     */
-  def definition(label: String)(body: Term => Term): Term = member(label, λ(body))
+  def definition(label: String)(body: ProblemTerm => ProblemTerm): ProblemTerm = member(label, λ(body))
 
   /** The function applied to the label renamed, as variable arguments. */
-  def keyed(function: Term, label: String): Term =
+  def keyed(function: ProblemTerm, label: String): ProblemTerm =
     applied(function, bits(label).map(bit => if bit then MixinBuiltinWriting.one else MixinBuiltinWriting.zero))
 
   /** The member L of the mixin X: `X X "L"` for a variable,
     * `(λo. o o "L") X` for any other term.
     */
-  def projected(mixin: Term, label: String): Term =
+  def projected(mixin: ProblemTerm, label: String): ProblemTerm =
     if isVariable(mixin) then keyed(mixin(mixin), label)
     else λ(self => keyed(self(self), label))(mixin)
 
   /** The instance of the mixin, `(λo. o o) X`, `new`. */
-  def instantiated(mixin: Term): Term = λ(self => self(self))(mixin)
+  def instantiated(mixin: ProblemTerm): ProblemTerm = λ(self => self(self))(mixin)
 
   /** The entry of `Builtin` the class inherits, applied to its self:
     * `(λo. o o "E") (mixin_builtin mixin_builtin "Builtin") self`.
     */
-  def inherited(mixinBuiltin: Term, entry: String, self: Term): Term =
+  def inherited(mixinBuiltin: ProblemTerm, entry: String, self: ProblemTerm): ProblemTerm =
     projected(projected(mixinBuiltin, MixinBuiltinLibrary.builtinKey), entry)(self)
 
   /** `mixin_builtin mixin_builtin "BooleanChurch" self`. */
-  def observed(mixinBuiltin: Term, self: Term): Term = projected(mixinBuiltin, MixinBuiltinLibrary.booleanChurchKey)(self)
+  def observed(mixinBuiltin: ProblemTerm, self: ProblemTerm): ProblemTerm = projected(mixinBuiltin, MixinBuiltinLibrary.booleanChurchKey)(self)
 
 /** The closed terms every literal of the writing holds, each converted
   * once (`Term.closed`), so that a key's bits cost a node each in a
@@ -196,13 +196,13 @@ final case class MixinBuiltinWriting(renamed: String => String):
 object MixinBuiltinWriting:
 
   /** top (`Term.top`), the miss of a literal's partial function. */
-  val top: Term = Term.closed(Defunctionalization.thunkInstruction(Literals.top))
+  val top: ProblemTerm = Term.closed(Defunctionalization.thunkInstruction(Literals.top)(using gezi.ir.NoFacts))
 
   /** The bit 1, `λt f. t`. */
-  val one: Term = Term.closed(Defunctionalization.thunkInstruction(deBruijn(trueTerm)))
+  val one: ProblemTerm = Term.closed(Defunctionalization.thunkInstruction(deBruijn(trueTerm))(using gezi.ir.NoFacts))
 
   /** The bit 0, `λt f. f`. */
-  val zero: Term = Term.closed(Defunctionalization.thunkInstruction(deBruijn(falseTerm)))
+  val zero: ProblemTerm = Term.closed(Defunctionalization.thunkInstruction(deBruijn(falseTerm))(using gezi.ir.NoFacts))
 
 /** How a point of the mixin_builtin families is written: directly, or
   * respelled, so that a compiler cannot recognise the library by its
@@ -259,7 +259,7 @@ object MixinBuiltinSpelling:
     * which the library and the classes never write, and for a name of
     * another length.
     */
-  def relabelled(term: DeBruijnTerm, labels: Set[String], renamed: String => String): DeBruijnTerm =
+  def relabelled(term: ProblemDeBruijnTerm, labels: Set[String], renamed: String => String): ProblemDeBruijnTerm =
     val byBits = labels.toVector.map(label => bitsOf(label) -> label).toMap
     val lengths = byBits.keys.map(_.size).toVector.distinct.sorted
     def renamedBits(bits: Vector[Boolean]): Vector[Boolean] =
@@ -267,13 +267,13 @@ object MixinBuiltinSpelling:
       val respelled = bitsOf(renamed(label))
       if respelled.size != bits.size then throw IllegalArgumentException(s"$label is renamed to ${renamed(label)}, of another length")
       respelled
-    def chain(current: DeBruijnTerm, found: Vector[Boolean]): (Vector[Boolean], DeBruijnTerm) = current match
+    def chain(current: ProblemDeBruijnTerm, found: Vector[Boolean]): (Vector[Boolean], ProblemDeBruijnTerm) = current match
       case DeBruijnTerm.Lambda(DeBruijnTerm.Apply(DeBruijnTerm.Apply(DeBruijnTerm.Variable(0), whenOne), whenZero))
           if (whenZero eq Literals.top) != (whenOne eq Literals.top) =>
         if whenZero eq Literals.top then chain(whenOne, found :+ true) else chain(whenZero, found :+ false)
       case other => (found, other)
     /** The bits of the chain's literal, the longest prefix that spells a label, and what stands under them. */
-    def partialFunction(current: DeBruijnTerm): Option[(Vector[Boolean], DeBruijnTerm)] =
+    def partialFunction(current: ProblemDeBruijnTerm): Option[(Vector[Boolean], ProblemDeBruijnTerm)] =
       val (bits, _) = chain(current, Vector.empty)
       lengths.reverse.find(length => length <= bits.size && byBits.contains(bits.take(length))).map(length =>
         (bits.take(length), (1 to length).foldLeft(current)((level, _) => level match
@@ -282,45 +282,45 @@ object MixinBuiltinSpelling:
           case other => throw IllegalStateException(s"no level of a literal: $other")
         ))
       )
-    def rebuilt(bits: Vector[Boolean], inner: DeBruijnTerm): DeBruijnTerm =
+    def rebuilt(bits: Vector[Boolean], inner: ProblemDeBruijnTerm): ProblemDeBruijnTerm =
       bits.foldRight(inner)((bit, rest) =>
         DeBruijnTerm.Lambda(
           DeBruijnTerm.Apply(DeBruijnTerm.Apply(DeBruijnTerm.Variable(0), if bit then rest else Literals.top), if bit then Literals.top else rest)
         )
       )
-    def bit(argument: DeBruijnTerm): Option[Boolean] =
+    def bit(argument: ProblemDeBruijnTerm): Option[Boolean] =
       if argument eq one then Some(true) else if argument eq zero then Some(false) else None
-    def spine(current: DeBruijnTerm, arguments: List[DeBruijnTerm]): (DeBruijnTerm, Vector[DeBruijnTerm]) = current match
+    def spine(current: ProblemDeBruijnTerm, arguments: List[ProblemDeBruijnTerm]): (ProblemDeBruijnTerm, Vector[ProblemDeBruijnTerm]) = current match
       case DeBruijnTerm.Apply(function, argument) => spine(function, argument :: arguments)
       case head                                   => (head, arguments.toVector)
     /** The arguments with each run of Booleans respelled. */
-    def respelledArguments(arguments: Vector[DeBruijnTerm]): Vector[DeBruijnTerm] =
-      arguments.foldLeft((Vector.empty[DeBruijnTerm], Vector.empty[Boolean])) { case ((done, run), argument) =>
+    def respelledArguments(arguments: Vector[ProblemDeBruijnTerm]): Vector[ProblemDeBruijnTerm] =
+      arguments.foldLeft((Vector.empty[ProblemDeBruijnTerm], Vector.empty[Boolean])) { case ((done, run), argument) =>
         bit(argument) match
           case Some(value) => (done, run :+ value)
           case None        => (done ++ runArguments(run) :+ argument, Vector.empty)
       } match
         case (done, run) => done ++ runArguments(run)
-    def runArguments(run: Vector[Boolean]): Vector[DeBruijnTerm] =
+    def runArguments(run: Vector[Boolean]): Vector[ProblemDeBruijnTerm] =
       if run.isEmpty then Vector.empty else renamedBits(run).map(value => if value then one else zero)
     /** The term walked, each distinct subterm once: the terms are interned,
       * so a subterm met again is the one walked before (`memo`).
       */
-    def walked(current: DeBruijnTerm, memo: Map[DeBruijnTerm, DeBruijnTerm]): TailRec[(DeBruijnTerm, Map[DeBruijnTerm, DeBruijnTerm])] =
+    def walked(current: ProblemDeBruijnTerm, memo: Map[ProblemDeBruijnTerm, ProblemDeBruijnTerm]): TailRec[(ProblemDeBruijnTerm, Map[ProblemDeBruijnTerm, ProblemDeBruijnTerm])] =
       memo.get(current) match
         case Some(found) => done((found, memo))
         case None        => tailcall(walkedAnew(current, memo)).map((result, after) => (result, after.updated(current, result)))
     def pair(
-        left: DeBruijnTerm,
-        right: DeBruijnTerm,
-        memo: Map[DeBruijnTerm, DeBruijnTerm],
-        make: (DeBruijnTerm, DeBruijnTerm) => DeBruijnTerm
-    ): TailRec[(DeBruijnTerm, Map[DeBruijnTerm, DeBruijnTerm])] =
+        left: ProblemDeBruijnTerm,
+        right: ProblemDeBruijnTerm,
+        memo: Map[ProblemDeBruijnTerm, ProblemDeBruijnTerm],
+        make: (ProblemDeBruijnTerm, ProblemDeBruijnTerm) => ProblemDeBruijnTerm
+    ): TailRec[(ProblemDeBruijnTerm, Map[ProblemDeBruijnTerm, ProblemDeBruijnTerm])] =
       for
         (walkedLeft, afterLeft) <- tailcall(walked(left, memo))
         (walkedRight, afterRight) <- tailcall(walked(right, afterLeft))
       yield (make(walkedLeft, walkedRight), afterRight)
-    def walkedAnew(current: DeBruijnTerm, memo: Map[DeBruijnTerm, DeBruijnTerm]): TailRec[(DeBruijnTerm, Map[DeBruijnTerm, DeBruijnTerm])] =
+    def walkedAnew(current: ProblemDeBruijnTerm, memo: Map[ProblemDeBruijnTerm, ProblemDeBruijnTerm]): TailRec[(ProblemDeBruijnTerm, Map[ProblemDeBruijnTerm, ProblemDeBruijnTerm])] =
       if current eq Literals.top then done((current, memo))
       else
         partialFunction(current) match
@@ -333,7 +333,7 @@ object MixinBuiltinSpelling:
                 for
                   (walkedHead, afterHead) <- tailcall(walked(head, memo))
                   (walkedArguments, afterArguments) <- respelledArguments(arguments).foldLeft(
-                    done((Vector.empty[DeBruijnTerm], afterHead)): TailRec[(Vector[DeBruijnTerm], Map[DeBruijnTerm, DeBruijnTerm])]
+                    done((Vector.empty[ProblemDeBruijnTerm], afterHead)): TailRec[(Vector[ProblemDeBruijnTerm], Map[ProblemDeBruijnTerm, ProblemDeBruijnTerm])]
                   )((before, argument) =>
                     before.flatMap((found, beforeMemo) =>
                       (if bit(argument).nonEmpty then done((argument, beforeMemo)) else tailcall(walked(argument, beforeMemo)))
@@ -351,8 +351,8 @@ object MixinBuiltinSpelling:
     Literal.text(label).bytes.toVector.flatMap(byte => (7 to 0 by -1).map(position => ((byte >> position) & 1) == 1))
 
   /** The Scott Booleans a literal's arguments are (`Literals.arguments`). */
-  private val one: DeBruijnTerm = deBruijn(trueTerm)
-  private val zero: DeBruijnTerm = deBruijn(falseTerm)
+  private val one: ProblemDeBruijnTerm = deBruijn(trueTerm)
+  private val zero: ProblemDeBruijnTerm = deBruijn(falseTerm)
 
   /** The closed term with the members of every choice of it shuffled by
     * the draws, and the draws after it. The members of a choice are those
@@ -362,41 +362,41 @@ object MixinBuiltinSpelling:
     * distinct subterm is shuffled once: the terms are interned, so a
     * subterm met again takes the order drawn where it was first met.
     */
-  def shuffled(term: Term, draws: Draws): (Term, Draws) = shuffled(deBruijn(term), draws)
+  def shuffled(term: ProblemTerm, draws: Draws): (ProblemTerm, Draws) = shuffled(deBruijn(term), draws)
 
   /** `shuffled` of a de Bruijn term. */
-  def shuffled(term: DeBruijnTerm, draws: Draws): (Term, Draws) =
+  def shuffled(term: ProblemDeBruijnTerm, draws: Draws): (ProblemTerm, Draws) =
     val (shuffledDeBruijn, after, _) = shuffledTerm(term, draws, Map.empty).result
-    (Term.closed(Defunctionalization.thunkInstruction(shuffledDeBruijn)), after)
+    (Term.closed(Defunctionalization.thunkInstruction(shuffledDeBruijn)(using gezi.ir.NoFacts)), after)
 
-  private type Shuffled = TailRec[(DeBruijnTerm, Draws, Map[DeBruijnTerm, DeBruijnTerm])]
+  private type Shuffled = TailRec[(ProblemDeBruijnTerm, Draws, Map[ProblemDeBruijnTerm, ProblemDeBruijnTerm])]
 
-  private def shuffledTerm(term: DeBruijnTerm, draws: Draws, memo: Map[DeBruijnTerm, DeBruijnTerm]): Shuffled =
+  private def shuffledTerm(term: ProblemDeBruijnTerm, draws: Draws, memo: Map[ProblemDeBruijnTerm, ProblemDeBruijnTerm]): Shuffled =
     memo.get(term) match
       case Some(found) => done((found, draws, memo))
       case None =>
         tailcall(shuffledAnew(term, draws, memo)).map((result, after, afterMemo) => (result, after, afterMemo.updated(term, result)))
 
   private def shuffledPair(
-      left: DeBruijnTerm,
-      right: DeBruijnTerm,
+      left: ProblemDeBruijnTerm,
+      right: ProblemDeBruijnTerm,
       draws: Draws,
-      memo: Map[DeBruijnTerm, DeBruijnTerm],
-      make: (DeBruijnTerm, DeBruijnTerm) => DeBruijnTerm
+      memo: Map[ProblemDeBruijnTerm, ProblemDeBruijnTerm],
+      make: (ProblemDeBruijnTerm, ProblemDeBruijnTerm) => ProblemDeBruijnTerm
   ): Shuffled =
     for
       (shuffledLeft, afterLeft, leftMemo) <- tailcall(shuffledTerm(left, draws, memo))
       (shuffledRight, afterRight, rightMemo) <- tailcall(shuffledTerm(right, afterLeft, leftMemo))
     yield (make(shuffledLeft, shuffledRight), afterRight, rightMemo)
 
-  private def shuffledAnew(term: DeBruijnTerm, draws: Draws, memo: Map[DeBruijnTerm, DeBruijnTerm]): Shuffled = term match
+  private def shuffledAnew(term: ProblemDeBruijnTerm, draws: Draws, memo: Map[ProblemDeBruijnTerm, ProblemDeBruijnTerm]): Shuffled = term match
     case literalPart if (literalPart eq Literals.top) || (literalPart eq one) || (literalPart eq zero) => done((literalPart, draws, memo))
     case DeBruijnTerm.Lambda(body) =>
       tailcall(shuffledTerm(body, draws, memo)).map((shuffledBody, after, afterMemo) => (DeBruijnTerm.Lambda(shuffledBody), after, afterMemo))
     case DeBruijnTerm.Apply(function, argument) => shuffledPair(function, argument, draws, memo, DeBruijnTerm.Apply(_, _))
     case DeBruijnTerm.Parallel(left, right)     => shuffledPair(left, right, draws, memo, DeBruijnTerm.Parallel(_, _))
     case DeBruijnTerm.Choice(_, _) =>
-      TailRecFolds.folded(DeBruijnTerm.choiceMembers(term), (Vector.empty[DeBruijnTerm], draws, memo)) {
+      TailRecFolds.folded(DeBruijnTerm.choiceMembers(term), (Vector.empty[ProblemDeBruijnTerm], draws, memo)) {
         case ((found, current, currentMemo), member) =>
           shuffledTerm(member, current, currentMemo).map((shuffledMember, after, afterMemo) => (found :+ shuffledMember, after, afterMemo))
       }

@@ -77,9 +77,9 @@ object BlockStopInput:
       .entryMembers(root, gezi.standardlibrary.TermTables.hotSiteTerms, Expansions.none)
       ._1
       .map((key, instruction) => key -> Term.closed(instruction))
-    val program = Defunctionalization.thunkInstruction(site(keys.map(terms)).locallyNamelessTerm)
+    val program = Defunctionalization.thunkInstruction(site(keys.map(terms)).locallyNamelessTerm)(using gezi.ir.NoFacts)
     val (run, _, _) = LemmaRoute.saturatedRounds(entry.rounds, program, explained = false, StopSignal.NeverStopped)
-    val blockCompilation = NarrowBlockCompilation(entry.index, entry.natives)
+    val blockCompilation = NarrowBlockCompilation(entry.index, entry.natives, gezi.narrowblocks.LemmaRoute.readingConfiguration(run))
     val blocks = blockCompilation.blocks(entry.rounds.last.extracted(program, run, StopSignal.NeverStopped))
     if blocks.isEmpty then throw IllegalStateException("the site compiles to no narrow block")
     blockCompilation.compiled(blocks, DebugAttributes.Omitted, StopSignal.NeverStopped) match

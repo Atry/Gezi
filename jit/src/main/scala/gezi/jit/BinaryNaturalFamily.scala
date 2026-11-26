@@ -9,7 +9,7 @@ package gezi.jit
   * nice 19, the judge's practice run, the point read again in one JVM):
   * 0.51 to 0.63 s with `require`, 0.39 to 0.49 s with the sign.
   */
-final case class BinaryNatural(value: BigInt) extends NativeValue:
+final case class BinaryNatural(value: BigInt) extends NativeValue[Nothing]:
   if value.signum < 0 then throw IllegalArgumentException(s"a binary natural of the value $value")
 
 /** The family `binary_natural` of the standard library's binary naturals:
@@ -32,31 +32,30 @@ final case class BinaryNatural(value: BigInt) extends NativeValue:
   * same defines with the same fields at both parameters; only the
   * exclusion differs.
   */
+/** The parameter of the family `binary_natural`: whether the set is the
+  * canonical naturals' (true) or the positive ones' (false), written
+  * `binary_set P` in the criterion.
+  */
+final case class BinaryCanonicity(canonical: Boolean) extends FamilyParameter[Nothing]
+
 object BinaryNaturalFamily extends DataFamily:
 
   val identity: FamilyIdentity.Codec = FamilyIdentity.Codec("binary_natural")
 
   val parameterFamily: Option[FamilyIdentity] = Some(BooleanFamily.identity)
 
-  /** The native names the codec encodes the three constructors with.
-    *
-    * FIXME ([[FamilyIdentity]]): these constructors https://github.com/Atry/private-overlay/issues/2041
-    * are still named by strings,
-    * which the knowledge binds with `native` declarations
-    * (`binary_prolog_backend`), where the constructors of big_integer,
-    * boolean and list are their family's representation and their position
-    * in their type's `data_family`. Only the six constructor natives of
-    * those three families were moved so, and moving these
-    * needs a `data_family` on `binary_set`, whose parameter is a value
-    * decoded in boolean and not a criterion parameter as `data_family`'s
-    * arity counts; that reading of the declaration is not designed.
+  /** The native names the codec encodes the three constructors with: the
+    * family's identity and each constructor's position in the `data_family`
+    * of `binary_set` (`binary_prolog_backend`), `binary_zero` at 0,
+    * `binary_even` at 1 and `binary_odd` at 2, never a string of their own
+    * ([[FamilyIdentity]]).
     */
-  val zeroNative: NativeName = NativeName.Function("binary_zero")
-  val evenNative: NativeName = NativeName.Function("binary_even")
-  val oddNative: NativeName = NativeName.Function("binary_odd")
+  val zeroNative: NativeName = NativeName.Constructor(identity, 0)
+  val evenNative: NativeName = NativeName.Constructor(identity, 1)
+  val oddNative: NativeName = NativeName.Constructor(identity, 2)
 
-  private val canonical: Option[NativeValue] = Some(NativeValue.Truth(true))
-  private val positive: Option[NativeValue] = Some(NativeValue.Truth(false))
+  private val canonical: Option[FamilyParameter[Nothing]] = Some(BinaryCanonicity(true))
+  private val positive: Option[FamilyParameter[Nothing]] = Some(BinaryCanonicity(false))
 
   private val all: Vector[DataConstructor] = Vector(
     DataConstructor(zeroNative, Vector.empty),
@@ -64,14 +63,14 @@ object BinaryNaturalFamily extends DataFamily:
     DataConstructor(oddNative, Vector(DataField(identity, _ => canonical)))
   )
 
-  def constructors(parameter: Option[NativeValue]): Vector[DataConstructor] =
+  def constructors[Term](parameter: Option[FamilyParameter[Term]]): Vector[DataConstructor] =
     canonicity(parameter)
     all
 
-  override def excluded(parameter: Option[NativeValue], constructor: Int): Boolean =
+  override def excluded[Term](parameter: Option[FamilyParameter[Term]], constructor: Int): Boolean =
     !canonicity(parameter) && constructor == 0
 
-  def built(parameter: Option[NativeValue], layer: DataLayer): NativeValue =
+  def built[Term](parameter: Option[FamilyParameter[Term]], layer: DataLayer[Term]): NativeValue[Term] =
     (canonicity(parameter), layer) match
       case (true, DataLayer(0, Vector()))                        => BinaryNatural(0)
       case (_, DataLayer(1, Vector(BinaryNatural(half)))) if half > 0 => BinaryNatural(half * 2)
@@ -79,7 +78,7 @@ object BinaryNaturalFamily extends DataFamily:
       case (atParameter, other) =>
         throw IllegalArgumentException(s"no layer of a binary natural at $atParameter: $other")
 
-  def taken(parameter: Option[NativeValue], value: NativeValue): DataLayer =
+  def taken[Term](parameter: Option[FamilyParameter[Term]], value: NativeValue[Term]): DataLayer[Term] =
     (canonicity(parameter), value) match
       case (true, BinaryNatural(found)) if found == 0 => DataLayer(0, Vector.empty)
       case (_, BinaryNatural(found)) if found > 0 && !found.testBit(0) => DataLayer(1, Vector.empty :+ BinaryNatural(found >> 1))
@@ -90,21 +89,8 @@ object BinaryNaturalFamily extends DataFamily:
   /** Every layer is one at true, the canonical naturals, which hold the
     * positive ones as well: zero, `binary_even h` for h > 0, and
     * `binary_odd h`. `binary_even binary_zero` is no layer.
-    *
-    * FIXME (measured by reading `Jit.parameterisedReady`, not by a https://github.com/Atry/private-overlay/issues/1928
-    * count): the result is at true for every layer, while `binary_even`'s
-    * field is at false, so `binary_even` applied to a field represented
-    * bottom-up (at true) never fits its place and the application is read
-    * generically: the answer is the reference's, the native is not called.
-    * The top-down path (`Jit.placesFor` at a decode point) reads such a
-    * literal at both parameters. Candidates: give the positive parameter
-    * (false) to a positive result and let a place at true accept a value
-    * represented at false, a backend fact of the family's representation
-    * (the canonical positive naturals are canonical naturals), not of a
-    * term; or represent both parameters by one representation. Neither is
-    * designed.
     */
-  override def builtParameter(native: NativeName, fields: Vector[NativeValue]): Option[Option[NativeValue]] =
+  override def builtParameter[Term](native: NativeName, fields: Vector[NativeValue[Term]]): Option[Option[FamilyParameter[Term]]] =
     (native, fields) match
       case (`zeroNative`, Vector())                                 => Some(canonical)
       case (`evenNative`, Vector(BinaryNatural(half))) if half > 0 => Some(canonical)
@@ -112,13 +98,21 @@ object BinaryNaturalFamily extends DataFamily:
       case _                                                        => None
 
   /** The constructors at true, which are those at false as well. */
-  override val shapeParameters: Vector[Option[NativeValue]] = Vector(canonical)
+  override val shapeParameters: Vector[Option[FamilyParameter[Nothing]]] = Vector(canonical)
+
+  override def parameterOf[Term](value: NativeValue[Term]): FamilyParameter[Term] = value match
+    case NativeValue.Truth(canonical) => BinaryCanonicity(canonical)
+    case other                        => throw IllegalArgumentException(s"no parameter of a binary natural: $other")
+
+  override def parameterValue[Term](parameter: FamilyParameter[Term]): NativeValue[Term] = parameter match
+    case BinaryCanonicity(canonical) => NativeValue.Truth(canonical)
+    case other                       => throw IllegalArgumentException(s"no parameter of a binary natural: $other")
 
   /** Whether the parameter is the canonical naturals' (true) or the
     * positive ones' (false). Throws `IllegalArgumentException` for any other
     * parameter: the JIT gives the family only parameters it decoded in
     * `boolean`.
     */
-  private def canonicity(parameter: Option[NativeValue]): Boolean = parameter match
-    case Some(NativeValue.Truth(value)) => value
-    case other                          => throw IllegalArgumentException(s"no parameter of a binary natural: $other")
+  private def canonicity(parameter: Option[FamilyParameter[Any]]): Boolean = parameter match
+    case Some(BinaryCanonicity(value)) => value
+    case other                         => throw IllegalArgumentException(s"no parameter of a binary natural: $other")

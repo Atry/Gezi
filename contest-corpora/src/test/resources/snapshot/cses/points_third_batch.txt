@@ -1,0 +1,72 @@
+money_sums_point
+  cses_money_sums_repeated_coin: Site(Vector(2, 2, 5)) => 27
+  cses_money_sums_single_coin: Site(Vector(7)) => 7
+  cses_money_sums_every_sum_is_made_twice: Site(Vector(1, 2, 3)) => 21
+  cses_money_sums_equal_coins: Site(Vector(1, 1, 1)) => 6
+  cses_money_sums_gap_in_the_sums: Site(Vector(3, 5, 5)) => 39
+  cses_money_sums_four_coins: Site(Vector(4, 2, 1, 8)) => 120
+rectangle_cutting_point
+  cses_rectangle_cutting_square: Site(4,4) => 0
+  cses_rectangle_cutting_strip: Site(1,4) => 3
+  cses_rectangle_cutting_three_by_five: Site(3,5) => 3
+  cses_rectangle_cutting_two_by_six: Site(2,6) => 2
+  cses_rectangle_cutting_three_by_six: Site(3,6) => 1
+  cses_rectangle_cutting_four_by_five: Site(4,5) => 4
+increasing_subsequence_point
+  cses_increasing_subsequence_sample: Site(Vector(2, 1, 4, 5, 3, 7)) => 4
+  cses_increasing_subsequence_all_equal: Site(Vector(3, 3, 3)) => 1
+  cses_increasing_subsequence_decreasing: Site(Vector(5, 4, 3, 2, 1)) => 1
+  cses_increasing_subsequence_increasing: Site(Vector(1, 2, 3, 4)) => 4
+  cses_increasing_subsequence_single: Site(Vector(9)) => 1
+  cses_increasing_subsequence_repeat_between_rises: Site(Vector(1, 3, 2, 3)) => 3
+  cses_increasing_subsequence_two_rises_interleaved: Site(Vector(4, 1, 5, 2, 6, 3)) => 3
+array_description_point
+  cses_array_description_sample: Site(5,Vector(2, 0, 2)) => 3
+  cses_array_description_all_unknown: Site(3,Vector(0, 0, 0)) => 17
+  cses_array_description_single_unknown: Site(4,Vector(0)) => 4
+  cses_array_description_all_known: Site(3,Vector(1, 2, 3)) => 1
+  cses_array_description_jump_of_two: Site(3,Vector(1, 3)) => 0
+  cses_array_description_unknown_between_distant_ends: Site(4,Vector(1, 0, 0, 4)) => 1
+  cses_array_description_bound_one: Site(1,Vector(0, 0, 0)) => 1
+building_roads_point
+  cses_building_roads_two_components: Site(4,Vector((1,2), (3,4))) => 1
+  cses_building_roads_one_city: Site(1,Vector()) => 0
+  cses_building_roads_cycle_needs_nothing: Site(3,Vector((1,2), (2,3), (1,3))) => 0
+  cses_building_roads_no_roads: Site(5,Vector()) => 4
+  cses_building_roads_parallel_roads: Site(4,Vector((1,2), (1,2))) => 2
+  cses_building_roads_middle_road_only: Site(4,Vector((2,3))) => 2
+  cses_building_roads_triangle_and_two_isolated: Site(5,Vector((1,2), (2,3), (3,1))) => 2
+road_reparation_point
+  cses_road_reparation_sample: Site(5,Vector((1,2,3), (2,3,5), (2,4,2), (3,4,8), (5,1,7))) => 17
+  cses_road_reparation_one_city: Site(1,Vector()) => 0
+  cses_road_reparation_cheaper_parallel_road: Site(2,Vector((1,2,5), (1,2,3))) => 3
+  cses_road_reparation_equal_costs: Site(3,Vector((1,2,1), (2,3,1), (1,3,1))) => 2
+  cses_road_reparation_skip_the_dearest: Site(3,Vector((1,2,4), (2,3,6), (1,3,5))) => 9
+  cses_road_reparation_cheap_cycle_among_dear_bridge: Site(4,Vector((1,2,1), (2,3,1), (1,3,1), (3,4,9))) => 11
+game_routes_point
+  cses_game_routes_sample: Site(4,Vector((1,2), (2,4), (1,3), (3,4), (1,4))) => 3
+  cses_game_routes_one_level: Site(1,Vector()) => 1
+  cses_game_routes_last_level_unreachable: Site(3,Vector((1,2))) => 0
+  cses_game_routes_parallel_flights: Site(3,Vector((1,2), (1,2), (2,3))) => 2
+  cses_game_routes_labels_not_in_order: Site(4,Vector((1,3), (3,2), (2,4), (1,2))) => 2
+  cses_game_routes_dead_end_branch: Site(4,Vector((1,2), (1,3), (3,4))) => 1
+static_range_sums_point
+  cses_static_range_sums_sample: Site(Vector(3, 2, 4, 5, 1, 1, 5, 3),Vector((2,4), (5,6), (1,8), (3,3))) => 41
+  cses_static_range_sums_single_value: Site(Vector(5),Vector((1,1))) => 5
+  cses_static_range_sums_zeros_and_a_seven: Site(Vector(0, 0, 7),Vector((1,2), (3,3), (2,3))) => 14
+  cses_static_range_sums_same_query_twice: Site(Vector(1, 2, 3, 4),Vector((2,3), (2,3))) => 10
+  cses_static_range_sums_whole_list: Site(Vector(4, 4, 4),Vector((1,3))) => 12
+trailing_zeros_point
+  cses_trailing_zeros_one: Site(1) => 0
+  cses_trailing_zeros_four: Site(4) => 0
+  cses_trailing_zeros_five: Site(5) => 1
+  cses_trailing_zeros_ten: Site(10) => 2
+  cses_trailing_zeros_twelve: Site(12) => 2
+  cses_trailing_zeros_nine: Site(9) => 1
+sum_of_divisors_point
+  cses_sum_of_divisors_one: Site(1) => 1
+  cses_sum_of_divisors_two: Site(2) => 4
+  cses_sum_of_divisors_five: Site(5) => 21
+  cses_sum_of_divisors_ten: Site(10) => 87
+  cses_sum_of_divisors_twelve: Site(12) => 127
+  cses_sum_of_divisors_seven: Site(7) => 41

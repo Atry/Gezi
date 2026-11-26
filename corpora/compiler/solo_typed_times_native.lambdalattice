@@ -1,0 +1,50 @@
+# The typed branch of the product of two binary naturals, bound to the native
+# solo_binary_times of contest-natives-solo. Only an entry that carries that
+# project may enable this file: another entry has no such native. A call of
+# merge_binary_times equals the choice of itself and the typed version at
+# filtered operands, for every operand, by monotonicity alone. The typed version
+# never replaces the define: on a choice of operands the define has answers
+# outside the naturals' canonical form. The paper proofs are section 21 of the
+# file the declaration cites.
+#
+# The typed version is a noinline leaf, so the lemma never matches inside its
+# own right side. Termination of this module's saturation, derived and not
+# proved: the left side's instances are the program's own calls, and the right
+# side adds only a leaf applied to filters of operands already there.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "binary") "natural")
+λ _ _ _ _ binary_set
+. omega (omega (omega (omega corpora "library") "binary") "arithmetic")
+λ _ _ merge_binary_times _
+. omega (omega (omega (omega corpora "library") "native_types") "boolean")
+λ true _ _ _
+. omega (omega (omega (omega corpora "library") "plover_compositions") "plover_typed_natives")
+λ _ _ plover_typed_times _ _
+. export
+  ( λ _ rewriting _ _
+    . rewriting
+    λ _ _ leaves
+    . leaves (λkey. key merge_binary_times + λkey. key plover_typed_times)
+  + λ _ _ _ backend
+    . backend
+    λ _ natives _ _ _ _
+    . natives (λ binding. binding plover_typed_times λkey. key "solo_binary_times")
+  + λ _ rewriting _ _
+    . rewriting
+    λ _ lemmas _
+    . lemmas
+      ( λ lemma
+        . lemma
+          (λkey. key "plover_typed_times_branch")
+          (λ first second. merge_binary_times first second)
+          ( λ first second
+            . ( merge_binary_times first second
+              + plover_typed_times (first ∥ binary_set true) (second ∥ binary_set true)
+              )
+          )
+        λ _ metadata _
+        . metadata λkey. key "[plover_typed_times_branch](docs/design/gezi-plover-ordered-compositions-proofs.md)"
+      )
+  )

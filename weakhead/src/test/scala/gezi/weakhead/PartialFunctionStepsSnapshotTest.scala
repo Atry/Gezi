@@ -1,5 +1,7 @@
 package gezi.weakhead
 
+import gezi.ir.NoFacts
+import gezi.ir.Value
 import hedgehog.Gen
 import hedgehog.Range
 import gezi.frontend.Defunctionalization
@@ -24,6 +26,8 @@ import snapshot4s.generated.snapshotConfig
   * by side.
   */
 class PartialFunctionStepsSnapshotTest extends gezi.generatedinputs.FailFastSuite with SeededSnapshots:
+
+  given NoFacts.type = NoFacts
 
   /** A budget far above what the readings take and far below what would
     * make the snapshot slow to compute.
@@ -85,17 +89,17 @@ class PartialFunctionStepsSnapshotTest extends gezi.generatedinputs.FailFastSuit
   /** The partial function applied to the elements the key's string literal
     * spreads into (`Literals.arguments`), `R k1 … \0`. Nothing is evaluated.
     */
-  private def keyApplied(partialFunction: Value, key: String): Value =
+  private def keyApplied(partialFunction: Value[NoFacts.type], key: String): Value[NoFacts.type] =
     Literals
       .arguments(gezi.frontend.Literal.text(key))
-      .foldLeft(partialFunction)((function, element) => Value.Apply(function, Defunctionalization.thunkInstruction(element)))
+      .foldLeft(partialFunction)((function, element) => Value.Apply(function, Value.of(Defunctionalization.thunkInstruction[NoFacts.type](element))))
 
   /** The integers of every inner key under every outer key, and of one key
     * no record writes under each, read in one reading, and the steps it
     * took, from the state.
     */
-  private def read(record: Nested, state: ReadingState): String =
-    val root = Defunctionalization.thunkInstruction(Lambdalattice.term(text(record)))
+  private def read(record: Nested, state: ReadingState[NoFacts.type]): String =
+    val root = Value.of(Defunctionalization.thunkInstruction[NoFacts.type](Lambdalattice.term(text(record))))
     val reading = Computation.traversed(record.outer)((outerKey, inner) =>
       val under = keyApplied(root, outerKey)
       Computation.traversed(inner.map(_._1) :+ "0")(innerKey =>
@@ -114,7 +118,7 @@ class PartialFunctionStepsSnapshotTest extends gezi.generatedinputs.FailFastSuit
     )(record =>
       Vector(ApplicationReading.ByLayer, ApplicationReading.BySharedPrefix)
         .map(applications =>
-          s"$applications: ${read(record, ReadingState.knowing(stepLimit, KnowledgeReading.knownExtremes).copy(applications = applications))}"
+          s"$applications: ${read(record, ReadingState.knowing(stepLimit, KnowledgeReading.knownExtremes, gezi.weakhead.ReadingConfiguration.withoutFacts).copy(applications = applications))}"
         )
         .mkString("knowing top, ", "; ", "")
     )

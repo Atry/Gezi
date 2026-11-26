@@ -1,0 +1,21 @@
+# The knowledge GroupBlocksJitListLawTest compiles its library from
+# (gezi.standardlibrary.StandardLibrary.compiledAt): the Prolog backend, the
+# standard types, the binary naturals' backend, the binding of
+# merge_binary_plus to wren_binary_plus and the array lists' module, their
+# choice the one field of this file's tuple.
+# FIXME: the imports project "corpora" off the variable gezi, the name https://github.com/Atry/private-overlay/issues/1924
+# of the project root's own directory; they break if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega gezi "corpora") "compiler") "native_types")
+λ native_types
+. omega (omega (omega (omega gezi "corpora") "compiler") "prolog_backend")
+λ prolog_backend
+. omega (omega (omega (omega gezi "corpora") "compiler") "binary_prolog_backend")
+λ binary_prolog_backend
+. omega (omega (omega (omega gezi "corpora") "compiler") "binary_operations_wren_backend")
+λ binary_operations_wren_backend
+. omega (omega (omega (omega gezi "corpora") "compiler") "array_list")
+λ array_list
+. export (array_list + binary_operations_wren_backend + binary_prolog_backend + prolog_backend + native_types)

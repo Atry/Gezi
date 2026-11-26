@@ -1,0 +1,60 @@
+# string_matching:
+# CSES 1753, String Matching (https://cses.fi/problemset/task/1753), in our own words:
+# a text and a pattern, strings over the lowercase letters; the number of places of
+# the text where the pattern occurs, a place counting when the pattern's letters are
+# the text's from there on. The input is the text and then the pattern, each a Scott
+# list (corpora/library/prelude/list) of binary naturals
+# (corpora/library/binary/natural), a = 0 to z = 25, the pattern nonempty, and the
+# answer a binary natural. Part of the CSES port's fourth batch.
+#
+# THE PROGRAM, written by the definition: at each place of the text, the pattern is
+# compared with the text from there letter by letter, and fails at the first letter
+# that differs or at the end of the text; the places where the whole pattern matched
+# are counted. Its reading compares about n times m letters; the replacement the
+# family asks for is the Z-function or the Knuth-Morris-Pratt prefix function, which
+# never compares a letter of the text twice, in about n + m steps, on fixed-width
+# integers.
+#
+# DEFINITION 14: the program P, the point's term, is built of λ and application only:
+# its text holds no top, no choice, no parallel and no literal. It β-reduces to V, the
+# canonical binary numeral of the answer: every recursion consumes the finite text
+# (the places) or the finite pattern; the branches that a Scott boolean discards are
+# never read. The program calls no subtraction. So ⊢_β P = V, and P ≃_O V by the
+# soundness of the derivable equations for the contextual preorder of Definition 14
+# (Lean `ContextualPreorder.contextualEquivalenceOfDerivableLatticeEta`): V is an
+# answer, P ⊑_O V. No other closed βη normal form W has P ⊑_O W: then V ⊑_O W, while
+# Böhm's theorem gives a pure context that takes V to λx y. x and W to λx y. y, and
+# applying both to λa. a and Ω makes the first solvable and the second not.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "fixpoint")
+λ fixpoint
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "boolean")
+λ true false _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "natural")
+λ binary_zero _ _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "arithmetic")
+λ merge_binary_increment _ _ merge_binary_equality
+. ( λ tuple
+    . tuple
+    λ. fixpoint
+    λ self pattern text
+    . pattern true
+      λ wanted wanted_rest
+      . text false λ letter rest. merge_binary_equality wanted letter (self wanted_rest rest) false
+  )
+λ starts_with
+. ( λ tuple
+    . tuple
+    λ pattern
+    . fixpoint
+      ( λ self text found
+        . ( λ found_here. text found_here λ _ rest. self rest found_here )
+          (starts_with pattern text (merge_binary_increment found) found)
+      )
+  )
+λ occurrences
+. (λtuple. tuple λtext pattern. occurrences pattern text binary_zero)
+λ string_matching
+. export string_matching

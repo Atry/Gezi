@@ -3,9 +3,9 @@ package gezi.orientation
 import gezi.ir.CodeLayer
 import gezi.ir.Code
 import gezi.ir.Direction
-import gezi.ir.Instruction
 import gezi.ir.Hole
-import gezi.ir.Layer
+import gezi.ir.NoFacts
+import gezi.ir.NonEmptyHoles
 import gezi.ir.LemmaIdentifier
 import gezi.ir.Pattern
 import gezi.ir.Store
@@ -24,15 +24,17 @@ class OrientationCompilationTest extends gezi.generatedinputs.FailFastSuite:
     * `leaf`, an opaque instruction, which is noinline. The codes are
     * `apply(slot(1), slot(0))` and its two slots.
     */
-  private val leaf = Instruction.opaque("leaf")
-  private val name = Instruction(Thunk(argumentSlot, Vector(Hole.Ignored), Vector(leaf)))
-  private val other = Instruction(Thunk(argumentSlot, Vector(Hole.Ignored, Hole.Ignored), Vector(leaf)))
+  private type C = NoFacts.type
 
-  private val store = Store(Set(leaf))
+  private val leaf = NoFacts.opaque("leaf")
+  private val name = NoFacts.thunk(argumentSlot, NonEmptyHoles(Hole.Ignored, Vector.empty), Vector(leaf))
+  private val other = NoFacts.thunk(argumentSlot, NonEmptyHoles(Hole.Ignored, Vector(Hole.Ignored)), Vector(leaf))
 
-  private def metavariable(index: Int) = Pattern.Metavariable(index)
+  private val store = Store(Set(leaf), gezi.ir.TermConstruction(NoFacts))
 
-  private def application(function: Pattern, argument: Pattern) = Pattern.Apply(function, argument)
+  private def metavariable(index: Int): Pattern[C] = Pattern.Metavariable(index)
+
+  private def application(function: Pattern[C], argument: Pattern[C]): Pattern[C] = Pattern.Apply(function, argument)
 
   test("the standard order puts numbers, the empty list, atoms and compounds in that order") {
     val sorted = Vector(
@@ -79,7 +81,7 @@ class OrientationCompilationTest extends gezi.generatedinputs.FailFastSuite:
   }
 
   test("an eta-shaped thunk pattern is read as a closure of a function metavariable") {
-    val lambda = Pattern.Thunk(apply, Vector(Hole.Bound(0)), Vector(metavariable(0)))
+    val lambda = Pattern.Thunk[C](apply, Vector(Hole.Bound(0)), Vector(metavariable(0)))
     val compiled = OrientationCompilation.compiled(
       Vector(
         LemmaSides(

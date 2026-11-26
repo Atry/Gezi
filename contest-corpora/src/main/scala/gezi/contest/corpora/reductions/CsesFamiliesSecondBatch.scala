@@ -1,7 +1,7 @@
 package gezi.contest.corpora.reductions
 
+import gezi.ir.{Configured, NoFacts}
 import gezi.frontend.Term
-import gezi.ir.Instruction
 
 // The CSES families of the second batch, built as the first batch's are (`CsesFamily`, `CsesFamilies.scala`), each
 // rung in both spellings.
@@ -24,9 +24,9 @@ final class CoinCombinationsOrdered(spelling: Spelling, rung: CsesRung) extends 
 
   protected def site(draws: Draws): (CoinCombinations.Site, Draws) = CoinCombinations.site(draws, nominal)
 
-  protected def function(problems: CsesProblems): Instruction = problems.coinCombinationsOrdered
+  protected def function(problems: CsesProblems): Configured[NoFacts.type] = problems.coinCombinationsOrdered
 
-  def arguments(site: CoinCombinations.Site): Vector[Term] = CoinCombinations.arguments(site)
+  def arguments(problems: CsesProblems, site: CoinCombinations.Site): Vector[ProblemTerm] = CoinCombinations.arguments(site)
 
   /** A solution that counts the multisets of coins instead of their
     * sequences, the answer of Coin Combinations II.
@@ -97,9 +97,9 @@ final class CoinCombinationsUnordered(spelling: Spelling, rung: CsesRung) extend
 
   protected def site(draws: Draws): (CoinCombinations.Site, Draws) = CoinCombinations.site(draws, nominal)
 
-  protected def function(problems: CsesProblems): Instruction = problems.coinCombinationsUnordered
+  protected def function(problems: CsesProblems): Configured[NoFacts.type] = problems.coinCombinationsUnordered
 
-  def arguments(site: CoinCombinations.Site): Vector[Term] = CoinCombinations.arguments(site)
+  def arguments(problems: CsesProblems, site: CoinCombinations.Site): Vector[ProblemTerm] = CoinCombinations.arguments(site)
 
   /** A solution that counts the sequences of coins instead of their
     * multisets, the answer of Coin Combinations I.
@@ -165,7 +165,7 @@ object CoinCombinations:
     (Site(coins, target), afterTarget)
 
   /** The coins, a list of naturals, and the target, a natural. */
-  def arguments(site: Site): Vector[Term] =
+  def arguments(site: Site): Vector[ProblemTerm] =
     Vector(CsesEncodings.list(site.coins.map(coin => CsesEncodings.natural(coin))), CsesEncodings.natural(site.target))
 
   /** CSES's constraints, 1 ≤ n ≤ 100, 1 ≤ x ≤ 10^6 and 1 ≤ c ≤ 10^6, the
@@ -198,9 +198,9 @@ final class RemovingDigits(spelling: Spelling, rung: CsesRung) extends CsesFamil
     val (number, after) = CsesFamily.drawnParameter(draws, nominal, "number")
     (RemovingDigits.Site(number), after)
 
-  protected def function(problems: CsesProblems): Instruction = problems.removingDigits
+  protected def function(problems: CsesProblems): Configured[NoFacts.type] = problems.removingDigits
 
-  def arguments(site: RemovingDigits.Site): Vector[Term] = Vector(CsesEncodings.natural(site.number))
+  def arguments(problems: CsesProblems, site: RemovingDigits.Site): Vector[ProblemTerm] = Vector(CsesEncodings.natural(site.number))
 
   /** No wrong solution's answer differs here. The one proposed, the
     * greedy solution that always subtracts the largest digit, was to be
@@ -252,7 +252,9 @@ object RemovingDigits:
   * odds drew there: the answer is then 0. The odds alone draw such a grid
   * with odds of about 1 in 50 to 1 in 100 at the top rung's start or end
   * square, too rarely to be offered as a trap. The share is drawn after the
-  * grid, one number a site.
+  * grid, one number a site. At the top rung the grid is generated from a
+  * seed (`SeededInput.Grid`), its trap squares as these draw them, the share
+  * choosing the corner the program makes a trap.
   */
 final class GridPaths(spelling: Spelling, rung: CsesRung) extends CsesFamily[GridPaths.Site](spelling, rung):
 
@@ -267,24 +269,34 @@ final class GridPaths(spelling: Spelling, rung: CsesRung) extends CsesFamily[Gri
   protected def site(draws: Draws): (GridPaths.Site, Draws) =
     val (side, afterSide) = CsesFamily.drawnParameter(draws, nominal, "side")
     val (odds, afterOdds) = CsesFamily.drawnParameter(afterSide, nominal, "trap_odds")
-    val (rows, after) = CsesFamily.drawnValues(side, afterOdds)(beforeRow =>
-      CsesFamily.drawnValues(side, beforeRow)(current =>
-        val (drawn, next) = CsesFamily.between(current, 1 to odds)
-        (drawn != 1, next)
-      )
-    )
-    val (share, afterShare) = CsesFamily.between(after, 0 to 7)
-    val last = side - 1
-    val blocked = share match
-      case 0 => rows.updated(0, rows(0).updated(0, false))
-      case 1 => rows.updated(last, rows(last).updated(last, false))
-      case _ => rows
-    (GridPaths.Site(blocked), afterShare)
+    rung.input match
+      case RungInput.Written =>
+        val (rows, after) = CsesFamily.drawnValues(side, afterOdds)(beforeRow =>
+          CsesFamily.drawnValues(side, beforeRow)(current =>
+            val (drawn, next) = CsesFamily.between(current, 1 to odds)
+            (drawn != 1, next)
+          )
+        )
+        val (share, afterShare) = CsesFamily.between(after, 0 to 7)
+        val last = side - 1
+        val blocked = share match
+          case 0 => rows.updated(0, rows(0).updated(0, false))
+          case 1 => rows.updated(last, rows(last).updated(last, false))
+          case _ => rows
+        (GridPaths.Site(SeededInput.Input.Written(blocked)), afterShare)
+      case RungInput.Seeded =>
+        val (seed, afterSeed) = CsesFamily.between(afterOdds, CsesFamily.seeds)
+        val (share, afterShare) = CsesFamily.between(afterSeed, 0 to 7)
+        val corner = share match
+          case 0 => SeededInput.Corner.First
+          case 1 => SeededInput.Corner.Last
+          case _ => SeededInput.Corner.Neither
+        (GridPaths.Site(SeededInput.Input.Seeded(SeededInput.Grid(seed, side, side, odds, corner))), afterShare)
 
-  protected def function(problems: CsesProblems): Instruction = problems.gridPaths
+  protected def function(problems: CsesProblems): Configured[NoFacts.type] = problems.gridPaths
 
-  def arguments(site: GridPaths.Site): Vector[Term] =
-    Vector(CsesEncodings.list(site.rows.map(row => CsesEncodings.list(row.map(free => if free then CsesEncodings.trueValue else CsesEncodings.falseValue)))))
+  def arguments(problems: CsesProblems, site: GridPaths.Site): Vector[ProblemTerm] =
+    Vector(site.input.argument(problems, CsesFamily.writtenGrid))
 
   /** The count of paths by a table that seeds the start square with 1
     * without checking that it is free, and reads the end square without
@@ -300,8 +312,12 @@ object GridPaths:
   /** The rows of a site's grid, true for a free square; written one row a
     * line, `.` for free and `*` for a trap, as CSES writes a grid.
     */
-  final case class Site(rows: Vector[Vector[Boolean]]):
-    override def toString: String = rows.map(_.map(free => if free then '.' else '*').mkString).mkString("Site(", "/", ")")
+  final case class Site(input: SeededInput.Input[Vector[Vector[Boolean]]]):
+
+    /** The rows. */
+    def rows: Vector[Vector[Boolean]] = input.data
+
+    override def toString: String = input.described(_.map(_.map(free => if free then '.' else '*').mkString).mkString("Site(", "/", ")"))
 
   /** The wrong table of the common mistake: the paths to each square by
     * ways(r, c) = ways(r - 1, c) + ways(r, c - 1) modulo 10^9 + 7, with
@@ -343,7 +359,11 @@ object GridPaths:
   val rungs: Vector[CsesRung] = Vector(
     CsesRung("side_4", NominalRanges(Repetition.repetitions, Vector(NominalParameter("side", 1 to 4), NominalParameter("trap_odds", 2 to 4)))),
     CsesRung("side_6", NominalRanges(Repetition.repetitions, Vector(NominalParameter("side", 1 to 6), NominalParameter("trap_odds", 2 to 4)))),
-    CsesRung("side_1000", NominalRanges(1 to 4, Vector(NominalParameter("side", 500 to 1000), NominalParameter("trap_odds", 50 to 100))))
+    CsesRung(
+      "side_1000",
+      NominalRanges(1 to 4, Vector(NominalParameter("side", 500 to 1000), NominalParameter("trap_odds", 50 to 100))),
+      RungInput.Seeded
+    )
   )
 
   /** Each rung's family in both spellings. */
@@ -375,9 +395,9 @@ final class BookShop(spelling: Spelling, rung: CsesRung) extends CsesFamily[Book
     val (budget, after) = CsesFamily.drawnParameter(afterBooks, nominal, "budget")
     (BookShop.Site(books, budget), after)
 
-  protected def function(problems: CsesProblems): Instruction = problems.bookShop
+  protected def function(problems: CsesProblems): Configured[NoFacts.type] = problems.bookShop
 
-  def arguments(site: BookShop.Site): Vector[Term] =
+  def arguments(problems: CsesProblems, site: BookShop.Site): Vector[ProblemTerm] =
     val naturals = CsesEncodings.naturals(site.budget +: site.books.flatMap((price, pages) => Vector(price, pages)))
     Vector(
       CsesEncodings.list(site.books.map((price, pages) => CsesEncodings.pair(naturals(price), naturals(pages)))),
@@ -456,8 +476,8 @@ object BookShop:
   val families: Vector[Vector[BookShop]] = CsesFamily.families(rungs, BookShop(_, _))
 
 /** CSES 1671, Shortest Routes I, `shortest_routes_single_source n flights`:
-  * the least cost of a trip from city 1 to each city over one-way flights,
-  * the list of the n costs. A site is n cities, n from the parameter
+  * the sum over the cities of the least cost of a trip from city 1 to the
+  * city over one-way flights. A site is n cities, n from the parameter
   * `cities`, and m flights, m from the parameter `flights` and at least
   * n - 1, each cost from the parameter `cost`, at least 1: the problem's
   * premises, which its file's program needs, are that every city is
@@ -477,14 +497,65 @@ final class ShortestRoutesSingleSource(spelling: Spelling, rung: CsesRung)
 
   /** The best known algorithm on the sites' data (`CsesSolutions`). */
   def solved(drawn: CsesFamily.Drawn[ShortestRoutesSingleSource.Site]): Vector[NativeValue] =
-    drawn.sites.map(site =>
-      NativeValue.Elements(CsesSolutions.shortestRoutesSingleSource(site.cities, site.flights).map(NativeValue.natural))
-    )
+    drawn.sites.map(site => NativeValue.natural(CsesSolutions.shortestRoutesSingleSource(site.cities, site.flights)))
 
   protected def site(draws: Draws): (ShortestRoutesSingleSource.Site, Draws) =
     val (cities, afterCities) = CsesFamily.drawnParameter(draws, nominal, "cities")
     val (wanted, afterWanted) = CsesFamily.drawnParameter(afterCities, nominal, "flights")
     val costs = Repetition.range(nominal, "cost")
+    rung.input match
+      case RungInput.Written => ShortestRoutesSingleSource.written(cities, wanted, costs, afterWanted)
+      case RungInput.Seeded =>
+        val (treeSeed, afterTreeSeed) = CsesFamily.between(afterWanted, CsesFamily.seeds)
+        val (flightSeed, after) = CsesFamily.between(afterTreeSeed, CsesFamily.seeds)
+        val extra = math.max(wanted, cities - 1) - (cities - 1)
+        val flights = SeededInput.Flights(treeSeed, flightSeed, cities, extra, costs.start, costs.end)
+        (ShortestRoutesSingleSource.Site(cities, SeededInput.Input.Seeded(flights)), after)
+
+  protected def function(problems: CsesProblems): Configured[NoFacts.type] = problems.shortestRoutesSingleSource
+
+  def arguments(problems: CsesProblems, site: ShortestRoutesSingleSource.Site): Vector[ProblemTerm] =
+    site.input match
+      case SeededInput.Input.Written(flights) =>
+        val naturals = CsesEncodings.naturals(site.cities +: flights.flatMap((from, to, cost) => Vector(from, to, Math.toIntExact(cost))))
+        Vector(
+          naturals(site.cities),
+          CsesEncodings.list(flights.map((from, to, cost) => CsesEncodings.triple(naturals, from, to, Math.toIntExact(cost))))
+        )
+      case SeededInput.Input.Seeded(generator) => Vector(CsesEncodings.natural(site.cities), generator.argument(problems))
+
+  /** A solution off by one at every city's cost, the sum plus n, and one
+    * that reads the flights as two-way.
+    */
+  def wrongAnswers(site: ShortestRoutesSingleSource.Site, answer: NativeValue): Vector[NativeValue] = answer match
+    case NativeValue.Binary(digits) =>
+      Vector(
+        NativeValue.natural(CsesFamily.naturalOf(digits) + site.cities),
+        NativeValue.natural(
+          CsesSolutions.shortestRoutesSingleSource(site.cities, site.flights ++ site.flights.map((from, to, cost) => (to, from, cost)))
+        )
+      )
+    case other => throw IllegalArgumentException(s"no natural: $other")
+
+/** The sites and the ladder of `ShortestRoutesSingleSource`. */
+object ShortestRoutesSingleSource:
+
+  /** The count of cities and the flights of a site, each `(from, to,
+    * cost)`, the cities from 1 to n, written or seeded.
+    */
+  final case class Site(cities: Int, input: SeededInput.Input[Vector[(Int, Int, Long)]]):
+
+    /** The flights. */
+    def flights: Vector[(Int, Int, Long)] = input.data
+
+    override def toString: String = s"Site($cities,${input.described(_.toString)})"
+
+  /** A written site of n cities: a flight to each city but city 1 from a
+    * city before it in an order drawn, so that every city is reached, then
+    * the flights wanted beyond those, from and to any city, each cost from
+    * the range, all in an order drawn.
+    */
+  def written(cities: Int, wanted: Int, costs: Range.Inclusive, afterWanted: Draws): (Site, Draws) =
     val (order, afterOrder) = CsesFamily.shuffled((2 to cities).toVector, afterWanted)
     val (spanning, afterSpanning) = order.zipWithIndex.foldLeft((Vector.empty[(Int, Int, Long)], afterOrder)) {
       case ((found, current), (city, index)) =>
@@ -499,28 +570,7 @@ final class ShortestRoutesSingleSource(spelling: Spelling, rung: CsesRung)
       ((from, to, cost.toLong), afterCost)
     )
     val (flights, after) = CsesFamily.shuffled(spanning ++ others, afterOthers)
-    (ShortestRoutesSingleSource.Site(cities, flights), after)
-
-  protected def function(problems: CsesProblems): Instruction = problems.shortestRoutesSingleSource
-
-  def arguments(site: ShortestRoutesSingleSource.Site): Vector[Term] =
-    val naturals = CsesEncodings.naturals(site.cities +: site.flights.flatMap((from, to, cost) => Vector(from, to, Math.toIntExact(cost))))
-    Vector(
-      naturals(site.cities),
-      CsesEncodings.list(site.flights.map((from, to, cost) => CsesEncodings.triple(naturals, from, to, Math.toIntExact(cost))))
-    )
-
-  /** A solution off by one at every city's cost. */
-  def wrongAnswers(site: ShortestRoutesSingleSource.Site, answer: NativeValue): Vector[NativeValue] =
-    Vector(CsesFamily.eachOffByOne(answer))
-
-/** The sites and the ladder of `ShortestRoutesSingleSource`. */
-object ShortestRoutesSingleSource:
-
-  /** The count of cities and the flights of a site, each `(from, to,
-    * cost)`, the cities from 1 to n.
-    */
-  final case class Site(cities: Int, flights: Vector[(Int, Int, Long)])
+    (Site(cities, SeededInput.Input.Written(flights)), after)
 
   /** The ladder: small graphs of small costs read by the reference reading,
     * and CSES's constraints, 1 ≤ n ≤ 10^5, 1 ≤ m ≤ 2 · 10^5 and
@@ -559,7 +609,8 @@ object ShortestRoutesSingleSource:
       NominalRanges(
         1 to 4,
         Vector(NominalParameter("cities", 50000 to 100000), NominalParameter("flights", 100000 to 200000), NominalParameter("cost", 1 to 1000000000))
-      )
+      ),
+      RungInput.Seeded
     )
   )
 
@@ -573,7 +624,9 @@ object ShortestRoutesSingleSource:
   * joining any two cities (a city to itself and parallel roads included, as
   * CSES allows) at a cost from the parameter `cost`, at least 1 as the
   * problem's premise asks, and q queries, q from the parameter `queries`,
-  * each of any two cities.
+  * each of any two cities. At the top rung the roads and the queries are
+  * generated from two seeds (`SeededInput.Triples`, `SeededInput.Pairs`),
+  * drawn as these draw them.
   */
 final class ShortestRoutesQueries(spelling: Spelling, rung: CsesRung) extends CsesFamily[ShortestRoutesQueries.Site](spelling, rung):
 
@@ -593,32 +646,33 @@ final class ShortestRoutesQueries(spelling: Spelling, rung: CsesRung) extends Cs
     val (cities, afterCities) = CsesFamily.drawnParameter(draws, nominal, "cities")
     val (roadCount, afterRoadCount) = CsesFamily.drawnParameter(afterCities, nominal, "roads")
     val costs = Repetition.range(nominal, "cost")
-    val (roads, afterRoads) = CsesFamily.drawnValues(roadCount, afterRoadCount)(current =>
-      val (first, afterFirst) = CsesFamily.between(current, 1 to cities)
-      val (second, afterSecond) = CsesFamily.between(afterFirst, 1 to cities)
-      val (cost, afterCost) = CsesFamily.between(afterSecond, costs)
-      ((first, second, cost.toLong), afterCost)
-    )
-    val (queryCount, afterQueryCount) = CsesFamily.drawnParameter(afterRoads, nominal, "queries")
-    val (queries, after) = CsesFamily.drawnValues(queryCount, afterQueryCount)(current =>
-      val (source, afterSource) = CsesFamily.between(current, 1 to cities)
-      val (destination, afterDestination) = CsesFamily.between(afterSource, 1 to cities)
-      ((source, destination), afterDestination)
-    )
-    (ShortestRoutesQueries.Site(cities, roads, queries), after)
+    rung.input match
+      case RungInput.Written => ShortestRoutesQueries.written(nominal, cities, roadCount, costs, afterRoadCount)
+      case RungInput.Seeded =>
+        val (queryCount, afterQueryCount) = CsesFamily.drawnParameter(afterRoadCount, nominal, "queries")
+        val (roadSeed, afterRoadSeed) = CsesFamily.between(afterQueryCount, CsesFamily.seeds)
+        val (querySeed, after) = CsesFamily.between(afterRoadSeed, CsesFamily.seeds)
+        val roads = SeededInput.Triples(roadSeed, roadCount, 1, cities, costs.start, costs.end)
+        val queries = SeededInput.Pairs(querySeed, queryCount, 1, cities)
+        (ShortestRoutesQueries.Site(cities, SeededInput.Input.Seeded(roads), SeededInput.Input.Seeded(queries)), after)
 
-  protected def function(problems: CsesProblems): Instruction = problems.shortestRoutesQueries
+  protected def function(problems: CsesProblems): Configured[NoFacts.type] = problems.shortestRoutesQueries
 
-  def arguments(site: ShortestRoutesQueries.Site): Vector[Term] =
-    val naturals = CsesEncodings.naturals(
-      site.cities +: (site.roads.flatMap((first, second, cost) => Vector(first, second, Math.toIntExact(cost))) ++
-        site.queries.flatMap((source, destination) => Vector(source, destination)))
-    )
-    Vector(
-      naturals(site.cities),
-      CsesEncodings.list(site.roads.map((first, second, cost) => CsesEncodings.triple(naturals, first, second, Math.toIntExact(cost)))),
-      CsesEncodings.list(site.queries.map((source, destination) => CsesEncodings.pair(naturals(source), naturals(destination))))
-    )
+  def arguments(problems: CsesProblems, site: ShortestRoutesQueries.Site): Vector[ProblemTerm] =
+    (site.roadsInput, site.queriesInput) match
+      case (SeededInput.Input.Written(roads), SeededInput.Input.Written(queries)) =>
+        val naturals = CsesEncodings.naturals(
+          site.cities +: (roads.flatMap((first, second, cost) => Vector(first, second, Math.toIntExact(cost))) ++
+            queries.flatMap((source, destination) => Vector(source, destination)))
+        )
+        Vector(
+          naturals(site.cities),
+          CsesEncodings.list(roads.map((first, second, cost) => CsesEncodings.triple(naturals, first, second, Math.toIntExact(cost)))),
+          CsesEncodings.list(queries.map((source, destination) => CsesEncodings.pair(naturals(source), naturals(destination))))
+        )
+      case (SeededInput.Input.Seeded(roads), SeededInput.Input.Seeded(queries)) =>
+        Vector(CsesEncodings.natural(site.cities), roads.argument(problems), queries.argument(problems))
+      case _ => throw IllegalStateException(s"a site's roads and queries are both written or both seeded: $site")
 
   /** A solution that answers some 0 where no trip exists and none from a
     * city to itself, none and some 0 swapped at every query.
@@ -635,14 +689,47 @@ object ShortestRoutesQueries:
 
   /** The count of cities, the roads of a site, each `(first, second,
     * cost)`, and its queries, each `(source, destination)`, the cities from
-    * 1 to n.
+    * 1 to n, written or seeded.
     */
-  final case class Site(cities: Int, roads: Vector[(Int, Int, Long)], queries: Vector[(Int, Int)])
+  final case class Site(
+      cities: Int,
+      roadsInput: SeededInput.Input[Vector[(Int, Int, Long)]],
+      queriesInput: SeededInput.Input[Vector[(Int, Int)]]
+  ):
+
+    /** The roads. */
+    def roads: Vector[(Int, Int, Long)] = roadsInput.data
+
+    /** The queries. */
+    def queries: Vector[(Int, Int)] = queriesInput.data
+
+    override def toString: String = s"Site($cities,${roadsInput.described(_.toString)},${queriesInput.described(_.toString)})"
+
+  /** A written site of n cities and m roads: each road between any two
+    * cities, its cost from the range, then the count of queries and each
+    * query of any two cities.
+    */
+  def written(nominal: NominalRanges, cities: Int, roadCount: Int, costs: Range.Inclusive, afterRoadCount: Draws): (Site, Draws) =
+    val (roads, afterRoads) = CsesFamily.drawnValues(roadCount, afterRoadCount)(current =>
+      val (first, afterFirst) = CsesFamily.between(current, 1 to cities)
+      val (second, afterSecond) = CsesFamily.between(afterFirst, 1 to cities)
+      val (cost, afterCost) = CsesFamily.between(afterSecond, costs)
+      ((first, second, cost.toLong), afterCost)
+    )
+    val (queryCount, afterQueryCount) = CsesFamily.drawnParameter(afterRoads, nominal, "queries")
+    val (queries, after) = CsesFamily.drawnValues(queryCount, afterQueryCount)(current =>
+      val (source, afterSource) = CsesFamily.between(current, 1 to cities)
+      val (destination, afterDestination) = CsesFamily.between(afterSource, 1 to cities)
+      ((source, destination), afterDestination)
+    )
+    (Site(cities, SeededInput.Input.Written(roads), SeededInput.Input.Written(queries)), after)
 
   /** The ladder: small graphs of small costs with few queries read by the
-    * reference reading, and CSES's constraints, 1 ≤ n ≤ 500, 1 ≤ m ≤ n^2,
-    * 1 ≤ q ≤ 10^5 and 1 ≤ c ≤ 10^9, the counts drawn from their upper
-    * halves, at most four sites. MEASURED
+    * reference reading, and CSES's constraints, 1 ≤ n ≤ 500, 1 ≤ m ≤ n^2
+    * and 1 ≤ c ≤ 10^9, the counts drawn from their upper halves, with 1,000
+    * to 2,000 queries rather than CSES's 10^5, so that the answer, a list of
+    * the queries' options, stays small while the native's work stays the
+    * closure of the 500 cities, at most four sites. MEASURED
     * 2026-11-21 by the probe of `CoinCombinationsOrdered.rungs`: the single
     * program of a chain of n cities, each road of cost 1, and the one query
     * from one end to the other took, for n of 3, 4, 6, 8 and 11, 2,752,
@@ -685,18 +772,21 @@ object ShortestRoutesQueries:
           NominalParameter("cities", 250 to 500),
           NominalParameter("roads", 125000 to 250000),
           NominalParameter("cost", 1 to 1000000000),
-          NominalParameter("queries", 50000 to 100000)
+          NominalParameter("queries", 1000 to 2000)
         )
-      )
+      ),
+      RungInput.Seeded
     )
   )
 
   /** Each rung's family in both spellings. */
   val families: Vector[Vector[ShortestRoutesQueries]] = CsesFamily.families(rungs, ShortestRoutesQueries(_, _))
 
-/** CSES 1713, Counting Divisors, `counting_divisors numbers`: the number of
-  * divisors of each number, the list of the counts. A site is n numbers, n
-  * from the parameter `numbers`, each from the parameter `value`.
+/** CSES 1713, Counting Divisors, `counting_divisors numbers`: the sum over
+  * the numbers of the number of divisors of each. A site is n numbers, n
+  * from the parameter `numbers`, each from the parameter `value`, written
+  * out below the top rung and generated from a seed at it
+  * (`CsesFamily.drawnNumbers`).
   */
 final class CountingDivisors(spelling: Spelling, rung: CsesRung) extends CsesFamily[CountingDivisors.Site](spelling, rung):
 
@@ -706,28 +796,25 @@ final class CountingDivisors(spelling: Spelling, rung: CsesRung) extends CsesFam
 
   /** The best known algorithm on the sites' data (`CsesSolutions`). */
   def solved(drawn: CsesFamily.Drawn[CountingDivisors.Site]): Vector[NativeValue] =
-    drawn.sites.map(site => NativeValue.Elements(CsesSolutions.countingDivisors(site.numbers).map(NativeValue.natural)))
+    drawn.sites.map(site => NativeValue.natural(CsesSolutions.countingDivisors(site.numbers)))
 
   protected def site(draws: Draws): (CountingDivisors.Site, Draws) =
-    val (count, afterCount) = CsesFamily.drawnParameter(draws, nominal, "numbers")
-    val (numbers, after) = CsesFamily.drawnValues(count, afterCount)(CsesFamily.drawnParameter(_, nominal, "value"))
-    (CountingDivisors.Site(numbers), after)
+    CsesFamily.drawnNumbers(draws, nominal, rung.input, "numbers", "value")
 
-  protected def function(problems: CsesProblems): Instruction = problems.countingDivisors
+  protected def function(problems: CsesProblems): Configured[NoFacts.type] = problems.countingDivisors
 
-  def arguments(site: CountingDivisors.Site): Vector[Term] =
-    val naturals = CsesEncodings.naturals(site.numbers)
-    Vector(CsesEncodings.list(site.numbers.map(naturals)))
+  def arguments(problems: CsesProblems, site: CountingDivisors.Site): Vector[ProblemTerm] = Vector(site.argument(problems))
 
-  /** A solution off by one at every number's count. */
-  def wrongAnswers(site: CountingDivisors.Site, answer: NativeValue): Vector[NativeValue] =
-    Vector(CsesFamily.eachOffByOne(answer))
+  /** A solution off by one at every number's count, the sum plus n. */
+  def wrongAnswers(site: CountingDivisors.Site, answer: NativeValue): Vector[NativeValue] = answer match
+    case NativeValue.Binary(digits) => Vector(NativeValue.natural(CsesFamily.naturalOf(digits) + site.numbers.size))
+    case other                      => throw IllegalArgumentException(s"no natural: $other")
 
 /** The sites and the ladder of `CountingDivisors`. */
 object CountingDivisors:
 
   /** The numbers of a site. */
-  final case class Site(numbers: Vector[Int])
+  type Site = CsesFamily.NumbersSite
 
   /** The ladder: up to three numbers up to 16 and up to 48 read by the
     * reference reading, and CSES's constraints, 1 ≤ n ≤ 10^5 numbers, each
@@ -751,7 +838,11 @@ object CountingDivisors:
   val rungs: Vector[CsesRung] = Vector(
     CsesRung("value_16", NominalRanges(Repetition.repetitions, Vector(NominalParameter("numbers", 1 to 3), NominalParameter("value", 1 to 16)))),
     CsesRung("value_48", NominalRanges(Repetition.repetitions, Vector(NominalParameter("numbers", 1 to 3), NominalParameter("value", 1 to 48)))),
-    CsesRung("value_1000000", NominalRanges(1 to 4, Vector(NominalParameter("numbers", 50000 to 100000), NominalParameter("value", 1 to 1000000))))
+    CsesRung(
+      "value_1000000",
+      NominalRanges(1 to 4, Vector(NominalParameter("numbers", 50000 to 100000), NominalParameter("value", 1 to 1000000))),
+      RungInput.Seeded
+    )
   )
 
   /** Each rung's family in both spellings. */
@@ -760,7 +851,10 @@ object CountingDivisors:
 /** CSES 1079, Binomial Coefficients, `binomial_coefficients queries`: a
   * choose b modulo 10^9 + 7 for each query, the list of the values. A site
   * is q queries, q from the parameter `queries`, each a drawn from the
-  * parameter `whole` and b from 0 to a, as the problem's premise asks.
+  * parameter `whole` and b from 0 to a, as the problem's premise asks. At
+  * the top rung the queries are generated from a seed
+  * (`SeededInput.BinomialQueries`): a and b the larger and the smaller of
+  * two numbers drawn from the parameter `whole`.
   */
 final class BinomialCoefficients(spelling: Spelling, rung: CsesRung) extends CsesFamily[BinomialCoefficients.Site](spelling, rung):
 
@@ -774,18 +868,27 @@ final class BinomialCoefficients(spelling: Spelling, rung: CsesRung) extends Cse
 
   protected def site(draws: Draws): (BinomialCoefficients.Site, Draws) =
     val (count, afterCount) = CsesFamily.drawnParameter(draws, nominal, "queries")
-    val (queries, after) = CsesFamily.drawnValues(count, afterCount)(current =>
-      val (whole, afterWhole) = CsesFamily.drawnParameter(current, nominal, "whole")
-      val (chosen, afterChosen) = CsesFamily.between(afterWhole, 0 to whole)
-      ((whole, chosen), afterChosen)
-    )
-    (BinomialCoefficients.Site(queries), after)
+    rung.input match
+      case RungInput.Written =>
+        val (queries, after) = CsesFamily.drawnValues(count, afterCount)(current =>
+          val (whole, afterWhole) = CsesFamily.drawnParameter(current, nominal, "whole")
+          val (chosen, afterChosen) = CsesFamily.between(afterWhole, 0 to whole)
+          ((whole, chosen), afterChosen)
+        )
+        (BinomialCoefficients.Site(SeededInput.Input.Written(queries)), after)
+      case RungInput.Seeded =>
+        val (seed, after) = CsesFamily.between(afterCount, CsesFamily.seeds)
+        val wholes = Repetition.range(nominal, "whole")
+        require(wholes.start == 0, s"a seeded query's numbers are drawn from 0: $wholes")
+        (BinomialCoefficients.Site(SeededInput.Input.Seeded(SeededInput.BinomialQueries(seed, count, wholes.end))), after)
 
-  protected def function(problems: CsesProblems): Instruction = problems.binomialCoefficients
+  protected def function(problems: CsesProblems): Configured[NoFacts.type] = problems.binomialCoefficients
 
-  def arguments(site: BinomialCoefficients.Site): Vector[Term] =
-    val naturals = CsesEncodings.naturals(site.queries.flatMap((whole, chosen) => Vector(whole, chosen)))
-    Vector(CsesEncodings.list(site.queries.map((whole, chosen) => CsesEncodings.pair(naturals(whole), naturals(chosen)))))
+  def arguments(problems: CsesProblems, site: BinomialCoefficients.Site): Vector[ProblemTerm] =
+    Vector(site.input.argument(problems, queries =>
+      val naturals = CsesEncodings.naturals(queries.flatMap((whole, chosen) => Vector(whole, chosen)))
+      CsesEncodings.list(queries.map((whole, chosen) => CsesEncodings.pair(naturals(whole), naturals(chosen))))
+    ))
 
   /** A solution that forgets the modulus, a choose b exactly, at each query
     * where a^min(b, a - b), a bound of it, has at most
@@ -800,8 +903,13 @@ final class BinomialCoefficients(spelling: Spelling, rung: CsesRung) extends Cse
 /** The sites, the unreduced values and the ladder of `BinomialCoefficients`. */
 object BinomialCoefficients:
 
-  /** The queries of a site, each `(a, b)` with 0 ≤ b ≤ a. */
-  final case class Site(queries: Vector[(Int, Int)])
+  /** The queries of a site, each `(a, b)` with 0 ≤ b ≤ a, written or seeded. */
+  final case class Site(input: SeededInput.Input[Vector[(Int, Int)]]):
+
+    /** The queries. */
+    def queries: Vector[(Int, Int)] = input.data
+
+    override def toString: String = s"Site(${input.described(_.toString)})"
 
   /** The most bits of the bound a^min(b, a - b) of an unreduced value written as a trap. */
   val unreducedBits: Long = 4096
@@ -817,9 +925,11 @@ object BinomialCoefficients:
     )
 
   /** The ladder: up to three queries of a up to 6 and up to 10 read by the
-    * reference reading, and CSES's constraints, 1 ≤ n ≤ 10^5 queries and
-    * 0 ≤ b ≤ a ≤ 10^6, the counts drawn from the upper half, at most four
-    * sites. MEASURED
+    * reference reading, and CSES's constraint 0 ≤ b ≤ a ≤ 10^6 with 1,000 to
+    * 2,000 queries rather than CSES's 10^5, so that the answer, a list of
+    * the values, stays small while the native's factorial table up to the
+    * largest a, close to 10^6, still dominates its work, at most four sites.
+    * MEASURED
     * 2026-11-21 by the probe of `CoinCombinationsOrdered.rungs`: the single program
     * of the queries (6, 3) took 5,840 steps and 2,666 tables, (10, 5) 30,929
     * and 13,195, (11, 5) 49,801 and 21,083, (6, 3), (6, 2), (5, 2) 9,506 and
@@ -834,7 +944,11 @@ object BinomialCoefficients:
   val rungs: Vector[CsesRung] = Vector(
     CsesRung("whole_6", NominalRanges(Repetition.repetitions, Vector(NominalParameter("queries", 1 to 3), NominalParameter("whole", 0 to 6)))),
     CsesRung("whole_10", NominalRanges(Repetition.repetitions, Vector(NominalParameter("queries", 1 to 3), NominalParameter("whole", 0 to 10)))),
-    CsesRung("whole_1000000", NominalRanges(1 to 4, Vector(NominalParameter("queries", 50000 to 100000), NominalParameter("whole", 0 to 1000000))))
+    CsesRung(
+      "whole_1000000",
+      NominalRanges(1 to 4, Vector(NominalParameter("queries", 1000 to 2000), NominalParameter("whole", 0 to 1000000))),
+      RungInput.Seeded
+    )
   )
 
   /** Each rung's family in both spellings. */
@@ -842,7 +956,8 @@ object BinomialCoefficients:
 
 /** CSES 1621, Distinct Numbers, `distinct_numbers numbers`: the number of
   * different values in the list. A site is n numbers, n from the parameter
-  * `numbers`, each from the parameter `value`.
+  * `numbers`, each from the parameter `value`, written out below the top
+  * rung and generated from a seed at it (`CsesFamily.drawnNumbers`).
   */
 final class DistinctNumbers(spelling: Spelling, rung: CsesRung) extends CsesFamily[DistinctNumbers.Site](spelling, rung):
 
@@ -855,15 +970,11 @@ final class DistinctNumbers(spelling: Spelling, rung: CsesRung) extends CsesFami
     drawn.sites.map(site => NativeValue.natural(CsesSolutions.distinctNumbers(site.numbers)))
 
   protected def site(draws: Draws): (DistinctNumbers.Site, Draws) =
-    val (count, afterCount) = CsesFamily.drawnParameter(draws, nominal, "numbers")
-    val (numbers, after) = CsesFamily.drawnValues(count, afterCount)(CsesFamily.drawnParameter(_, nominal, "value"))
-    (DistinctNumbers.Site(numbers), after)
+    CsesFamily.drawnNumbers(draws, nominal, rung.input, "numbers", "value")
 
-  protected def function(problems: CsesProblems): Instruction = problems.distinctNumbers
+  protected def function(problems: CsesProblems): Configured[NoFacts.type] = problems.distinctNumbers
 
-  def arguments(site: DistinctNumbers.Site): Vector[Term] =
-    val naturals = CsesEncodings.naturals(site.numbers)
-    Vector(CsesEncodings.list(site.numbers.map(naturals)))
+  def arguments(problems: CsesProblems, site: DistinctNumbers.Site): Vector[ProblemTerm] = Vector(site.argument(problems))
 
   /** A solution that answers the length of the list. */
   def wrongAnswers(site: DistinctNumbers.Site, answer: NativeValue): Vector[NativeValue] =
@@ -873,7 +984,7 @@ final class DistinctNumbers(spelling: Spelling, rung: CsesRung) extends CsesFami
 object DistinctNumbers:
 
   /** The numbers of a site. */
-  final case class Site(numbers: Vector[Int])
+  type Site = CsesFamily.NumbersSite
 
   /** The ladder: up to 12 and up to 24 numbers, each up to 16 and up to 32,
     * read by the reference reading, and CSES's constraints,
@@ -895,7 +1006,8 @@ object DistinctNumbers:
     CsesRung("numbers_24", NominalRanges(Repetition.repetitions, Vector(NominalParameter("numbers", 1 to 24), NominalParameter("value", 1 to 32)))),
     CsesRung(
       "numbers_200000",
-      NominalRanges(1 to 4, Vector(NominalParameter("numbers", 100000 to 200000), NominalParameter("value", 1 to 1000000000)))
+      NominalRanges(1 to 4, Vector(NominalParameter("numbers", 100000 to 200000), NominalParameter("value", 1 to 1000000000))),
+      RungInput.Seeded
     )
   )
 

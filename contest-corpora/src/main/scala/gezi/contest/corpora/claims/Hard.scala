@@ -16,61 +16,61 @@ final class Hard(corpora: Corpora, clauses: HardClauses):
 
   private def contest = corpora.contest
 
-  def jitHotBodyCountDown3200: Term =
+  def jitHotBodyCountDown3200: ProblemTerm =
     clauses.hotBodyCountDown(40)(clauses.numeral(clauses.drawnSize("jit_hot_body_count_down_3200", "count")))
 
-  def jitHotCombinatorCountDown3200: Term =
+  def jitHotCombinatorCountDown3200: ProblemTerm =
     clauses.hotCombinatorCountDown(20)(
       clauses.numeral(clauses.drawnSize("jit_hot_combinator_count_down_3200", "count")))
 
-  def inputIndependentStretch: Term = corpora.longRuns.inputIndependentStretch(trueValue)
+  def inputIndependentStretch: ProblemTerm = corpora.longRuns.inputIndependentStretch(trueValue)
 
-  def argumentUsedTwice(point: String): Term =
+  def argumentUsedTwice(point: String): ProblemTerm =
     corpora.longRuns.argumentUsedTwice(clauses.drawnSize(point, "depth"))(trueValue)
 
-  def editDistance6: Term = corpora.longRuns.editDistance(Vector(0, 1, 2, 0, 1, 2), Vector(1, 2, 0, 2, 1, 0), 3)
+  def editDistance6: ProblemTerm = corpora.longRuns.editDistance(Vector(0, 1, 2, 0, 1, 2), Vector(1, 2, 0, 2, 1, 0), 3)
 
-  def editDistance8: Term =
+  def editDistance8: ProblemTerm =
     corpora.longRuns.editDistance(Vector(0, 1, 2, 0, 1, 2, 0, 1), Vector(1, 2, 0, 2, 1, 0, 1, 2), 4)
 
-  def lassoFloydCycleStart120: Term =
+  def lassoFloydCycleStart120: ProblemTerm =
     contest.floydCycleStart(
       contest.lasso(
         clauses.drawnSize("lasso_floyd_cycle_start_120", "prefix"),
         clauses.drawnSize("lasso_floyd_cycle_start_120", "cycle")))
 
-  def lassoVisitedCycleStart60: Term =
+  def lassoVisitedCycleStart60: ProblemTerm =
     contest.visitedCycleStart(
       contest.lasso(
         clauses.drawnSize("lasso_visited_cycle_start_60", "prefix"),
         clauses.drawnSize("lasso_visited_cycle_start_60", "cycle")))
 
-  def regexMatches8: Term =
+  def regexMatches8: ProblemTerm =
     contest.regexMatches(contest.grammarANBN)(
       contest.aNBNWord(clauses.drawnSize("regex_matches_8", "n"), Vector.empty))
 
-  def streamNthNaturalsByMap1600: Term =
+  def streamNthNaturalsByMap1600: ProblemTerm =
     contest.streamNth(contest.numeral(clauses.drawnSize("stream_nth_naturals_by_map_1600", "index")))(
       contest.streamNaturalsByMap)
 
   /** `identity_equal`: the boolean equality of `x true` and `y true`. */
-  val identityEqual: Term =
+  val identityEqual: ProblemTerm =
     λ(left => λ(right => left(trueValue)(right(trueValue))(right(trueValue)(falseValue)(trueValue))))
 
   /** `identity_list_equal`. */
-  val identityListEqual: Term =
+  val identityListEqual: ProblemTerm =
     fixpoint(λ(self => λ(xs => λ(ys =>
       xs(ys(trueValue)(λ(_ => λ(_ => falseValue))))(
         λ(head => λ(tail => ys(falseValue)(λ(otherHead => λ(otherTail =>
           identityEqual(head)(otherHead)(self(tail)(otherTail))(falseValue)))))))))))
 
   /** `identity_list(Count)`. */
-  def identityList(count: Int): Term = (1 to count).foldLeft(nil)((rest, _) => cons(identity)(rest))
+  def identityList(count: Int): ProblemTerm = (1 to count).foldLeft(nil)((rest, _) => cons(identity)(rest))
 
-  def reverseOfThree: Term = identityListEqual(corpora.jitWitnesses.reverseOfThree)(identityList(3))
+  def reverseOfThree: ProblemTerm = identityListEqual(corpora.jitWitnesses.reverseOfThree)(identityList(3))
 
   /** The points of the former `contest_hard` module, by name. */
-  def points: Map[String, () => Term] = Map(
+  def points: Map[String, () => ProblemTerm] = Map(
     "jit_hot_body_count_down_3200" -> (() => jitHotBodyCountDown3200),
     "jit_hot_combinator_count_down_3200" -> (() => jitHotCombinatorCountDown3200),
     "input_independent_stretch" -> (() => inputIndependentStretch),

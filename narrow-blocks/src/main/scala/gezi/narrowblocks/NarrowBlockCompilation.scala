@@ -13,7 +13,6 @@ import java.lang.constant.MethodTypeDesc
 import java.lang.invoke.MethodHandles
 import java.math.BigInteger
 import gezi.frontend.Defunctionalization
-import gezi.ir.Instruction
 import gezi.ir.Layer
 import gezi.jit.BinaryNaturalFamily
 import gezi.jit.NativeBackend
@@ -28,6 +27,7 @@ import gezi.ir.TailRecFolds
 import scala.util.control.TailCalls.TailRec
 import scala.util.control.TailCalls.done
 import scala.util.control.TailCalls.tailcall
+import gezi.ir.{Configured, NativeSpecializer}
 
 /** A narrow block compiled into a class: its natural, or nothing when `stop`
   * asked for a stop before the block finished (`run`). The signal is read on
@@ -75,16 +75,23 @@ trait NarrowBlockProgram:
   * body, read as a recursion's body and as a closure's; nothing where it is
   * narrow (`NarrowBlockCompilation.thunkReadings`).
   */
-final case class ThunkReading(thunk: Instruction, asRecursion: Option[String], asClosure: Option[String])
+final case class ThunkReading[C <: NativeSpecializer & Singleton](thunk: Configured[C], asRecursion: Option[String], asClosure: Option[String])
 
-final case class NarrowBlockCompilation(index: StandardLibraryIndex, natives: NativeBackend):
+final case class NarrowBlockCompilation[C <: NativeSpecializer & Singleton](
+    index: StandardLibraryIndex[C],
+    natives: NativeBackend,
+    // The configuration of the programs whose blocks it finds, under which a thunk is read for the identity.
+    configuration: gezi.weakhead.ReadingConfiguration[C]
+):
 
-  private val names: Map[Instruction, NarrowKind] =
-    val backendNames = NarrowBlockExtractor.boundTerms(index) ++ index.combinatorProperties.map(_.instruction)
+  private given C = configuration.specializer
+
+  private val names: Map[Configured[C], NarrowKind] =
+    val backendNames = NarrowBlockExtractor.boundTerms(index) ++ index.combinatorProperties.map(fact => Configured.fromPure(configuration.specializer)(fact.instruction))
     // TODO (https://github.com/Atry/private-overlay/issues/1517):
     // the backend's names become the round's `leaves`.
-    (index.noinline ++ backendNames + NarrowBlocks.fixpointByValue)
-      .map(name => name -> NarrowBlocks.nameKind(name, index, natives))
+    (index.noinline ++ backendNames + Configured.fromPure(configuration.specializer)(NarrowBlocks.fixpointByValue))
+      .map(name => name -> NarrowBlocks.nameKind(name, index, natives, configuration))
       .toMap
 
   /** The static method a block calls for the entry's native of that name on
@@ -107,17 +114,17 @@ final case class NarrowBlockCompilation(index: StandardLibraryIndex, natives: Na
       )
 
   /** The narrow kind of every subterm of the roots, a name's its own. */
-  def kinds(roots: Vector[Instruction]): Map[Instruction, NarrowKind] =
+  def kinds(roots: Vector[Configured[C]]): Map[Configured[C], NarrowKind] =
     @scala.annotation.tailrec
-    def visited(pending: List[(Instruction, Boolean)], found: Map[Instruction, NarrowKind]): Map[Instruction, NarrowKind] =
+    def visited(pending: List[(Configured[C], Boolean)], found: Map[Configured[C], NarrowKind]): Map[Configured[C], NarrowKind] =
       pending match
         case Nil                                           => found
         case (instruction, _) :: rest if found.contains(instruction) => visited(rest, found)
         case (instruction, _) :: rest if names.contains(instruction) =>
           visited(rest, found.updated(instruction, names(instruction)))
-        case (instruction, _) :: rest if instruction.opaque => visited(rest, found.updated(instruction, NarrowKind.Closed))
+        case (instruction, _) :: rest if instruction.heldAsLeaf => visited(rest, found.updated(instruction, NarrowKind.Closed))
         case (instruction, false) :: rest =>
-          visited(instruction.layer.children.toList.map((_, false)) ::: (instruction, true) :: rest, found)
+          visited(parts(instruction).toList.map((_, false)) ::: (instruction, true) :: rest, found)
         case (instruction, true) :: rest =>
           val kind = instruction.layer match
             case Apply(function, argument) => NarrowBlocks.applicationKind(found(function), found(argument))
@@ -125,11 +132,19 @@ final case class NarrowBlockCompilation(index: StandardLibraryIndex, natives: Na
             case Choice(left, right)       => NarrowBlocks.choiceKind(Vector(found(left), found(right)))
             case Thunk(code, holes, fillings) =>
               NarrowBlocks.thunkKind(code, holes, fillings.map(filling => NarrowItem.Known(found(filling), filling))) match
-                case NarrowKind.Closed if NarrowBlocks.readsAsIdentity(instruction) => NarrowKind.Identity
+                case NarrowKind.Closed if NarrowBlocks.readsAsIdentity(instruction, configuration) => NarrowKind.Identity
                 case kind                                                          => kind
-            case UriNode(_) | Opaque(_) => NarrowKind.Closed
+            // A storage no narrow kind is read of: its terms were walked (`parts`), its view is not read.
+            case UriNode(_) | Opaque(_) | _: gezi.ir.NativeStorage => NarrowKind.Closed
           visited(rest, found.updated(instruction, kind))
     visited(roots.toList.map((_, false)), Map.empty)
+
+  /** The terms one layer under the instruction: a storage's, the terms it holds (`StorageHeldTerms`), its view not
+    * read and no storage walked below them but through the terms it holds; any other's, its layer's children.
+    */
+  private def parts(instruction: Configured[C]): Vector[Configured[C]] =
+    if gezi.ir.NativeStorage.stored(instruction.representation) then StorageHeldTerms.of(instruction)
+    else instruction.layer.children
 
   /** Every thunk of the program with the narrow check's verdict on its body,
     * in the order of a walk from the root, each thunk once: read as a
@@ -139,13 +154,13 @@ final case class NarrowBlockCompilation(index: StandardLibraryIndex, natives: Na
     * knowledge: why a typed loop of an extraction stays out of a block. No
     * decision of the framework reads it.
     */
-  def thunkReadings(program: Instruction): Vector[ThunkReading] =
+  def thunkReadings(program: Configured[C]): Vector[ThunkReading[C]] =
     val found = kinds(Vector(program))
     @scala.annotation.tailrec
-    def walked(pending: List[Instruction], seen: Set[Instruction], made: Vector[ThunkReading]): Vector[ThunkReading] =
+    def walked(pending: List[Configured[C]], seen: Set[Configured[C]], made: Vector[ThunkReading[C]]): Vector[ThunkReading[C]] =
       pending match
         case Nil                                                                          => made
-        case instruction :: rest if seen(instruction) || instruction.opaque || names.contains(instruction) =>
+        case instruction :: rest if seen(instruction) || instruction.heldAsLeaf || names.contains(instruction) =>
           walked(rest, seen + instruction, made)
         case instruction :: rest =>
           val reading = instruction.layer match
@@ -165,7 +180,7 @@ final case class NarrowBlockCompilation(index: StandardLibraryIndex, natives: Na
   /** The maximal closed narrow naturals of the program, in the order of a
     * walk from its root, a subterm before those under it.
     */
-  def blocks(program: Instruction): Vector[Instruction] = locatedBlocks(program, SourceMap.unlocated).map(_._1)
+  def blocks(program: Configured[C]): Vector[Configured[C]] = locatedBlocks(program, SourceMap.unlocated).map(_._1)
 
   /** The blocks of the program (`blocks`) with the map of each one's
     * occurrence, the map walked beside the program by `Layer.children`: the
@@ -174,20 +189,20 @@ final case class NarrowBlockCompilation(index: StandardLibraryIndex, natives: Na
     * `IllegalArgumentException` for a map of another shape than the program
     * where it locates anything below a place.
     */
-  def locatedBlocks(program: Instruction, map: SourceMap): Vector[(Instruction, SourceMap)] =
+  def locatedBlocks(program: Configured[C], map: SourceMap): Vector[(Configured[C], SourceMap)] =
     val found = kinds(Vector(program))
     @scala.annotation.tailrec
     def walked(
-        pending: List[(Instruction, SourceMap)],
-        seen: Set[Instruction],
-        made: Vector[(Instruction, SourceMap)]
-    ): Vector[(Instruction, SourceMap)] =
+        pending: List[(Configured[C], SourceMap)],
+        seen: Set[Configured[C]],
+        made: Vector[(Configured[C], SourceMap)]
+    ): Vector[(Configured[C], SourceMap)] =
       pending match
         case Nil                                             => made
         case (instruction, _) :: rest if seen(instruction) => walked(rest, seen, made)
         case (instruction, placed) :: rest if found.get(instruction).contains(NarrowKind.Value) =>
           walked(rest, seen + instruction, made :+ (instruction, placed))
-        case (instruction, _) :: rest if instruction.opaque || names.contains(instruction) =>
+        case (instruction, _) :: rest if instruction.heldAsLeaf || names.contains(instruction) =>
           walked(rest, seen + instruction, made)
         case (instruction, placed) :: rest =>
           val children = instruction.layer.children
@@ -203,7 +218,7 @@ final case class NarrowBlockCompilation(index: StandardLibraryIndex, natives: Na
     * compiles, with the debugging attributes asked for; otherwise why not.
     */
   def compiled(
-      blockRoots: Vector[Instruction],
+      blockRoots: Vector[Configured[C]],
       debug: DebugAttributes,
       stop: StopSignal
   ): Either[String, Vector[NarrowBlockProgram]] =
@@ -213,7 +228,7 @@ final case class NarrowBlockCompilation(index: StandardLibraryIndex, natives: Na
     * not. What a reader of the class, a debugger or a test, reads of it.
     */
   def classFile(
-      blockRoots: Vector[Instruction],
+      blockRoots: Vector[Configured[C]],
       debug: DebugAttributes,
       stop: StopSignal
   ): Either[String, scala.collection.immutable.ArraySeq[Byte]] =
@@ -222,7 +237,7 @@ final case class NarrowBlockCompilation(index: StandardLibraryIndex, natives: Na
   /** The class's generation, when every block reads; the reading folds its
     * constants until the stop is asked for (`Reader`).
     */
-  private def generation(blockRoots: Vector[Instruction], debug: DebugAttributes, stop: StopSignal): Either[String, Generation] =
+  private def generation(blockRoots: Vector[Configured[C]], debug: DebugAttributes, stop: StopSignal): Either[String, Generation] =
     val found = kinds(blockRoots)
     val reader = Reader(found, stop)
     val roots = blockRoots.map(reader.closed)
@@ -241,9 +256,9 @@ final case class NarrowBlockCompilation(index: StandardLibraryIndex, natives: Na
     * so that a costly constant cannot hold a compilation that is asked to
     * stop, and the expression is emitted as read, which computes the same.
     */
-  private final case class Reader(found: Map[Instruction, NarrowKind], stop: StopSignal):
+  private final case class Reader(found: Map[Configured[C], NarrowKind], stop: StopSignal):
 
-    private def kind(instruction: Instruction): NarrowKind = found.getOrElse(instruction, NarrowKind.Closed)
+    private def kind(instruction: Configured[C]): NarrowKind = found.getOrElse(instruction, NarrowKind.Closed)
 
     /** The term with the member of each outer choice that the backend
       * compiles chosen (`NarrowBlocks.chosenMember`), among the members of
@@ -251,15 +266,19 @@ final case class NarrowBlockCompilation(index: StandardLibraryIndex, natives: Na
       * ending it.
       */
     @scala.annotation.tailrec
-    private def chosen(instruction: Instruction): Instruction =
-      if names.contains(instruction) || instruction.opaque then instruction
+    private def chosen(instruction: Configured[C]): Configured[C] =
+      if names.contains(instruction) || instruction.heldAsLeaf then instruction
       else
-        instruction match
-          case Instruction.Choice(_, _) =>
-            val members = gezi.ir.ChoiceSpine.members[Instruction](
+        instruction.layer match
+          case Choice(_, _) =>
+            val members = gezi.ir.ChoiceSpine.members[Configured[C]](
               instruction,
               current =>
-                if current != instruction && names.contains(current) then None else Instruction.Choice.unapply(current)
+                if !Configured.same(current, instruction) && names.contains(current) then None
+                else
+                  current.layer match
+                    case Choice(left, right) => Some((left, right))
+                    case _                   => None
             )
             NarrowBlocks.chosenMember(members.map(kind)) match
               case Some(position) => chosen(members(position))
@@ -271,11 +290,11 @@ final case class NarrowBlockCompilation(index: StandardLibraryIndex, natives: Na
       * choice resolved (`chosen`). Stack-safe: a loop down the function
       * positions, the arguments gathered on the way.
       */
-    private def spine(instruction: Instruction): (Instruction, Vector[Instruction]) =
+    private def spine(instruction: Configured[C]): (Configured[C], Vector[Configured[C]]) =
       @scala.annotation.tailrec
-      def unwound(current: Instruction, outerArguments: List[Instruction]): (Instruction, Vector[Instruction]) =
+      def unwound(current: Configured[C], outerArguments: List[Configured[C]]): (Configured[C], Vector[Configured[C]]) =
         val resolved = chosen(current)
-        if names.contains(resolved) || resolved.opaque then (resolved, outerArguments.toVector)
+        if names.contains(resolved) || resolved.heldAsLeaf then (resolved, outerArguments.toVector)
         else
           resolved.layer match
             case Apply(function, argument) => unwound(function, argument :: outerArguments)
@@ -286,12 +305,12 @@ final case class NarrowBlockCompilation(index: StandardLibraryIndex, natives: Na
       * `scala.util.control.TailCalls`, so a natural nested as deep as a
       * program's term is read without a JVM frame per level.
       */
-    def closed(instruction: Instruction): Option[NarrowExpression[Instruction]] =
+    def closed(instruction: Configured[C]): Option[NarrowExpression[Configured[C]]] =
       closedReading(instruction).result
 
-    private def closedReading(instruction: Instruction): TailRec[Option[NarrowExpression[Instruction]]] =
+    private def closedReading(instruction: Configured[C]): TailRec[Option[NarrowExpression[Configured[C]]]] =
       val resolved = chosen(instruction)
-      if names.contains(resolved) || resolved.opaque then done(None)
+      if names.contains(resolved) || resolved.heldAsLeaf then done(None)
       else
         resolved.layer match
           case Parallel(value, criterion) =>
@@ -317,7 +336,7 @@ final case class NarrowBlockCompilation(index: StandardLibraryIndex, natives: Na
               case _ => done(None)
           case _ => done(None)
 
-    private def operand(instruction: Instruction): TailRec[Option[NarrowExpression[Instruction]]] =
+    private def operand(instruction: Configured[C]): TailRec[Option[NarrowExpression[Configured[C]]]] =
       kind(instruction) match
         case NarrowKind.Closed | NarrowKind.Native(_, 0, 0) => done(Some(NarrowExpression.Literal(instruction)))
         case _                                               => tailcall(closedReading(instruction))
@@ -330,10 +349,10 @@ final case class NarrowBlockCompilation(index: StandardLibraryIndex, natives: Na
       * folds it in one pass, bottom up.
       */
     private def folded(
-        closed: Instruction,
+        closed: Configured[C],
         name: NativeName,
-        read: Vector[NarrowExpression[Instruction]]
-    ): NarrowExpression[Instruction] =
+        read: Vector[NarrowExpression[Configured[C]]]
+    ): NarrowExpression[Configured[C]] =
       val call = NarrowExpression.Native(name, read)
       if stop.stopRequested then call
       else
@@ -344,7 +363,7 @@ final case class NarrowBlockCompilation(index: StandardLibraryIndex, natives: Na
     /** The value of an operand read: a folded natural's, a literal's decoded
       * (`decoded`); none otherwise.
       */
-    private def valueOf(read: NarrowExpression[Instruction]): Option[BigInt] = read match
+    private def valueOf(read: NarrowExpression[Configured[C]]): Option[BigInt] = read match
       case NarrowExpression.Folded(_, value) => Some(value)
       case NarrowExpression.Literal(literal) => decoded(literal)
       case _                                 => None
@@ -353,11 +372,11 @@ final case class NarrowBlockCompilation(index: StandardLibraryIndex, natives: Na
       * that does not read, which is the same as reading them all, reading
       * being pure.
       */
-    private def operands(instructions: Vector[Instruction]): TailRec[Option[Vector[NarrowExpression[Instruction]]]] =
+    private def operands(instructions: Vector[Configured[C]]): TailRec[Option[Vector[NarrowExpression[Configured[C]]]]] =
       NarrowBlockCompilation.allRead(instructions)(operand)
 
     /** The body of a closed function, or of a recursion's when `recursion`. */
-    def body(function: Instruction, recursion: Boolean): Option[NarrowExpression[Instruction]] =
+    def body(function: Configured[C], recursion: Boolean): Option[NarrowExpression[Configured[C]]] =
       function.layer match
         case Thunk(code, holes, fillings) =>
           NarrowBlocks.body(code, holes, fillings.map(filling => NarrowItem.Known(kind(filling), filling)), recursion)
@@ -373,16 +392,16 @@ final case class NarrowBlockCompilation(index: StandardLibraryIndex, natives: Na
       * part is kept, read in turn. Stack-safe: read on
       * `scala.util.control.TailCalls`.
       */
-    private def fullCalls(expression: NarrowExpression[Instruction]): Option[NarrowExpression[Instruction]] =
+    private def fullCalls(expression: NarrowExpression[Configured[C]]): Option[NarrowExpression[Configured[C]]] =
       fullCallsReading(expression).result
 
-    private def fullCallsReading(expression: NarrowExpression[Instruction]): TailRec[Option[NarrowExpression[Instruction]]] =
-      def all(expressions: Vector[NarrowExpression[Instruction]]): TailRec[Option[Vector[NarrowExpression[Instruction]]]] =
+    private def fullCallsReading(expression: NarrowExpression[Configured[C]]): TailRec[Option[NarrowExpression[Configured[C]]]] =
+      def all(expressions: Vector[NarrowExpression[Configured[C]]]): TailRec[Option[Vector[NarrowExpression[Configured[C]]]]] =
         NarrowBlockCompilation.allRead(expressions)(part => tailcall(fullCallsReading(part)))
       def withRest(
-          suppliedOperands: Option[Vector[NarrowExpression[Instruction]]],
-          arguments: Vector[NarrowExpression[Instruction]]
-      )(made: Vector[NarrowExpression[Instruction]] => NarrowExpression[Instruction]): TailRec[Option[NarrowExpression[Instruction]]] =
+          suppliedOperands: Option[Vector[NarrowExpression[Configured[C]]]],
+          arguments: Vector[NarrowExpression[Configured[C]]]
+      )(made: Vector[NarrowExpression[Configured[C]]] => NarrowExpression[Configured[C]]): TailRec[Option[NarrowExpression[Configured[C]]]] =
         suppliedOperands match
           case None => done(None)
           case Some(read) => all(arguments).map(_.map(rest => made(read ++ rest)))
@@ -417,16 +436,16 @@ final case class NarrowBlockCompilation(index: StandardLibraryIndex, natives: Na
       * not read.
       */
     def functionsOf(
-        expressions: Vector[NarrowExpression[Instruction]]
-    ): Either[String, Vector[(Instruction, Boolean, NarrowExpression[Instruction])]] =
+        expressions: Vector[NarrowExpression[Configured[C]]]
+    ): Either[String, Vector[(Configured[C], Boolean, NarrowExpression[Configured[C]])]] =
       @scala.annotation.tailrec
       def closedOver(
-          pending: List[(Instruction, Boolean)],
-          made: Vector[(Instruction, Boolean, NarrowExpression[Instruction])]
-      ): Either[String, Vector[(Instruction, Boolean, NarrowExpression[Instruction])]] =
+          pending: List[(Configured[C], Boolean)],
+          made: Vector[(Configured[C], Boolean, NarrowExpression[Configured[C]])]
+      ): Either[String, Vector[(Configured[C], Boolean, NarrowExpression[Configured[C]])]] =
         pending match
           case Nil => Right(made)
-          case (function, recursion) :: rest if made.exists((other, otherRecursion, _) => other == function && otherRecursion == recursion) =>
+          case (function, recursion) :: rest if made.exists((other, otherRecursion, _) => Configured.same(other, function) && otherRecursion == recursion) =>
             closedOver(rest, made)
           case (function, recursion) :: rest =>
             body(function, recursion) match
@@ -440,12 +459,12 @@ final case class NarrowBlockCompilation(index: StandardLibraryIndex, natives: Na
       * in its operands, the parts left to right. Stack-safe: a loop over the
       * parts still to walk.
       */
-    def calls(expression: NarrowExpression[Instruction]): Vector[(Instruction, Boolean)] =
+    def calls(expression: NarrowExpression[Configured[C]]): Vector[(Configured[C], Boolean)] =
       @scala.annotation.tailrec
       def walked(
-          pending: List[NarrowExpression[Instruction]],
-          made: Vector[(Instruction, Boolean)]
-      ): Vector[(Instruction, Boolean)] =
+          pending: List[NarrowExpression[Configured[C]]],
+          made: Vector[(Configured[C], Boolean)]
+      ): Vector[(Configured[C], Boolean)] =
         pending match
           case Nil => made
           case next :: rest =>
@@ -473,10 +492,10 @@ final case class NarrowBlockCompilation(index: StandardLibraryIndex, natives: Na
     * noinline name's instruction is its own layer (hash consing), read the
     * same way.
     */
-  private def decoded(instruction: Instruction): Option[BigInt] =
+  private def decoded(instruction: Configured[C]): Option[BigInt] =
     names.get(instruction) match
       case Some(NarrowKind.Native(BinaryNaturalFamily.zeroNative, 0, 0)) => Some(BigInt(0))
-      case _ if instruction.opaque                                       => None
+      case _ if instruction.heldAsLeaf                                       => None
       case _ =>
         instruction.layer match
           case Parallel(value, criterion) => decoded(value).filter(admitted(criterion, _))
@@ -520,14 +539,14 @@ final case class NarrowBlockCompilation(index: StandardLibraryIndex, natives: Na
         )
 
   /** The natural a constructor's native makes of its field. */
-  private def constructed(constructor: Instruction, field: BigInt): Option[BigInt] =
+  private def constructed(constructor: Configured[C], field: BigInt): Option[BigInt] =
     names.get(constructor) match
       case Some(NarrowKind.Native(BinaryNaturalFamily.evenNative, 1, 0)) if field > 0 => Some(field * 2)
       case Some(NarrowKind.Native(BinaryNaturalFamily.oddNative, 1, 0))               => Some(field * 2 + 1)
       case _                                                                         => None
 
   /** Whether the criterion `binary_set p` admits the canonical natural. */
-  private def admitted(criterion: Instruction, number: BigInt): Boolean =
+  private def admitted(criterion: Configured[C], number: BigInt): Boolean =
     kinds(Vector(criterion)).get(criterion) match
       case Some(NarrowKind.Criterion(admitsZero)) => admitsZero || number > 0
       case _                                      => false
@@ -535,15 +554,15 @@ final case class NarrowBlockCompilation(index: StandardLibraryIndex, natives: Na
   /** The domain, the range and the function of a term `arrow D R C`, the
     * contract read by its term under applications of the identity.
     */
-  private def contracted(term: Instruction): Option[(Instruction, Instruction, Instruction)] =
-    if term.opaque then None
+  private def contracted(term: Configured[C]): Option[(Configured[C], Configured[C], Configured[C])] =
+    if term.heldAsLeaf then None
     else
       term.layer match
         case Apply(partial, function) =>
           partial.layer match
             case Apply(head, range) =>
               head.layer match
-                case Apply(contractTerm, domain) if withoutIdentity(contractTerm) == NarrowBlockCompilation.contract =>
+                case Apply(contractTerm, domain) if Configured.same(withoutIdentity(contractTerm), Configured.fromPure(configuration.specializer)(NarrowBlockCompilation.contract)) =>
                   Some((domain, range, function))
                 case _ => None
             case _ => None
@@ -551,8 +570,8 @@ final case class NarrowBlockCompilation(index: StandardLibraryIndex, natives: Na
 
   /** The term with every application of the identity at its root taken off. */
   @scala.annotation.tailrec
-  private def withoutIdentity(term: Instruction): Instruction =
-    if term.opaque then term
+  private def withoutIdentity(term: Configured[C]): Configured[C] =
+    if term.heldAsLeaf then term
     else
       term.layer match
         case Apply(function, argument) if kinds(Vector(function)).get(function).contains(NarrowKind.Identity) =>
@@ -561,10 +580,10 @@ final case class NarrowBlockCompilation(index: StandardLibraryIndex, natives: Na
 
   /** The class of the blocks and the functions they call. */
   private final case class Generation(
-      found: Map[Instruction, NarrowKind],
+      found: Map[Configured[C], NarrowKind],
       reader: Reader,
-      blocks: Vector[NarrowExpression[Instruction]],
-      functions: Vector[(Instruction, Boolean, NarrowExpression[Instruction])],
+      blocks: Vector[NarrowExpression[Configured[C]]],
+      functions: Vector[(Configured[C], Boolean, NarrowExpression[Configured[C]])],
       lines: Option[ClassLines]
   ):
 
@@ -591,10 +610,10 @@ final case class NarrowBlockCompilation(index: StandardLibraryIndex, natives: Na
     private def generatedMethodType(parameters: Int): MethodTypeDesc =
       MethodTypeDesc.of(bigInteger, (Vector.fill(parameters)(bigInteger) :+ stopSignal)*)
 
-    private val functionNumbers: Map[(Instruction, Boolean), Int] =
+    private val functionNumbers: Map[(Configured[C], Boolean), Int] =
       functions.zipWithIndex.map { case ((function, recursion, _), number) => ((function, recursion), number) }.toMap
 
-    private def parameterCount(function: Instruction, recursion: Boolean): Int = function.layer match
+    private def parameterCount(function: Configured[C], recursion: Boolean): Int = function.layer match
       case Thunk(_, holes, _) => if recursion then holes.size - 1 else holes.size
       case other                    => throw IllegalStateException(s"a function is a thunk, not $other")
 
@@ -602,7 +621,7 @@ final case class NarrowBlockCompilation(index: StandardLibraryIndex, natives: Na
       * the order first met: a folded natural's computed, another literal's
       * decoded; nothing when one does not decode.
       */
-    private val literals: Option[Vector[(Instruction, BigInt)]] =
+    private val literals: Option[Vector[(Configured[C], BigInt)]] =
       val all = (blocks ++ functions.map(_._3)).flatMap(literalsOf).distinctBy(_._1)
       val read = all.map((literal, value) => value.orElse(decoded(literal)).map((literal, _)))
       Option.when(read.forall(_.isDefined))(read.flatten)
@@ -611,12 +630,12 @@ final case class NarrowBlockCompilation(index: StandardLibraryIndex, natives: Na
       * a closed natural read in place. Stack-safe: a loop over the parts
       * still to walk.
       */
-    private def literalsOf(expression: NarrowExpression[Instruction]): Vector[(Instruction, Option[BigInt])] =
+    private def literalsOf(expression: NarrowExpression[Configured[C]]): Vector[(Configured[C], Option[BigInt])] =
       @scala.annotation.tailrec
       def walked(
-          pending: List[NarrowExpression[Instruction]],
-          made: Vector[(Instruction, Option[BigInt])]
-      ): Vector[(Instruction, Option[BigInt])] =
+          pending: List[NarrowExpression[Configured[C]]],
+          made: Vector[(Configured[C], Option[BigInt])]
+      ): Vector[(Configured[C], Option[BigInt])] =
         pending match
           case Nil => made
           case next :: rest =>
@@ -645,9 +664,9 @@ final case class NarrowBlockCompilation(index: StandardLibraryIndex, natives: Na
       * natural that does not read; none when every part can be emitted.
       * Stack-safe: a loop over the parts still to walk.
       */
-    private def firstUnsupported(expressions: Vector[NarrowExpression[Instruction]]): Option[String] =
+    private def firstUnsupported(expressions: Vector[NarrowExpression[Configured[C]]]): Option[String] =
       @scala.annotation.tailrec
-      def walked(pending: List[NarrowExpression[Instruction]]): Option[String] =
+      def walked(pending: List[NarrowExpression[Configured[C]]]): Option[String] =
         pending match
           case Nil => None
           case next :: rest =>
@@ -695,7 +714,7 @@ final case class NarrowBlockCompilation(index: StandardLibraryIndex, natives: Na
     def classFile(): Either[String, Array[Byte]] = checked.map(bytes)
 
     /** The literals decoded, when the class can be built. */
-    private def checked: Either[String, Vector[(Instruction, BigInt)]] =
+    private def checked: Either[String, Vector[(Configured[C], BigInt)]] =
       for
         decodedLiterals <- literals.toRight("a literal does not decode")
         _ <- firstUnsupported(blocks ++ functions.map(_._3)).toLeft(())
@@ -707,7 +726,7 @@ final case class NarrowBlockCompilation(index: StandardLibraryIndex, natives: Na
       * and, for blocks from several files, the `SourceDebugExtension`, and a
       * line at the start of each block's method that has a place.
       */
-    private def bytes(decodedLiterals: Vector[(Instruction, BigInt)]): Array[Byte] =
+    private def bytes(decodedLiterals: Vector[(Configured[C], BigInt)]): Array[Byte] =
       val literalIndex = decodedLiterals.map(_._1).zipWithIndex.toMap
       val resolver = ClassHierarchyResolver
         .defaultResolver()
@@ -820,9 +839,9 @@ final case class NarrowBlockCompilation(index: StandardLibraryIndex, natives: Na
       * class file writer does when its offset does not fit), a closed natural
       * read in place. Stack-safe: a loop over the parts still to walk.
       */
-    private def codeSizeBound(expression: NarrowExpression[Instruction]): Long =
+    private def codeSizeBound(expression: NarrowExpression[Configured[C]]): Long =
       @scala.annotation.tailrec
-      def walked(pending: List[NarrowExpression[Instruction]], total: Long): Long =
+      def walked(pending: List[NarrowExpression[Configured[C]]], total: Long): Long =
         pending match
           case Nil => total
           case next :: rest =>
@@ -924,7 +943,7 @@ final case class NarrowBlockCompilation(index: StandardLibraryIndex, natives: Na
     private object EmissionStep:
 
       /** The expression emitted under the emission. */
-      def expression(expression: NarrowExpression[Instruction], emission: Emission): EmissionStep =
+      def expression(expression: NarrowExpression[Configured[C]], emission: Emission)(using C): EmissionStep =
         EmissionStep(() => emission.steps(expression))
 
       /** The bytecode `emitted` emits. */
@@ -950,7 +969,7 @@ final case class NarrowBlockCompilation(index: StandardLibraryIndex, natives: Na
       */
     private final case class Emission(
         code: CodeBuilder,
-        literalIndex: Map[Instruction, Int],
+        literalIndex: Map[Configured[C], Int],
         recursion: Option[(Int, Int)],
         slots: Map[Int, Int],
         nextSlot: Int,
@@ -963,11 +982,11 @@ final case class NarrowBlockCompilation(index: StandardLibraryIndex, natives: Na
         * expression nested as deep as a program's term is emitted without a
         * JVM frame per level.
         */
-      def emitted(expression: NarrowExpression[Instruction]): Unit =
+      def emitted(expression: NarrowExpression[Configured[C]]): Unit =
         emittedInOrder(List(EmissionStep.expression(expression, this)))
 
       /** The steps that emit the expression, in the order of its bytecode. */
-      def steps(expression: NarrowExpression[Instruction]): List[EmissionStep] = expression match
+      def steps(expression: NarrowExpression[Configured[C]]): List[EmissionStep] = expression match
         case NarrowExpression.Literal(literal) =>
           List(EmissionStep.emitting(() =>
             code.ldc(
@@ -1058,7 +1077,7 @@ final case class NarrowBlockCompilation(index: StandardLibraryIndex, natives: Na
           )
 
       /** The steps that push the operands, in order. */
-      private def operandSteps(arguments: Vector[NarrowExpression[Instruction]]): List[EmissionStep] =
+      private def operandSteps(arguments: Vector[NarrowExpression[Configured[C]]]): List[EmissionStep] =
         arguments.toList.map(EmissionStep.expression(_, this))
 
 /** The operations of the natives a narrow block calls. */
@@ -1067,23 +1086,29 @@ object NarrowBlockCompilation:
   /** The closed term of a code read at the closed terms of its slots.
     * Stack-safe: read on `scala.util.control.TailCalls`.
     */
-  def instantiated(code: gezi.ir.Code, environment: Map[Int, Instruction]): Instruction =
+  def instantiated[C <: NativeSpecializer & Singleton](code: gezi.ir.Code, environment: Map[Int, Configured[C]])(using C): Configured[C] =
     instantiation(code, environment).result
 
-  private def instantiation(code: gezi.ir.Code, environment: Map[Int, Instruction]): TailRec[Instruction] =
-    def both(left: gezi.ir.Code, right: gezi.ir.Code)(made: (Instruction, Instruction) => Instruction): TailRec[Instruction] =
+  private def instantiation[C <: NativeSpecializer & Singleton](code: gezi.ir.Code, environment: Map[Int, Configured[C]])(using
+      specializer: C
+  ): TailRec[Configured[C]] =
+    def both(left: gezi.ir.Code, right: gezi.ir.Code)(made: (Configured[C], Configured[C]) => Configured[C]): TailRec[Configured[C]] =
       tailcall(instantiation(left, environment)).flatMap(instantiatedLeft =>
         tailcall(instantiation(right, environment)).map(made(instantiatedLeft, _))
       )
     code.layer match
       case Slot(slot) =>
         done(environment.getOrElse(slot, throw IllegalStateException(s"the slot $slot of a closed code has no term")))
-      case Apply(function, argument) => both(function, argument)(Instruction.Apply(_, _))
-      case Parallel(left, right)     => both(left, right)(Instruction.Parallel(_, _))
-      case Choice(left, right)       => both(left, right)(Instruction.Choice(_, _))
+      case Apply(function, argument) => both(function, argument)(specializer.application(_, _))
+      case Parallel(left, right)     => both(left, right)(specializer.parallel(_, _))
+      case Choice(left, right)       => both(left, right)(specializer.choice(_, _))
       case Thunk(inner, holes, fillings) =>
-        TailRecFolds.folded(fillings.toVector, Vector.empty[Instruction])((made, filling) => instantiation(filling, environment).map(made :+ _))
-          .map(Instruction.Thunk(inner, holes, _))
+        TailRecFolds.folded(fillings.toVector, Vector.empty[Configured[C]])((made, filling) => instantiation(filling, environment).map(made :+ _))
+          .map(filled =>
+            gezi.ir.NonEmptyHoles.of(holes) match
+              case Some(present) => specializer.thunk(inner, present, filled)
+              case None          => specializer.instance(inner, filled)
+          )
 
   /** Each item read, in order; nothing at the first item that does not
     * read. A reading of `scala.util.control.TailCalls`, so that it is
@@ -1101,9 +1126,9 @@ object NarrowBlockCompilation:
     * end writes it: a constructor under it, `arrow D R C`, is C on an
     * argument D admits, giving a value R admits, by β.
     */
-  lazy val contract: Instruction =
+  lazy val contract: gezi.ir.Pure =
     import gezi.frontend.Term.λ
-    Defunctionalization.thunkInstruction(
+    Defunctionalization.pure(
       λ(domain => λ(range => λ(function => λ(argument => function(argument ∥ domain) ∥ range)))).deBruijnTerm(Map.empty)
     )
 

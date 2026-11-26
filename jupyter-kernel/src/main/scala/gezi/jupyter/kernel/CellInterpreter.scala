@@ -15,19 +15,20 @@ import gezi.contest.entry.Entry
 import gezi.contest.entry.Interaction
 import gezi.hotspot.ExpansionSource
 import gezi.contest.entry.OutputDisplay
+import gezi.weakhead.ScottADTChoices
 import gezi.directorysugar.DirectoryTree
 import gezi.frontend.DeBruijnTerm
-import gezi.frontend.Defunctionalization
-import gezi.frontend.Lambdalattice
 import gezi.frontend.LambdalatticeMalformed
-import gezi.ir.Instruction
 import gezi.saturation.StopSignal
+import gezi.ir.{Closed, Configured, NativeSpecializer, StorageAccess}
+import gezi.frontend.DeBruijnTermOf
 
-/** The kernel's state: the notebook, the entry as the cells so far left it
+/** The kernel's session of the configuration `C` of its entry: the notebook, the entry as the cells so far left it
   * (what its executor keeps from call to call, `Interaction.Finished`), and
-  * the count of cells.
+  * the count of cells. The kernel holds it as a `Session[?]` and opens it for each message by a method generic in
+  * `C` (capture conversion), never by a type pattern.
   */
-final case class KernelState(notebook: Notebook, entry: Entry, count: Int)
+final case class Session[C <: NativeSpecializer & Singleton](notebook: Notebook[C], entry: Entry[C], count: Int)
 
 /** The Jupyter kernel of lambdalattice cells, an adapter of almond's
   * `Interpreter`, whose cells are the mixins of one notebook: each
@@ -53,10 +54,10 @@ final case class KernelState(notebook: Notebook, entry: Entry, count: Int)
   * ([[gezi.jupyter.kernel]]).
   */
 @SuppressWarnings(Array("gezi.warts.NoJavaUtilConcurrent")) // 可以用almond。可以把整个基于almond的适配层都当成”局部“ (the user, 2026-11-02)
-final class CellInterpreter(initial: KernelState, traces: Option[CellTraces]) extends Interpreter:
+final class CellInterpreter(initial: Session[?], traces: Option[CellTraces]) extends Interpreter:
 
   // 可以用almond。可以把整个基于almond的适配层都当成”局部“
-  private val current = java.util.concurrent.atomic.AtomicReference[KernelState](initial)
+  private val current = java.util.concurrent.atomic.AtomicReference[Session[?]](initial)
 
   // 可以用almond。可以把整个基于almond的适配层都当成”局部“: the count of the
   // interrupts Jupyter has sent, which almond's control thread raises while a
@@ -86,7 +87,20 @@ final class CellInterpreter(initial: KernelState, traces: Option[CellTraces]) ex
     // The count of interrupts read before anything else, so that an
     // interrupt that arrives while the cell is still being read stops it.
     val interrupted = CellInterpreter.Interrupted(() => interrupts.get, interrupts.get)
-    val state = current.get
+    val (after, result) = executed(current.get, code, storeHistory, messageOpt, interrupted)
+    current.set(after)
+    result
+
+  /** The cell run in the session of the configuration `C`: the session after it and the result. */
+  private def executed[C <: NativeSpecializer & Singleton](
+      state: Session[C],
+      code: String,
+      storeHistory: Boolean,
+      messageOpt: Option[Message[Execute.Request]],
+      interrupted: CellInterpreter.Interrupted
+  ): (Session[C], ExecuteResult) =
+    given C = state.entry.specializer
+    given StorageAccess = CellInterpreter.storageAccess
     val id = messageOpt.flatMap(CellInterpreter.cellId).getOrElse(s"execution ${state.count + 1}")
     // An exemption from the rule against catching, since a read error here
     // is the cell's error and not the kernel's: a cell that does not read, or that reads a file of the tree
@@ -103,7 +117,7 @@ final class CellInterpreter(initial: KernelState, traces: Option[CellTraces]) ex
           case _: gezi.frontend.LambdalatticeProblem.Syntax =>
             s", its offset counted in code points from the start of the text the kernel reads, the cell after ${NotebookCell.openingLength(state.notebook.location)} code points of the kernel's own"
           case _ => ""
-        CellInterpreter.error("LambdalatticeMalformed", s"the cell does not read: ${malformed.problem}$offset")
+        (state, CellInterpreter.error("LambdalatticeMalformed", s"the cell does not read: ${malformed.problem}$offset"))
       case Right(cell) =>
         val notebook = state.notebook.added(cell)
         val tracesBefore = traces.fold(Vector.empty[Path])(_.traces())
@@ -116,26 +130,31 @@ final class CellInterpreter(initial: KernelState, traces: Option[CellTraces]) ex
         // from an earlier cell answers this one from an older content
         // (`Entry.run`).
         val source = ExpansionSource.fresh()
-        val ran: Either[LambdalatticeMalformed, (Entry, Vector[String])] =
+        notebook.written()
+        val ran: Either[LambdalatticeMalformed, (Entry[C], Vector[String])] =
           try Right(outputs(notebook, cell, state.entry, source, stop))
           catch case malformed: LambdalatticeMalformed => Left(malformed)
         ran match
           case Left(malformed) =>
-            CellInterpreter.error("LambdalatticeMalformed", s"a text read while the cell ran does not read: ${malformed.problem}")
+            (state, CellInterpreter.error("LambdalatticeMalformed", s"a text read while the cell ran does not read: ${malformed.problem}"))
           case Right((after, lines)) if interrupted.stopRequested =>
-            current.set(KernelState(notebook, after, if storeHistory then state.count + 1 else state.count))
-            CellInterpreter.error(
-              "Interrupted",
-              ("the cell was interrupted while its outputs were read, which is no semantic conclusion; the cell is in the notebook" +: lines)
-                .mkString("\n")
+            (
+              Session(notebook, after, if storeHistory then state.count + 1 else state.count),
+              CellInterpreter.error(
+                "Interrupted",
+                ("the cell was interrupted while its outputs were read, which is no semantic conclusion; the cell is in the notebook" +: lines)
+                  .mkString("\n")
+              )
             )
           case Right((after, lines)) =>
-            current.set(KernelState(notebook, after, if storeHistory then state.count + 1 else state.count))
             val text = lines.mkString("\n")
-            ExecuteResult.Success(traces.fold(DisplayData.text(text))(written =>
-              val pages = written.pagesWritten(written.traces().filterNot(tracesBefore.contains))
-              DisplayData().add("text/plain", text).add("text/html", written.html(text, pages))
-            ))
+            (
+              Session(notebook, after, if storeHistory then state.count + 1 else state.count),
+              ExecuteResult.Success(traces.fold(DisplayData.text(text))(written =>
+                val pages = written.pagesWritten(written.traces().filterNot(tracesBefore.contains))
+                DisplayData().add("text/plain", text).add("text/html", written.html(text, pages))
+              ))
+            )
 
   def currentLine(): Int = current.get.count
 
@@ -166,13 +185,13 @@ final class CellInterpreter(initial: KernelState, traces: Option[CellTraces]) ex
     * member is a Moore machine state the entry runs with the JVM service
     * (`Entry.interacted`), and shows each answer as the entry reads it.
     */
-  private def outputs(
-      notebook: Notebook,
+  private def outputs[C <: NativeSpecializer & Singleton](
+      notebook: Notebook[C],
       cell: NotebookCell,
-      entry: Entry,
+      entry: Entry[C],
       source: ExpansionSource,
       stop: StopSignal
-  ): (Entry, Vector[String]) =
+  )(using C, StorageAccess): (Entry[C], Vector[String]) =
     cell.outputs.foldLeft((entry, Vector.empty[String])) { case ((before, lines), key) =>
       val member = notebook.member(key)
       if key.isIo then
@@ -181,8 +200,8 @@ final class CellInterpreter(initial: KernelState, traces: Option[CellTraces]) ex
             (before, lines :+ OutputLine.Remark("this entry's executor runs no FFI program").written(key.shown))
           case Some(run) =>
             val (afterAnswers, answered) = run.answers.foldLeft((run.entry, Vector.empty[OutputLine])) { case ((current, shown), answer) =>
-              val (next, answerLines) = CellInterpreter.shown(current, answer, source, stop)
-              (next, shown ++ answerLines)
+              val (next, display) = current.displayed(answer, source, stop)
+              (next, shown ++ CellInterpreter.displayed(display))
             }
             val shown = if run.finished then answered else answered :+ OutputLine.Remark(CellInterpreter.notFinished)
             (afterAnswers, lines ++ (if shown.isEmpty then Vector(OutputLine.Remark("no answer")) else shown).map(_.written(key.shown)))
@@ -212,11 +231,22 @@ object CellInterpreter:
   def started(
       visible: Path,
       location: NotebookLocation,
-      entry: Entry,
+      entry: Entry[?],
       traces: Option[CellTraces]
-  ): CellInterpreter =
-    val notebook = Notebook(location, DirectoryTree.rootOf(visible), Vector.empty)
-    CellInterpreter(KernelState(notebook, entry, 0), traces)
+  ): CellInterpreter = CellInterpreter(session(visible, location, entry), traces)
+
+  /** The capability to read a storage's view, which the kernel needs to write a display: the adapter's own. */
+  private[kernel] val storageAccess: StorageAccess = StorageAccess.granted()
+
+  /** The first session of the entry's configuration, opened from `Entry[?]` by capture conversion. */
+  private def session[C <: NativeSpecializer & Singleton](visible: Path, location: NotebookLocation, entry: Entry[C]): Session[C] =
+    // The kernel's own file of the cells, gone when the JVM exits; deleteOnExit runs in reverse order, the file first.
+    val directory = java.nio.file.Files.createTempDirectory("gezi-kernel-cells")
+    directory.toFile.deleteOnExit()
+    val cellsFile = directory.resolve(s"cells${DirectoryTree.fileExtension}")
+    cellsFile.toFile.deleteOnExit()
+    val notebook = Notebook[C](location, DirectoryTree.rootOf[C](visible)(using entry.specializer), Vector.empty, Some(cellsFile))
+    Session(notebook, entry, 0)
 
   /** The Jupyter cell id an `execute_request` carries in its metadata, as
     * JupyterLab and VS Code send it (`cellId`); none from a front end that
@@ -233,40 +263,42 @@ object CellInterpreter:
   private val cellIdPattern = "\"cellId\"\\s*:\\s*\"([a-zA-Z0-9_-]+)\"".r
 
   /** The lines of the value as the entry reads it, the Output of the cell
-    * `λs. λk. k s ((λx. x) V)` (`Cells.cell`): its display, or that the
+    * `λs. λk. k s V` (`Cells.cell`): its display, or that the
     * entry did not finish; and the entry after the run, the one before it
     * when the run did not finish. The entry stops at its next check of the
-    * stop (`Entry.run`). The value is applied to the identity so that the
-    * Output is an application (`displayed`): a value that is a normal form
-    * already is displayed as itself. The entry reads it under the expansion
+    * stop (`Entry.run`). The entry reads it under the expansion
     * source given.
     */
-  def shown(entry: Entry, value: Instruction, source: ExpansionSource, stop: StopSignal): (Entry, Vector[OutputLine]) =
-    val output = Instruction.Apply(identity, value)
+  def shown[C <: NativeSpecializer & Singleton](entry: Entry[C], value: Configured[C], source: ExpansionSource, stop: StopSignal)(using
+      C,
+      StorageAccess
+  ): (Entry[C], Vector[OutputLine]) =
     if stop.stopRequested then (entry, Vector(OutputLine.Remark(notFinished)))
     else
-      entry.run(Cells.cell(DeBruijnTerm.Constant(output)), source, stop) match
+      entry.run(Cells.cell[Configured[C]](DeBruijnTerm.Constant[Configured[C]](value)), source, stop) match
         case Interaction.Finished(_, _, after) if stop.stopRequested => (after, Vector(OutputLine.Remark(notFinished)))
-        case Interaction.Finished(display, _, after)                 => (after, displayed(display, output))
+        case Interaction.Finished(display, _, after)                 => (after, displayed(display))
 
-  /** The lines of an entry's display of the Output, an application: each
-    * member of its choice, a term the Output equals; that it has none; or,
-    * for the Output itself, that the entry did not evaluate it, which
-    * `gezi.contest.entry.generic.GenericEntry` displays when a round of its
-    * reading stops at its limit. A closed normal form is an abstraction, so
-    * the display of an application as itself is never one of its normal
-    * forms; an Output that might be its own normal form is first applied to
-    * the identity (`shown`).
+  /** The lines of an entry's display, which shows the Scott ADT values only: each member of the values as the
+    * Scott ADT reading writes it, a term the Output is ⊑_O; that there is none (a value that is a function has none,
+    * though it has a normal form); or, for a display that is the term left unevaluated, that the entry did not
+    * evaluate it, which `gezi.contest.entry.generic.GenericEntry` displays when a round of its reading stops at its
+    * limit. No placeholder stands for a member that is no Scott ADT value.
+    * Each member is written by the Scott ADT reading (`ReadableText.scottADTText`, the member with its filters back,
+    * `ScottADTChoices.withFilters`), in the order of the texts, so that a set of values has one display.
     */
-  def displayed(display: OutputDisplay, output: Instruction): Vector[OutputLine] = display match
-    case OutputDisplay.NoNormalForm => Vector(OutputLine.Remark("no normal form"))
-    case OutputDisplay.Shown(term) if term == output =>
+  def displayed[C <: NativeSpecializer & Singleton](display: OutputDisplay[C])(using C, StorageAccess): Vector[OutputLine] = display match
+    case OutputDisplay.Values(choices) =>
+      val members = ScottADTChoices.members(choices)
+      if members.isEmpty then Vector(OutputLine.Remark("no Scott ADT value"))
+      else
+        members
+          .map(member => gezi.frontend.ReadableText.scottADTText(ScottADTChoices.withFilters(member)))
+          .sorted
+          .map(OutputLine.Equal(_))
+    case OutputDisplay.Remainder(_) =>
       Vector(OutputLine.Remark("not evaluated: the entry stopped at a limit of its reading, which is no semantic conclusion"))
-    case OutputDisplay.Shown(Instruction.ChoiceMembers(members)) =>
-      members.map(member => OutputLine.Equal(Lambdalattice.text(Defunctionalization.instructionTerm(member), Map.empty)))
-
-  /** The identity `λx. x`. */
-  private val identity: Instruction = Defunctionalization.thunkInstruction(DeBruijnTerm.Lambda(DeBruijnTerm.Variable(0)))
+    case OutputDisplay.Mixed(choices, _) => displayed(OutputDisplay.Values(choices))
 
   /** The seconds the entry may spend on a cell, its reading and showing of
     * every key and the calls of its io members. A value's normal forms can be many more

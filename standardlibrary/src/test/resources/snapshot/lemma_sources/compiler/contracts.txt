@@ -1,5 +1,0 @@
-zero_filtered: filter_nat zero = zero
-true_filtered: filter_boolean true = true
-false_filtered: filter_boolean false = false
-filter_nat_idempotent: compose filter_nat filter_nat = filter_nat
-unary_as_fold: unary = nat_fold zero successor

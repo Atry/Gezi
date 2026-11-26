@@ -35,7 +35,7 @@ object Hidden37Workers:
   /** `(\assign. \min. Place Jobs Times (\caps. difference Budget (foldr min Budget caps))) Assign Min`
     * (`workers_term/4`).
     */
-  def workersTerm(attractors: Attractors, jobs: Vector[Int], workers: Int, budget: Int): Term =
+  def workersTerm(attractors: Attractors, jobs: Vector[Int], workers: Int, budget: Int): ProblemTerm =
     val foldr = attractors.functionSurface("foldr", Spelling.Direct)
     val difference = attractors.functionSurface("natural_difference", Spelling.Direct)
     λ(assign =>
@@ -49,7 +49,7 @@ object Hidden37Workers:
   /** The job placed on a worker whose cap it fits, or on a later one
     * (`assign_function/1`).
     */
-  private def assignFunction(attractors: Attractors): Term =
+  private def assignFunction(attractors: Attractors): ProblemTerm =
     val atLeast = attractors.functionSurface("natural_at_least", Spelling.Direct)
     val difference = attractors.functionSurface("natural_difference", Spelling.Direct)
     val consOne = attractors.attractorSurface("cons", Spelling.Direct)
@@ -76,7 +76,7 @@ object Hidden37Workers:
     )
 
   /** Every job assigned in turn (`place_function/2`). */
-  private def placeFunction(attractors: Attractors, assign: Term): Term =
+  private def placeFunction(attractors: Attractors, assign: ProblemTerm): ProblemTerm =
     attractors.fixpoint(
       λ(self =>
         λ(jobs =>
@@ -90,12 +90,12 @@ object Hidden37Workers:
     )
 
   /** `\a. \b. at_least a b b a` (`min_function/1`). */
-  private def minimumFunction(attractors: Attractors): Term =
+  private def minimumFunction(attractors: Attractors): ProblemTerm =
     val atLeast = attractors.functionSurface("natural_at_least", Spelling.Direct)
     λ(first => λ(second => atLeast(first)(second)(second)(first)))
 
   /** The Scott list of the unary numerals (`numerals_surface/2`). */
-  private def numeralsSurface(attractors: Attractors, numbers: Vector[Int]): Term =
+  private def numeralsSurface(attractors: Attractors, numbers: Vector[Int]): ProblemTerm =
     SetFree.scottList(attractors, numbers.map(unary))
 
   /** The least time within which the workers finish the jobs, the first

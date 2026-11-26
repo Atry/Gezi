@@ -6,22 +6,28 @@ import gezi.backendcomparison.RunInput
 import gezi.orientation.Orientation
 import gezi.ir.CodeLayer
 import gezi.ir.Code
-import gezi.ir.Instruction
-import gezi.ir.Layer
+import gezi.ir.IrLayer
+import gezi.ir.NativeStorage
+import gezi.ir.Opaque
+import gezi.ir.UriNode
 import gezi.ir.LemmaIdentifier
 import gezi.ir.Pattern
 import gezi.ir.Store
 import scala.annotation.tailrec
-import gezi.ir.{Apply, Choice, NoinlineLeaf, Parallel, Slot, Thunk}
+import gezi.ir.{Apply, Choice, Parallel, Slot, Thunk}
+import gezi.ir.{Configured, NativeSpecializer, NoFacts}
+
+/** The configuration of the terms here: no facts. */
+private given exportedNumberingNoFacts: NoFacts.type = NoFacts
 
 /** A run's input with the exporter's numbering of its instructions and codes: the
   * instructions and the codes in the order the walk numbered them, each one's
   * number its position.
   */
-final case class ExportedInput(runInput: RunInput, instructions: Vector[Instruction], codes: Vector[Code]):
+final case class ExportedInput(runInput: RunInput[NoFacts.type], instructions: Vector[Configured[NoFacts.type]], codes: Vector[Code]):
 
   /** The numbers of the constants of a fixed point's projection in this numbering. */
-  def constantNumbers(projection: Projection): ConstantNumbers = ConstantNumbers.numbered(instructions, codes, projection)
+  def constantNumbers(projection: Projection[NoFacts.type]): ConstantNumbers[NoFacts.type] = ConstantNumbers.numbered(instructions, codes, projection)
 
 /** The numbering of instructions, codes and lemmas the Prolog exporter gave a
   * fixture (its `store_numbered/4`).
@@ -34,27 +40,25 @@ final case class ExportedInput(runInput: RunInput, instructions: Vector[Instruct
   * first time is numbered and walked the same way.
   *
   * The form of a fixed point names leaves and codes by number
-  * (`gezi.backendcomparison.ConstantNumbers`), and the text of an input
-  * (`InputText`) names every instruction and code by number, so a run compared
-  * with the reference forms and inputs of the fixtures reads its constants
-  * in this numbering. The instructions stay the canonical instructions; lemmas, which
+  * (`gezi.backendcomparison.ConstantNumbers`), so a run compared with the
+  * reference forms of the fixtures reads its constants in this numbering. The instructions stay the canonical instructions; lemmas, which
   * are numbered in any case, are renumbered.
   */
 object ExportedNumbering:
 
   /** One thing the walk meets. */
-  private enum Met:
-    case InstructionMet(instruction: Instruction)
+  private enum Met[C <: NativeSpecializer & Singleton]:
+    case InstructionMet(instruction: Configured[C])
     case CodeMet(code: Code)
-    case PatternMet(pattern: Pattern)
+    case PatternMet(pattern: Pattern[C])
     case LemmaMet(lemma: LemmaIdentifier)
 
   /** The numbers given so far: the instructions and codes in the order they were
     * numbered, the sets of those met, and each lemma's number.
     */
-  private final case class Numbers(
-      instructionOrder: Vector[Instruction],
-      instructionsMet: Set[Instruction],
+  private final case class Numbers[C <: NativeSpecializer & Singleton](
+      instructionOrder: Vector[Configured[C]],
+      instructionsMet: Set[Configured[C]],
       codeOrder: Vector[Code],
       codesMet: Set[Code],
       lemmas: Map[LemmaIdentifier, LemmaIdentifier]
@@ -66,10 +70,10 @@ object ExportedNumbering:
     * the instructions the e-graph never expands.
     */
   def renumbered(
-      noinline: Set[Instruction],
-      orientations: Vector[Orientation],
-      patternInstructions: Vector[Instruction],
-      inputs: Vector[Instruction],
+      noinline: Set[Configured[NoFacts.type]],
+      orientations: Vector[Orientation[NoFacts.type]],
+      patternInstructions: Vector[Configured[NoFacts.type]],
+      inputs: Vector[Configured[NoFacts.type]],
       budget: Int
   ): ExportedInput =
     val start =
@@ -82,13 +86,13 @@ object ExportedNumbering:
           ) ++ orientation.shared.map(Met.PatternMet(_))
         ) ++
         inputs.map(Met.InstructionMet(_))
-    val numbers = walked(
+    val numbers = walked[NoFacts.type](
       start.toList,
       noinline,
       Numbers(Vector.empty, Set.empty, Vector.empty, Set.empty, Map.empty)
     )
     val runInput = RunInput(
-      Store(noinline),
+      Store(noinline, gezi.ir.TermConstruction(gezi.ir.NoFacts)),
       orientations.map(orientation => orientation.copy(lemma = numbers.lemmas(orientation.lemma))),
       patternInstructions,
       inputs,
@@ -100,11 +104,11 @@ object ExportedNumbering:
     * the rest, so that the things are numbered in preorder.
     */
   @tailrec
-  private def walked(
-      pending: List[Met],
-      noinline: Set[Instruction],
-      numbers: Numbers
-  ): Numbers = pending match
+  private def walked[C <: NativeSpecializer & Singleton](
+      pending: List[Met[C]],
+      noinline: Set[Configured[C]],
+      numbers: Numbers[C]
+  )(using C): Numbers[C] = pending match
     case Nil => numbers
     case met :: rest =>
       met match
@@ -117,7 +121,7 @@ object ExportedNumbering:
             )
             val below =
               if noinline.contains(instruction) then Nil
-              else layerParts(instruction, instruction.layered)
+              else layerParts(instruction, instruction.layer)
             walked(below ++ rest, noinline, numbered)
         case Met.CodeMet(code) =>
           if numbers.codesMet.contains(code) then walked(rest, noinline, numbers)
@@ -141,15 +145,17 @@ object ExportedNumbering:
           walked(rest, noinline, numbered)
 
   /** The parts of an instruction's layer the walk meets, in layer order. */
-  private def layerParts(instruction: Instruction, layer: Layer[Instruction]): List[Met] = layer match
+  private def layerParts[C <: NativeSpecializer & Singleton](instruction: Configured[C], layer: IrLayer[Configured[C]])(using C): List[Met[C]] = layer match
     case Thunk(code, _, fillings) =>
       Met.CodeMet(code) :: fillings.map(Met.InstructionMet(_)).toList
-    case NoinlineLeaf(_) =>
+    case _: UriNode | _: Opaque | _: NativeStorage =>
       throw IllegalStateException(s"the instruction $instruction has a leaf layer")
-    case compound => compound.children.map(Met.InstructionMet(_)).toList
+    case Apply(function, argument) => List(Met.InstructionMet(function), Met.InstructionMet(argument))
+    case Parallel(left, right)     => List(Met.InstructionMet(left), Met.InstructionMet(right))
+    case Choice(left, right)       => List(Met.InstructionMet(left), Met.InstructionMet(right))
 
   /** The parts of a code the walk meets, in order. */
-  private def codeParts(code: CodeLayer[Code]): List[Met] = code match
+  private def codeParts[C <: NativeSpecializer & Singleton](code: CodeLayer[Code]): List[Met[C]] = code match
     case Slot(_)                    => Nil
     case Apply(function, argument)  => List(Met.CodeMet(function), Met.CodeMet(argument))
     case Parallel(left, right)      => List(Met.CodeMet(left), Met.CodeMet(right))

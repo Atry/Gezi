@@ -4,10 +4,12 @@ import LambdaJit.EndToEnd
 # The writer's encoding of an IR term as an article term
 
 Link (ii) of D6 is that the article term that
-the writer `gezi/prolog/gezi/opentheory_article.pl` writes for an IR term reads, by
-`Interpretation.read`, as the readback of that IR term (`Readback.readback`). This module states
-the writer's encoding in Lean (`encode`) and proves that its reading is the readback; that the
-Prolog writer computes `encode` is tested, not proved (the last paragraph below).
+the writer `gezi/proofs/src/main/scala/gezi/proofs/OpentheoryArticle.scala` writes for an IR term
+reads, by `Interpretation.read`, as the readback of that IR term (`Readback.readback`). This module
+states the writer's encoding in Lean (`encode`) and proves that its reading is the readback; that
+the writer computes `encode` is tested, not proved (the last paragraph below). The names of the
+Prolog writer's predicates below (`key_encoding/2` and the others) are those of the deleted Prolog
+writer, which the Scala one ported (`OpentheoryArticle.scala`, the Scaladoc of `Encoding`).
 
 - `nameOf` and `signatureWellFormed`: the name of a thunk constant is the article's (D7.1), the
   entry of the signature with its code and holes; on a signature with distinct names, none of
@@ -29,14 +31,15 @@ Prolog writer computes `encode` is tested, not proved (the last paragraph below)
   exported equation is the encoding of two finite terms: their readbacks are contextually
   equivalent, ≃_O of DdLP96's Definition 14.
 
-The definitions are tied to the writer by the test
-`the_writer_encodes_as_lean_encodes_on_the_fixpoint_runs` of
-`gezi/tests/opentheory_article.plt`, which compares the writer's encoding (`term_encoded/2`)
-of the two sides of each of the seven fixpoint runs with `encode` of the same IR terms, printed by
-Lean, byte for byte, and checks with Lean that the exported equation of each run's expected
-article is the encoding of its two sides; the kernel checks the latter too (modules
+The definitions are tied to the writer by the test `theWriterEncodesAsLeanEncodesOnTheFixpointRuns`
+of `gezi/strategies/src/test/scala/gezi/strategies/OpentheoryArticleFixpointRunsTest.scala`, which
+compares the writer's encoding (`OpentheoryArticle.termEncoded`) of the two sides of each of the
+seven fixpoint runs with `encode` of the same IR terms under the signature of the writer's thunk
+constants, printed by Lean, byte for byte; the kernel checks that the exported equation of each
+run's expected article is the encoding of its two sides under the article's signature (modules
 `FixpointRunSides` and `FixpointRunFixtures`). That is a check on those terms, not a proof that the
-Prolog writer computes `encode` (FIXME at `key_term_written/2` of the writer).
+writer computes `encode` (the FIXME at `Encoding` of
+`gezi/proofs/src/main/scala/gezi/proofs/OpentheoryArticle.scala`).
 -/
 
 namespace LambdaJit.Encoding

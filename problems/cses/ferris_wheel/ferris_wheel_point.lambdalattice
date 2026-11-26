@@ -1,0 +1,61 @@
+# The base problems of the CSES families repeated_cses_ferris_wheel_*: the weight limit x of a gondola and a list of the children's weights, the answer the fewest gondolas, each holding one child or two whose weights sum to at most x.
+#
+# THE ANSWER of each row is the problem's definition computed exhaustively by a
+# brute-force script (2026-11-22), which enumerates every candidate the problem's
+# statement describes. PROOF: the program of the problem's file follows the
+# definition, and its header argues under Definition 14 that its one normal form
+# is that answer; the data are finite and within the family's bottom rungs, which
+# the reference reading answers. The inputs are the author's own, no CSES test
+# data.
+#
+#   ferris_wheel_point(?Point, ?Limit, ?Weights, ?Result)
+#
+# Limit is an integer (corpora/library/integer/cbor); Weights is a Scott list
+# (corpora/library/prelude/list) of integers, each at most Limit; Result is an
+# integer.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λvalue. value)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λvalue. value)
+λ integer
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "pair")
+λ pair _ _
+. export
+λ
+. cons
+  ( λ _ferris_wheel_point
+    . _ferris_wheel_point (text "cses_ferris_wheel_sample") (integer 10) (cons (integer 7) λ. cons (integer 2) λ. cons (integer 3) λ. cons (integer 9) λ. nil) λ. (integer 3)
+  )
+λ
+. cons
+  ( λ _ferris_wheel_point
+    . _ferris_wheel_point (text "cses_ferris_wheel_single_child") (integer 5) (cons (integer 5) λ. nil) λ. (integer 1)
+  )
+λ
+. cons
+  ( λ _ferris_wheel_point
+    . _ferris_wheel_point (text "cses_ferris_wheel_pairs_of_ones") (integer 4) (cons (integer 1) λ. cons (integer 1) λ. cons (integer 1) λ. cons (integer 1) λ. nil) λ. (integer 2)
+  )
+λ
+. cons
+  ( λ _ferris_wheel_point
+    . _ferris_wheel_point (text "cses_ferris_wheel_no_pair_fits") (integer 6) (cons (integer 4) λ. cons (integer 4) λ. cons (integer 4) λ. nil) λ. (integer 3)
+  )
+λ
+. cons
+  ( λ _ferris_wheel_point
+    . _ferris_wheel_point (text "cses_ferris_wheel_two_pairs") (integer 7) (cons (integer 3) λ. cons (integer 4) λ. cons (integer 4) λ. cons (integer 3) λ. nil) λ. (integer 2)
+  )
+λ
+. cons
+  ( λ _ferris_wheel_point
+    . _ferris_wheel_point (text "cses_ferris_wheel_pairing_the_lightest_is_not_enough") (integer 8) (cons (integer 2) λ. cons (integer 6) λ. cons (integer 6) λ. cons (integer 3) λ. nil) λ. (integer 3)
+  ) nil

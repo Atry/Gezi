@@ -31,7 +31,7 @@ namespace, the first of these that applies:
 
    When the proof's type is neither, the command fails with an error: the proof's copy of the
    statement no longer matches the export, and the lemma does not become an axiom;
-2. otherwise the kernel checks, in turn, the theorem of each of the six decisions of module
+2. otherwise the kernel checks, in turn, the theorem of each of the seven decisions of module
    `StatementNormalisation` (`decisionTheorems`, `kernelAccepted`): the decision's soundness
    theorem applied to `Eq.refl true`, which the kernel accepts by evaluating the decision to
    `true`, and the command declares the first it accepts, with the environment the kernel checked
@@ -55,6 +55,9 @@ namespace, the first of these that applies:
    - `statementNormalisedLong`, the normal form of `statementNormalised` within
      `longNormalisationFuel` contractions on each side, tried before `statementOpenedAccepted`:
      `statementSoundOfNormalisedLong`;
+   - `statementReached`, leftmost outermost contraction taking one side, the metavariables
+     abstracted, to the other within `reachFuel` contractions, tried after
+     `statementNormalisedLong` and before `statementOpenedAccepted`: `statementSoundOfReached`;
 3. when none accepts it: the named axiom of the same statement.
 
 The hand-written proof is looked up first, since a lookup costs no evaluation and the check of its
@@ -111,7 +114,7 @@ def soundnessOfDerivable (statement proof : Name) : Expr :=
 
 /-- `soundness statement (Eq.refl true)`, the proof that a decision proves: `soundness` is one of
 the theorems `StatementNormalisation.numberedInstanceSound`, `statementSoundOfNormalised`,
-`statementSoundOfContracted`, `statementSoundOfAbsorbed`, `statementSoundOfNormalisedLong` and `statementSoundOfOpenedAccepted`, whose explicit argument is the
+`statementSoundOfContracted`, `statementSoundOfAbsorbed`, `statementSoundOfNormalisedLong`, `statementSoundOfReached` and `statementSoundOfOpenedAccepted`, whose explicit argument is the
 equation `decision statement = true`.
 The kernel checks `Eq.refl true` against that equation by evaluating the decision, once, when it
 adds the theorem. -/
@@ -147,6 +150,7 @@ def decisionTheorems : List (Nat × Name) :=
   [(1, ``StatementNormalisation.numberedInstanceSound), (4, ``StatementNormalisation.statementSoundOfAbsorbed),
     (2, ``StatementNormalisation.statementSoundOfNormalised), (3, ``StatementNormalisation.statementSoundOfContracted),
     (6, ``StatementNormalisation.statementSoundOfNormalisedLong),
+    (7, ``StatementNormalisation.statementSoundOfReached),
     (5, ``StatementNormalisation.statementSoundOfOpenedAccepted)]
 
 /-- The first of `decisions` whose theorem `name` of type `type`, its soundness theorem applied to
@@ -263,6 +267,14 @@ def elaborateLemmaSoundness : CommandElab
             term within {longNormalisationFuel} contractions on each side \
             (`StatementNormalisation.statementNormalisedLong`), which \
             `StatementNormalisation.statementSoundOfNormalisedLong` makes the soundness."
+      | some (7, checked) =>
+        theoremChecked declared checked <|
+          common ++
+          s!"A theorem: the kernel evaluates leftmost outermost contraction and finds that it \
+            takes one side, the metavariables abstracted, to the other within \
+            {StatementNormalisation.reachFuel} contractions \
+            (`StatementNormalisation.statementReached`), which \
+            `StatementNormalisation.statementSoundOfReached` makes the soundness."
       | none =>
         axiomAdded declared type <| common ++
           s!"FIXME (2026-10-07): a named axiom, since Lean does not prove it yet. There is no \

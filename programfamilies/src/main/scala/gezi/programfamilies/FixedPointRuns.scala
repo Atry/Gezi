@@ -1,5 +1,6 @@
 package gezi.programfamilies
 
+import gezi.ir.{Configured, NoFacts}
 import java.nio.file.Path
 import gezi.standardlibrary.StandardLibrary
 import gezi.lemmaencoding.baseline.BaselineLemmaEncoding
@@ -14,11 +15,13 @@ import gezi.orientation.CompiledOrientations
 import gezi.orientation.LemmaSides
 import gezi.orientation.OrientationCompilation
 import gezi.saturation.End
-import gezi.ir.Instruction
 import gezi.ir.LemmaIdentifier
 import gezi.ir.Store
 import gezi.knowledgereading.KnowledgeReading
-import gezi.weakhead.Value
+import gezi.ir.Value
+
+/** The configuration of the terms here: no facts. */
+private given fixedPointRunsNoFacts: NoFacts.type = NoFacts
 
 /** A configuration compiled once for all its items: the library of its
   * knowledge, the lemmas its knowledge `enabled` writes, the orientations
@@ -29,15 +32,15 @@ final case class CompiledConfiguration(
     configuration: Configuration,
     library: StandardLibrary,
     enabledLemmas: Vector[LemmaIdentifier],
-    orientations: CompiledOrientations,
+    orientations: CompiledOrientations[NoFacts.type],
     occurrenceMarkers: Option[OccurrenceMarkers]
 )
 
 /** An item's input: the program's instruction, and the run's input with the
   * numbering of the fixtures (`ExportedNumbering`).
   */
-final case class ItemInput(inputInstruction: Instruction, exported: ExportedInput):
-  def runInput: RunInput = exported.runInput
+final case class ItemInput(inputInstruction: Configured[NoFacts.type], exported: ExportedInput):
+  def runInput: RunInput[NoFacts.type] = exported.runInput
 
 /** An item's run to its fixed point: how it ended and the form of the
   * fixed point.
@@ -81,7 +84,7 @@ object FixedPointRuns:
       .map(BaselineLemmaEncoding.encoded(library.index, _))
     val orientations = OrientationCompilation.compiled(
       lemmas.map(lemma => LemmaSides(lemma.lemma, lemma.metavariables, lemma.left, lemma.right)),
-      Store(library.index.noinline)
+      Store(library.index.noinline, gezi.ir.TermConstruction(gezi.ir.NoFacts))
     )
     CompiledConfiguration(
       configuration,
@@ -99,8 +102,8 @@ object FixedPointRuns:
     val term = item.program.deBruijnTerm(Map.empty)
     val tagged = compiled.occurrenceMarkers match
       case None          => term
-      case Some(markers) => Occurrences.tagged(term, markers)
-    val inputInstruction = Defunctionalization.thunkInstruction(tagged)
+      case Some(markers) => Occurrences.tagged[NoFacts.type](term, markers)
+    val inputInstruction = Defunctionalization.thunkInstruction(tagged)(using gezi.ir.NoFacts)
     val exported = ExportedNumbering.renumbered(
       compiled.library.index.noinline,
       compiled.orientations.orientations,

@@ -7,8 +7,8 @@ import hedgehog.Result
 import gezi.egraph.EGraph
 import gezi.egraph.Justification
 import gezi.generatedinputs.GeneratedProperties
-import gezi.ir.Instruction
-import gezi.ir.Layer
+import gezi.ir.Configured
+import gezi.ir.NoFacts
 import gezi.ir.LemmaIdentifier
 import gezi.ir.Store
 import gezi.ir.{Apply, Choice, Parallel}
@@ -56,6 +56,10 @@ class CountedExtractionLawTest extends GeneratedProperties:
   // FIXME: this suite exceeds the 3 s default with no reason yet; its slow tests are to be made fast. https://github.com/Atry/private-overlay/issues/1925
   override val munitTimeout: scala.concurrent.duration.Duration = scala.concurrent.duration.Duration(5, "s")
 
+  private type C = NoFacts.type
+
+  private given NoFacts.type = NoFacts
+
   private val lemma = Justification.Lemma(LemmaIdentifier(0), Vector.empty)
 
   /** A step of a generated graph; the numbers pick among the instructions or the
@@ -82,20 +86,20 @@ class CountedExtractionLawTest extends GeneratedProperties:
   /** The number of kinds of productions `Weighted.kind` tells apart. */
   private def kindCount: Int = 7
 
-  private final case class Generated(graph: EGraph, instructions: Vector[Instruction])
+  private final case class Generated(graph: EGraph[C], instructions: Vector[Configured[C]])
 
   private def generated(leafCount: Int, steps: List[Step]): Generated =
-    val leaves = Vector.tabulate(leafCount)(number => Instruction.opaque(s"leaf$number"))
-    val empty = EGraph.empty(Store(noinline = leaves.toSet), Map.empty, explained = false)
+    val leaves = Vector.tabulate(leafCount)(number => NoFacts.opaque(s"leaf$number"))
+    val empty = EGraph.empty(Store(noinline = leaves.toSet, gezi.ir.TermConstruction(NoFacts)), Map.empty, explained = false)
     val start = Generated(leaves.foldLeft(empty)((graph, leaf) => graph.instructionAdded(leaf)._1), leaves)
     steps.foldLeft(start)((current, step) =>
-      def instruction(number: Int): Instruction = current.instructions(number % current.instructions.size)
-      def added(instruction: Instruction): Generated =
+      def instruction(number: Int): Configured[C] = current.instructions(number % current.instructions.size)
+      def added(instruction: Configured[C]): Generated =
         Generated(current.graph.instructionAdded(instruction)._1, current.instructions :+ instruction)
       step match
-        case Step.Applied(function, argument) => added(Instruction(Apply(instruction(function), instruction(argument))))
-        case Step.Paralleled(left, right)     => added(Instruction(Parallel(instruction(left), instruction(right))))
-        case Step.Chosen(members)             => added(Instruction.Choice.nested(members.toVector.map(instruction)))
+        case Step.Applied(function, argument) => added(NoFacts.application(instruction(function), instruction(argument)))
+        case Step.Paralleled(left, right)     => added(NoFacts.parallel(instruction(left), instruction(right)))
+        case Step.Chosen(members)             => added(gezi.ir.ChoiceSpine.nested[Configured[C]](members.toVector.map(instruction), (left, right) => NoFacts.choice(left, right)))
         case Step.United(first, second) =>
           val nodes = current.graph.nodeCount
           current.copy(graph = current.graph.unionWorked(first % nodes, second % nodes, lemma, None))
@@ -117,8 +121,8 @@ class CountedExtractionLawTest extends GeneratedProperties:
       unpricedLast: Vector[Int],
       saturation: Option[Int],
       runsFirstOfReadingOne: Vector[Int]
-  ) extends StatelessCostModel[ReadCost]:
-    def cost(shape: Shape, childCosts: Vector[ReadCost]): ReadCost =
+  ) extends StatelessCostModel[C, ReadCost]:
+    def cost(shape: Shape[C], childCosts: Vector[ReadCost]): ReadCost =
       val priced = childCosts.zip(CostModel.pricedUnder(this, shape, childCosts)).collect { case (child, true) => child }
       ReadCost(
         weights(kind(shape)) + priced.map(child => saturation.fold(child.value)(child.value.min) + penalty * child.reading).sum,
@@ -126,7 +130,7 @@ class CountedExtractionLawTest extends GeneratedProperties:
       )
     val ordering: Ordering[ReadCost] = Ordering.by(_.value)
     override def sameReading(left: ReadCost, right: ReadCost): Boolean = left.reading == right.reading
-    def pricedChildren(shape: Shape): Vector[Boolean] =
+    def pricedChildren(shape: Shape[C]): Vector[Boolean] =
       val count = shape.children.size
       Vector.tabulate(count)(position => !(unpricedLast(kind(shape)) == 1 && position == count - 1))
 
@@ -135,17 +139,17 @@ class CountedExtractionLawTest extends GeneratedProperties:
       * first narrow member, and drops the others; with none of reading 1
       * it runs them all. A function of the children's readings only.
       */
-    override def droppedChildren(shape: Shape, childCosts: Vector[ReadCost]): Vector[Boolean] =
+    override def droppedChildren(shape: Shape[C], childCosts: Vector[ReadCost]): Vector[Boolean] =
       if runsFirstOfReadingOne(kind(shape)) == 1 then
         childCosts.indexWhere(_.reading == 1) match
           case -1  => childCosts.map(_ => false)
           case run => childCosts.indices.toVector.map(_ != run)
       else childCosts.map(_ => false)
 
-    override def mayDropChildren(shape: Shape): Vector[Boolean] =
+    override def mayDropChildren(shape: Shape[C]): Vector[Boolean] =
       shape.children.map(_ => runsFirstOfReadingOne(kind(shape)) == 1)
 
-    private def kind(shape: Shape): Int = shape match
+    private def kind(shape: Shape[C]): Int = shape match
       case Shape.Node(_, Apply(_, _))    => 0
       case Shape.Node(_, Parallel(_, _)) => 1
       case Shape.Node(_, Choice(_, _))   => 2
@@ -158,22 +162,22 @@ class CountedExtractionLawTest extends GeneratedProperties:
     * its arguments and the kind of call, and answers a call with equal
     * arguments from the memo (`CostModel.Memo`).
     */
-  private final class CallsRemembered(base: Weighted) extends CostModel[ReadCost]:
-    type Memo = Map[(Shape, Vector[Vector[Entry[ReadCost]]], Boolean), Vector[Entry[ReadCost]]]
+  private final class CallsRemembered(base: Weighted) extends CostModel[C, ReadCost]:
+    type Memo = Map[(Shape[C], Vector[Vector[Entry[C, ReadCost]]], Boolean), Vector[Entry[C, ReadCost]]]
     def emptyMemo: Memo = Map.empty
-    def cost(shape: Shape, childCosts: Vector[ReadCost]): ReadCost = base.cost(shape, childCosts)
+    def cost(shape: Shape[C], childCosts: Vector[ReadCost]): ReadCost = base.cost(shape, childCosts)
     def ordering: Ordering[ReadCost] = base.ordering
     override def sameReading(left: ReadCost, right: ReadCost): Boolean = base.sameReading(left, right)
-    def pricedChildren(shape: Shape): Vector[Boolean] = base.pricedChildren(shape)
-    override def droppedChildren(shape: Shape, childCosts: Vector[ReadCost]): Vector[Boolean] = base.droppedChildren(shape, childCosts)
-    override def mayDropChildren(shape: Shape): Vector[Boolean] = base.mayDropChildren(shape)
-    def memoizedCandidates(shape: Shape, options: Vector[Vector[Entry[ReadCost]]], memo: Memo): (Vector[Entry[ReadCost]], Memo) =
+    def pricedChildren(shape: Shape[C]): Vector[Boolean] = base.pricedChildren(shape)
+    override def droppedChildren(shape: Shape[C], childCosts: Vector[ReadCost]): Vector[Boolean] = base.droppedChildren(shape, childCosts)
+    override def mayDropChildren(shape: Shape[C]): Vector[Boolean] = base.mayDropChildren(shape)
+    def memoizedCandidates(shape: Shape[C], options: Vector[Vector[Entry[C, ReadCost]]], memo: Memo): (Vector[Entry[C, ReadCost]], Memo) =
       memo.get((shape, options, false)) match
         case Some(found) => (found, memo)
         case None =>
           val found = base.candidates(shape, options)
           (found, memo.updated((shape, options, false), found))
-    def memoizedLeastCandidates(shape: Shape, options: Vector[Vector[Entry[ReadCost]]], memo: Memo): (Vector[Entry[ReadCost]], Memo) =
+    def memoizedLeastCandidates(shape: Shape[C], options: Vector[Vector[Entry[C, ReadCost]]], memo: Memo): (Vector[Entry[C, ReadCost]], Memo) =
       memo.get((shape, options, true)) match
         case Some(found) => (found, memo)
         case None =>
@@ -238,9 +242,9 @@ class CountedExtractionLawTest extends GeneratedProperties:
       val extracted = CountedExtraction.fixed(graph, names, model, StopSignal.completedWith(stopped)).getOrElse(fail("the extraction was stopped"))
       val (productions, _) = Extraction.productions(graph, names)
       def entries(root: Int): ClassEntries[ReadCost] = extracted.classes.getOrElse(root, ClassEntries.unentered(Vector.empty))
-      def childOptions(root: Int, shape: Shape): Vector[Vector[Entry[ReadCost]]] =
+      def childOptions(root: Int, shape: Shape[C]): Vector[Vector[Entry[C, ReadCost]]] =
         shape.children.map(child => if child == root then entries(child).looplessEntries else entries(child).entries)
-      def ofReading(kept: Vector[Entry[ReadCost]], cost: ReadCost): Option[Entry[ReadCost]] =
+      def ofReading(kept: Vector[Entry[C, ReadCost]], cost: ReadCost): Option[Entry[C, ReadCost]] =
         kept.find(entry => model.sameReading(entry.cost, cost))
       val readable = productions.flatMap(production =>
         combinations(childOptions(production.root, production.shape)).map(children =>
@@ -272,6 +276,82 @@ class CountedExtractionLawTest extends GeneratedProperties:
       Result.all(noCheaper ++ supported ++ fresh)
   }
 
+  /** The weighted model settling a production's children of more than one
+    * entry to their first by size and content when the product of their
+    * numbers of entries exceeds `bound` (`CostModel.settledChildren`), as a
+    * thunk's jointly read fillings are settled; a production some of whose
+    * children may be dropped settles none, as the contract asks.
+    */
+  private final class Settling(base: Weighted, bound: Int) extends StatelessCostModel[C, ReadCost]:
+    def cost(shape: Shape[C], childCosts: Vector[ReadCost]): ReadCost = base.cost(shape, childCosts)
+    val ordering: Ordering[ReadCost] = base.ordering
+    override def sameReading(left: ReadCost, right: ReadCost): Boolean = base.sameReading(left, right)
+    def pricedChildren(shape: Shape[C]): Vector[Boolean] = base.pricedChildren(shape)
+    override def droppedChildren(shape: Shape[C], childCosts: Vector[ReadCost]): Vector[Boolean] = base.droppedChildren(shape, childCosts)
+    override def mayDropChildren(shape: Shape[C]): Vector[Boolean] = base.mayDropChildren(shape)
+    override def settledChildren(shape: Shape[C], entryCounts: Vector[Int]): Vector[Boolean] =
+      if !base.mayDropChildren(shape).contains(true) && entryCounts.filter(_ > 1).map(BigInt(_)).product > bound then entryCounts.map(_ > 1)
+      else entryCounts.map(_ => false)
+    override def candidates(shape: Shape[C], options: Vector[Vector[Entry[C, ReadCost]]]): Vector[Entry[C, ReadCost]] =
+      val offered = options.zip(settledChildren(shape, options.map(_.size))).map((entries, settled) =>
+        if settled then Vector(entries.reduce((kept, next) => if firstBySize(next, kept) then next else kept)) else entries
+      )
+      CostModel.combinations(offered).map(chosen => Entry(cost(shape, chosen.map(_.cost)), shape, chosen))
+    override def leastCandidates(shape: Shape[C], options: Vector[Vector[Entry[C, ReadCost]]]): Vector[Entry[C, ReadCost]] =
+      CostModel.leastOfEachReading(this, candidates(shape, options))
+
+  private def firstBySize(candidate: Entry[C, ReadCost], kept: Entry[C, ReadCost]): Boolean =
+    val bySize = candidate.size.compare(kept.size)
+    bySize < 0 || (bySize == 0 && ContentOrder.compare(candidate, kept) < 0)
+
+  /** An extraction under a model that settles children above a bound runs
+    * its passes to the end, and a class has an entry, and one among the
+    * productions that do not read it, exactly when it is reachable: the
+    * least set of classes holding each class one of whose productions does
+    * not read it and reads only classes of the set, computed from the
+    * productions alone. Settling picks among entries and never leaves a
+    * production without one, so it changes no class's reachability. Its
+    * purpose is to catch passes that settle differently on generated graphs
+    * whose readings follow their children's: `CountedExtraction` throws when
+    * a later pass finds an entry below its target or misses one, when its
+    * second run settles a production with no directive, or keeps a reading
+    * the first run's did not or loses one it kept. With the second run
+    * skipped, the law fails.
+    */
+  stoppableProperty("an extraction under a settling model runs every pass and gives each class with a production of every child's entry an entry") { stopped =>
+    for
+      leafCount <- Gen.int(Range.linear(1, 3)).forAll
+      steps <- step.list(Range.linear(0, 30)).forAll
+      nameNumbers <- index.list(Range.linear(0, 4)).forAll
+      kindWeights <- weights.forAll
+      readingBits <- Gen.int(Range.linear(0, 1)).list(Range.singleton(kindCount)).map(_.toVector).forAll
+      penalty <- Gen.int(Range.linear(0, 2)).forAll
+      unpricedLast <- Gen.int(Range.linear(0, 1)).list(Range.singleton(kindCount)).map(_.toVector).forAll
+      runsFirst <- Gen.int(Range.linear(0, 1)).list(Range.singleton(kindCount)).map(_.toVector).forAll
+      bound <- Gen.int(Range.linear(1, 4)).forAll
+    yield
+      val Generated(graph, instructions) = generated(leafCount, steps)
+      val names = nameNumbers.map(number => instructions(number % instructions.size)).toSet
+      val model = Settling(Weighted(kindWeights, readingBits, penalty, unpricedLast, None, runsFirst), bound)
+      val extracted = CountedExtraction.fixed(graph, names, model, StopSignal.completedWith(stopped)).getOrElse(fail("the extraction was stopped"))
+      val (productions, _) = Extraction.productions(graph, names)
+      def entries(root: Int): ClassEntries[ReadCost] = extracted.classes.getOrElse(root, ClassEntries.unentered(Vector.empty))
+      @scala.annotation.tailrec
+      def reachable(found: Set[Int]): Set[Int] =
+        val next = found ++ productions.collect {
+          case production if !production.shape.children.contains(production.root) && production.shape.children.forall(found.contains) => production.root
+        }
+        if next == found then found else reachable(next)
+      val reached = reachable(Set.empty)
+      Result.all(
+        productions.map(_.root).distinct.toList.map(root =>
+          Result.diff(entries(root).best.isDefined, reached.contains(root))(_ == _)
+            .and(Result.diff(entries(root).bestLoopless.isDefined, reached.contains(root))(_ == _))
+            .log(s"class $root")
+        )
+      )
+  }
+
   /** Every finite tree of each class of at most `bound` in size, the trees
     * of a production that reads its own class over that class's trees of
     * productions that do not read it; none when more than `limit` trees
@@ -283,9 +363,9 @@ class CountedExtractionLawTest extends GeneratedProperties:
       productions: Vector[Production],
       bound: Int,
       limit: Int
-  ): Option[Map[Int, Set[Entry[ReadCost]]]] =
-    def loopless(root: Int, tree: Entry[ReadCost]): Boolean = !tree.shape.children.contains(root)
-    def grown(trees: Map[Int, Set[Entry[ReadCost]]]): Map[Int, Set[Entry[ReadCost]]] =
+  ): Option[Map[Int, Set[Entry[C, ReadCost]]]] =
+    def loopless(root: Int, tree: Entry[C, ReadCost]): Boolean = !tree.shape.children.contains(root)
+    def grown(trees: Map[Int, Set[Entry[C, ReadCost]]]): Map[Int, Set[Entry[C, ReadCost]]] =
       productions.foldLeft(trees) { (current, production) =>
         val root = production.root
         val childTrees = production.shape.children.map(child =>
@@ -298,7 +378,7 @@ class CountedExtractionLawTest extends GeneratedProperties:
         current.updated(root, current.getOrElse(root, Set.empty) ++ made.filter(_.size <= bound))
       }
     @scala.annotation.tailrec
-    def fixed(trees: Map[Int, Set[Entry[ReadCost]]]): Option[Map[Int, Set[Entry[ReadCost]]]] =
+    def fixed(trees: Map[Int, Set[Entry[C, ReadCost]]]): Option[Map[Int, Set[Entry[C, ReadCost]]]] =
       val next = grown(trees)
       if next.values.map(_.size).sum > limit then None
       else if next == trees then Some(next)
@@ -308,7 +388,7 @@ class CountedExtractionLawTest extends GeneratedProperties:
   /** Every choice of one tree for each position whose sizes sum to at most
     * `budget`.
     */
-  private def within(options: List[Vector[Entry[ReadCost]]], budget: Int): Vector[Vector[Entry[ReadCost]]] =
+  private def within(options: List[Vector[Entry[C, ReadCost]]], budget: Int): Vector[Vector[Entry[C, ReadCost]]] =
     options match
       case Nil => Vector(Vector.empty)
       case first :: rest =>
@@ -319,12 +399,12 @@ class CountedExtractionLawTest extends GeneratedProperties:
   /** The least of the trees of each reading, by cost and then
     * `ContentOrder`.
     */
-  private def leastOfReadings(model: Weighted, trees: Iterable[Entry[ReadCost]]): Map[Int, Entry[ReadCost]] =
+  private def leastOfReadings(model: Weighted, trees: Iterable[Entry[C, ReadCost]]): Map[Int, Entry[C, ReadCost]] =
     trees.groupBy(_.cost.reading).view.mapValues(_.reduce((kept, next) =>
       if better(model, next, kept) then next else kept
     )).toMap
 
-  private def better(model: Weighted, candidate: Entry[ReadCost], entry: Entry[ReadCost]): Boolean =
+  private def better(model: Weighted, candidate: Entry[C, ReadCost], entry: Entry[C, ReadCost]): Boolean =
     val order = model.ordering.compare(candidate.cost, entry.cost)
     order < 0 || (order == 0 && ContentOrder.compare(candidate, entry) < 0)
 
@@ -336,11 +416,11 @@ class CountedExtractionLawTest extends GeneratedProperties:
     */
   private def againstTrees(
       model: Weighted,
-      extracted: Extracted[ReadCost],
-      trees: Map[Int, Set[Entry[ReadCost]]],
+      extracted: Extracted[C, ReadCost],
+      trees: Map[Int, Set[Entry[C, ReadCost]]],
       bound: Int
   ): List[Result] =
-    def compared(root: Int, kept: Vector[Entry[ReadCost]], listed: Iterable[Entry[ReadCost]], kind: String): List[Result] =
+    def compared(root: Int, kept: Vector[Entry[C, ReadCost]], listed: Iterable[Entry[C, ReadCost]], kind: String): List[Result] =
       leastOfReadings(model, listed).toList.map((reading, least) =>
         kept.find(_.cost.reading == reading) match
           case None => Result.failure.log(s"class $root ($kind) has no entry of reading $reading; the least tree listed is $least")
@@ -408,13 +488,13 @@ class CountedExtractionLawTest extends GeneratedProperties:
   private val level: Gen[Level] = Gen.element1(Level.SelfApplied, Level.SelfParalleled, Level.ChosenBetweenApplications)
 
   /** Each level of the graph over the one below it and the leaf. */
-  private def deepened(leaf: Instruction, levels: List[Level]): Instruction =
+  private def deepened(leaf: Configured[C], levels: List[Level]): Configured[C] =
     levels.foldLeft(leaf)((below, next) =>
       next match
-        case Level.SelfApplied    => Instruction(Apply(below, below))
-        case Level.SelfParalleled => Instruction(Parallel(below, below))
+        case Level.SelfApplied    => NoFacts.application(below, below)
+        case Level.SelfParalleled => NoFacts.parallel(below, below)
         case Level.ChosenBetweenApplications =>
-          Instruction.Choice.nested(Vector(Instruction(Apply(below, leaf)), Instruction(Apply(leaf, below))))
+          gezi.ir.ChoiceSpine.nested[Configured[C]](Vector(NoFacts.application(below, leaf), NoFacts.application(leaf, below)), (left, right) => NoFacts.choice(left, right))
     )
 
   /** The extraction of a graph 40 to 80 levels deep, each level reading the
@@ -436,9 +516,9 @@ class CountedExtractionLawTest extends GeneratedProperties:
       penalty <- Gen.int(Range.linear(0, 2)).forAll
       unpricedLast <- Gen.int(Range.linear(0, 1)).list(Range.singleton(kindCount)).map(_.toVector).forAll
     yield
-      val leaf = Instruction.opaque("leaf")
+      val leaf = NoFacts.opaque("leaf")
       val top = deepened(leaf, levels)
-      val (graph, topNode) = EGraph.empty(Store(noinline = Set(leaf)), Map.empty, explained = false).instructionAdded(leaf)._1.instructionAdded(top)
+      val (graph, topNode) = EGraph.empty(Store(noinline = Set(leaf), gezi.ir.TermConstruction(NoFacts)), Map.empty, explained = false).instructionAdded(leaf)._1.instructionAdded(top)
       // Every kind's readings may drop its children, a choice's included.
       val model = Weighted(kindWeights, readingBits, penalty, unpricedLast, None, Vector.fill(kindCount)(1))
       val extracted = CountedExtraction.fixed(graph, Set.empty, model, StopSignal.completedWith(stopped)).getOrElse(fail("the extraction was stopped"))
@@ -449,7 +529,7 @@ class CountedExtractionLawTest extends GeneratedProperties:
     * raising that child's value by `raised` (positive) gives a strictly
     * costlier parent.
     */
-  private def strictAt(model: Weighted, shape: Shape, childCosts: Vector[ReadCost], position: Int, raised: Int): Boolean =
+  private def strictAt(model: Weighted, shape: Shape[C], childCosts: Vector[ReadCost], position: Int, raised: Int): Boolean =
     val worse = childCosts.updated(position, childCosts(position).copy(value = childCosts(position).value + raised))
     model.ordering.compare(model.cost(shape, childCosts), model.cost(shape, worse)) < 0
 

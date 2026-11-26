@@ -7,6 +7,8 @@ import gezi.weakhead.Bounded
 import gezi.weakhead.Mode
 import gezi.standardlibrary.LibraryFiles
 import gezi.frontend.Term
+import gezi.frontend.TermOf
+import gezi.ir.Configured
 import gezi.generatedinputs.GeneratedProperties
 
 /** The laws of the binary naturals' family (`BinaryNaturalFamily`,
@@ -47,8 +49,16 @@ class BinaryNaturalDecodingLawTest extends GeneratedProperties:
   private lazy val library =
     LibraryFiles.compiled("tests/library_fixtures/binary_natural_backend.lambdalattice", Vector(BackendChecks))
 
-  /** The library and the library terms the numerals are built from, forced before the first test and not charged to it (FailFastSuite). */
-  override def sharedFixtures: Vector[scala.concurrent.Future[Unit] => Any] = Vector(_ => library, _ => JitTesting.libraryTerms)
+  /** The JIT's configuration of the library's facts, one for every input: the facts are a function of the library. */
+  private lazy val encoding: StorageEncoding = NativesTesting.encodingOf(library)
+
+  private given encoding.type = encoding
+
+  private lazy val configuration = NativesTesting.configurationOf(encoding)
+
+  /** The library, its configuration and the library terms the numerals are built from, forced before the first test and not charged to it (FailFastSuite). */
+  override def sharedFixtures: Vector[scala.concurrent.Future[Unit] => Any] =
+    Vector(_ => library, _ => configuration, _ => JitTesting.libraryTerms)
 
   /** A numeral as a tree of the three constructors, canonical or not. */
   private enum Numeral:
@@ -78,9 +88,9 @@ class BinaryNaturalDecodingLawTest extends GeneratedProperties:
     case Numeral.Even(half) => member(half, false)
     case Numeral.Odd(half)  => member(half, true)
 
-  private def name(key: String): Term = JitTesting.libraryTerm(key)
+  private def name(key: String): TermOf[Configured[encoding.type]] = JitTesting.libraryTerm[encoding.type](key)
 
-  private def term(written: Numeral): Term = written match
+  private def term(written: Numeral): TermOf[Configured[encoding.type]] = written match
     case Numeral.Zero       => name("binary_zero")
     case Numeral.Even(half) => name("binary_even")(term(half))
     case Numeral.Odd(half)  => name("binary_odd")(term(half))
@@ -90,7 +100,7 @@ class BinaryNaturalDecodingLawTest extends GeneratedProperties:
       value <- Gen.long(Range.linear(0L, 1L << 40)).forAll
       canonical <- Gen.boolean.forAll
     yield
-      val parameter = Some(NativeValue.Truth(canonical))
+      val parameter = Some(BinaryCanonicity(canonical))
       if !canonical && value == 0 then Result.success
       else
         val layer = BinaryNaturalFamily.layer(parameter, BinaryNatural(BigInt(value)))
@@ -110,7 +120,7 @@ class BinaryNaturalDecodingLawTest extends GeneratedProperties:
       val filtered = term(written) ∥ name("binary_set")(name(if canonical then "true" else "false"))
       val value = JitTesting.termValue(filtered)
       val jit = NativesTesting.normalFormsSpent(
-        Mode.Jit(Jit(NativesTesting.configurationOf(library))),
+        Jit(configuration),
         value,
         NativesTesting.normalFormLimit
       )
@@ -118,20 +128,20 @@ class BinaryNaturalDecodingLawTest extends GeneratedProperties:
       val agreement =
         if member(written, canonical) then
           val numeralValue = JitTesting.termValue(term(written))
-          val numeralForms = NativesTesting.normalFormsSpent(Mode.TablingWeakHead, numeralValue, NativesTesting.normalFormLimit)
+          val numeralForms = NativesTesting.normalFormsSpent(Mode.TablingWeakHead, JitTesting.plainConfiguration(encoding), numeralValue, NativesTesting.normalFormLimit)
           jit.outcome match
             case Bounded.Finished(Vector(found)) =>
               val confirmed = Result.diff(
-                NativesTesting.referenceReads(value, found, NativesTesting.confirmationLimit),
+                NativesTesting.referenceReads(JitTesting.plainConfiguration(encoding), value, found, NativesTesting.confirmationLimit),
                 Confirmation.Confirmed
               )(_ == _)
-              Result.all(List(Result.diff(jit.outcome, numeralForms.outcome)(_ == _), confirmed))
+              Result.all(List(Result.assert(JitTesting.sameOutcomes(jit.outcome, numeralForms.outcome)), confirmed))
             case other => Result.failure.log(s"a member read to $other, not to one normal form")
         else
-          val reference = NativesTesting.normalFormsSpent(Mode.TablingWeakHead, value, NativesTesting.confirmationLimit)
+          val reference = NativesTesting.normalFormsSpent(Mode.TablingWeakHead, JitTesting.plainConfiguration(encoding), value, NativesTesting.confirmationLimit)
           Result.all(
             List(
-              Result.diff(jit.outcome, Bounded.Finished(Vector.empty))(_ == _),
+              Result.assert(JitTesting.sameOutcomes(jit.outcome, Bounded.Finished(Vector.empty[Configured[encoding.type]]))),
               Result.assert(reference.outcome match
                 case Bounded.Finished(found) => found.isEmpty
                 case _                       => true

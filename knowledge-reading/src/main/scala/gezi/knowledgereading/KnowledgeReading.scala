@@ -5,19 +5,21 @@ import gezi.frontend.Defunctionalization
 import gezi.frontend.Literal
 import gezi.frontend.Literals
 import gezi.frontend.Respelling
-import gezi.ir.Instruction
+import gezi.ir.ChoiceSpine
 import gezi.weakhead.Computation
 import gezi.weakhead.Computed
 import gezi.weakhead.Head
 import gezi.weakhead.KnownExtremes
 import gezi.weakhead.Mode
+import gezi.weakhead.NeutralValue
 import gezi.weakhead.NeutralVariable
 import gezi.weakhead.ParallelSet
 import gezi.weakhead.ReadingState
 import gezi.weakhead.TableRetention
-import gezi.weakhead.Value
+import gezi.ir.Value
 import gezi.weakhead.Values
 import gezi.weakhead.WeakHead
+import gezi.ir.{Configured, NativeSpecializer, NoFacts}
 
 /** A fresh neutral variable the reader applies knowledge data to: the
   * handler of one alternative of a Scott constructor (a tuple being the one
@@ -39,7 +41,7 @@ enum KnowledgeVariable extends NeutralVariable:
 final case class KnowledgeReadingError(reason: String) extends RuntimeException(reason)
 
 /** A reading of knowledge data on the weak-head evaluator. */
-type Reading[Value] = Computation[ReadingState, Value]
+type Reading[C <: NativeSpecializer & Singleton, Result] = Computation[ReadingState[C], Result]
 
 /** The reader of data written in lambdalattice: the generic
   * part, which knows the encodings and no knowledge. It takes a field off a
@@ -128,7 +130,7 @@ object KnowledgeReading:
     * of a single read of knowledge, `startingTableLimit`, defined above it
     * since an object's values are initialized in order.
     */
-  val startingState: ReadingState = ReadingState.knowing(0, knownExtremes).copy(tableLimit = startingTableLimit)
+  val startingState: ReadingState[NoFacts.type] = ReadingState.knowing(0, knownExtremes, gezi.weakhead.ReadingConfiguration.withoutFacts).copy(tableLimit = startingTableLimit)
 
   /** The tables one compilation's reads may hold together. A single read's
     * limit (`startingTableLimit`) is the space of one read's tables; a
@@ -144,24 +146,31 @@ object KnowledgeReading:
     * 788b762e5), so that this limit counts only what follows it, the
     * projection's cost growing with the bytes of the subtree's absolute path.
     *
-    * MEASURED 2026-11-22 by one scratch munit probe in contest-in-tree-entries,
-    * not committed: `EntryData.read` of each in-tree entry and of the fixture
+    * MEASURED 2026-11-23 on eee2e6de1 by one scratch munit probe in
+    * contest-entries-plover, not committed: `EntryData.at` of each in-tree
+    * entry and of the fixture
     * `tests/plover_fixtures/ordered_compositions_entry` (`compositions` below)
     * under `Defaults.entryDataState` with a table limit far above any entry's,
     * then `StandardLibrary.compiled` and each round's `lemmas` and `leaves`,
     * threaded as `GenericEntryProvider.initializedWithLibrary` threads them;
-    * the complete tables after each read net of the projection's (1,801), in a
-    * checkout 7 levels deep (`Path.getNameCount`) whose gezi directory lists 103
-    * members (hidden entries and the build's own directories among them):
+    * the complete tables after each read net of the projection's (3,050), in a
+    * checkout 7 levels deep (`Path.getNameCount`) whose gezi directory has 78
+    * members (76 tracked directories, `target` and one directory left from a
+    * deleted module):
     *
     * {{{
-    * after                          fixture   plover   solo     wren     compositions
-    * the data                       32,069    40,893   40,679   39,423   45,328
-    * the knowledge                  53,317    70,321   70,107   68,528   87,583
-    * the rounds' lemmas and leaves  53,357    70,351   70,137   68,562   87,640
+    * after                          fixture   plover    solo     wren     compositions
+    * the data                       37,461    68,040    46,383   45,020   67,450
+    * the knowledge                  62,990    136,674   79,922   78,236   136,471
+    * the rounds' lemmas and leaves  63,034    136,773   79,952   78,270   136,576
     * }}}
     *
-    * The rounds read: fixture 3, plover 2, solo 2, wren 4, compositions 5.
+    * The rounds read: fixture 3, plover 3, solo 2, wren 4, compositions 5. At
+    * a9945efcb the last row read 60,041, 133,806, 76,991, 75,309 and 133,609:
+    * every compilation grew by 2,961 to 2,993 tables between the two commits,
+    * which split `hindley_milner_unions` into four files and added six files
+    * to `corpora/compiler`. Six empty files of the same names added at
+    * a9945efcb account for 218 to 282 of those tables.
     *
     * The data's tables grow with the options: an import's look-up passes
     * every member of the directory it reads, so n options imported from one
@@ -186,21 +195,21 @@ object KnowledgeReading:
     * member term, 53.8 tables a member of the gezi directory; they are not
     * measured again.
     *
-    * THE LIMIT: the compilation of `compositions`, the largest, at 103 members
-    * (87,640), plus the depth term up to a greatest checkout depth of 32 levels
+    * THE LIMIT: the compilation of `plover`, the largest, at 78 members
+    * (136,773), plus the depth term up to a greatest checkout depth of 32 levels
     * (25 × 107.7 = 2,693, from the 7 levels measured), plus the member term up
-    * to 110 members (7 × 53.8 = 377), plus a tenth of that compilation for the
-    * knowledge's and the options' growth (8,764), is 99,474, rounded up to the
-    * next thousand: the room above the compilation is 12,360 tables, of which
-    * 8,764 are for more knowledge and options. CHECKOUTS DEEPER THAN 32 LEVELS, AND A gezi DIRECTORY OF
+    * to 110 members (32 × 53.8 = 1,722), plus a tenth of that compilation for the
+    * knowledge's and the options' growth (13,677), is 154,865, rounded up to the
+    * next thousand: the room above the compilation is 18,227 tables, of which
+    * 13,677 are for more knowledge and options. CHECKOUTS DEEPER THAN 32 LEVELS, AND A gezi DIRECTORY OF
     * MORE THAN 110 MEMBERS, ARE NOT COVERED: each level beyond adds about
     * 108 tables and each member about 54. An entry whose knowledge reads
     * past the limit is a finding, and the limit is set again from a
     * measurement.
     * Set from the measurement as a small limit is (`CONTRIBUTING.md`, "Tests
     * fail fast": a limit hit by the algorithm's expected cost is raised to
-    * what was measured) on 2026-11-16, and set again on 2026-11-20, 2026-11-21
-    * and 2026-11-22.
+    * what was measured) on 2026-11-16, and set again on 2026-11-20, 2026-11-21,
+    * 2026-11-22 and 2026-11-23.
     *
     * The cost is the design's: the variable arguments partial function is the trie, the
     * tables of a key's prefixes its nodes, shared by every look-up with that
@@ -211,13 +220,13 @@ object KnowledgeReading:
     * and a first look-up below linear in the members is out of reach, since
     * merging two members into one node is unsound by equation (10).
     */
-  val compilationTableLimit: Int = 100000
+  val compilationTableLimit: Int = 155000
 
   /** The state a compilation's first read starts from: `startingState` with
     * the table limit `compilationTableLimit`, since the compilation's reads
     * all keep their complete tables in the one state they thread.
     */
-  val compilationState: ReadingState = startingState.copy(tableLimit = compilationTableLimit)
+  val compilationState: ReadingState[NoFacts.type] = startingState.copy(tableLimit = compilationTableLimit)
 
   /** The value of the reading within the limit of evaluator steps, read
     * under the state, and the state after it: the state's store, complete
@@ -227,7 +236,7 @@ object KnowledgeReading:
     * when the budget stops it: knowledge that does not read within its
     * budget is an error of its file.
     */
-  def run[Value](reading: Reading[Value], limit: Long, state: ReadingState): (Value, ReadingState) =
+  def run[C <: NativeSpecializer & Singleton, Result](reading: Reading[C, Result], limit: Long, state: ReadingState[C])(using C): (Result, ReadingState[C]) =
     reading.result(state.next(TableRetention.KeptAll, limit)) match
       case Computed.Done(value, after) => (value, after)
       case Computed.Stopped(after) =>
@@ -238,17 +247,17 @@ object KnowledgeReading:
     * as a problem's file or a resource. A compilation's reads use `run` of
     * three arguments.
     */
-  def run[Value](reading: Reading[Value], limit: Long): Value =
-    run(reading, limit, startingState)._1
+  def run[Result](reading: Reading[NoFacts.type, Result], limit: Long): Result =
+    run(reading, limit, startingState)(using NoFacts)._1
 
   /** The members of a set, a choice of Scott tuples: the fields of each, in
     * the order the heads are enumerated. A set that nobody writes (the field
     * of an absent key) has no member. A member is never split: a library
     * term whose body is a choice is one field of one tuple.
     */
-  def members(set: Value): Reading[Vector[Vector[Value]]] =
+  def members[C <: NativeSpecializer & Singleton](set: Value[C])(using C): Reading[C, Vector[Vector[Value[C]]]] =
     dataHeads(applied(set, 1)).map(_.map {
-      case Head.Neutral(KnowledgeVariable.Alternative(0), fields) => fields
+      case (KnowledgeVariable.Alternative(0), fields) => fields
       case other => throw KnowledgeReadingError(s"a member of a set is no tuple: $other")
     })
 
@@ -259,10 +268,10 @@ object KnowledgeReading:
     * Throws `KnowledgeReadingError` for a value of several data heads, a
     * field written more than once.
     */
-  def alternativeWritten(value: Value, count: Int): Reading[Option[(Int, Vector[Value])]] =
+  def alternativeWritten[C <: NativeSpecializer & Singleton](value: Value[C], count: Int)(using C): Reading[C, Option[(Int, Vector[Value[C]])]] =
     dataHeads(applied(value, count)).map {
       case Vector() => None
-      case Vector(Head.Neutral(KnowledgeVariable.Alternative(position), fields)) if position < count => Some((position, fields))
+      case Vector((KnowledgeVariable.Alternative(position), fields)) if position < count => Some((position, fields))
       case other => throw KnowledgeReadingError(s"a Scott constructor of $count alternatives reads as ${other.size} values: $other")
     }
 
@@ -272,9 +281,9 @@ object KnowledgeReading:
     * key, or top). Throws `KnowledgeReadingError` for a head that is no
     * alternative of `count`.
     */
-  def alternatives(set: Value, count: Int): Reading[Vector[(Int, Vector[Value])]] =
+  def alternatives[C <: NativeSpecializer & Singleton](set: Value[C], count: Int)(using C): Reading[C, Vector[(Int, Vector[Value[C]])]] =
     dataHeads(applied(set, count)).map(_.map {
-      case Head.Neutral(KnowledgeVariable.Alternative(position), fields) if position < count => (position, fields)
+      case (KnowledgeVariable.Alternative(position), fields) if position < count => (position, fields)
       case other => throw KnowledgeReadingError(s"a member of a set of Scott constructors of $count alternatives reads as $other")
     })
 
@@ -289,7 +298,7 @@ object KnowledgeReading:
     * slot. Throws `KnowledgeReadingError` for a head that is no handler of
     * the width applied to one body.
     */
-  def slots(mixin: Value, width: Int): Reading[Vector[Vector[Value]]] =
+  def slots[C <: NativeSpecializer & Singleton](mixin: Value[C], width: Int)(using C): Reading[C, Vector[Vector[Value[C]]]] =
     coproductSlots(Value.Apply(mixin, mixin), width)
 
   /** The bodies a mixin of the fixed-width encoding with no self writes in
@@ -302,7 +311,7 @@ object KnowledgeReading:
     * `KnowledgeReadingError` for a head that is no handler of the width
     * applied to one body.
     */
-  def coproductSlots(coproduct: Value, width: Int): Reading[Vector[Vector[Value]]] =
+  def coproductSlots[C <: NativeSpecializer & Singleton](coproduct: Value[C], width: Int)(using C): Reading[C, Vector[Vector[Value[C]]]] =
     alternatives(coproduct, width).map { found =>
       val bodies = found.map {
         case (slot, Vector(body)) => (slot, body)
@@ -318,11 +327,11 @@ object KnowledgeReading:
     * read as one coproduct, so that contributions to one group from several
     * places merge by the choice alone. A group nobody writes writes no slot.
     */
-  def coproductGroupSlots(coproduct: Value, groupWidths: Vector[Int]): Reading[Vector[Vector[Vector[Value]]]] =
+  def coproductGroupSlots[C <: NativeSpecializer & Singleton](coproduct: Value[C], groupWidths: Vector[Int])(using C): Reading[C, Vector[Vector[Vector[Value[C]]]]] =
     coproductSlots(coproduct, groupWidths.size).flatMap(found =>
       Computation.traversed(found.zip(groupWidths))((bodies, groupWidth) =>
         bodies.reduceOption(Value.Choice(_, _)) match
-          case None                => Computation.pure(Vector.fill(groupWidth)(Vector.empty[Value]))
+          case None                => Computation.pure(Vector.fill(groupWidth)(Vector.empty[Value[C]]))
           case Some(contributions) => coproductSlots(contributions, groupWidth)
       )
     )
@@ -333,7 +342,7 @@ object KnowledgeReading:
     * (`slots`), so that the contributions of several files deep-merge by the
     * choice alone. A group nobody writes writes no slot.
     */
-  def groupSlots(mixin: Value, width: Int, group: Int, groupWidth: Int): Reading[Vector[Vector[Value]]] =
+  def groupSlots[C <: NativeSpecializer & Singleton](mixin: Value[C], width: Int, group: Int, groupWidth: Int)(using C): Reading[C, Vector[Vector[Value[C]]]] =
     slots(mixin, width).flatMap(found =>
       found(group).reduceOption(Value.Choice(_, _)) match
         case None            => Computation.pure(Vector.fill(groupWidth)(Vector.empty))
@@ -343,11 +352,11 @@ object KnowledgeReading:
   /** `alternativeWritten` of a value that is written. Throws
     * `KnowledgeReadingError` for one that is not.
     */
-  def alternative(value: Value, count: Int): Reading[(Int, Vector[Value])] =
+  def alternative[C <: NativeSpecializer & Singleton](value: Value[C], count: Int)(using C): Reading[C, (Int, Vector[Value[C]])] =
     alternativeWritten(value, count).map(written(_, s"a Scott constructor of $count alternatives"))
 
   /** The fields of a Scott tuple `λs. s f1 … fn` of the arity. */
-  def fields(value: Value, arity: Int): Reading[Vector[Value]] =
+  def fields[C <: NativeSpecializer & Singleton](value: Value[C], arity: Int)(using C): Reading[C, Vector[Value[C]]] =
     alternative(value, 1).map((_, found) =>
       if found.size == arity then found
       else throw KnowledgeReadingError(s"a tuple of arity $arity has ${found.size} fields")
@@ -357,10 +366,10 @@ object KnowledgeReading:
     * alternative 1 with the item and the tail; none when the value has no
     * data head.
     */
-  def itemsWritten(value: Value): Reading[Option[Vector[Value]]] =
-    def from(rest: Value, found: Vector[Value]): Reading[Vector[Value]] =
+  def itemsWritten[C <: NativeSpecializer & Singleton](value: Value[C])(using C): Reading[C, Option[Vector[Value[C]]]] =
+    def from(rest: Value[C], found: Vector[Value[C]]): Reading[C, Vector[Value[C]]] =
       alternative(rest, 2).flatMap(cell(_, found))
-    def cell(read: (Int, Vector[Value]), found: Vector[Value]): Reading[Vector[Value]] = read match
+    def cell(read: (Int, Vector[Value[C]]), found: Vector[Value[C]]): Reading[C, Vector[Value[C]]] = read match
       case (0, Vector())           => Computation.pure(found)
       case (1, Vector(item, tail)) => from(tail, found :+ item)
       case (position, other) =>
@@ -371,14 +380,14 @@ object KnowledgeReading:
     }
 
   /** `itemsWritten` of a list that is written. */
-  def items(value: Value): Reading[Vector[Value]] = itemsWritten(value).map(written(_, "a list"))
+  def items[C <: NativeSpecializer & Singleton](value: Value[C])(using C): Reading[C, Vector[Value[C]]] = itemsWritten(value).map(written(_, "a list"))
 
   /** The text of the library's Scott list of bytes (`Literals.textTerm`,
     * what the library's `text/cbor` `from_cbor` of a string gives), each byte the
     * 8-tuple of its bits, high bit first; none when the value has no data
     * head.
     */
-  def textWritten(value: Value): Reading[Option[String]] =
+  def textWritten[C <: NativeSpecializer & Singleton](value: Value[C])(using C): Reading[C, Option[String]] =
     itemsWritten(value).flatMap {
       case None => Computation.pure(None)
       case Some(bytes) =>
@@ -386,7 +395,7 @@ object KnowledgeReading:
     }
 
   /** `textWritten` of a string that is written. */
-  def text(value: Value): Reading[String] = textWritten(value).map(written(_, "a string"))
+  def text[C <: NativeSpecializer & Singleton](value: Value[C])(using C): Reading[C, String] = textWritten(value).map(written(_, "a string"))
 
   /** The literal a trie wraps (`λk. k e1 … ep`, a literal's variable
     * arguments, `CONTRIBUTING.md`, "Terms"), read by structure: the value
@@ -398,7 +407,7 @@ object KnowledgeReading:
     * the literal: the host reads its bits, and nowhere in the compiler does
     * the object language decode a text.
     */
-  def trieLiteralWritten(value: Value): Reading[Option[Literal]] =
+  def trieLiteralWritten[C <: NativeSpecializer & Singleton](value: Value[C])(using C): Reading[C, Option[Literal]] =
     alternativeWritten(value, 1).flatMap {
       case None => Computation.pure(None)
       case Some((_, bits)) =>
@@ -414,20 +423,20 @@ object KnowledgeReading:
     * none when the value has no data head. Throws `KnowledgeReadingError`
     * for a literal of anything else, and as `trieLiteralWritten` does.
     */
-  def trieTextWritten(value: Value): Reading[Option[String]] =
+  def trieTextWritten[C <: NativeSpecializer & Singleton](value: Value[C])(using C): Reading[C, Option[String]] =
     trieLiteralWritten(value).map(_.map(literal =>
       Literal.textRead(literal).fold(reason => throw KnowledgeReadingError(s"a trie wraps no text: $reason"), identity)
     ))
 
   /** `trieTextWritten` of a text that is written. */
-  def trieText(value: Value): Reading[String] = trieTextWritten(value).map(written(_, "a trie of a text"))
+  def trieText[C <: NativeSpecializer & Singleton](value: Value[C])(using C): Reading[C, String] = trieTextWritten(value).map(written(_, "a trie of a text"))
 
   /** The integer of a trie that wraps one CBOR integer (`Literal.integerRead`),
     * a scalar a text writes as a literal and the host decodes.
     * Throws `KnowledgeReadingError` for a value with no data head, for a
     * literal of anything else, and as `trieLiteralWritten` does.
     */
-  def trieInteger(value: Value): Reading[BigInt] =
+  def trieInteger[C <: NativeSpecializer & Singleton](value: Value[C])(using C): Reading[C, BigInt] =
     trieLiteralWritten(value).map(read =>
       Literal
         .integerRead(written(read, "a trie of an integer"))
@@ -439,7 +448,7 @@ object KnowledgeReading:
     * the alternative 1 the natural n of −(n + 1); none when the value has no
     * data head.
     */
-  def integerWritten(value: Value): Reading[Option[BigInt]] =
+  def integerWritten[C <: NativeSpecializer & Singleton](value: Value[C])(using C): Reading[C, Option[BigInt]] =
     alternativeWritten(value, 2).flatMap {
       case None                       => Computation.pure(None)
       case Some((0, Vector(natural))) => naturalBits(natural, Vector.empty).map(bits => Some(naturalOf(bits)))
@@ -449,10 +458,10 @@ object KnowledgeReading:
     }
 
   /** `integerWritten` of an integer that is written. */
-  def integer(value: Value): Reading[BigInt] = integerWritten(value).map(written(_, "an integer"))
+  def integer[C <: NativeSpecializer & Singleton](value: Value[C])(using C): Reading[C, BigInt] = integerWritten(value).map(written(_, "an integer"))
 
   /** A Scott boolean, the alternative 0 true (`λt. λf. t`). */
-  def truth(value: Value): Reading[Boolean] =
+  def truth[C <: NativeSpecializer & Singleton](value: Value[C])(using C): Reading[C, Boolean] =
     alternative(value, 2).map {
       case (position, Vector()) => position == 0
       case (_, other)           => throw KnowledgeReadingError(s"a boolean has ${other.size} fields")
@@ -466,7 +475,7 @@ object KnowledgeReading:
     * (`Respelling.respelled`), each closed instruction once, so that the
     * work is linear in the value as a graph.
     */
-  def term(value: Value, names: Set[Instruction]): Instruction =
+  def term[C <: NativeSpecializer & Singleton](value: Value[C], names: Set[Configured[C]])(using C): Configured[C] =
     Respelling.respelled(Values.instruction(value), names)
 
   /** The term of the value's weak heads: the choice of the one head of each
@@ -478,14 +487,14 @@ object KnowledgeReading:
     * `KnowledgeReadingError` for a parallel set of other than one
     * abstraction.
     */
-  def headsTerm(value: Value): Reading[Instruction] =
+  def headsTerm[C <: NativeSpecializer & Singleton](value: Value[C])(using C): Reading[C, Configured[C]] =
     heads(value).map(sets =>
       val terms = sets.map(set =>
         set.heads match
-          case Vector(head: Head.Lambda) => Values.instruction(head.value)
+          case Vector(head @ Head.Lambda(_, _, _)) => Values.instruction[C](head.value)
           case other => throw KnowledgeReadingError(s"a head of the value is no one abstraction: $other")
       ).distinct
-      if terms.isEmpty then Defunctionalization.thunkInstruction(Literals.top) else Instruction.Choice.nested(terms)
+      if terms.isEmpty then Defunctionalization.thunkInstruction(Literals.top) else ChoiceSpine.nested(terms, (summon[C]: C).choice(_, _))
     )
 
   /** The term of the Scott tuples a value gives, its spine reduced: the
@@ -501,7 +510,7 @@ object KnowledgeReading:
     * as `headsTerm` of a file whose imports stood in head position did.
     * Equal to the value on what it gives a continuation, by the β rule.
     */
-  def tuplesTerm(value: Value): Reading[Instruction] =
+  def tuplesTerm[C <: NativeSpecializer & Singleton](value: Value[C])(using C): Reading[C, Configured[C]] =
     alternatives(value, 1).map(found =>
       val tuples = found.map((_, fields) =>
         Defunctionalization.thunkInstruction(
@@ -512,7 +521,7 @@ object KnowledgeReading:
           )
         )
       ).distinct
-      if tuples.isEmpty then Defunctionalization.thunkInstruction(Literals.top) else Instruction.Choice.nested(tuples)
+      if tuples.isEmpty then Defunctionalization.thunkInstruction(Literals.top) else ChoiceSpine.nested(tuples, (summon[C]: C).choice(_, _))
     )
 
   /** The one field M of a Scott tuple of one field, `λtuple. tuple M`: a
@@ -524,7 +533,7 @@ object KnowledgeReading:
     * Throws `KnowledgeReadingError` for a value that is no tuple of one
     * field.
     */
-  def soleField(tuple: Value): Reading[Value] =
+  def soleField[C <: NativeSpecializer & Singleton](tuple: Value[C])(using C): Reading[C, Value[C]] =
     fields(tuple, 1).map {
       case Vector(field) => field
       case other         => throw KnowledgeReadingError(s"a tuple of one field has ${other.size} fields")
@@ -533,15 +542,15 @@ object KnowledgeReading:
   /** The term of the one field of a Scott tuple of one field (`soleField`),
     * read back to the IR (`term`, no names).
     */
-  def memberTerm(tuple: Value): Reading[Instruction] =
+  def memberTerm[C <: NativeSpecializer & Singleton](tuple: Value[C])(using C): Reading[C, Configured[C]] =
     soleField(tuple).map(term(_, Set.empty))
 
   private def written[Read](read: Option[Read], what: String): Read =
     read.getOrElse(throw KnowledgeReadingError(s"$what is not written: the value has no data head"))
 
-  private def applied(value: Value, count: Int): Value =
+  private def applied[C <: NativeSpecializer & Singleton](value: Value[C], count: Int)(using C): Value[C] =
     (0 until count).foldLeft(value)((function, position) =>
-      Value.Apply(function, Value.Neutral(KnowledgeVariable.Alternative(position), Vector.empty))
+      Value.Apply(function, NeutralValue(KnowledgeVariable.Alternative(position), Vector.empty))
     )
 
   private def naturalOf(bits: Vector[Boolean]): BigInt =
@@ -551,7 +560,7 @@ object KnowledgeReading:
     * first: zero the alternative 0, twice a natural the alternative 1, twice
     * a natural and one the alternative 2.
     */
-  private def naturalBits(value: Value, found: Vector[Boolean]): Reading[Vector[Boolean]] =
+  private def naturalBits[C <: NativeSpecializer & Singleton](value: Value[C], found: Vector[Boolean])(using C): Reading[C, Vector[Boolean]] =
     alternative(value, 3).flatMap {
       case (0, Vector())     => Computation.pure(found)
       case (1, Vector(half)) => naturalBits(half, found :+ false)
@@ -563,7 +572,7 @@ object KnowledgeReading:
   /** The value of a byte, the 8-tuple of its bits, each a Scott boolean
     * whose alternative 0 is 1, high bit first.
     */
-  private def byte(value: Value): Reading[Int] =
+  private def byte[C <: NativeSpecializer & Singleton](value: Value[C])(using C): Reading[C, Int] =
     fields(value, 8)
       .flatMap(bits => Computation.traversed(bits)(truth))
       .map(byteValue)
@@ -594,10 +603,8 @@ object KnowledgeReading:
         codePoints(rest.drop(length), found :+ continuation.foldLeft(initial)((value, byte) => value * 64 + (byte & 0x3f)))
 
   /** Every parallel set of the value under the tabled weak head. */
-  private def heads(value: Value): Reading[Vector[ParallelSet]] =
-    WeakHead.heads(Mode.TablingWeakHead, value).collected.map(found =>
-      WeakHead.headsExpanded(Mode.TablingWeakHead, found)
-    )
+  private def heads[C <: NativeSpecializer & Singleton](value: Value[C])(using C): Reading[C, Vector[ParallelSet[C]]] =
+    WeakHead.heads(Mode.TablingWeakHead, value).collected
 
   /** The data heads of the value (THE DATA HEADS): of each parallel set, its
     * one head, a handler applied to fields. Throws `KnowledgeReadingError`
@@ -605,10 +612,10 @@ object KnowledgeReading:
     * which a least term has and no data does, and for a set of several
     * heads, which no encoding of this reader writes.
     */
-  private def dataHeads(value: Value): Reading[Vector[Head.Neutral]] =
+  private def dataHeads[C <: NativeSpecializer & Singleton](value: Value[C])(using C): Reading[C, Vector[(NeutralVariable, Vector[Value[C]])]] =
     heads(value).map(_.map(set =>
       set.heads match
-        case Vector(neutral: Head.Neutral) => neutral
+        case Vector(Head.Neutral(variable, arguments)) => (variable, arguments)
         case Vector(other) =>
           throw KnowledgeReadingError(s"a head of the data is no handler applied to fields: $other")
         case Vector() => throw KnowledgeReadingError("the data is a least term, which is no data value")

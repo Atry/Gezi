@@ -9,6 +9,7 @@ import gezi.weakhead.Trampoline
 import gezi.weakhead.Trampoline.done
 import gezi.weakhead.Trampoline.tailcall
 import gezi.ir.{Apply, Choice, Parallel, Slot, Thunk}
+import gezi.ir.{Configured, NativeSpecializer, Value}
 
 /** The weak-head evaluator on the thunk IR, the port of
   * `gezi/prolog/gezi/weak_head.pl`: the reference interpreter.
@@ -189,19 +190,14 @@ object WeakHead:
     * (`Tabling`); under jit the JIT's. The evaluation knows the extremes of the reading's
     * state (KNOWN EXTREMES).
     */
-  def heads(mode: Mode, term: Value): Answers[ReadingState, ParallelSet] = mode match
+  def heads[C <: NativeSpecializer & Singleton](mode: Mode, term: Value[C])(using C): Answers[ReadingState[C], ParallelSet[C]] = mode match
     case Mode.WeakHead => untabledHeads(term)
     case Mode.TablingWeakHead => called(term, tabling.answers)
-    case Mode.Jit(evaluator) => evaluator.heads(term)
-
-  /** The parallel sets with their heads as plain values (weak_head.pl's
-    * heads_expanded/3): under both weak-head modes the sets themselves, every
-    * value being a term already; under jit, the JIT's encoding.
-    */
-  def headsExpanded(mode: Mode, heads: Vector[ParallelSet]): Vector[ParallelSet] =
-    mode match
-      case Mode.WeakHead | Mode.TablingWeakHead => heads
-      case Mode.Jit(evaluator)                  => evaluator.encoded(heads)
+    case Mode.Jit =>
+      Answers.computed(Computation.state[ReadingState[C]].map(state => Vector(state.configuration.jit))).flatMap {
+        case Some(evaluator) => evaluator.heads(term)
+        case None            => throw IllegalStateException("a reading under the JIT whose configuration holds no JIT")
+      }
 
   /** The answers reduced by the rule bottom + M = bottom (KNOWN EXTREMES):
     * the empty parallel set alone when the answers hold it, the answers as
@@ -209,8 +205,8 @@ object WeakHead:
     * value; a caller that reads answers out keeps the others, each of which
     * is an answer.
     */
-  def bottomAbsorbed(heads: Vector[ParallelSet]): Vector[ParallelSet] =
-    if heads.exists(_.isBottom) then Vector(ParallelSet.bottom) else heads
+  def bottomAbsorbed[C <: NativeSpecializer & Singleton](heads: Vector[ParallelSet[C]])(using C): Vector[ParallelSet[C]] =
+    if heads.exists(_.isBottom) then Vector(ParallelSet.bottom[C]) else heads
 
   // ---- known extremes ----
 
@@ -226,11 +222,11 @@ object WeakHead:
     * reachable and canonical for the whole reading, and `==` ends at `eq` or
     * at a differing hash code, whatever the term's size.
     */
-  private def knownExtreme(term: Value, state: ReadingState): Option[Extreme] =
+  private def knownExtreme[C <: NativeSpecializer & Singleton](term: Value[C], state: ReadingState[C])(using C): Option[Extreme] =
     val extremes = state.extremes
     if extremes.isEmpty then None
-    else if extremes.tops.contains(term) then Some(Extreme.Top)
-    else if extremes.bottoms.contains(term) then Some(Extreme.Bottom)
+    else if extremes.top(term) then Some(Extreme.Top)
+    else if extremes.bottom(term) then Some(Extreme.Bottom)
     else None
 
   /** Under `ApplicationReading.BySpine`, the listed top or bottom that is
@@ -242,7 +238,7 @@ object WeakHead:
     * here the extremes are met in the order `ApplicationReading.ByLayer`
     * meets them, a top before a bottom of the same length.
     */
-  private def knownPrefix(head: Value, arguments: Vector[Value], state: ReadingState): Option[Extreme] =
+  private def knownPrefix[C <: NativeSpecializer & Singleton](head: Value[C], arguments: Vector[Value[C]], state: ReadingState[C])(using C): Option[Extreme] =
     val extremes = state.extremes
     if extremes.isEmpty then None
     else
@@ -250,16 +246,18 @@ object WeakHead:
       // spine read allocates nothing when no listed term is a prefix of it, as `knownExtreme`'s `contains`
       // allocates nothing (the collections this replaced cost 97,000 to 205,000 B/op of the untabled knowledge
       // reading, measured 2026-11-20).
-      def prefixLength(listed: Value): Int = listed.layer match
-        case application: gezi.ir.Apply[Value @unchecked] if application.spineHead == head =>
+      // A listed term is pure, one object under every configuration: its arguments are compared with the spine's as
+      // objects.
+      def prefixLength(listed: gezi.ir.Pure): Int = listed.representation.layer match
+        case application @ gezi.ir.Apply(_, _) =>
           val listedArguments = application.spineArguments
           @scala.annotation.tailrec
           def matched(index: Int): Boolean =
-            index == listedArguments.size || (listedArguments(index) == arguments(index) && matched(index + 1))
+            index == listedArguments.size || ((listedArguments(index): AnyRef) eq arguments(index).representation) && matched(index + 1)
           if listedArguments.size < arguments.size && matched(0) then listedArguments.size else 0
         case _ => 0
       @scala.annotation.tailrec
-      def longest(listed: Vector[Value], index: Int, found: Int): Int =
+      def longest(listed: Vector[gezi.ir.Pure], index: Int, found: Int): Int =
         if index == listed.size then found else longest(listed, index + 1, found.max(prefixLength(listed(index))))
       val top = longest(extremes.tops, 0, 0)
       val bottom = longest(extremes.bottoms, 0, 0)
@@ -271,37 +269,40 @@ object WeakHead:
 
   /** A goal of the untabled machine:
     *   - the parallel sets of a term applied to the arguments in order;
-    *   - those of the members of a choice from an index on, each applied to
-    *     the arguments, the choice point;
+    *   - those of the members of the right spine of a choice's right side,
+    *     each applied to the arguments, the choice point: the spine is taken
+    *     apart one choice at a time as the goal runs, never collected, so a
+    *     reading that leaves a long choice early pays for the members it
+    *     reached and not for the rest;
     *   - the parallel of each parallel set the left goals give with each one
     *     of the right term applied to the arguments: the arguments go to both
     *     sides of a parallel, by equation (9), so a parallel set found is
     *     applied to nothing more;
     *   - the parallel of one parallel set with each one the right goals give.
     */
-  private enum Goal:
-    case Evaluation(term: Value, arguments: List[Value])
-    case RemainingMembers(members: Vector[Value], from: Int, arguments: List[Value])
-    case ParallelLeft(left: List[Goal], right: Value, arguments: List[Value])
-    case ParallelRight(leftSet: ParallelSet, right: List[Goal])
+  private enum Goal[C <: NativeSpecializer & Singleton]:
+    case Evaluation(term: Value[C], arguments: List[Value[C]])
+    case RemainingMembers(remaining: Value[C], arguments: List[Value[C]])
+    case ParallelLeft(left: List[Goal[C]], right: Value[C], arguments: List[Value[C]])
+    case ParallelRight(leftSet: ParallelSet[C], right: List[Goal[C]])
 
   /** The untabled machine: the goals still to be run, the next first. */
-  private final case class HeadMachine(goals: List[Goal])
+  private final case class HeadMachine[C <: NativeSpecializer & Singleton](goals: List[Goal[C]])
 
   /** What the machine run to its next parallel set gives: the set and the
     * machine after it, or nothing when no goal is left.
     */
-  private type Pulled = Computed[ReadingState, Option[(ParallelSet, HeadMachine)]]
+  private type Pulled[C <: NativeSpecializer & Singleton] = Computed[ReadingState[C], Option[(ParallelSet[C], HeadMachine[C])]]
 
   /** The parallel sets of the term, the term's own order: each choice's
     * members left to right, and for a parallel each parallel set of its
     * left side with each of its right side, the right side evaluated again
     * for each.
     */
-  private def untabledHeads(term: Value): Answers[ReadingState, ParallelSet] =
+  private def untabledHeads[C <: NativeSpecializer & Singleton](term: Value[C])(using C): Answers[ReadingState[C], ParallelSet[C]] =
     machineHeads(HeadMachine(List(Goal.Evaluation(term, Nil))))
 
-  private def machineHeads(machine: HeadMachine): Answers[ReadingState, ParallelSet] =
+  private def machineHeads[C <: NativeSpecializer & Singleton](machine: HeadMachine[C])(using C): Answers[ReadingState[C], ParallelSet[C]] =
     Answers(Computation(state =>
       nextHead(machine.goals, state).map {
         case Computed.Done(Some((set, rest)), after) =>
@@ -317,13 +318,13 @@ object WeakHead:
     * choice leaves a goal for the members after the one taken, and none
     * after its last.
     */
-  private def nextHead(goals: List[Goal], state: ReadingState): Trampoline[Pulled] = goals match
+  private def nextHead[C <: NativeSpecializer & Singleton](goals: List[Goal[C]], state: ReadingState[C])(using C): Trampoline[Pulled[C]] = goals match
     case Nil => done(Computed.Done(None, state))
-    case Goal.RemainingMembers(members, from, arguments) :: rest =>
-      val remaining =
-        if from + 1 < members.size then Goal.RemainingMembers(members, from + 1, arguments) :: rest
-        else rest
-      tailcall(nextHead(Goal.Evaluation(members(from), arguments) :: remaining, state))
+    case Goal.RemainingMembers(remaining, arguments) :: rest =>
+      remaining match
+        case Value.Choice(member, later) =>
+          tailcall(nextHead(Goal.Evaluation(member, arguments) :: Goal.RemainingMembers(later, arguments) :: rest, state))
+        case last => tailcall(nextHead(Goal.Evaluation(last, arguments) :: rest, state))
     case Goal.ParallelLeft(left, right, arguments) :: rest =>
       tailcall(nextHead(left, state)).flatMap {
         case Computed.Stopped(stopped)  => done(Computed.Stopped(stopped))
@@ -356,71 +357,72 @@ object WeakHead:
             case Some(Extreme.Bottom) =>
               done(Computed.Done(Some((ParallelSet.bottom, HeadMachine(rest))), stepped))
             case None =>
-              term match
-                case Value.Thunk(code, holes, fillings) if holes.nonEmpty =>
-                  arguments match
-                    case Nil =>
-                      done(
-                        Computed.Done(
-                          Some((ParallelSet.single(Head.Lambda(code, holes, fillings)), HeadMachine(rest))),
+              nativeResult(term, stepped) match
+                case Some((result, called)) => tailcall(nextHead(Goal.Evaluation(result, arguments) :: rest, called))
+                case None =>
+                  storageEliminated(term, stepped) match
+                    case Value.Thunk(code, holes, fillings) if holes.nonEmpty =>
+                      arguments match
+                        case Nil =>
+                          done(
+                            Computed.Done(
+                              Some((ParallelSet.single(Head.Lambda(code, holes, fillings)), HeadMachine(rest))),
+                              stepped
+                            )
+                          )
+                        case argument :: later =>
+                          argumentTaken(
+                            thunkOrSuspension(code, holes.tail, holeFilled(holes.head, holes.tail, fillings, argument)),
+                            later,
+                            rest,
+                            stepped
+                          )
+                    case SuspensionValue(code, fillings) =>
+                      tailcall(nextHead(Goal.Evaluation(instanceTerm(code, fillings, stepped.specializer), arguments) :: rest, stepped.entered(code)))
+                    case Value.Apply(function, argument) =>
+                      stepped.applications match
+                        case ApplicationReading.ByLayer =>
+                          tailcall(nextHead(Goal.Evaluation(function, argument :: arguments) :: rest, stepped))
+                        case ApplicationReading.BySpine | ApplicationReading.BySharedPrefix =>
+                          val (head, spineArguments) = Value.Spine.of(term)
+                          knownPrefix(head, spineArguments, stepped) match
+                            case Some(Extreme.Top) => tailcall(nextHead(rest, stepped))
+                            case Some(Extreme.Bottom) =>
+                              done(Computed.Done(Some((ParallelSet.bottom, HeadMachine(rest))), stepped))
+                            case None =>
+                              tailcall(nextHead(Goal.Evaluation(head, spineArguments.foldRight(arguments)(_ :: _)) :: rest, stepped))
+                    case Value.Choice(member, later) =>
+                      tailcall(nextHead(Goal.Evaluation(member, arguments) :: Goal.RemainingMembers(later, arguments) :: rest, stepped))
+                    case Value.Parallel(left, right) =>
+                      tailcall(
+                        nextHead(
+                          Goal.ParallelLeft(List(Goal.Evaluation(left, arguments)), right, arguments) :: rest,
                           stepped
                         )
                       )
-                    case argument :: later =>
-                      argumentTaken(
-                        Value.Thunk(code, holes.tail, holeFilled(holes.head, holes.tail, fillings, argument)),
-                        later,
-                        rest,
-                        stepped
-                      )
-                case Value.Thunk(code, _, fillings) =>
-                  tailcall(nextHead(Goal.Evaluation(instanceTerm(code, fillings), arguments) :: rest, stepped.entered(code)))
-                case Value.Apply(function, argument) =>
-                  stepped.applications match
-                    case ApplicationReading.ByLayer =>
-                      tailcall(nextHead(Goal.Evaluation(function, argument :: arguments) :: rest, stepped))
-                    case ApplicationReading.BySpine | ApplicationReading.BySharedPrefix =>
-                      val (head, spineArguments) = Spine.of(term)
-                      knownPrefix(head, spineArguments, stepped) match
-                        case Some(Extreme.Top) => tailcall(nextHead(rest, stepped))
-                        case Some(Extreme.Bottom) =>
-                          done(Computed.Done(Some((ParallelSet.bottom, HeadMachine(rest))), stepped))
-                        case None =>
-                          tailcall(nextHead(Goal.Evaluation(head, spineArguments.foldRight(arguments)(_ :: _)) :: rest, stepped))
-                case Value.Choice(_, _) =>
-                  val members = choiceMembers(term)
-                  if members.isEmpty then tailcall(nextHead(rest, stepped))
-                  else tailcall(nextHead(Goal.RemainingMembers(members, 0, arguments) :: rest, stepped))
-                case Value.Parallel(left, right) =>
-                  tailcall(
-                    nextHead(
-                      Goal.ParallelLeft(List(Goal.Evaluation(left, arguments)), right, arguments) :: rest,
-                      stepped
-                    )
-                  )
-                case Value.Neutral(variable, neutralArguments) =>
-                  arguments match
-                    case Nil =>
-                      done(
-                        Computed.Done(
-                          Some((ParallelSet.single(Head.Neutral(variable, neutralArguments)), HeadMachine(rest))),
-                          stepped
-                        )
-                      )
-                    case argument :: later =>
-                      argumentTaken(Value.Neutral(variable, neutralArguments :+ argument), later, rest, stepped)
-                case opaque =>
-                  throw IllegalStateException(s"the opaque $opaque has no layer")
+                    case NeutralValue(variable, neutralArguments) =>
+                      arguments match
+                        case Nil =>
+                          done(
+                            Computed.Done(
+                              Some((ParallelSet.single(Head.Neutral(variable, neutralArguments)), HeadMachine(rest))),
+                              stepped
+                            )
+                          )
+                        case argument :: later =>
+                          argumentTaken(NeutralValue(variable, neutralArguments :+ argument), later, rest, stepped)
+                    case opaque =>
+                      throw IllegalStateException(s"the opaque $opaque has no layer")
 
   /** A head applied to its first argument, one step: the result applied to
     * the arguments after it is the next goal.
     */
-  private def argumentTaken(
-      result: Value,
-      later: List[Value],
-      rest: List[Goal],
-      state: ReadingState
-  ): Trampoline[Pulled] =
+  private def argumentTaken[C <: NativeSpecializer & Singleton](
+      result: Value[C],
+      later: List[Value[C]],
+      rest: List[Goal[C]],
+      state: ReadingState[C]
+  )(using C): Trampoline[Pulled[C]] =
     state.budget.charged match
       case None          => done(Computed.Stopped(state))
       case Some(charged) => tailcall(nextHead(Goal.Evaluation(result, later) :: rest, state.copy(budget = charged)))
@@ -428,22 +430,22 @@ object WeakHead:
   // ---- tabling(weak_head) ----
 
   /** The tabled function, as the body sees it. */
-  private type TabledCall = Value => Answers[ReadingState, ParallelSet]
+  private type TabledCall[C <: NativeSpecializer & Singleton] = Value[C] => Answers[ReadingState[C], ParallelSet[C]]
 
-  private val tabling: Tabling[ReadingState, Value, ParallelSet] =
-    Tabling(_.tables, (state, tables) => state.copy(tables = tables), state => state.sharing.completedTables(state), tabledBody)
+  private def tabling[C <: NativeSpecializer & Singleton](using C): Tabling[ReadingState[C], Value[C], ParallelSet[C]] =
+    Tabling(_.tables, (state, tables) => state.copy(tables = tables), state => state.sharing.completedTables(state), tabledBody[C])
 
   /** The parallel sets of the value's table, each as it is found: one step,
     * then the tabled function called on the value, an interned term and so
     * a key of fixed cost.
     */
-  private def called(value: Value, call: TabledCall): Answers[ReadingState, ParallelSet] =
+  private def called[C <: NativeSpecializer & Singleton](value: Value[C], call: TabledCall[C])(using C): Answers[ReadingState[C], ParallelSet[C]] =
     bodyAnswers(List(BodyGoal.Called(value, Nil)), call)
 
   /** Whether the reading may hold one more table for the key: it holds one
     * already, or fewer than its table limit.
     */
-  private def tableAllowed(key: Value, state: ReadingState): Boolean =
+  private def tableAllowed[C <: NativeSpecializer & Singleton](key: Value[C], state: ReadingState[C])(using C): Boolean =
     val tables = state.tables
     tables.complete.contains(key) || tables.open.contains(key) ||
       tables.complete.size + tables.open.size < state.tableLimit
@@ -454,8 +456,8 @@ object WeakHead:
     * `Tabling` asks: a union, or a ⊗, of what larger answer sets give is
     * larger.
     */
-  private def tabledBody(key: Value, call: TabledCall): Answers[ReadingState, ParallelSet] =
-    Answers(Computation.state[ReadingState].flatMap(found =>
+  private def tabledBody[C <: NativeSpecializer & Singleton](key: Value[C], call: TabledCall[C])(using C): Answers[ReadingState[C], ParallelSet[C]] =
+    Answers(Computation.state[ReadingState[C]].flatMap(found =>
       val (term, state) = uriExpanded(key, found)
       Computation.replaced(state).flatMap(_ => bodyAnswers(List(BodyGoal.Read(term, Nil)), call).pull)
     ))
@@ -466,7 +468,7 @@ object WeakHead:
     * the order of the answers are those the combinators gave: each goal and frame below is one of
     * them, named in its Scaladoc.
     */
-  private enum BodyGoal:
+  private enum BodyGoal[C <: NativeSpecializer & Singleton]:
 
     /** The body of the key read as the term, a URI node expanded already:
       * a choice's members left to right; an application's function's
@@ -475,33 +477,41 @@ object WeakHead:
       * the right side called again for each, as the untabled machine
       * evaluates it again.
       */
-    case Read(term: Value, after: List[BodyFrame])
+    case Read(term: Value[C], after: List[BodyFrame[C]])
 
     /** The value's table: one step, the table limit checked, then the
       * tabled function called on the value.
       */
-    case Called(value: Value, after: List[BodyFrame])
+    case Called(value: Value[C], after: List[BodyFrame[C]])
+
+    /** Each member of the right spine of a choice's right side called, as
+      * `Called` calls it, left to right: the spine is taken apart one choice
+      * at a time as the goal runs, with no step of its own, never collected,
+      * so a reading that leaves a long choice early pays for the members it
+      * reached and not for the rest.
+      */
+    case RemainingMembers(remaining: Value[C], after: List[BodyFrame[C]])
 
     /** The answers of a call still to be taken, each given to the frames. */
-    case Consumed(answers: Answers[ReadingState, ParallelSet], after: List[BodyFrame])
+    case Consumed(answers: Answers[ReadingState[C], ParallelSet[C]], after: List[BodyFrame[C]])
 
     /** The answers of a complete table from the index on, each given to the
       * frames, read by index: what `Tabling.consumed` gives for a complete
       * table, the answers in their order and nothing else, without the stream
       * it builds, a closure for each answer (JFR, 2026-11-19).
       */
-    case Listed(answers: Vector[ParallelSet], index: Int, after: List[BodyFrame])
+    case Listed(answers: Vector[ParallelSet[C]], index: Int, after: List[BodyFrame[C]])
 
     /** A parallel set given to the frames. */
-    case Delivered(set: ParallelSet, after: List[BodyFrame])
+    case Delivered(set: ParallelSet[C], after: List[BodyFrame[C]])
 
     /** The ⊗ of what each of the heads, at least one, gives applied to the
       * argument, the first head's parallel sets outermost.
       */
-    case HeadsApplied(heads: Vector[Head], argument: Value, after: List[BodyFrame])
+    case HeadsApplied(heads: Vector[Head[C]], argument: Value[C], after: List[BodyFrame[C]])
 
     /** The parallel sets of a head applied to the argument, one step. */
-    case HeadApplied(head: Head, argument: Value, after: List[BodyFrame])
+    case HeadApplied(head: Head[C], argument: Value[C], after: List[BodyFrame[C]])
 
     /** The parallel sets of the code under the fillings, the slot's filling
       * the pack of the code's tail plan (`ContinuationReading.Packed`),
@@ -511,42 +521,42 @@ object WeakHead:
       * whose shared table this is, marked unverified when a branch is
       * dropped.
       */
-    case Walked(code: Code, fillings: Vector[Value], slot: Int, head: Value, after: List[BodyFrame])
+    case Walked(code: Code, fillings: Vector[Value[C]], slot: Int, head: Value[C], after: List[BodyFrame[C]])
 
     /** After a consumer has taken the shared answers of its head applied to
       * the pack: the head applied to the continuation by the β rule as well,
       * when the head has been marked unverified (`ReadingState.unverified`).
       */
-    case FallbackChecked(head: Value, code: Code, filled: Vector[Value], after: List[BodyFrame])
+    case FallbackChecked(head: Value[C], code: Code, filled: Vector[Value[C]], after: List[BodyFrame[C]])
 
   /** What is done with a parallel set a goal gives. */
-  private enum BodyFrame:
+  private enum BodyFrame[C <: NativeSpecializer & Singleton]:
 
     /** A function's parallel set applied to the argument: the ⊗ of what each
       * of its heads gives, by equation (9); the empty parallel set gives
       * itself, the ⊗ of nothing.
       */
-    case SetApplied(argument: Value)
+    case SetApplied(argument: Value[C])
 
     /** A parallel's left side's parallel set: the right side called, each of
       * its parallel sets in parallel with this one.
       */
-    case RightCalled(right: Value)
+    case RightCalled(right: Value[C])
 
     /** A parallel set in parallel with the left one, one step for each
       * parallel made (STEPS).
       */
-    case Paralleled(left: ParallelSet)
+    case Paralleled(left: ParallelSet[C])
 
     /** The first head's parallel set: the other heads' parallel sets, each
       * in parallel with it.
       */
-    case OthersApplied(others: Vector[Head], argument: Value)
+    case OthersApplied(others: Vector[Head[C]], argument: Value[C])
 
     /** A walked parallel's left side's parallel set: the right side walked,
       * each of its parallel sets in parallel with this one.
       */
-    case RightWalked(code: Code, fillings: Vector[Value], slot: Int, head: Value)
+    case RightWalked(code: Code, fillings: Vector[Value[C]], slot: Int, head: Value[C])
 
     /** A parallel set of a walked step's function: when it is one head
       * `λc'. S'` whose tail plan has the continuation's arity, the shared
@@ -554,31 +564,32 @@ object WeakHead:
       * to `StepFields`; the empty parallel set gives itself; any other set
       * drops the branch and marks the walked head unverified.
       */
-    case StepFunction(continuation: Continuation, head: Value)
+    case StepFunction(continuation: Continuation[C], head: Value[C])
 
     /** A parallel set of a checked step's function applied to its pack: a
       * pack's tuple, whose fields the continuation takes, its code then
       * walked; the empty parallel set gives itself; any other set drops the
       * branch and marks the walked head unverified.
       */
-    case StepFields(continuation: Continuation, head: Value)
+    case StepFields(continuation: Continuation[C], head: Value[C])
 
   /** The continuation of a walked step, `λx1 … xm. R`: its code, holes and
     * fillings, and the slot of its code that holds the pack passed on.
     */
-  private final case class Continuation(code: Code, holes: Vector[Hole], fillings: Vector[Value], slot: Int)
+  private final case class Continuation[C <: NativeSpecializer & Singleton](code: Code, holes: Vector[Hole], fillings: Vector[Value[C]], slot: Int)
 
-  private type BodyPulled = Trampoline[Computed[ReadingState, Option[(ParallelSet, Answers[ReadingState, ParallelSet])]]]
+  private type BodyPulled[C <: NativeSpecializer & Singleton] =
+    Trampoline[Computed[ReadingState[C], Option[(ParallelSet[C], Answers[ReadingState[C], ParallelSet[C]])]]]
 
   /** The parallel sets the goals give, each as it is found. */
-  private def bodyAnswers(goals: List[BodyGoal], call: TabledCall): Answers[ReadingState, ParallelSet] =
+  private def bodyAnswers[C <: NativeSpecializer & Singleton](goals: List[BodyGoal[C]], call: TabledCall[C])(using C): Answers[ReadingState[C], ParallelSet[C]] =
     Answers(Computation(state => bodyPulled(goals, state, call)))
 
   /** The goals run to their next parallel set, the goals left after it, or to
     * their end. A loop of the trampoline: a goal pushes the goals it leads to
     * on the stack.
     */
-  private def bodyPulled(goals: List[BodyGoal], state: ReadingState, call: TabledCall): BodyPulled = goals match
+  private def bodyPulled[C <: NativeSpecializer & Singleton](goals: List[BodyGoal[C]], state: ReadingState[C], call: TabledCall[C])(using C): BodyPulled[C] = goals match
     case Nil => done(Computed.Done(None, state))
     case goal :: rest =>
       goal match
@@ -600,7 +611,7 @@ object WeakHead:
                     case ParallelReading.BothSides =>
                       tailcall(bodyPulled(BodyGoal.Delivered(left.parallel(set), after) :: rest, stepped, call))
                     case ParallelReading.HeadsMet =>
-                      headsMet(left.parallel(set)) match
+                      headsMet(left.parallel(set), state.specializer) match
                         case Some(met) => tailcall(bodyPulled(BodyGoal.Delivered(met, after) :: rest, stepped, call))
                         case None      => tailcall(bodyPulled(rest, stepped, call))
             case BodyFrame.OthersApplied(others, argument) =>
@@ -634,6 +645,11 @@ object WeakHead:
                           tailcall(bodyPulled(walked :: rest, state.copy(budget = budget).entered(continuation.code), call))
                     case None => tailcall(bodyPulled(rest, state.copy(unverified = state.unverified + head), call))
                 case _ => tailcall(bodyPulled(rest, state.copy(unverified = state.unverified + head), call))
+        case BodyGoal.RemainingMembers(remaining, after) =>
+          remaining match
+            case Value.Choice(member, later) =>
+              tailcall(bodyPulled(BodyGoal.Called(member, after) :: BodyGoal.RemainingMembers(later, after) :: rest, state, call))
+            case last => tailcall(bodyPulled(BodyGoal.Called(last, after) :: rest, state, call))
         case BodyGoal.Called(value, after) =>
           state.budget.charged match
             case None => done(Computed.Stopped(state))
@@ -689,56 +705,59 @@ object WeakHead:
                     .passedFilling(innerFillings, slot)
                     .getOrElse(throw IllegalStateException(s"a walked step passes no bare slot $slot on"))
                   val continuation =
-                    Continuation(inner, holes, innerFillings.map(instanceTerm(_, fillings)), Code.filledSlot(inner, holes, innerFillings.size, index))
-                  List(BodyGoal.Called(instanceTerm(function, fillings), BodyFrame.StepFunction(continuation, head) :: after))
+                    Continuation(inner, holes, innerFillings.map(instanceTerm(_, fillings, state.specializer)), Code.filledSlot(inner, holes, innerFillings.size, index))
+                  List(BodyGoal.Called(instanceTerm(function, fillings, state.specializer), BodyFrame.StepFunction(continuation, head) :: after))
                 case other => throw IllegalStateException(s"a walked step's argument is a thunk, not $other")
-            case _ => List(BodyGoal.Called(instanceTerm(code, fillings), after))
+            case _ => List(BodyGoal.Called(instanceTerm(code, fillings, state.specializer), after))
           tailcall(bodyPulled(next ::: rest, state, call))
         case BodyGoal.FallbackChecked(head, code, filled, after) =>
           if state.unverified.contains(head) then
-            tailcall(bodyPulled(BodyGoal.Called(instanceTerm(code, filled), after) :: rest, state.entered(code), call))
+            tailcall(bodyPulled(BodyGoal.Called(instanceTerm(code, filled, state.specializer), after) :: rest, state.entered(code), call))
           else tailcall(bodyPulled(rest, state, call))
         case BodyGoal.Read(term, after) =>
           knownExtreme(term, state) match
             case Some(Extreme.Top)    => tailcall(bodyPulled(rest, state, call))
             case Some(Extreme.Bottom) => tailcall(bodyPulled(BodyGoal.Delivered(ParallelSet.bottom, after) :: rest, state, call))
             case None =>
-              term match
-                case Value.Thunk(code, holes, fillings) if holes.nonEmpty =>
-                  tailcall(bodyPulled(BodyGoal.Delivered(ParallelSet.single(Head.Lambda(code, holes, fillings)), after) :: rest, state, call))
-                case Value.Thunk(code, _, fillings) =>
-                  tailcall(bodyPulled(BodyGoal.Called(instanceTerm(code, fillings), after) :: rest, state.entered(code), call))
-                case Value.Apply(function, argument) =>
-                  state.applications match
-                    case ApplicationReading.ByLayer =>
-                      tailcall(bodyPulled(BodyGoal.Called(function, BodyFrame.SetApplied(argument) :: after) :: rest, state, call))
-                    case ApplicationReading.BySpine =>
-                      val (head, spineArguments) = Spine.of(term)
-                      knownPrefix(head, spineArguments, state) match
-                        case Some(Extreme.Top) => tailcall(bodyPulled(rest, state, call))
-                        case Some(Extreme.Bottom) =>
-                          tailcall(bodyPulled(BodyGoal.Delivered(ParallelSet.bottom, after) :: rest, state, call))
-                        case None =>
-                          val frames = spineArguments.foldRight(after)((spineArgument, later) => BodyFrame.SetApplied(spineArgument) :: later)
-                          tailcall(bodyPulled(BodyGoal.Called(head, frames) :: rest, state, call))
-                    case ApplicationReading.BySharedPrefix =>
-                      val (head, spineArguments) = Spine.of(term)
-                      knownPrefix(head, spineArguments, state) match
-                        case Some(Extreme.Top) => tailcall(bodyPulled(rest, state, call))
-                        case Some(Extreme.Bottom) =>
-                          tailcall(bodyPulled(BodyGoal.Delivered(ParallelSet.bottom, after) :: rest, state, call))
-                        case None =>
-                          val (length, prefix, spinePrefixes) = sharedPrefix(term, head, spineArguments.size, state)
-                          val frames =
-                            spineArguments.drop(length).foldRight(after)((spineArgument, later) => BodyFrame.SetApplied(spineArgument) :: later)
-                          tailcall(bodyPulled(BodyGoal.Called(prefix, frames) :: rest, state.copy(spinePrefixes = spinePrefixes), call))
-                case Value.Choice(_, _) =>
-                  tailcall(bodyPulled(choiceMembers(term).toList.map(member => BodyGoal.Called(member, after)) ::: rest, state, call))
-                case Value.Parallel(left, right) =>
-                  tailcall(bodyPulled(BodyGoal.Called(left, BodyFrame.RightCalled(right) :: after) :: rest, state, call))
-                case Value.Neutral(variable, arguments) =>
-                  tailcall(bodyPulled(BodyGoal.Delivered(ParallelSet.single(Head.Neutral(variable, arguments)), after) :: rest, state, call))
-                case opaque => throw IllegalStateException(s"the opaque $opaque has no layer")
+              nativeResult(term, state) match
+                case Some((result, called)) => tailcall(bodyPulled(BodyGoal.Read(result, after) :: rest, called, call))
+                case None =>
+                  storageEliminated(term, state) match
+                    case Value.Thunk(code, holes, fillings) if holes.nonEmpty =>
+                      tailcall(bodyPulled(BodyGoal.Delivered(ParallelSet.single(Head.Lambda(code, holes, fillings)), after) :: rest, state, call))
+                    case Value.Thunk(code, _, fillings) =>
+                      tailcall(bodyPulled(BodyGoal.Called(instanceTerm(code, fillings, state.specializer), after) :: rest, state.entered(code), call))
+                    case Value.Apply(function, argument) =>
+                      state.applications match
+                        case ApplicationReading.ByLayer =>
+                          tailcall(bodyPulled(BodyGoal.Called(function, BodyFrame.SetApplied(argument) :: after) :: rest, state, call))
+                        case ApplicationReading.BySpine =>
+                          val (head, spineArguments) = Value.Spine.of(term)
+                          knownPrefix(head, spineArguments, state) match
+                            case Some(Extreme.Top) => tailcall(bodyPulled(rest, state, call))
+                            case Some(Extreme.Bottom) =>
+                              tailcall(bodyPulled(BodyGoal.Delivered(ParallelSet.bottom, after) :: rest, state, call))
+                            case None =>
+                              val frames = spineArguments.foldRight(after)((spineArgument, later) => BodyFrame.SetApplied(spineArgument) :: later)
+                              tailcall(bodyPulled(BodyGoal.Called(head, frames) :: rest, state, call))
+                        case ApplicationReading.BySharedPrefix =>
+                          val (head, spineArguments) = Value.Spine.of(term)
+                          knownPrefix(head, spineArguments, state) match
+                            case Some(Extreme.Top) => tailcall(bodyPulled(rest, state, call))
+                            case Some(Extreme.Bottom) =>
+                              tailcall(bodyPulled(BodyGoal.Delivered(ParallelSet.bottom, after) :: rest, state, call))
+                            case None =>
+                              val (length, prefix, spinePrefixes) = sharedPrefix(term, head, spineArguments.size, state)
+                              val frames =
+                                spineArguments.drop(length).foldRight(after)((spineArgument, later) => BodyFrame.SetApplied(spineArgument) :: later)
+                              tailcall(bodyPulled(BodyGoal.Called(prefix, frames) :: rest, state.copy(spinePrefixes = spinePrefixes), call))
+                    case Value.Choice(member, later) =>
+                      tailcall(bodyPulled(BodyGoal.Called(member, after) :: BodyGoal.RemainingMembers(later, after) :: rest, state, call))
+                    case Value.Parallel(left, right) =>
+                      tailcall(bodyPulled(BodyGoal.Called(left, BodyFrame.RightCalled(right) :: after) :: rest, state, call))
+                    case NeutralValue(variable, arguments) =>
+                      tailcall(bodyPulled(BodyGoal.Delivered(ParallelSet.single(Head.Neutral(variable, arguments)), after) :: rest, state, call))
+                    case opaque => throw IllegalStateException(s"the opaque $opaque has no layer")
 
   /** The parallel set met head by head (`ParallelReading.HeadsMet`): the
     * lambda heads of one code and one list of holes merged into one, whose
@@ -747,8 +766,8 @@ object WeakHead:
     * as many holes and their codes' bodies are applications of two different
     * of their binders. Neutral heads are kept as they are.
     */
-  private def headsMet(set: ParallelSet): Option[ParallelSet] =
-    val merged = set.heads.foldLeft(Vector.empty[Head])((kept, head) =>
+  private def headsMet[C <: NativeSpecializer & Singleton](set: ParallelSet[C], specializer: C)(using C): Option[ParallelSet[C]] =
+    val merged = set.heads.foldLeft(Vector.empty[Head[C]])((kept, head) =>
       head match
         case Head.Lambda(code, holes, fillings) =>
           kept.indexWhere {
@@ -760,7 +779,7 @@ object WeakHead:
               kept(index) match
                 case Head.Lambda(_, _, keptFillings) =>
                   require(keptFillings.size == fillings.size, s"two thunks of one code and one list of holes have as many fillings")
-                  val metFillings = keptFillings.zip(fillings).map(fillingsMet)
+                  val metFillings = keptFillings.zip(fillings).map(fillingsMet(_, _, specializer))
                   kept.updated(index, Head.Lambda(code, holes, metFillings))
                 case other => throw IllegalStateException(s"the index found a lambda head, not $other")
         case _ => kept :+ head
@@ -783,22 +802,10 @@ object WeakHead:
     * `ParallelReadingLawTest` took 3,166 steps at 32 elements and 10,187 at
     * 64).
     */
-  private def fillingsMet(first: Value, second: Value): Value =
-    if first == second then first
-    else
-      val sides = (parallelSides(first) ++ parallelSides(second)).distinct
-      sides.init.foldRight(sides.last)(Value.Parallel(_, _))
-
-  /** The sides of a chain of parallels, left to right; the value itself when
-    * it is no parallel.
-    */
-  private def parallelSides(value: Value): Vector[Value] =
-    @scala.annotation.tailrec
-    def from(pending: List[Value], found: Vector[Value]): Vector[Value] = pending match
-      case Nil                                   => found
-      case Value.Parallel(left, right) :: others => from(left :: right :: others, found)
-      case side :: others                        => from(others, found :+ side)
-    from(List(value), Vector.empty)
+  private def fillingsMet[C <: NativeSpecializer & Singleton](first: Value[C], second: Value[C], specializer: C)(using C): Value[C] =
+    // A storage is a leaf of its term's layer, so `Value.Parallel.unapply` never takes its view apart; a parallel is
+    // built by the reading's specializer, so that meeting a storage with its own criterion keeps the storage.
+    gezi.ir.ParallelChain.met[Value[C]](first, second, Value.Parallel.unapply, Value.Parallel(_, _))
 
   /** The binder, by its position among the holes, that the code's body is an
     * application of, or none when the spine's head is no binder of the
@@ -825,10 +832,10 @@ object WeakHead:
     * applications `ByLayer` would take apart one by one, each a table look-up
     * and an index look-up of interned terms, so of fixed cost.
     */
-  private def sharedPrefix(term: Value, head: Value, argumentCount: Int, state: ReadingState): (Int, Value, Map[Value, Value]) =
+  private def sharedPrefix[C <: NativeSpecializer & Singleton](term: Value[C], head: Value[C], argumentCount: Int, state: ReadingState[C])(using C): (Int, Value[C], Map[Value[C], Value[C]]) =
     val tables = state.tables
     @scala.annotation.tailrec
-    def walked(longer: Value, length: Int, spinePrefixes: Map[Value, Value]): (Int, Value, Map[Value, Value]) =
+    def walked(longer: Value[C], length: Int, spinePrefixes: Map[Value[C], Value[C]]): (Int, Value[C], Map[Value[C], Value[C]]) =
       if length == 0 then (0, head, spinePrefixes)
       else
         longer.layer match
@@ -857,16 +864,16 @@ object WeakHead:
     * table more.
     *
     */
-  private def lastApplied(
+  private def lastApplied[C <: NativeSpecializer & Singleton](
       code: Code,
       holes: Vector[Hole],
-      fillings: Vector[Value],
-      filled: Vector[Value],
-      argument: Value,
-      after: List[BodyFrame],
-      state: ReadingState
-  ): List[BodyGoal] =
-    val substituted = List(BodyGoal.Called(instanceTerm(code, filled), after))
+      fillings: Vector[Value[C]],
+      filled: Vector[Value[C]],
+      argument: Value[C],
+      after: List[BodyFrame[C]],
+      state: ReadingState[C]
+  )(using C): List[BodyGoal[C]] =
+    val substituted = List(BodyGoal.Called(instanceTerm(code, filled, state.specializer), after))
     state.continuations match
       case ContinuationReading.Substituted => substituted
       case ContinuationReading.Packed =>
@@ -875,7 +882,7 @@ object WeakHead:
             Code.tailPlans(code).get(slot).filter(_.arity >= 1) match
               case Some(plan) =>
                 val head = Value.Thunk(code, holes, fillings)
-                if argument eq pack(plan.arity) then List(BodyGoal.Walked(code, filled, slot, head, after))
+                if Value.same(argument, pack(plan.arity)) then List(BodyGoal.Walked(code, filled, slot, head, after))
                 else if plan.steps && !state.unverified.contains(head) then
                   List(
                     BodyGoal.Called(Value.Apply(head, pack(plan.arity)), BodyFrame.SetApplied(argument) :: after),
@@ -895,7 +902,7 @@ object WeakHead:
     * this hot path, counting or not (the review of
     * https://github.com/Atry/private-overlay/pull/1828).
     */
-  private def lastEntered(code: Code, goals: List[BodyGoal], state: ReadingState): ReadingState =
+  private def lastEntered[C <: NativeSpecializer & Singleton](code: Code, goals: List[BodyGoal[C]], state: ReadingState[C])(using C): ReadingState[C] =
     goals match
       case _ :: BodyGoal.FallbackChecked(_, _, _, _) :: Nil => state
       case _                                                => state.entered(code)
@@ -923,23 +930,24 @@ object WeakHead:
   /** `pack_n`, `λm1 … mn. λt. t m1 … mn`, a closed term
     * (`ContinuationReading.Packed`): one interned object for each arity.
     */
-  private def packMade(arity: Int): Value =
+  private def packMade(arity: Int): gezi.ir.Pure =
     val tuple = (1 to arity).foldLeft(DeBruijnTerm.Variable(0))((applied, position) =>
       DeBruijnTerm.Apply(applied, DeBruijnTerm.Variable(arity + 1 - position))
     )
-    Values.ofInstruction(Defunctionalization.thunkInstruction((0 to arity).foldLeft(tuple)((body, _) => DeBruijnTerm.Lambda(body))), Set.empty)
+    Defunctionalization.pure((0 to arity).foldLeft(tuple)((body, _) => DeBruijnTerm.Lambda(body)))
 
-  private val packs: Vector[Value] = Vector.tabulate(keptPackArity + 1)(packMade)
+  private val packs: Vector[gezi.ir.Pure] = Vector.tabulate(keptPackArity + 1)(packMade)
 
   /** The pack of the arity (`packMade`). */
-  private[weakhead] def pack(arity: Int): Value = if arity <= keptPackArity then packs(arity) else packMade(arity)
+  private[weakhead] def pack[C <: NativeSpecializer & Singleton](arity: Int)(using specializer: C): Value[C] =
+    Value.of(Configured.fromPure(specializer)(if arity <= keptPackArity then packs(arity) else packMade(arity)))
 
   /** The fields of a pack's tuple, `λt. t m1 … mn` with its fields filled:
     * the head of the pack's own code with one hole left, each field the
     * value of the slot the code's spine applies `t` to. None for any other
     * head.
     */
-  private def packFields(head: Head, arity: Int): Option[Vector[Value]] = (head, pack(arity)) match
+  private def packFields[C <: NativeSpecializer & Singleton](head: Head[C], arity: Int)(using C): Option[Vector[Value[C]]] = (head, pack(arity)) match
     case (Head.Lambda(code, holes, fillings), Value.Thunk(packCode, _, _)) if (code eq packCode) && holes.size == 1 =>
       @scala.annotation.tailrec
       def arguments(current: Code, found: List[Code]): List[Code] = current.layer match
@@ -957,7 +965,7 @@ object WeakHead:
     * step, and a node of a normal form a reading builds
     * (`NormalForms.nodeBuilt`).
     */
-  private[weakhead] val stepTaken: Computation[ReadingState, Unit] =
+  private[weakhead] def stepTaken[C <: NativeSpecializer & Singleton](using C): Computation[ReadingState[C], Unit] =
     Computation(state =>
       done(state.budget.charged match
         case Some(charged) => Computed.Done((), state.copy(budget = charged))
@@ -972,25 +980,18 @@ object WeakHead:
     * `file:` URL is remembered, a memo. An expansion is no URI node, so one step
     * reaches a layer. Taking it costs no evaluator step.
     */
-  private def uriExpanded(value: Value, state: ReadingState): (Value, ReadingState) =
-    Value.opaqueInstruction(value).filter(_.uri.isDefined) match
+  private def uriExpanded[C <: NativeSpecializer & Singleton](value: Value[C], state: ReadingState[C])(using C): (Value[C], ReadingState[C]) =
+    gezi.ir.Closed.configured(value).filter(term =>
+      term.layer match
+        case gezi.ir.UriNode(_) => true
+        case _                  => false
+    ) match
       case Some(node) =>
-        state.expansions.get(node) match
-          case Some(expansion) => (expansion, state)
-          case None =>
-            val expansion = gezi.directorysugar.DirectoryTree.expansion(node)
-            (expansion, state.copy(expansions = state.expansions.updated(node, expansion)))
+        val (expansion, expansions) = state.expansions.expanded(node, state.specializer)
+        (Value.of(expansion), state.copy(expansions = expansions))
       case None => (value, state)
 
   // ---- shared with the JIT ----
-
-  /** The members of a choice's right `+` spine
-    * ([[gezi.ir.ChoiceSpine.members]]): the heads of a choice are its
-    * members' heads in order, left then right, as they were of the list the
-    * choice was before it became binary.
-    */
-  def choiceMembers(value: Value): Vector[Value] =
-    gezi.ir.ChoiceSpine.members[Value](value, Value.Choice.unapply)
 
   /** The fillings after the first hole takes the argument (weak_head.pl's
     * hole_filled/5; D1 of `lean/README.md`, the first beta clause of D2), `remaining` the
@@ -998,12 +999,12 @@ object WeakHead:
     * filled slots, after the fillings when they are fewer (Lean's `fill`,
     * take and drop), and an ignored hole drops it.
     */
-  def holeFilled(
+  def holeFilled[C <: NativeSpecializer & Singleton](
       hole: Hole,
       remaining: Vector[Hole],
-      fillings: Vector[Value],
-      argument: Value
-  ): Vector[Value] = hole match
+      fillings: Vector[Value[C]],
+      argument: Value[C]
+  )(using C): Vector[Value[C]] = hole match
     case Hole.Ignored => fillings
     case Hole.Bound(slot) =>
       val position = Defunctionalization.fillingPosition(remaining, slot).min(fillings.size)
@@ -1013,45 +1014,91 @@ object WeakHead:
     * slot order (weak_head.pl's instance_term/3; D2 of `lean/README.md`, the second beta
     * clause): a slot reads its value, and a nested thunk keeps its code and
     * holes while its fillings, codes over the enclosing slots, are
-    * instantiated. Throws `EvaluationError` with `SlotWithoutValue` for a
-    * slot the fillings do not reach.
+    * instantiated, each parallel built by the reading's specializer
+    * (`NativeSpecializer.parallelOfValues`), so that a unique spelling becomes
+    * its storage and nothing is built as written where it has one. Throws
+    * `EvaluationError` with `SlotWithoutValue` for a slot the fillings do not
+    * reach.
     */
-  def instanceTerm(code: Code, fillings: Vector[Value]): Value =
-    codeInstance(code, fillings).result
+  def instanceTerm[C <: NativeSpecializer & Singleton](code: Code, fillings: Vector[Value[C]], specializer: C)(using C): Value[C] =
+    codeInstance(code, fillings, specializer).result
 
-  private def codeInstance(
+  /** The result of the native the term is an exact application of, under
+    * the reading's storage option (`StorageReading.called`), each native
+    * called charged a step of the budget and counted (`nativeCalls`), with
+    * the state charged; none when the reading takes no option, the term is no
+    * such application, or the budget cannot pay for the calls, the term then
+    * read as it is. The option calls no native unless every argument has a
+    * value, so no call's result is dropped.
+    */
+  private def nativeResult[C <: NativeSpecializer & Singleton](term: Value[C], state: ReadingState[C])(using C): Option[(Value[C], ReadingState[C])] =
+    state.storages.flatMap(reading =>
+      val (result, calls) = reading.called(term)
+      // A budget that cannot pay for the calls leaves the term to be read as
+      // it is, the natives' computation then uncharged (a cost, never an answer).
+      if calls == 0 then None
+      else
+        state.budget.chargedTimes(calls).flatMap(charged =>
+          result.map((_, state.copy(budget = charged, nativeCalls = state.nativeCalls + calls)))
+        )
+    )
+
+  /** The term read at a head: a storage, a leaf of its term's layer, is read as the value `C ȳ` of its one-layer view
+    * `C ȳ ∥ T`, read with the reading's `StorageAccess`: `C ȳ ∥ T ≃_O C ȳ` by the unique spelling's pattern theorem
+    * (`docs/design/gezi-set-equations-proofs.md`, section 23), whose premise is the backend's obligation; any other term
+    * as it is.
+    */
+  private def storageEliminated[C <: NativeSpecializer & Singleton](term: Value[C], state: ReadingState[C])(using
+      C
+  ): Value[C] = (term.representation: AnyRef) match
+    // The view is the reading's configuration's: one layer, read by its native specializer with its capability.
+    case storage: gezi.ir.NativeStorage => Value.of(state.specializer.viewOf(storage)(using state.storageAccess).value)
+    case _                              => term
+
+  /** The thunk value of a code with holes still to fill, or its suspension when every hole is filled: a code whose
+    * holes are all filled is a delayed instance, no thunk.
+    */
+  private def thunkOrSuspension[C <: NativeSpecializer & Singleton](code: Code, holes: Vector[Hole], fillings: Vector[Value[C]])(
+      using C
+  ): Value[C] =
+    if holes.isEmpty then SuspensionValue(code, fillings) else Value.Thunk(code, holes, fillings)
+
+  private def codeInstance[C <: NativeSpecializer & Singleton](
       code: Code,
-      fillings: Vector[Value]
-  ): Trampoline[Value] = code.layer match
+      fillings: Vector[Value[C]],
+      specializer: C
+  )(using C): Trampoline[Value[C]] = code.layer match
     case Slot(index) =>
       if index < fillings.size then done(fillings(index))
       else throw EvaluationError(EvaluationErrorReason.SlotWithoutValue(index, fillings.size))
     case Apply(function, argument) =>
       for
-        functionInstance <- tailcall(codeInstance(function, fillings))
-        argumentInstance <- tailcall(codeInstance(argument, fillings))
+        functionInstance <- tailcall(codeInstance(function, fillings, specializer))
+        argumentInstance <- tailcall(codeInstance(argument, fillings, specializer))
       yield Value.Apply(functionInstance, argumentInstance)
     case Parallel(left, right) =>
       for
-        leftInstance <- tailcall(codeInstance(left, fillings))
-        rightInstance <- tailcall(codeInstance(right, fillings))
+        leftInstance <- tailcall(codeInstance(left, fillings, specializer))
+        rightInstance <- tailcall(codeInstance(right, fillings, specializer))
       yield Value.Parallel(leftInstance, rightInstance)
     case Choice(left, right) =>
       for
-        leftInstance <- tailcall(codeInstance(left, fillings))
-        rightInstance <- tailcall(codeInstance(right, fillings))
+        leftInstance <- tailcall(codeInstance(left, fillings, specializer))
+        rightInstance <- tailcall(codeInstance(right, fillings, specializer))
       yield Value.Choice(leftInstance, rightInstance)
     case Thunk(inner, holes, innerFillings) =>
-      allInstances(innerFillings, fillings).map(Value.Thunk(inner, holes, _))
+      allInstances(innerFillings, fillings, specializer).map(thunkOrSuspension(inner, holes, _))
 
-  private def allInstances(
+  private def allInstances[C <: NativeSpecializer & Singleton](
       codes: Vector[Code],
-      fillings: Vector[Value]
-  ): Trampoline[Vector[Value]] =
-    def from(index: Int, instances: Vector[Value]): Trampoline[Vector[Value]] =
+      fillings: Vector[Value[C]],
+      specializer: C
+  )(using C): Trampoline[Vector[Value[C]]] =
+    def from(index: Int, instances: Vector[Value[C]]): Trampoline[Vector[Value[C]]] =
       if index >= codes.size then done(instances)
       else
-        tailcall(codeInstance(codes(index), fillings)).flatMap(instance =>
+        tailcall(codeInstance(codes(index), fillings, specializer)).flatMap(instance =>
           from(index + 1, instances :+ instance)
         )
     from(0, Vector.empty)
+

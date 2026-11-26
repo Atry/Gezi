@@ -1,0 +1,35 @@
+# The size of a smallest sufficient team, written by its definition, the recursion on the
+# people with the set of skills covered so far, and its typed version, which a native
+# computes. The function has the structure a program written by the definition gives it,
+# so that plover_smallest_team is the same IR term as that program's function.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "native_types") "fixpoint")
+λ fixpoint
+. omega (omega (omega (omega corpora "library") "binary") "natural")
+λ binary_zero _ _ _ binary_set
+. omega (omega (omega (omega corpora "library") "binary") "arithmetic")
+λ merge_binary_increment _ _ merge_binary_equality
+. omega (omega (omega (omega corpora "library") "binary") "order")
+λ _ _ binary_minimum
+. omega (omega (omega (omega corpora "library") "binary") "binary_bitwise_or")
+λ binary_bitwise_or
+. omega (omega (omega (omega corpora "library") "native_types") "list")
+λ _ _ _ list_type
+. omega (omega (omega (omega corpora "library") "native_types") "boolean")
+λ criterion_true _ _ _
+# plover_smallest_team:
+# T of the proofs file, section 12. A noinline attractor.
+. (λtuple. tuple λpeople full uncovered. fixpoint (λself rest covered. rest (merge_binary_equality covered full binary_zero uncovered) λskills others. binary_minimum (self others covered) (merge_binary_increment (self others (binary_bitwise_or covered skills)))) people binary_zero)
+λ plover_smallest_team
+# plover_typed_smallest_team:
+# T_T of the proofs file, section 12: the skill sets, the full set and the cost of an
+# uncovered set canonical naturals.
+. ( λ tuple
+    . tuple
+    λ people full uncovered
+    . (plover_smallest_team (people ∥ list_type (binary_set criterion_true)) (full ∥ binary_set criterion_true) (uncovered ∥ binary_set criterion_true) ∥ binary_set criterion_true)
+  )
+λ plover_typed_smallest_team
+. export plover_smallest_team plover_typed_smallest_team

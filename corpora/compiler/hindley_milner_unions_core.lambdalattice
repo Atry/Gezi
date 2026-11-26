@@ -1,0 +1,11 @@
+# The lemmas of the HM baseline but its application rule:
+# hindley_milner_unions_judgments and hindley_milner_unions_occurrences, for a
+# type check that types applications otherwise (wren_elimination_preset).
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega corpora "compiler") "hindley_milner_unions_judgments")
+λ hindley_milner_unions_judgments
+. omega (omega (omega corpora "compiler") "hindley_milner_unions_occurrences")
+λ hindley_milner_unions_occurrences
+. export (hindley_milner_unions_judgments + hindley_milner_unions_occurrences)

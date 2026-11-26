@@ -1,0 +1,78 @@
+# repetitions:
+# CSES 1069, Repetitions (https://cses.fi/problemset/task/1069), in our own words: a
+# string over the four letters A, C, G and T; the length of its longest run, a stretch
+# of consecutive positions that hold one letter. The input is a Scott list
+# (corpora/library/prelude/list) of the letters, each a binary natural
+# (corpora/library/binary/natural), A = 0, C = 1, G = 2 and T = 3, and the answer a
+# binary natural. Part of the CSES port's fourth batch.
+#
+# THE PROGRAM, written by the definition: every contiguous segment of the list is
+# built (the segments are, for each place the list is cut at, the nonempty prefixes of
+# what follows), those whose letters are all equal are kept, and the greatest length
+# among them is taken. Its reading builds and checks about n squared segments of up to
+# n letters; the replacement the family asks for is one linear scan that counts the
+# run ending at each letter, on fixed-width integers.
+#
+# DEFINITION 14: the program P, the point's term, is built of λ and application only:
+# its text holds no top, no choice, no parallel and no literal. It β-reduces to V, the
+# canonical binary numeral of the answer: every recursion ends, since each consumes
+# the finite list of letters, of segments or of one segment; the branches that a Scott
+# boolean discards are never read. The program calls no subtraction. So ⊢_β P = V, and
+# P ≃_O V by the soundness of the derivable equations for the contextual preorder of
+# Definition 14 (Lean
+# `ContextualPreorder.contextualEquivalenceOfDerivableLatticeEta`): V is an answer, P
+# ⊑_O V. No other closed βη normal form W has P ⊑_O W: then V ⊑_O W, while Böhm's
+# theorem gives a pure context that takes V to λx y. x and W to λx y. y, and applying
+# both to λa. a and Ω makes the first solvable and the second not.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "fixpoint")
+λ fixpoint
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "boolean")
+λ true false _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons append map _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "natural")
+λ binary_zero _ _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "arithmetic")
+λ merge_binary_increment _ _ merge_binary_equality
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "order")
+λ _ binary_maximum _
+. ( λ tuple
+    . tuple
+    λ. fixpoint
+    λ self items
+    . items nil λ head tail. cons (cons head nil) λ. map (cons head) λ. self tail
+  )
+λ prefixes
+. ( λ tuple
+    . tuple
+    λ. fixpoint
+    λ self items
+    . items nil λ _ tail. append (prefixes items) λ. self tail
+  )
+λ segments
+. ( λ tuple
+    . tuple
+    λ. fixpoint
+    λ self items
+    . items true λ head tail. tail true λ next _. merge_binary_equality head next (self tail) false
+  )
+λ equal_letters
+. ( λ tuple
+    . tuple λ. fixpoint λ self count items. items count λ _ tail. self (merge_binary_increment count) tail
+  )
+λ count_from
+. ( λ tuple
+    . tuple
+    λ. fixpoint
+    λ self most segment_list
+    . segment_list most
+      λ segment rest
+      . self (equal_letters segment (binary_maximum most (count_from binary_zero segment)) most) rest
+  )
+λ longest
+. (λtuple. tuple λletters. longest binary_zero (segments letters))
+λ repetitions
+. export repetitions

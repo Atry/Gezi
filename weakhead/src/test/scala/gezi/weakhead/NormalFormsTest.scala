@@ -1,11 +1,12 @@
 package gezi.weakhead
 
+import gezi.ir.NoFacts
+import gezi.ir.Configured
 import gezi.weakhead.EvaluatorTesting.*
 import gezi.weakhead.oldcorpora.ScottDataType
 import gezi.weakhead.oldcorpora.ScottDecoding
 import gezi.frontend.DeBruijnTerm
 import gezi.frontend.Defunctionalization
-import gezi.ir.Instruction
 import gezi.frontend.Term
 import gezi.frontend.Term.*
 
@@ -18,6 +19,8 @@ import gezi.frontend.Term.*
   * its expected tree. Every run is bounded by a budget of steps.
   */
 class NormalFormsTest extends gezi.generatedinputs.FailFastSuite:
+
+  given NoFacts.type = NoFacts
 
   private def omega: Term = λ(a => a(a))(λ(b => b(b)))
   private def k: Term = λ(x => λ(_ => x))
@@ -33,8 +36,8 @@ class NormalFormsTest extends gezi.generatedinputs.FailFastSuite:
   /** The normal form read is the thunk IR the front end makes of its own
     * readback.
     */
-  private def canonical(normalForm: Instruction): Unit =
-    assertEquals(Defunctionalization.thunkInstruction(instructionTerm(normalForm)), normalForm)
+  private def canonical(normalForm: Configured[NoFacts.type]): Unit =
+    assert(Configured.same(Defunctionalization.thunkInstruction[NoFacts.type](instructionTerm(normalForm)), normalForm))
 
   private def numeral(count: Int): Term =
     λ(f => λ(x => (0 until count).foldLeft(x)((body, _) => f(body))))
@@ -64,7 +67,7 @@ class NormalFormsTest extends gezi.generatedinputs.FailFastSuite:
     reads(λ(x => x(λ(y => y))), Vector(λ(z => z(λ(i => i)))))
     val value = valueOf(λ(a => a)(λ(x => x(λ(y => y)))))
     val normalForms = finishedValue(normalFormsWithin(Mode.WeakHead, value, smallTermLimit))
-    assertEquals(normalForms, Vector(instructionOf(λ(x => x(λ(y => y))))))
+    assert(sameInstructions(normalForms, Vector(instructionOf(λ(x => x(λ(y => y)))))))
     normalForms.foreach(canonical)
   }
 
@@ -100,10 +103,7 @@ class NormalFormsTest extends gezi.generatedinputs.FailFastSuite:
     */
   test("theTabledModeReadsBesideATermWithNoHead") {
     val value = valueOf(choice(k, omega))
-    assertEquals(
-      normalFormsWithin(Mode.TablingWeakHead, value, 100000),
-      Bounded.Finished(Vector(instructionOf(k)))
-    )
+    assert(finishedInstructions(normalFormsWithin(Mode.TablingWeakHead, value, 100000), Vector(instructionOf(k))))
     assertEquals(normalFormsWithin(Mode.WeakHead, value, 1000000), Bounded.Exceeded)
   }
 
@@ -114,7 +114,7 @@ class NormalFormsTest extends gezi.generatedinputs.FailFastSuite:
     * time, and then whatever the reader reads in time is checked canonical.
     */
   private def crossChecked(term: DeBruijnTerm): String =
-    val value = Values.ofInstruction(Defunctionalization.thunkInstruction(term), Set.empty)
+    val value = Values.ofInstruction(Defunctionalization.thunkInstruction(term)(using gezi.ir.NoFacts), Set.empty)
     val expected = Reference.normalFormWithin(term, 200000)
     val untabled = normalFormsWithin(Mode.WeakHead, value, 200000)
     val tabled = normalFormsWithin(Mode.TablingWeakHead, value, 200000)
@@ -122,7 +122,7 @@ class NormalFormsTest extends gezi.generatedinputs.FailFastSuite:
       case Bounded.Finished(normalForm) =>
         val untabledNormalForms = finishedValue(untabled)
         assertEquals(untabledNormalForms.map(instructionTerm), Vector(normalForm))
-        assertEquals(tabled, untabled)
+        assert(sameBounded(tabled, untabled))
         untabledNormalForms.foreach(canonical)
         "agreed"
       case _ =>
@@ -155,13 +155,10 @@ class NormalFormsTest extends gezi.generatedinputs.FailFastSuite:
   test("aNormalFormReadsAsItsOwnInstruction") {
     val verdicts = draws(2000, 20261011L)(randomNormalForm(20, 0, _)).map(term =>
       if etaContracted(term) then
-        val instruction = Defunctionalization.thunkInstruction(term)
+        val instruction = Defunctionalization.thunkInstruction(term)(using gezi.ir.NoFacts)
         val value = Values.ofInstruction(instruction, Set.empty)
-        assertEquals(normalFormsWithin(Mode.WeakHead, value, 2000000), Bounded.Finished(Vector(instruction)))
-        assertEquals(
-          normalFormsWithin(Mode.TablingWeakHead, value, 2000000),
-          Bounded.Finished(Vector(instruction))
-        )
+        assert(finishedInstructions(normalFormsWithin(Mode.WeakHead, value, 2000000), Vector(instruction)))
+        assert(finishedInstructions(normalFormsWithin(Mode.TablingWeakHead, value, 2000000), Vector(instruction)))
         "readAsItself"
       else "etaRedexLeftOut"
     )
@@ -179,9 +176,9 @@ class NormalFormsTest extends gezi.generatedinputs.FailFastSuite:
     * interns it.
     */
   test("aReductionProblemReadsItsExpectedTree") {
-    val program = Defunctionalization.thunkInstruction(lambdaTerm(ReductionPrograms.fibonacciProgram(20)))
+    val program = Defunctionalization.thunkInstruction[NoFacts.type](lambdaTerm(ReductionPrograms.fibonacciProgram(20)))
     val normalForms = finishedValue(
-      normalFormsWithin(Mode.TablingWeakHead, program, Reading.budgetSteps(10))
+      normalFormsWithin(Mode.TablingWeakHead, gezi.ir.Value.of(program), Reading.budgetSteps(10))
     )
     val expected = lambdaTerm(
       ScottDecoding.treeSurface(ScottDataType.Binary, ScottDecoding.binaryTree(ReductionPrograms.referenceFibonacci(20)))

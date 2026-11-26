@@ -37,7 +37,7 @@
     . s nat_type λk. k "big_integer"
   + λ _ _ properties _
     . properties
-    λ _ _ first_order_constructor _ _ _ _ _
+    λ _ _ first_order_constructor _ _ _ _ _ _
     . first_order_constructor
       ( λk. k successor
       + λk. k zero

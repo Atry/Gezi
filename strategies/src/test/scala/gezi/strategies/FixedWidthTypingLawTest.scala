@@ -7,7 +7,8 @@ import hedgehog.Result
 import hedgehog.core.SuccessCount
 import gezi.frontend.Term
 import gezi.ir.BuiltInRule
-import gezi.ir.Instruction
+import gezi.ir.Configured
+import gezi.ir.NoFacts
 import gezi.saturation.End
 import gezi.generatedinputs.GeneratedProperties
 import gezi.standardlibrary.LibraryFiles
@@ -34,6 +35,8 @@ import gezi.weakhead.Expansions
   * included; native typing is enabled through a preset only.
   */
 class FixedWidthTypingLawTest extends GeneratedProperties:
+
+  private given NoFacts.type = NoFacts
 
   // Measured 2026-11-16 on 2 CPUs (contest-lean.slice, CPUs 10,11, nice 10), the 1-minute load 9 to 22 over the run, every deadline raised to 600 s: the slowest test of FixedWidthTypingLawTest, "a thin operation's saturation ends, and clashes exactly on a mismatched operand", takes 12.572 s; the bound is 1.5 times that rounded up to 5 s.
   // FIXME: this suite exceeds the 3 s default with no reason yet; its slow tests are to be made fast. https://github.com/Atry/private-overlay/issues/1925
@@ -63,7 +66,7 @@ class FixedWidthTypingLawTest extends GeneratedProperties:
     * prolog_backend_shapes', fixed_width_unions' and fixed_width_shapes').
     */
   private lazy val options =
-    BaselineRounds.saturationOptions(library, StrategyTesting.round("fixed_width_type_check"), BuiltInRule.all, budget)
+    BaselineRounds.saturationOptions(library, StrategyTesting.round("fixed_width_type_check"), BuiltInRule.beforeOptIn, budget)
 
   private val operations: Vector[String] =
     Vector("int16_add", "int16_subtract", "int16_multiply", "int16_less_than", "int16_equal")
@@ -71,15 +74,15 @@ class FixedWidthTypingLawTest extends GeneratedProperties:
   /** The library terms of the program, members of the fixture files
     * under Gezi's directory.
     */
-  private lazy val terms: Map[String, Instruction] =
+  private lazy val terms: Map[String, Configured[NoFacts.type]] =
     val root = LibraryFiles.buildRoot
     StandardLibrary.entryMembers(root, TermTables.fixedWidthTerms, Expansions.none)._1 ++
       StandardLibrary.entryMembers(root, TermTables.jitLibraryTerms, Expansions.none)._1
 
-  private def term(key: String): Term =
+  private def term(key: String): StrategyTesting.ProgramTerm =
     Term.closed(terms.getOrElse(key, throw IllegalArgumentException(s"no fixture member $key")))
 
-  private def word(width: Int, value: Long): Term =
+  private def word(width: Int, value: Long): StrategyTesting.ProgramTerm =
     (0 until width).foldRight(term("word_end"))((position, above) =>
       term("word_cell")(term(if ((value >> position) & 1L) == 1L then "true" else "false"))(above)
     )

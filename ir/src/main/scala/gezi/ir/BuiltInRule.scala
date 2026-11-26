@@ -21,9 +21,24 @@ enum BuiltInRule:
   /** The β step, `(λx. M) N = M[x := N]`. */
   case Beta
 
+  /** The expansion direction of "the storage's view": a native storage the
+    * e-graph keeps as a leaf is united with the nodes of its view `v ∥ T`,
+    * which it is by definition, so that a lemma can match inside the value
+    * (`gezi.egraph.EGraph.storageViewAdded`), one leaf at a time in the
+    * saturation's loop, each expansion that changes the graph counted as an
+    * instance against the round's budget, the stop read before each. A round
+    * that does not enable it
+    * matches a storage leaf through its pattern view only, `?x ∥ ?T` with ?x
+    * the leaf's own class. A round cannot enable it and also stop matching at
+    * the classes of storages of constant size
+    * (`SaturationOptions.constantStorageStop` of the strategies, refused
+    * together), whose purpose is the opposite.
+    */
+  case StorageView
+
 object BuiltInRule:
 
-  /** Every built-in rule, which the rounds written before the rules were
-    * opt-in apply, all of them having been built in.
+  /** The rules the rounds written before the rules were opt-in apply: the β
+    * rule, the only rule then built in.
     */
-  val all: Set[BuiltInRule] = values.toSet
+  val beforeOptIn: Set[BuiltInRule] = Set(Beta)

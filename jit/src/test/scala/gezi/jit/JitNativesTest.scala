@@ -10,7 +10,7 @@ import gezi.weakhead.JitState
 import gezi.weakhead.Mode
 import gezi.weakhead.NoJitState
 import gezi.weakhead.ReadingState
-import gezi.weakhead.Value
+import gezi.ir.Value
 import gezi.standardlibrary.LibraryFiles
 import gezi.standardlibrary.Property
 import gezi.standardlibrary.SplitMix
@@ -22,11 +22,13 @@ import gezi.strategies.Round
 import gezi.strategies.Schedule
 import gezi.strategies.StrategyTesting
 import gezi.frontend.Term
+import gezi.frontend.Defunctionalization
 import gezi.frontend.Term.choice
 import gezi.frontend.Term.λ
 import gezi.hotspot.baselines.BaselineCaches
 import gezi.saturation.End
-import gezi.ir.Instruction
+import gezi.frontend.TermOf
+import gezi.ir.{Configured, NativeSpecializer, Pure}
 
 /** A term over the library terms of `JitTesting.libraryTermsFile` and
   * filter_by, as data a test draws and resolves; `term` is the HOAS term it
@@ -58,16 +60,16 @@ enum DrawnTerm:
   /** The closed HOAS term, each variable the one its abstraction binds.
     * Throws `IllegalArgumentException` for a variable no abstraction binds.
     */
-  def term: Term = termUnder(Map.empty)
+  def term[C <: NativeSpecializer & Singleton](using C): TermOf[Configured[C]] = termUnder[C](Map.empty)
 
-  private def termUnder(bound: Map[String, Term]): Term = this match
-    case Leaf(key)                 => JitTesting.libraryTerm(key)
+  private def termUnder[C <: NativeSpecializer & Singleton](bound: Map[String, TermOf[Configured[C]]])(using C): TermOf[Configured[C]] = this match
+    case Leaf(key)                 => JitTesting.libraryTerm[C](key)
     case FilterBy                  => NativesTesting.filterBy
     case Variable(name)            => bound.getOrElse(name, throw IllegalArgumentException(s"no abstraction binds $name"))
-    case Lambda(variable, body)    => Term.λ(argument => body.termUnder(bound.updated(variable, argument)))
-    case Apply(function, argument) => function.termUnder(bound)(argument.termUnder(bound))
-    case Parallel(left, right)     => left.termUnder(bound) ∥ right.termUnder(bound)
-    case Choice(members)           => Term.choice(members.map(_.termUnder(bound))*)
+    case Lambda(variable, body)    => Term.λ(argument => body.termUnder[C](bound.updated(variable, argument)))
+    case Apply(function, argument) => function.termUnder[C](bound)(argument.termUnder[C](bound))
+    case Parallel(left, right)     => left.termUnder[C](bound) ∥ right.termUnder[C](bound)
+    case Choice(members)           => Term.choice(members.map(_.termUnder[C](bound))*)
 
   /** Each term with every choice replaced by one of its members, the empty
     * choice kept (choice_resolution/2).
@@ -107,28 +109,41 @@ enum DrawnTerm:
   * Every run is bounded by a count of steps (`NativesTesting.normalFormLimit`).
   */
 class JitNativesTest extends gezi.generatedinputs.FailFastSuite:
+
+  given gezi.ir.StorageAccess = gezi.ir.StorageAccess.granted()
   // Measured 2026-11-16 on 2 CPUs (contest-lean.slice, CPUs 10,11, nice 10), the 1-minute load 9 to 22 over the run, every deadline raised to 600 s: the slowest test of JitNativesTest, "theNativesWriteNoFile", takes 31.246 s; the bound is 1.5 times that rounded up to 5 s.
   // Reason: that test starts a child JVM; the other tests of the suite take 8 s at most. FIXME: the other tests exceed the 3 s default with no reason yet. https://github.com/Atry/private-overlay/issues/1925
   override val munitTimeout: scala.concurrent.duration.Duration = scala.concurrent.duration.Duration(50, "s")
 
+  /** The natives' library's encoding, whose singleton type is the configuration of the readings of this suite. */
+  private lazy val encoding: StorageEncoding = nativesOnEncoding
+
+  private given encoding.type = encoding
+
+  /** A program of the natives' library's configuration, written in the HOAS. */
+  private type Program = TermOf[Configured[encoding.type]]
+
+  /** A normal form read under the natives' library's configuration. */
+  private type Normal = Configured[encoding.type]
+
   // ---- the library terms ----
 
-  private lazy val zero = libraryTerm("zero")
-  private lazy val successor = libraryTerm("successor")
-  private lazy val natFold = libraryTerm("nat_fold")
-  private lazy val natType = libraryTerm("nat_type")
-  private lazy val trueTerm = libraryTerm("true")
-  private lazy val falseTerm = libraryTerm("false")
-  private lazy val booleanType = libraryTerm("boolean_type")
-  private lazy val booleanNot = libraryTerm("boolean_not")
-  private lazy val nil = libraryTerm("nil")
-  private lazy val cons = libraryTerm("cons")
-  private lazy val listType = libraryTerm("list_type")
-  private lazy val listFold = libraryTerm("list_fold")
-  private lazy val konstant = libraryTerm("konstant")
-  private lazy val compose = libraryTerm("compose")
-  private lazy val double = libraryTerm("double")
-  private lazy val even = libraryTerm("even")
+  private lazy val zero = libraryTerm[encoding.type]("zero")
+  private lazy val successor = libraryTerm[encoding.type]("successor")
+  private lazy val natFold = libraryTerm[encoding.type]("nat_fold")
+  private lazy val natType = libraryTerm[encoding.type]("nat_type")
+  private lazy val trueTerm = libraryTerm[encoding.type]("true")
+  private lazy val falseTerm = libraryTerm[encoding.type]("false")
+  private lazy val booleanType = libraryTerm[encoding.type]("boolean_type")
+  private lazy val booleanNot = libraryTerm[encoding.type]("boolean_not")
+  private lazy val nil = libraryTerm[encoding.type]("nil")
+  private lazy val cons = libraryTerm[encoding.type]("cons")
+  private lazy val listType = libraryTerm[encoding.type]("list_type")
+  private lazy val listFold = libraryTerm[encoding.type]("list_fold")
+  private lazy val konstant = libraryTerm[encoding.type]("konstant")
+  private lazy val compose = libraryTerm[encoding.type]("compose")
+  private lazy val double = libraryTerm[encoding.type]("double")
+  private lazy val even = libraryTerm[encoding.type]("even")
 
   /** The identity closure. */
   private def identity: Term = λ(argument => argument)
@@ -139,8 +154,8 @@ class JitNativesTest extends gezi.generatedinputs.FailFastSuite:
     * and filter_by, or an instruction of a compiled program.
     */
   private enum Fixture:
-    case Written(program: Term)
-    case Interned(instruction: Instruction)
+    case Written(program: Program)
+    case Interned(instruction: Normal)
 
   /** The schedule of the native route whose type check enables the
     * knowledge of `NativeRouteCompilationTest` (the rounds fixture's
@@ -149,8 +164,8 @@ class JitNativesTest extends gezi.generatedinputs.FailFastSuite:
     * type check of successor^8 zero, reaches its fixed point at 339, and
     * that of X2 at 313.
     */
-  private lazy val nativeRouteSchedule: Vector[Round] =
-    BaselineRounds.nativeRouteSchedule(nativesOn, StrategyTesting.round("prolog_backend_type_check"), 600)
+  private lazy val nativeRouteSchedule: Vector[Round[encoding.type]] =
+    BaselineRounds.nativeRouteSchedule[encoding.type](nativesOn, StrategyTesting.round("prolog_backend_type_check"), 600)
 
   /** The program through the front end, which tags its occurrences, and
     * the native route's schedule, each round reaching its fixed point: the
@@ -158,9 +173,9 @@ class JitNativesTest extends gezi.generatedinputs.FailFastSuite:
     * round's output, and the term the backend runs of it under the strategy
     * `fallback` (program_compiled/3).
     */
-  private def programCompiled(program: Term, stop: StopSignal): (Instruction, Instruction, Instruction) =
-    val input = StrategyTesting.programInput(nativesOn, program)
-    val scheduled = Schedule.run(nativesOn.index, Vector(input), nativeRouteSchedule, stop)
+  private def programCompiled(program: Program, stop: StopSignal): (Normal, Normal, Normal) =
+    val input = StrategyTesting.programInputIn[encoding.type](nativesOn, program)
+    val scheduled = Schedule.run(encoding.operations.index, Vector(input), nativeRouteSchedule, stop)
     scheduled.records.foreach(record =>
       record.report match
         case FixpointReport(End.FixedPoint(_)) => ()
@@ -169,24 +184,24 @@ class JitNativesTest extends gezi.generatedinputs.FailFastSuite:
     val output = scheduled.outputs match
       case Vector(found) => found
       case other         => fail(s"the schedule gave ${other.size} outputs")
-    val Dispatched(refined, _, _) = StrategyDispatch.dispatched(
-      CompilationStrategy(DispatchStrategies.fallback, nativeRouteSchedule),
+    val dispatched = StrategyDispatch.dispatched[encoding.type](
+      CompilationStrategy[encoding.type](DispatchStrategies.fallback, nativeRouteSchedule),
       input,
-      BackendFacts.of(nativesOn),
+      encoding,
       BaselineCaches.provider(),
       stop
     )
     val written = termInstruction(program)
-    (written, output, refined)
+    (written, output, dispatched.refined)
 
-  private def numeral(size: Int): Term = (1 to size).foldLeft(zero)((value, _) => successor(value))
+  private def numeral(size: Int): Program = (1 to size).foldLeft(zero)((value, _) => successor(value))
 
-  private def doubles(count: Int, base: Term): Term = (1 to count).foldLeft(base)((value, _) => double(value))
+  private def doubles(count: Int, base: Program): Program = (1 to count).foldLeft(base)((value, _) => double(value))
 
   /** The programs of compiled_program/3: X2 (`compiled(x2, …)`), a numeral, nested negations, the parity of a double and a
     * list.
     */
-  private lazy val compiledPrograms: Vector[(String, Term)] = Vector(
+  private lazy val compiledPrograms: Vector[(String, Program)] = Vector(
     "x2" -> natFold(zero)(compose(successor)(successor))(numeral(1)),
     "two" -> numeral(2),
     "negations" -> booleanNot(booleanNot(trueTerm)),
@@ -198,7 +213,7 @@ class JitNativesTest extends gezi.generatedinputs.FailFastSuite:
     * other: `compiled(Name, Kind)` with its term for each kind, written,
     * output and refined, in that order (compiled_terms/1).
     */
-  private lazy val compiledFixtures: Vector[(String, Instruction)] =
+  private lazy val compiledFixtures: Vector[(String, Normal)] =
     compiledPrograms.flatMap { (name, program) =>
       val (written, output, refined) = programCompiled(program, StopSignal.NeverStopped)
       Vector(s"compiled($name, written)" -> written, s"compiled($name, output)" -> output, s"compiled($name, refined)" -> refined)
@@ -208,14 +223,14 @@ class JitNativesTest extends gezi.generatedinputs.FailFastSuite:
   override def sharedFixtures: Vector[scala.concurrent.Future[Unit] => Any] =
     Vector(_ => libraryTerms, _ => nativesOn, _ => nativeRouteSchedule, _ => compiledFixtures)
 
-  /** The plain value of the fixture: a program's library terms kept as
-    * references (`JitTesting.termValue`), an instruction as its reference.
+  /** The plain value of the fixture, as the reference reads it: a program's library terms kept as references
+    * (`JitTesting.termValue`), an instruction as its reference.
     */
-  private def fixtureValue(fixture: Fixture): Value = fixture match
-    case Fixture.Written(program) => termValue(program)
-    case Fixture.Interned(instruction) => instruction
+  private def fixtureValue(fixture: Fixture): Value[encoding.type] = fixture match
+    case Fixture.Written(program)      => termValue(program)
+    case Fixture.Interned(instruction) => Value.of(instruction)
 
-  private lazy val booleanPrograms: Vector[(String, Term)] = Vector(
+  private lazy val booleanPrograms: Vector[(String, Program)] = Vector(
     "true_alone" -> trueTerm,
     "false_alone" -> falseTerm,
     "true_filtered" -> filterBy(booleanType)(trueTerm),
@@ -236,19 +251,19 @@ class JitNativesTest extends gezi.generatedinputs.FailFastSuite:
     "boolean_filter_under_a_lambda" -> λ(x => (x ∥ booleanType)(zero)(successor(zero)))(falseTerm)
   )
 
-  private lazy val decodePointPrograms: Vector[(String, Term)] = Vector(
+  private lazy val decodePointPrograms: Vector[(String, Program)] = Vector(
     "decode_point_at_the_root" -> ((successor(zero) ∥ natType)(zero)(identity)),
     "decode_point_applied_in_a_code" -> λ(y => (y ∥ natType)(zero)(identity))(successor(zero)),
     "decode_point_by_filter_by" -> λ(y => filterBy(natType)(y)(zero)(identity))(successor(zero))
   )
 
-  private lazy val outputFilterPrograms: Vector[(String, Term)] = Vector(
+  private lazy val outputFilterPrograms: Vector[(String, Program)] = Vector(
     "output_filter_on_a_function" -> ((successor ∥ λ(_ => natType))(filterBy(natType)(zero))),
     "output_filter_by_a_constant_closure" ->
       filterBy(λ(kept => λ(_ => kept))(natType))(successor)(filterBy(natType)(zero))
   )
 
-  private lazy val handWrittenPrograms: Vector[(String, Term)] = Vector(
+  private lazy val handWrittenPrograms: Vector[(String, Program)] = Vector(
     "zero_filtered" -> filterBy(natType)(zero),
     "two_filtered" -> filterBy(natType)(successor(successor(zero))),
     "filter_over_a_filter" -> filterBy(natType)(filterBy(natType)(successor(zero))),
@@ -259,7 +274,7 @@ class JitNativesTest extends gezi.generatedinputs.FailFastSuite:
       natFold(zero)(compose(successor)(successor))(filterBy(natType)(successor(successor(zero))))
   ) ++ booleanPrograms ++ decodePointPrograms ++ outputFilterPrograms
 
-  private lazy val nonNumberPrograms: Vector[(String, Term)] = Vector(
+  private lazy val nonNumberPrograms: Vector[(String, Program)] = Vector(
     "list_filtered" -> filterBy(natType)(cons(zero)(nil)),
     "identity_filtered" -> filterBy(natType)(identity),
     "list_filtered_under_a_lambda" ->
@@ -278,32 +293,30 @@ class JitNativesTest extends gezi.generatedinputs.FailFastSuite:
     compiledFixtures.map((name, instruction) => name -> Fixture.Interned(instruction)) ++
       handWrittenPrograms.map((name, program) => name -> Fixture.Written(program))
 
-  /** The normal forms the JIT reads of the fixture under the library, from
-    * a fresh state, and the spending.
-    */
-  private def fixtureRead(library: StandardLibrary, fixture: Fixture, budget: Int = JitConfiguration.defaultBudget): Spent[Vector[Instruction]] =
-    val value = fixtureValue(fixture)
-    normalFormsSpent(Mode.Jit(Jit(configurationOf(library, budget))), value, normalFormLimit)
+  /** The normal forms the JIT reads of the fixture, from a fresh state, and the spending. */
+  private def fixtureRead(fixture: Fixture, budget: Int = JitConfiguration.defaultBudget): Spent[encoding.type, Vector[Normal]] =
+    val configuration = configurationOf(encoding, budget)
+    normalFormsSpent(Jit(configuration), fixtureValue(fixture), normalFormLimit)
 
-  /** The normal forms the JIT reads of the program under the library. */
-  private def jitRead(library: StandardLibrary, program: Term, budget: Int = JitConfiguration.defaultBudget): Spent[Vector[Instruction]] =
-    fixtureRead(library, Fixture.Written(program), budget)
+  /** The normal forms the JIT reads of the program. */
+  private def jitRead(program: Program, budget: Int = JitConfiguration.defaultBudget): Spent[encoding.type, Vector[Normal]] =
+    fixtureRead(Fixture.Written(program), budget)
 
   /** The normal forms the reference reads of the program. */
-  private def referenceRead(program: Term): Spent[Vector[Instruction]] =
-    normalFormsSpent(Mode.TablingWeakHead, termValue(program), normalFormLimit)
+  private def referenceRead(program: Program): Spent[encoding.type, Vector[Normal]] =
+    normalFormsSpent(Mode.TablingWeakHead, plainConfiguration(encoding), termValue(program), normalFormLimit)
 
   /** The JIT, natives on, reads its normal forms within its count, and the
     * reference's read-out by membership confirms each (answers_confirmed/3).
     */
   private def answersConfirmed(name: String, fixture: Fixture): Int =
-    val read = fixtureRead(nativesOn, fixture)
+    val read = fixtureRead(fixture)
     val normalForms = read.outcome match
       case Bounded.Finished(found) => found
       case other                   => fail(s"$name: the JIT did not finish: $other")
     val value = fixtureValue(fixture)
     normalForms.foreach(normalForm =>
-      assertEquals(referenceReads(value, normalForm, confirmationLimit), Confirmation.Confirmed, name)
+      assertEquals(referenceReads(plainConfiguration(encoding), value, normalForm, confirmationLimit), Confirmation.Confirmed, name)
     )
     normalForms.size
 
@@ -406,21 +419,21 @@ class JitNativesTest extends gezi.generatedinputs.FailFastSuite:
     * on a choice resolution when the direct read-out runs out of its count
     * (reference_confirms_within/4).
     */
-  private def referenceConfirms(drawnTerm: DrawnTerm, normalForm: Instruction): String =
-    val value = termValue(drawnTerm.term)
-    referenceReads(value, normalForm, confirmationLimit) match
+  private def referenceConfirms(drawnTerm: DrawnTerm, normalForm: Normal): String =
+    val value = termValue(drawnTerm.term[encoding.type])
+    referenceReads(plainConfiguration(encoding), value, normalForm, confirmationLimit) match
       case Confirmation.Confirmed => "confirmed"
       case Confirmation.NotRead   => "not_read"
       case Confirmation.Exceeded =>
         val resolved = drawnTerm.resolutions.exists(resolution =>
-          val resolvedValue = termValue(resolution.term)
-          referenceReads(resolvedValue, normalForm, confirmationLimit) == Confirmation.Confirmed
+          val resolvedValue = termValue(resolution.term[encoding.type])
+          referenceReads(plainConfiguration(encoding), resolvedValue, normalForm, confirmationLimit) == Confirmation.Confirmed
         )
         if resolved then "confirmed_by_resolution" else "exceeded"
 
   test("theJitWithNativesReadsOnlyAnswersOfTheReferenceOnRandomTerms") {
     val verdicts = randomTerms.map(drawnTerm =>
-      jitRead(nativesOn, drawnTerm.term).outcome match
+      jitRead(drawnTerm.term[encoding.type]).outcome match
         case Bounded.Finished(normalForms) =>
           val outcomes = normalForms.map(referenceConfirms(drawnTerm, _))
           outcomes.foreach(outcome =>
@@ -449,16 +462,21 @@ class JitNativesTest extends gezi.generatedinputs.FailFastSuite:
     */
   private val firstHeadLimit: Long = 1000
 
-  private def fixtureHeadsAgree(library: StandardLibrary, name: String, fixture: Fixture): Unit =
+  private def fixtureHeadsAgree(name: String, fixture: Fixture): Unit =
     val value = fixtureValue(fixture)
-    val reference = headsRead(Mode.TablingWeakHead, value, headsLimit).outcome
-    val read = headsRead(Mode.Jit(Jit(configurationOf(library))), value, headsLimit)
+    val reference = headsRead(Mode.TablingWeakHead, plainConfiguration(encoding), value, headsLimit).outcome
+    val read = headsRead(Jit(configurationOf(encoding)), value, headsLimit)
     assert(reference.finished, s"$name: the reference did not finish")
     assertEquals(read.outcome, reference, name)
 
-  /** The JIT's heads of the program are the reference's. */
-  private def headsAgree(library: StandardLibrary, name: String, program: Term): Unit =
-    fixtureHeadsAgree(library, name, Fixture.Written(program))
+  /** The JIT's heads of the program, in the configuration of any encoding, are the reference's. */
+  private def headsAgree[E <: StorageEncoding & Singleton](under: E, name: String, program: TermOf[Configured[E]]): Unit =
+    given E = under
+    val value = termValue(program)
+    val reference = headsRead(Mode.TablingWeakHead, plainConfiguration(under), value, headsLimit).outcome
+    val read = headsRead(Jit(configurationOf(under)), value, headsLimit)
+    assert(reference.finished, s"$name: the reference did not finish")
+    assertEquals(read.outcome, reference, name)
 
   /** The non-number program whose decode point stands under successor, a
     * field the term never reads.
@@ -468,7 +486,7 @@ class JitNativesTest extends gezi.generatedinputs.FailFastSuite:
   // Natives on, a filter on a value that is no natural decodes into nothing.
   test("aFilterOnANonNumberGivesNoAnswerWithNatives") {
     nonNumberPrograms.filterNot(_._1 == decodePointUnderAConstructor).foreach((name, program) =>
-      assertEquals(jitRead(nativesOn, program).outcome, Bounded.Finished(Vector.empty), name)
+      assert(sameOutcomes(jitRead(program).outcome, Bounded.Finished(Vector.empty[Normal])), name)
     )
   }
 
@@ -481,17 +499,17 @@ class JitNativesTest extends gezi.generatedinputs.FailFastSuite:
       case Bounded.Finished(Vector(found)) => found
       case other                           => fail(s"zero: $other")
     nonNumberPrograms.filter(_._1 == decodePointUnderAConstructor).foreach((name, program) =>
-      assertEquals(jitRead(nativesOn, program).outcome, Bounded.Finished(Vector(zeroNormalForm)), name)
+      assert(sameOutcomes(jitRead(program).outcome, Bounded.Finished(Vector(zeroNormalForm))), name)
     )
-    assertEquals(jitRead(nativesOn, dropped).outcome, Bounded.Finished(Vector(zeroNormalForm)))
+    assert(sameOutcomes(jitRead(dropped).outcome, Bounded.Finished(Vector(zeroNormalForm))))
     val reference = referenceRead(dropped).outcome
-    assertEquals(reference, Bounded.Finished(Vector(zeroNormalForm)))
+    assert(sameOutcomes(reference, Bounded.Finished(Vector(zeroNormalForm))))
   }
 
   /** The fallback points of fallback_surface/3: the term and the term the
     * reference reads in its place.
     */
-  private lazy val fallbackPrograms: Vector[(String, Term, Term)] = Vector(
+  private lazy val fallbackPrograms: Vector[(String, Program, Program)] = Vector(
     ("typed_numeral", choice(successor(zero ∥ natType), successor(zero ∥ natType) ∥ natType), successor(zero)),
     (
       "untyped_numeral",
@@ -541,28 +559,29 @@ class JitNativesTest extends gezi.generatedinputs.FailFastSuite:
     )
   )
 
-  private lazy val twoSlotPrograms: Vector[(String, Term)] = Vector(
+  private lazy val twoSlotPrograms: Vector[(String, Program)] = Vector(
     "two_slots_of_a_numeral" -> λ(x => λ(y => choice(x, y ∥ natType)))(successor(zero))(successor(zero)),
     "two_slots_of_a_choice" ->
       λ(x => λ(y => choice(x, y ∥ natType)))(choice(successor(zero), cons(zero)(nil)))(choice(successor(zero), cons(zero)(nil)))
   )
 
-  private val expectedConstantHeads: Vector[(String, JitHead)] = Vector(
-    "identity_of_zero" -> JitHead.Represented(Representation.BigInteger, NativeValue.Natural(0)),
-    "identity_of_true" -> JitHead.Represented(Representation.Truth, NativeValue.Truth(true)),
-    "identity_of_false" -> JitHead.Represented(Representation.Truth, NativeValue.Truth(false)),
-    "natural_point_inside_a_boolean_point" -> JitHead.Represented(Representation.Truth, NativeValue.Truth(true)),
-    "boolean_point_inside_a_natural_point" -> JitHead.Represented(Representation.BigInteger, NativeValue.Natural(0)),
-    "false_through_a_natural_point" -> JitHead.Represented(Representation.Truth, NativeValue.Truth(false))
+  /** The representation and the native value of the storage each first head is. */
+  private val expectedConstantHeads: Vector[(String, (Representation[Nothing], NativeValue[Nothing]))] = Vector(
+    "identity_of_zero" -> (Representation.BigInteger, NativeValue.Natural(0)),
+    "identity_of_true" -> (Representation.Truth, NativeValue.Truth(true)),
+    "identity_of_false" -> (Representation.Truth, NativeValue.Truth(false)),
+    "natural_point_inside_a_boolean_point" -> (Representation.Truth, NativeValue.Truth(true)),
+    "boolean_point_inside_a_natural_point" -> (Representation.BigInteger, NativeValue.Natural(0)),
+    "false_through_a_natural_point" -> (Representation.Truth, NativeValue.Truth(false))
   )
 
-  private def fallback(name: String): Term =
+  private def fallback(name: String): Program =
     fallbackPrograms.find(_._1 == name).map(_._2).getOrElse(throw IllegalArgumentException(s"no fallback point $name"))
 
   /** The first head the JIT gives of the program. */
-  private def firstHead(program: Term): JitHead =
+  private def firstHead(program: Program): JitHead[encoding.type] =
     val value = termValue(program)
-    JitRules(configurationOf(nativesOn)).heads(JitValues.fromValue(value)).pull.result(ReadingState.fresh(firstHeadLimit)) match
+    JitRules(configurationOf(encoding)).heads(value).pull.result(ReadingState.fresh(firstHeadLimit, plainConfiguration(encoding))) match
       case gezi.weakhead.Computed.Done(Some((head, _)), _) => head
       case other => fail(s"no first head: $other")
 
@@ -572,16 +591,105 @@ class JitNativesTest extends gezi.generatedinputs.FailFastSuite:
       assert(reference match
         case Bounded.Finished(found) => found.nonEmpty
         case _                       => false, s"$name: $reference")
-      val read = jitRead(nativesOn, program)
-      assertEquals(read.outcome, reference, name)
+      val read = jitRead(program)
+      assert(sameOutcomes(read.outcome, reference), name)
       assertEquals(counts(read.jitState).decodings, 0L, name)
     )
-    assert(counts(jitRead(nativesOn, fallback("typed_numeral")).jitState).nativeCalls > 0)
-    expectedConstantHeads.foreach((name, expected) => assertEquals(firstHead(fallback(name)), expected, name))
-    assertEquals(counts(jitRead(nativesOn, fallback("successor_of_an_untyped_numeral")).jitState).callsOf(successorNative), 0L)
+    // The specialized spelling writes typed_numeral's typed side, successor (zero ∥ nat_type) ∥ nat_type, as the storage
+    // of one, made at construction: the fallback point's typed value is that storage, read with no native call.
+    assertEquals(counts(jitRead(fallback("typed_numeral")).jitState).nativeCalls, 0L)
+    expectedConstantHeads.foreach((name, expected) => assertEquals(JitHead.Represented.unapply(firstHead(fallback(name))), Some(expected), name))
+    assertEquals(counts(jitRead(fallback("successor_of_an_untyped_numeral")).jitState).callsOf(successorNative), 0L)
+    // Inside the element, the item `zero + (zero ∥ nat_type)` is written `zero + S`, S the storage of zero the canonical
+    // spelling makes, a fallback point valued as S with no reading, so cons's native makes the cell of storages once;
+    // outside, the item's typed side is no storage, and the cell is read by cons's define.
     Vector("item_inside_the_element" -> 1L, "item_outside_the_element" -> 0L).foreach((name, calls) =>
-      assertEquals(counts(jitRead(nativesOn, fallback(name)).jitState).callsOf(consNative), calls, name)
+      assertEquals(counts(jitRead(fallback(name)).jitState).callsOf(consNative), calls, name)
     )
+  }
+
+  // A decode point over cons applied to an item and a tail that is a fallback
+  // point over a term outside the list's domain, a natural successor^k zero:
+  // the cell's tail is filtered by the decode point's criterion, so that
+  // eliminating the cell hands out no unfiltered tail. Its purpose is to catch
+  // an answer the decode point's filter forbids. Derived before the run: the
+  // term has no answer, since its tail is filtered by list_type nat_type and a
+  // natural's normal form λz s. s m shares no normal form with a list's
+  // (λn c. n or λn c. c a b); the reference reading runs past its limit on
+  // these terms, so the JIT's reading is checked against that derivation. The
+  // inputs enumerate the small items and tails.
+  test("aDecodePointFiltersTheTailOfACellConsMakes") {
+    for
+      itemSize <- 0 to 1
+      tailSize <- 1 to 3
+    do
+      val naturals = listType(natType)
+      val outside = (1 to tailSize).foldLeft(zero)((inner, _) => successor(inner))
+      val item = (1 to itemSize).foldLeft(zero)((inner, _) => successor(inner))
+      val program = cons(item)(outside + (outside ∥ naturals)) ∥ naturals
+      assert(sameOutcomes(jitRead(program).outcome, Bounded.Finished(Vector.empty[Normal])), s"item $itemSize, tail $tailSize")
+  }
+
+  // Cells nested under a decode point of the naturals' lists, whose innermost
+  // tail is a fallback point over a natural, outside the lists' domain. Its
+  // purpose is to catch a cell whose tail the decode point's filter does not
+  // reach, read back as an answer the term does not have. Derived before the
+  // run: the filter list_type nat_type stands over every tail, so the
+  // innermost is filtered and the term has no answer, at any depth (the
+  // derivation of aDecodePointFiltersTheTailOfACellConsMakes); no cell's tail
+  // is in the unique spelling (the innermost is a choice, each other the
+  // application of cons below it), so the decode point reads each cell as
+  // written (`Decoded.AsWritten`) and cons's native makes none. The depth-two
+  // case read one normal form when the decode point filtered only the
+  // outermost cell's tail.
+  test("aDecodePointFiltersTheTailOfEveryCellItReads") {
+    val naturals = listType(natType)
+    val outside = successor(zero)
+    val item = zero ∥ natType
+    (1 to 3).foreach(depth =>
+      val program = (1 to depth).foldLeft(outside + (outside ∥ naturals))((tail, _) => cons(item)(tail)) ∥ naturals
+      val read = jitRead(program)
+      assert(sameOutcomes(read.outcome, Bounded.Finished(Vector.empty[Normal])), s"depth $depth")
+      assertEquals(counts(read.jitState).callsOf(consNative), 0L, s"depth $depth")
+    )
+  }
+
+  // The same cells in head position, under no filter: cons's native makes
+  // each cell with its tail as written, so the tail's fallback point keeps
+  // its untyped member. Its purpose is to catch a tail filtered where the
+  // term has no filter, which drops the answer of that member. Derived before
+  // the run: the answers are those of the plain term with the item's filter
+  // and the tail's typed member dropped, cons zero (successor zero) nested;
+  // only the innermost cell's tail, the fallback point, is ready, so cons's
+  // native makes no cell: the innermost tail is a choice, no storage, and each
+  // outer tail is the application of cons below it, so no cell's fields are
+  // in the unique spelling (`StorageEncoding.cellSpelled`), and each cell is
+  // read by cons's define.
+  test("aConsInHeadPositionKeepsAnUnfilteredTailAsWritten") {
+    val naturals = listType(natType)
+    val outside = successor(zero)
+    (1 to 2).foreach(depth =>
+      val program = (1 to depth).foldLeft(outside + (outside ∥ naturals))((tail, _) => cons(zero ∥ natType)(tail))
+      val plain = (1 to depth).foldLeft(outside)((tail, _) => cons(zero)(tail))
+      val reference = referenceRead(plain).outcome
+      assert(reference match
+        case Bounded.Finished(Vector(_)) => true
+        case _                           => false, s"$reference")
+      val read = jitRead(program)
+      assert(sameOutcomes(read.outcome, reference), s"depth $depth")
+      assertEquals(counts(read.jitState).callsOf(consNative), 0L, s"depth $depth")
+    )
+  }
+
+  // A cons whose tail is written filtered, in head position: the unique
+  // spelling's tail node, so cons's native makes the cell. Its purpose is to
+  // catch a filtered tail read untyped. Derived before the run: one call of
+  // cons's native, and the answer of the plain term cons zero nil.
+  test("aConsWhoseTailIsWrittenFilteredMakesItsCell") {
+    val naturals = listType(natType)
+    val read = jitRead(cons(zero ∥ natType)(nil ∥ naturals))
+    assert(sameOutcomes(read.outcome, referenceRead(cons(zero)(nil)).outcome))
+    assertEquals(counts(read.jitState).callsOf(consNative), 1L)
   }
 
   /** The normal-form readings of the fixtures under the JIT with the
@@ -592,28 +700,32 @@ class JitNativesTest extends gezi.generatedinputs.FailFastSuite:
       fixtures: Vector[Fixture],
       budget: Int,
       dropped: Boolean
-  ): Vector[Bounded[Vector[Instruction]]] =
+  ): Vector[Bounded[Vector[Normal]]] =
     val values = fixtures.map(fixtureValue)
-    val jit = Jit(configurationOf(nativesOn, budget))
+    val jit = Jit(configurationOf(encoding, budget))
     values
-      .foldLeft((Vector.empty[Bounded[Vector[Instruction]]], NoJitState: JitState)) { case ((readings, state), value) =>
-        val read = normalFormsSpent(Mode.Jit(jit), value, normalFormLimit, if dropped then NoJitState else state)
+      .foldLeft((Vector.empty[Bounded[Vector[Normal]]], NoJitState: JitState[encoding.type])) { case ((readings, state), value) =>
+        val read = normalFormsSpent(jit, value, normalFormLimit, if dropped then NoJitState else state)
         (readings :+ read.outcome, read.jitState)
       }
       ._1
 
+  /** Whether two sequences of readings ended alike, each pair by `JitTesting.sameOutcomes`. */
+  private def sameReadings(left: Vector[Bounded[Vector[Normal]]], right: Vector[Bounded[Vector[Normal]]]): Boolean =
+    left.size == right.size && left.zip(right).forall((first, second) => sameOutcomes(first, second))
+
   test("aFallbackPointReadsAlikeCompiledAndInterpreted") {
     val programs = (fallbackPrograms.map(_._2) ++ twoSlotPrograms.map(_._2)).map(Fixture.Written(_))
     val large = budgetReadings(programs, 10000, dropped = false)
-    assertEquals(budgetReadings(programs, 0, dropped = false), large)
-    assertEquals(budgetReadings(programs, 3, dropped = true), large)
+    assert(sameReadings(budgetReadings(programs, 0, dropped = false), large))
+    assert(sameReadings(budgetReadings(programs, 3, dropped = true), large))
   }
 
-  private lazy val mixedPoint: Term =
+  private lazy val mixedPoint: Program =
     choice(choice(identity(zero), successor(zero)), choice(identity(zero), successor(zero)) ∥ natType)
-  private lazy val mixedPlain: Term = choice(identity(zero), successor(zero))
+  private lazy val mixedPlain: Program = choice(identity(zero), successor(zero))
 
-  private lazy val decodedPointPrograms: Vector[(String, Term, Term)] = Vector(
+  private lazy val decodedPointPrograms: Vector[(String, Program, Program)] = Vector(
     ("successor_of_a_mixed_point", successor(mixedPoint) ∥ natType, successor(mixedPlain)),
     (
       "successor_of_an_untyped_point",
@@ -645,7 +757,7 @@ class JitNativesTest extends gezi.generatedinputs.FailFastSuite:
       assert(reference match
         case Bounded.Finished(found) => found.nonEmpty
         case _                       => false, s"$name: $reference")
-      assertEquals(jitRead(nativesOn, program).outcome, reference, name)
+      assert(sameOutcomes(jitRead(program).outcome, reference), name)
     )
   }
 
@@ -666,8 +778,8 @@ class JitNativesTest extends gezi.generatedinputs.FailFastSuite:
     * of a chain without a step, so steps alone cannot see a chain walked
     * again.
     */
-  private def workOf(program: Term): Long =
-    val read = jitRead(nativesOn, program)
+  private def workOf(program: Program): Long =
+    val read = jitRead(program)
     assert(read.outcome match
       case Bounded.Finished(Vector(_)) => true
       case _                           => false, s"${read.outcome}")
@@ -677,18 +789,18 @@ class JitNativesTest extends gezi.generatedinputs.FailFastSuite:
     val one = successor(zero)
     val lists = listType(natType)
     val list = cons(choice(one, one ∥ natType))(cons(choice(falseTerm, falseTerm ∥ natType))(choice(nil, nil ∥ lists)))
-    val tailsHead: Term = λ(_ => λ(tail => tail(zero)(λ(item => λ(_ => item)))))
+    val tailsHead: Program = λ(_ => λ(tail => tail(zero)(λ(item => λ(_ => item)))))
     val lazyTail = choice(list, list ∥ lists)(zero)(tailsHead)
     val lazyTailPlain = cons(one)(cons(falseTerm)(nil))(zero)(tailsHead)
     val reference = referenceRead(lazyTailPlain).outcome
     assert(reference match
       case Bounded.Finished(Vector(_)) => true
       case _                           => false, s"$reference")
-    assertEquals(jitRead(nativesOn, lazyTail).outcome, reference)
-    def doublesFiltered(power: Int): Term =
+    assert(sameOutcomes(jitRead(lazyTail).outcome, reference))
+    def doublesFiltered(power: Int): Program =
       if power == 0 then successor(zero) ∥ natType else double(doublesFiltered(power - 1))
-    val accumulatedKept: Term = λ(_ => λ(accumulated => accumulated))
-    def filteredFold(power: Int): Term =
+    val accumulatedKept: Program = λ(_ => λ(accumulated => accumulated))
+    def filteredFold(power: Int): Program =
       listFold(zero)(accumulatedKept)(natFold(nil ∥ lists)(λ(rest => cons(zero ∥ natType)(rest ∥ lists)))(doublesFiltered(power)))
     val foldCosts = Vector(6, 7, 8).map(power => (1 << power) -> workOf(filteredFold(power)))
     println(s"the filtered fold's steps and reads of syntax by cells: $foldCosts")
@@ -698,7 +810,7 @@ class JitNativesTest extends gezi.generatedinputs.FailFastSuite:
     // steps and reads of syntax, is linear in its conses. Kept unread, each
     // tail a decode point over the rest, the rest of the chain would be read
     // again at each cell, and the reads of syntax would grow quadratically.
-    def filteredChain(count: Int): Term =
+    def filteredChain(count: Int): Program =
       (1 to count).foldLeft(nil ∥ lists)((chain, _) => cons(zero ∥ natType)(chain))
     Vector("head" -> λ(head => λ(_ => head)), "whole" -> accumulatedKept).foreach((reading, step) =>
       val chainCosts = Vector(250, 500, 1000).map(count => count -> workOf(listFold(zero)(step)(filteredChain(count) ∥ lists)))
@@ -711,28 +823,28 @@ class JitNativesTest extends gezi.generatedinputs.FailFastSuite:
     * refinement writes, built in the IR with each level shared, and the IR of
     * successor^depth (cons zero nil) (nested_fallback_term/3).
     */
-  private def nestedFallbackTerm(depth: Int): (Value, Instruction) =
-    val successorInstruction = libraryInstruction("successor")
-    val natTypeInstruction = libraryInstruction("nat_type")
+  private def nestedFallbackTerm(depth: Int): (Value[encoding.type], Normal) =
+    val successorInstruction = libraryInstruction[encoding.type]("successor")
+    val natTypeInstruction = libraryInstruction[encoding.type]("nat_type")
     val base = termInstruction(cons(zero)(nil))
     val term = (1 to depth).foldLeft(base) { (inner, _) =>
-      val filteredInner = Instruction.Parallel(inner, natTypeInstruction)
-      val point = Instruction.Choice(inner, filteredInner)
-      val application = Instruction.Apply(successorInstruction, point)
-      val filteredApplication = Instruction.Parallel(application, natTypeInstruction)
-      Instruction.Choice(application, filteredApplication)
+      val filteredInner = encoding.parallel(inner, natTypeInstruction)
+      val point = encoding.choice(inner, filteredInner)
+      val application = encoding.application(successorInstruction, point)
+      val filteredApplication = encoding.parallel(application, natTypeInstruction)
+      encoding.choice(application, filteredApplication)
     }
     val plain = termInstruction((1 to depth).foldLeft(cons(zero)(nil))((program, _) => successor(program)))
-    (term, plain)
+    (Value.of(term), plain)
 
   test("nestedFallbackPointsAreReadOnce") {
-    val jit = Jit(configurationOf(nativesOn))
+    val jit = Jit(configurationOf(encoding))
     val costs = Vector(8, 16, 32).map(depth =>
       val (nestedValue, plain) = nestedFallbackTerm(depth)
       val plainValue = instructionValue(plain)
-      val reference = normalFormsSpent(Mode.TablingWeakHead, plainValue, normalFormLimit).outcome
-      val read = normalFormsSpent(Mode.Jit(jit), nestedValue, normalFormLimit)
-      assertEquals(read.outcome, reference, s"depth $depth")
+      val reference = normalFormsSpent(Mode.TablingWeakHead, plainConfiguration(encoding), plainValue, normalFormLimit).outcome
+      val read = normalFormsSpent(jit, nestedValue, normalFormLimit)
+      assert(sameOutcomes(read.outcome, reference), s"depth $depth")
       depth -> read.steps
     )
     println(s"nested fallback points' steps by depth: $costs")
@@ -744,12 +856,12 @@ class JitNativesTest extends gezi.generatedinputs.FailFastSuite:
     * fresh state, and the costs the reading counted: its native calls,
     * decodings and encodings (counted_reading/5).
     */
-  private def countedReading(library: StandardLibrary, value: Value): (Bounded[Vector[Instruction]], JitCounts) =
-    val read = normalFormsSpent(Mode.Jit(Jit(configurationOf(library))), value, normalFormLimit)
+  private def countedReading(value: Value[encoding.type]): (Bounded[Vector[Normal]], JitCounts) =
+    val read = normalFormsSpent(Jit(configurationOf(encoding)), value, normalFormLimit)
     (read.outcome, counts(read.jitState))
 
   /** The instruction of the compiled fixture of the name. */
-  private def compiledInstruction(name: String): Instruction =
+  private def compiledInstruction(name: String): Normal =
     compiledFixtures.find(_._1 == name).map(_._2).getOrElse(fail(s"no compiled fixture $name"))
 
   // Natives on, reading the compiled X2, refined, calls the natives; X2 as
@@ -760,13 +872,13 @@ class JitNativesTest extends gezi.generatedinputs.FailFastSuite:
   test("theNativesAreCalled") {
     val refined = Fixture.Interned(compiledInstruction("compiled(x2, refined)"))
     val written = Fixture.Interned(compiledInstruction("compiled(x2, written)"))
-    def counted(library: StandardLibrary, fixture: Fixture): JitCounts =
+    def counted(fixture: Fixture): JitCounts =
       val value = fixtureValue(fixture)
-      val (reading, found) = countedReading(library, value)
+      val (reading, found) = countedReading(value)
       assert(reading.finished, s"$fixture: $reading")
       found
-    val refinedCounts = counted(nativesOn, refined)
-    val writtenCounts = counted(nativesOn, written)
+    val refinedCounts = counted(refined)
+    val writtenCounts = counted(written)
     println(
       s"X2 compiled: ${refinedCounts.nativeCalls} native calls, ${refinedCounts.decodings} decodings; " +
         s"X2 as written: ${writtenCounts.nativeCalls} native calls, ${writtenCounts.decodings} decodings"
@@ -777,23 +889,24 @@ class JitNativesTest extends gezi.generatedinputs.FailFastSuite:
 
   // Natives on, a typed run computes in the representation and encodes only
   // at its end, with no encoding or decoding midway: the
-  // compiled successor^8 zero builds its natural by big_integer's
-  // constructor 0 (zero) and seven calls of its constructor 1 (successor)
-  // and encodes the eight layers under its root,
+  // compiled successor^8 zero builds its natural by seven calls of
+  // big_integer's constructor 1 (successor), its zero ∥ nat_type being the
+  // storage of zero the specialized spelling makes at construction, and
+  // encodes the eight layers under its root,
   // the root's successor taking its library term's head since its operand is a
   // decode point not yet represented (a constructor is not strict in its
   // field, `Jit.nativeAppliedHeads`),
   // and the compiled even (double (double (successor zero))) builds its
-  // literal, calls natural_double twice and natural_even once, and encodes
-  // one layer, its boolean answer. Neither decodes, and the reference's
-  // read-out by membership confirms their normal forms.
+  // literal by one successor over the storage of zero, calls natural_double
+  // twice and natural_even once, and encodes one layer, its boolean answer.
+  // Neither decodes, and the reference's read-out by membership confirms
+  // their normal forms.
   stoppableTest("aTypedRunEncodesOnlyAtItsEnd") { stopped =>
     Vector(
-      (numeral(8), Map(zeroNative -> 1L, successorNative -> 7L), 8L),
+      (numeral(8), Map(successorNative -> 7L), 8L),
       (
         even(doubles(2, numeral(1))),
         Map(
-          zeroNative -> 1L,
           successorNative -> 1L,
           NativeName.Function("natural_double") -> 2L,
           NativeName.Function("natural_even") -> 1L
@@ -802,12 +915,12 @@ class JitNativesTest extends gezi.generatedinputs.FailFastSuite:
       )
     ).foreach { (program, natives, layers) =>
       val (_, _, refined) = programCompiled(program, StopSignal.completedWith(stopped))
-      val (reading, counted) = countedReading(nativesOn, refined)
+      val (reading, counted) = countedReading(Value.of(refined))
       val normalForms = reading match
         case Bounded.Finished(found @ Vector(_)) => found
         case other                               => fail(s"not one normal form: $other")
       normalForms.foreach(normalForm =>
-        assertEquals(referenceReads(refined, normalForm, confirmationLimit), Confirmation.Confirmed)
+        assertEquals(referenceReads(plainConfiguration(encoding), Value.of(refined), normalForm, confirmationLimit), Confirmation.Confirmed)
       )
       assertEquals(counted.callsByNative.filter(_._2 > 0), natives)
       assertEquals(counted.decodings, 0L)
@@ -817,19 +930,22 @@ class JitNativesTest extends gezi.generatedinputs.FailFastSuite:
 
   // Natives on, untyped true and false, and successor applied to untyped
   // true, call no native and decode nothing; true and false under a
-  // boolean_type filter call a native or decode.
+  // boolean_type filter reach the representation: the parallel the filter's
+  // body builds is built through the backend's native specializer, which makes it
+  // the storage of the truth value, so the JIT's first head is that storage
+  // (no native call or decoding of the JIT's own is needed for it).
   test("onlyFilteredBooleansReachTheNatives") {
-    def programOf(name: String): Term =
+    def programOf(name: String): Program =
       booleanPrograms.find(_._1 == name).map(_._2).getOrElse(throw IllegalArgumentException(s"no boolean program $name"))
     Vector("true_alone", "false_alone", "successor_of_true").foreach(name =>
-      val read = jitRead(nativesOn, programOf(name))
+      val read = jitRead(programOf(name))
       assert(read.outcome.finished, name)
       assertEquals((counts(read.jitState).nativeCalls, counts(read.jitState).decodings), (0L, 0L), name)
     )
-    Vector("true_filtered", "false_filtered").foreach(name =>
-      val read = jitRead(nativesOn, programOf(name))
+    Vector("true_filtered" -> true, "false_filtered" -> false).foreach((name, truth) =>
+      val read = jitRead(programOf(name))
       assert(read.outcome.finished, name)
-      assert(counts(read.jitState).nativeCalls + counts(read.jitState).decodings > 0, name)
+      assertEquals(JitHead.Represented.unapply(firstHead(programOf(name))), Some((Representation.Truth, NativeValue.Truth(truth))), name)
     )
   }
 
@@ -837,7 +953,7 @@ class JitNativesTest extends gezi.generatedinputs.FailFastSuite:
     * must finish with exactly one (jit_natives.plt:1295 and :1306,
     * `finished([NormalForm])`).
     */
-  private def referenceNormalForm(program: Term): Instruction =
+  private def referenceNormalForm(program: Program): Normal =
     referenceRead(program).outcome match
       case Bounded.Finished(Vector(normalForm)) => normalForm
       case other                                => fail(s"the reference did not finish with one normal form: $other")
@@ -845,15 +961,15 @@ class JitNativesTest extends gezi.generatedinputs.FailFastSuite:
   test("aDecodePointReadsTheSameAnswersWhereverItStands") {
     val zeroNormalForm = referenceNormalForm(zero)
     decodePointPrograms.foreach((name, program) =>
-      assertEquals(jitRead(nativesOn, program).outcome, Bounded.Finished(Vector(zeroNormalForm)), name)
+      assert(sameOutcomes(jitRead(program).outcome, Bounded.Finished(Vector(zeroNormalForm))), name)
     )
   }
 
   test("anOutputFilterOnAFunctionIsADecodePoint") {
     val oneNormalForm = referenceNormalForm(successor(zero))
     outputFilterPrograms.foreach((name, program) =>
-      val read = jitRead(nativesOn, program)
-      assertEquals(read.outcome, Bounded.Finished(Vector(oneNormalForm)), name)
+      val read = jitRead(program)
+      assert(sameOutcomes(read.outcome, Bounded.Finished(Vector(oneNormalForm))), name)
       assert(counts(read.jitState).nativeCalls + counts(read.jitState).decodings > 0, name)
     )
   }
@@ -861,14 +977,14 @@ class JitNativesTest extends gezi.generatedinputs.FailFastSuite:
   test("theAnswersWithNativesDoNotDependOnTheBudget") {
     val named = fixtures ++
       nonNumberPrograms.map((name, program) => name -> Fixture.Written(program)) ++
-      randomTerms.map(drawnTerm => drawnTerm.text -> Fixture.Written(drawnTerm.term))
+      randomTerms.map(drawnTerm => drawnTerm.text -> Fixture.Written(drawnTerm.term[encoding.type]))
     val terms = named.map(_._2)
     val large = budgetReadings(terms, 10000, dropped = false)
     val none = budgetReadings(terms, 0, dropped = false)
     val small = budgetReadings(terms, 3, dropped = true)
     named.indices.foreach(index =>
-      assertEquals(none(index), large(index), named(index)._1)
-      assertEquals(small(index), large(index), named(index)._1)
+      assert(sameOutcomes(none(index), large(index)), named(index)._1)
+      assert(sameOutcomes(small(index), large(index)), named(index)._1)
     )
   }
 
@@ -878,20 +994,23 @@ class JitNativesTest extends gezi.generatedinputs.FailFastSuite:
     * term: the instruction the fixture's knowledge names, with no table from
     * paths to terms.
     */
-  private def fixtureTerm(fixture: String, directory: String, key: String): Term =
+  private def fixtureTerm[E <: StorageEncoding & Singleton](under: E, fixture: String, directory: String, key: String): TermOf[Configured[E]] =
     val root = LibraryFiles.fixture(fixture)
-    Term.closed(StandardLibrary.entryMember(root, root.resolve(s"$directory/$key.lambdalattice"), Expansions.none)._1)
+    val read = StandardLibrary.entryMember(root, root.resolve(s"$directory/$key.lambdalattice"), Expansions.none)._1
+    Term.closed(under.crossedAllFromNoFacts(Vector(read))(read))
 
   // The set of another backend leaves the JIT answering the reference's
   // heads: the native is not the JIT's and the parallel is no decode point.
   test("anotherBackendsSetLeavesTheJitAnsweringTheReference") {
     val library = LibraryFiles.compiled("tests/standard_library_fixtures/other_backend/compiler/other_backend_set.lambdalattice", Vector(BackendChecks))
-    val otherSuccessor = fixtureTerm("other_backend", "library/other_backend_set", "successor")
-    val boundedType = fixtureTerm("other_backend", "library/other_backend_set", "bounded_type")
-    headsAgree(library, "native_of_another_backend", otherSuccessor(identity))
-    headsAgree(library, "representation_of_another_backend", otherSuccessor(identity) ∥ boundedType)
+    val other: StorageEncoding = encodingOf(library)
+    given other.type = other
+    val otherSuccessor = fixtureTerm(other, "other_backend", "library/other_backend_set", "successor")
+    val boundedType = fixtureTerm(other, "other_backend", "library/other_backend_set", "bounded_type")
+    headsAgree(other, "native_of_another_backend", otherSuccessor(identity))
+    headsAgree(other, "representation_of_another_backend", otherSuccessor(identity) ∥ boundedType)
     val value = termValue(otherSuccessor(identity) ∥ boundedType)
-    val read = headsRead(Mode.Jit(Jit(configurationOf(library))), value, headsLimit)
+    val read = headsRead(Jit(configurationOf(other)), value, headsLimit)
     assert(read.outcome.finished)
     assertEquals((counts(read.jitState).nativeCalls, counts(read.jitState).decodings), (0L, 0L))
   }
@@ -902,32 +1021,34 @@ class JitNativesTest extends gezi.generatedinputs.FailFastSuite:
     * filtered by the criterion, by membership, exactly it. The first value
     * that fails, with its key and the two readings, or none.
     */
-  private def specializationVouched(library: StandardLibrary, family: String, criterion: Instruction): Option[(Int, Bounded[Vector[Instruction]], Bounded[Vector[Instruction]])] =
-    val facts = BackendFacts.of(library)
-    val zeroInstruction = facts.zero
+  private def specializationVouched[E <: StorageEncoding & Singleton](under: E, family: String, criterion: Configured[E]): Option[(Int, Bounded[Vector[Configured[E]]], Bounded[Vector[Configured[E]]])] =
+    given E = under
+    val facts = under.facts
+    def pure(key: Pure): Configured[E] = Configured.fromPure(under)(key)
+    val zeroInstruction = pure(facts.zero)
     val filter =
-      if family == "list" then Instruction.Apply(criterion, libraryInstruction("nat_type"))
+      if family == "list" then under.application(criterion, libraryInstruction[E]("nat_type"))
       else criterion
-    val values: Vector[(Int, Instruction)] = family match
+    val values: Vector[(Int, Configured[E])] = family match
       case "big_integer" =>
         (0 to 100).toVector.map(natural =>
-          natural -> (0 until natural).foldLeft(zeroInstruction: Instruction)((term, _) => Instruction.Apply(facts.successor, term))
+          natural -> (0 until natural).foldLeft(zeroInstruction)((term, _) => under.application(pure(facts.successor), term))
         )
-      case "boolean" => Vector(1 -> facts.trueDefine, 0 -> facts.falseDefine)
+      case "boolean" => Vector(1 -> pure(facts.trueDefine), 0 -> pure(facts.falseDefine))
       case "list" =>
         (0 to 6).toVector.map(length =>
-          length -> (0 until length).foldLeft(facts.nil: Instruction)((tail, _) =>
-            Instruction.Apply(Instruction.Apply(facts.cons, zeroInstruction), tail)
+          length -> (0 until length).foldLeft(pure(facts.nil))((tail, _) =>
+            under.application(under.application(pure(facts.cons), zeroInstruction), tail)
           )
         )
       case other => fail(s"no codec: $other")
     values.view.flatMap((key, value) =>
       val plainValue = instructionValue(value)
-      val filteredValue = instructionValue(Instruction.Parallel(value, filter))
-      val valueReading = normalFormsSpent(Mode.TablingWeakHead, plainValue, normalFormLimit).outcome
-      val parallelReading = membershipNormalForms(filteredValue, normalFormLimit)
+      val filteredValue = instructionValue(under.parallel(value, filter))
+      val valueReading = normalFormsSpent(Mode.TablingWeakHead, plainConfiguration(under), plainValue, normalFormLimit).outcome
+      val parallelReading = membershipNormalForms(plainConfiguration(under), filteredValue, normalFormLimit)
       (valueReading, parallelReading) match
-        case (Bounded.Finished(Vector(normalForm)), Bounded.Finished(Vector(found))) if found == normalForm => None
+        case (Bounded.Finished(Vector(normalForm)), Bounded.Finished(Vector(found))) if Configured.same(found, normalForm) => None
         case _ => Some((key, valueReading, parallelReading))
     ).headOption
 
@@ -935,11 +1056,11 @@ class JitNativesTest extends gezi.generatedinputs.FailFastSuite:
     val declarations = nativesOn.index.combinatorProperties.collect {
       case gezi.standardlibrary.CombinatorProperty(instruction, Property.NativeSpecialization(family)) => (instruction, family)
     }
-    assert(declarations.contains((libraryInstruction("nat_type"), "big_integer")))
-    assert(declarations.contains((libraryInstruction("boolean_type"), "boolean")))
-    assert(declarations.contains((libraryInstruction("list_type"), "list")))
+    assert(declarations.contains((Pure.required(libraryTerms("nat_type")), "big_integer")))
+    assert(declarations.contains((Pure.required(libraryTerms("boolean_type")), "boolean")))
+    assert(declarations.contains((Pure.required(libraryTerms("list_type")), "list")))
     declarations.foreach((criterion, family) =>
-      assertEquals(specializationVouched(nativesOn, family, criterion), None, s"$family on $criterion")
+      assert(specializationVouched(encoding, family, Configured.fromPure(encoding)(criterion)).isEmpty, s"$family on $criterion")
     )
   }
 
@@ -948,8 +1069,12 @@ class JitNativesTest extends gezi.generatedinputs.FailFastSuite:
   // k = 1 and fails at k = 2.
   test("theVouchingCheckRejectsAWrongNativeSpecialization") {
     val library = LibraryFiles.compiled("tests/standard_library_fixtures/wrong_declaration/compiler/two_naturals_backend.lambdalattice", Vector(BackendChecks))
-    val twoNaturals = termInstruction(fixtureTerm("wrong_declaration", "library/two_naturals_library", "two_naturals"))
-    specializationVouched(library, "big_integer", twoNaturals) match
+    val wrong: StorageEncoding = encodingOf(library)
+    given wrong.type = wrong
+    val root = LibraryFiles.fixture("wrong_declaration")
+    val read = StandardLibrary.entryMember(root, root.resolve("library/two_naturals_library/two_naturals.lambdalattice"), Expansions.none)._1
+    val twoNaturals = wrong.crossedAllFromNoFacts(Vector(read))(read)
+    specializationVouched(wrong, "big_integer", twoNaturals) match
       case Some((2, Bounded.Finished(Vector(_)), Bounded.Finished(Vector()))) => ()
       case other => fail(s"not rejected at 2: $other")
   }
@@ -963,7 +1088,7 @@ class JitNativesTest extends gezi.generatedinputs.FailFastSuite:
   private[jit] def nativesRunOnTheRefinedX2(): Long =
     val x2 = compiledPrograms.collectFirst { case ("x2", program) => program }.getOrElse(fail("no program x2"))
     val (_, _, refined) = programCompiled(x2, StopSignal.NeverStopped)
-    counts(fixtureRead(nativesOn, Fixture.Interned(refined)).jitState).nativeCalls
+    counts(fixtureRead(Fixture.Interned(refined)).jitState).nativeCalls
 
   // The natives write no file: run in a fresh working directory, the
   // compilation of the library with natives, the native route's schedule on

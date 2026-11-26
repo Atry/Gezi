@@ -26,21 +26,24 @@ import gezi.saturation.Run
 import gezi.saturation.Saturation
 import gezi.saturation.StopSignal
 import gezi.ir.Store
+import gezi.ir.TermConstruction
 import gezi.ir.Code
 import gezi.ir.DispatchPattern
-import gezi.ir.Instruction
 import gezi.ir.SpecializationRange
 import gezi.ir.Layer
+import gezi.ir.LayerWith
+import gezi.ir.NotTerm
 import gezi.ir.LemmaIdentifier
 import gezi.ir.Reachability
 import gezi.lemmaencoding.EncodedLemma
 import gezi.lemmaencoding.LemmaEncoding
 import gezi.ir.{Apply, Choice, NoinlineLeaf, Parallel, Slot, Thunk}
+import gezi.ir.{Configured, NativeSpecializer}
 
 /** The options of a saturation: the lemmas enabled, by identity, those the
   * round's knowledge term declares (`StandardLibrary.lemmas`), the built-in rules enabled (`gezi.saturation.BuiltInRule`:
   * a rule not listed is not applied, so a round names every one it relies
-  * on, `BuiltInRule.all` for all of them), the budget, the most instances
+  * on, `BuiltInRule.beforeOptIn` for the rules every round applied before they were opt-in), the budget, the most instances
   * that change the graph
   * (`budget(Instances)`), and the backend of
   * the framework that runs the saturation's program. The backend is one of
@@ -66,17 +69,28 @@ import gezi.ir.{Apply, Choice, NoinlineLeaf, Parallel, Slot, Thunk}
   * choice; the framework's defaults are chosen in one place,
   * `gezi.contest.entry.Defaults`. The respellings say whether the round's
   * graph keeps the front end's spellings of the thunk layers it made
-  * (`gezi.egraph.EGraph.respellingRetention`).
+  * (`gezi.egraph.EGraph.respellingRetention`). The construction is how the
+  * round's write-back and extraction build the terms they intern
+  * (`gezi.ir.TermConstruction`, carried by the graph's store), through the
+  * native specializer of the round's configuration. The
+  * constant storage stop is whether the round matches no lemma below a class
+  * holding a storage of constant size (`gezi.saturation.ConstantStorageStop`),
+  * off unless chosen; a round that chooses it cannot also enable the
+  * expansion of storages' views (`BuiltInRule.StorageView`), whose purpose
+  * is matching below a storage.
   */
-final case class SaturationOptions(
+final case class SaturationOptions[C <: NativeSpecializer & Singleton](
     lemmas: Vector[LemmaIdentifier],
     builtInRules: Set[BuiltInRule],
     budget: Int,
     lemmaEncoding: LemmaEncoding,
     backend: Backend,
-    indexer: Indexer,
+    indexer: Indexer[C],
     orientationCompiler: OrientationCompiler,
-    respellings: MemoRetention
+    respellings: MemoRetention,
+    // No default: a round under facts writes back through their native specializer, never as written by omission.
+    construction: TermConstruction[C],
+    constantStorageStop: Boolean = false
 )
 
 /** The options of an extraction: the names of its ordering modules, from the
@@ -92,28 +106,31 @@ final case class ExtractionOptions(modules: Vector[String])
   * by the contract of `gezi.ematching.Backend`, so the order the
   * program gives the matches is the saturation's order.
   */
-trait Indexer:
-  def program(orientations: Vector[Orientation], codes: Set[Code]): Program
+trait Indexer[C <: NativeSpecializer & Singleton]:
+  def program(orientations: Vector[Orientation[C]], codes: Set[Code])(using C): Program[C]
 
 /** The framework's index, `gezi.ematching.indexing.Indexing`. */
-object StandardIndexer extends Indexer:
-  def program(orientations: Vector[Orientation], codes: Set[Code]): Program =
-    Indexing.program(orientations, codes)
+object StandardIndexer:
+
+  /** The framework's indexer of the configuration `C`. */
+  def of[C <: NativeSpecializer & Singleton]: Indexer[C] = new Indexer[C]:
+    def program(orientations: Vector[Orientation[C]], codes: Set[Code])(using C): Program[C] =
+      Indexing.program(orientations, codes)
 
 /** A round's saturation: the run of the inputs, and the lemmas it saturates
   * with as it encoded them into patterns. The run's graph is the
   * framework's e-graph, which the extraction and the proof read; the proof
   * states each lemma by its encoding.
   */
-trait Saturator:
+trait Saturator[C <: NativeSpecializer & Singleton]:
 
   /** The run of the inputs, its graph recording the terms made when
     * `explained`: a run whose proof or trace is wanted (`GraphProof` reads
     * only such a graph), and only such a run pays for it
     * (`gezi.egraph.EGraph.explained`).
     */
-  def saturated(index: StandardLibraryIndex, inputs: Vector[Instruction], explained: Boolean, stop: StopSignal): Run
-  def lemmas(index: StandardLibraryIndex): Vector[EncodedLemma]
+  def saturated(index: StandardLibraryIndex[C], inputs: Vector[Configured[C]], explained: Boolean, stop: StopSignal): Run[C]
+  def lemmas(index: StandardLibraryIndex[C]): Vector[EncodedLemma[C]]
 
   /** The run of the inputs begun with at most `budget` instances that
     * change the graph, in place of the saturator's own budget, and kept so
@@ -122,20 +139,20 @@ trait Saturator:
     * gives up by that cost before paying for the whole saturation.
     */
   def begun(
-      index: StandardLibraryIndex,
-      inputs: Vector[Instruction],
+      index: StandardLibraryIndex[C],
+      inputs: Vector[Configured[C]],
       budget: Int,
       explained: Boolean,
       stop: StopSignal
-  ): SaturationProgress
+  ): SaturationProgress[C]
 
 /** A saturation that can go on: its run so far, the program and its
   * compiled form it matches with, and the built-in rules its round enables.
   */
-final case class SaturationProgress(
-    run: Run,
-    program: Program,
-    compiled: CompiledProgram,
+final case class SaturationProgress[C <: NativeSpecializer & Singleton](
+    run: Run[C],
+    program: Program[C],
+    compiled: CompiledProgram[C],
     builtInRules: Set[BuiltInRule]
 ):
 
@@ -143,58 +160,58 @@ final case class SaturationProgress(
     * graph counted (`Saturation.saturated` on the run's graph, which loses
     * nothing at the cut). A run at its fixed point stays there.
     */
-  def resumed(more: Int, stop: StopSignal): SaturationProgress =
+  def resumed(more: Int, stop: StopSignal): SaturationProgress[C] =
     require(more > 0, s"a resumption adds at least one instance: $more")
     val (graph, end) =
       Saturation.saturated(program, compiled, builtInRules, run.graph, run.graph.instances + more, stop)
     copy(run = run.copy(graph = graph, end = end))
 
 /** The baseline's saturation under the options (`FixpointEgraph.saturated`). */
-final case class StandardSaturator(options: SaturationOptions) extends Saturator:
-  def saturated(index: StandardLibraryIndex, inputs: Vector[Instruction], explained: Boolean, stop: StopSignal): Run =
-    FixpointEgraph.saturated(index, inputs, options, explained, stop)
-  def lemmas(index: StandardLibraryIndex): Vector[EncodedLemma] =
+final case class StandardSaturator[C <: NativeSpecializer & Singleton](options: SaturationOptions[C]) extends Saturator[C]:
+  def saturated(index: StandardLibraryIndex[C], inputs: Vector[Configured[C]], explained: Boolean, stop: StopSignal): Run[C] =
+    FixpointEgraph.saturated(index, inputs, options, explained, stop)(using index.specializer)
+  def lemmas(index: StandardLibraryIndex[C]): Vector[EncodedLemma[C]] =
     FixpointEgraph.lemmas(index, options)
   def begun(
-      index: StandardLibraryIndex,
-      inputs: Vector[Instruction],
+      index: StandardLibraryIndex[C],
+      inputs: Vector[Configured[C]],
       budget: Int,
       explained: Boolean,
       stop: StopSignal
-  ): SaturationProgress =
-    FixpointEgraph.begun(index, inputs, options.copy(budget = budget), explained, stop)
+  ): SaturationProgress[C] =
+    FixpointEgraph.begun(index, inputs, options.copy(budget = budget), explained, stop)(using index.specializer)
 
 /** The baseline's saturation with the graph keeping a cost analysis
   * (`FixpointEgraph.analysedBegun`): the same run as
   * `StandardSaturator`, its classes priced for an `AnalysedCostModel`.
   */
-final case class AnalysedSaturator(options: SaturationOptions, analysis: ClassAnalysis[?]) extends Saturator:
-  def saturated(index: StandardLibraryIndex, inputs: Vector[Instruction], explained: Boolean, stop: StopSignal): Run =
-    FixpointEgraph.analysedBegun(index, inputs, options, analysis, explained, stop).run
-  def lemmas(index: StandardLibraryIndex): Vector[EncodedLemma] =
+final case class AnalysedSaturator[C <: NativeSpecializer & Singleton](options: SaturationOptions[C], analysis: ClassAnalysis[C, ?]) extends Saturator[C]:
+  def saturated(index: StandardLibraryIndex[C], inputs: Vector[Configured[C]], explained: Boolean, stop: StopSignal): Run[C] =
+    FixpointEgraph.analysedBegun(index, inputs, options, analysis, explained, stop)(using index.specializer).run
+  def lemmas(index: StandardLibraryIndex[C]): Vector[EncodedLemma[C]] =
     FixpointEgraph.lemmas(index, options)
   def begun(
-      index: StandardLibraryIndex,
-      inputs: Vector[Instruction],
+      index: StandardLibraryIndex[C],
+      inputs: Vector[Configured[C]],
       budget: Int,
       explained: Boolean,
       stop: StopSignal
-  ): SaturationProgress =
-    FixpointEgraph.analysedBegun(index, inputs, options.copy(budget = budget), analysis, explained, stop)
+  ): SaturationProgress[C] =
+    FixpointEgraph.analysedBegun(index, inputs, options.copy(budget = budget), analysis, explained, stop)(using index.specializer)
 
 /** A round's extraction after its saturation: the output of each input, the
   * input's node given in the same order. When `stop` is requested the
   * extraction ends at its next check and gives the inputs as written (each
   * input is a member of its own class, so the output is sound).
   */
-trait Extractor:
+trait Extractor[C <: NativeSpecializer & Singleton]:
   def extracted(
-      index: StandardLibraryIndex,
-      graph: EGraph,
+      index: StandardLibraryIndex[C],
+      graph: EGraph[C],
       inputNodes: Vector[Int],
-      inputs: Vector[Instruction],
+      inputs: Vector[Configured[C]],
       stop: StopSignal
-  ): Vector[Instruction]
+  ): Vector[Configured[C]]
 
 // TODO (https://github.com/Atry/private-overlay/issues/1530): the baseline's
 // extractor is `CountedExtractor`, a module moved into this project
@@ -213,6 +230,16 @@ enum FixpointEgraphErrorReason:
   /** The round at the position, from 0, has other leaves than the first. */
   case RoundsLeavesDiffer(round: Int)
 
+  /** The round at the position, from 0, builds the terms it writes back
+    * otherwise than the first (`SaturationOptions.construction`).
+    */
+  case RoundsConstructionsDiffer(round: Int)
+
+  /** The round chooses both the constant storage stop and the expansion of
+    * storages' views (`SaturationOptions.constantStorageStop`).
+    */
+  case StopWithStorageView
+
 /** A saturation that could not run. */
 final case class FixpointEgraphError(reason: FixpointEgraphErrorReason)
     extends RuntimeException(s"fixpoint e-graph error: $reason")
@@ -220,20 +247,20 @@ final case class FixpointEgraphError(reason: FixpointEgraphErrorReason)
 /** Why the search could not give an output or a proof
   * (`fixpoint_search_error(Reason)`).
   */
-enum FixpointSearchErrorReason:
-  case NoSpelling(input: Instruction)
-  case NotInTheGraph(side: Instruction)
+enum FixpointSearchErrorReason[C <: NativeSpecializer & Singleton]:
+  case NoSpelling(input: Configured[C])
+  case NotInTheGraph(side: Configured[C])
 
 /** A search that could not give an output or a proof. */
-final case class FixpointSearchError(reason: FixpointSearchErrorReason)
+final case class FixpointSearchError[C <: NativeSpecializer & Singleton](reason: FixpointSearchErrorReason[C])
     extends RuntimeException(s"fixpoint search error: $reason")
 
 /** A round's extraction: the best entries of the graph's classes and the
   * output of each input.
   */
-final case class ExtractedOutputs(
-    extracted: Extracted[ModuleCost],
-    outputs: Vector[Instruction]
+final case class ExtractedOutputs[C <: NativeSpecializer & Singleton](
+    extracted: Extracted[C, ModuleCost],
+    outputs: Vector[Configured[C]]
 )
 
 /** The cost of an entry under ordering modules: each module's fold state and
@@ -242,9 +269,21 @@ final case class ExtractedOutputs(
   * (`DispatchPattern.identityContractLayer`), part of the reading and of no
   * rank: a parent whose code applies the entry as a curried member's
   * contract is priced as the specialization the refinement dispatches only
-  * when it is (`TermReading.identityContract`).
+  * when it is (`TermReading.identityContract`). And the classes of the
+  * domains the entry's spelling checks its next arguments by, one for each
+  * argument in order, when it is a contract (`DispatchPattern.contractChecks`)
+  * or a contract applied to some of its arguments: part of the reading and
+  * of no rank too, so that a function's class keeps its best contract
+  * beside its best entry of no contract, and a call whose argument's filter
+  * by the next domain is repelled reads the function by the other
+  * (`gezi.extraction.Production.repelledDomains`).
   */
-final case class ModuleCost(states: Vector[FoldState], ranks: Vector[OrderValue], identityContract: Boolean)
+final case class ModuleCost(
+    states: Vector[FoldState],
+    ranks: Vector[OrderValue],
+    identityContract: Boolean,
+    contractDomains: Vector[Int] = Vector.empty
+)
 
 /** The cost model of the extraction under ordering modules: a production's
   * fold state at each module is read off the production's layer whose
@@ -297,14 +336,14 @@ final case class ModuleCost(states: Vector[FoldState], ranks: Vector[OrderValue]
   *   `CodeCandidates`), a choice of the search the extractor that builds the
   *   model is given; `JointReading.measured` where nothing chooses it.
   */
-final case class ModuleCostModel(
-    modules: Vector[NormalityModule],
-    reading: TermReading,
+final case class ModuleCostModel[C <: NativeSpecializer & Singleton](
+    modules: Vector[NormalityModule[C]],
+    reading: TermReading[C],
     stop: StopSignal,
     jointReading: JointReading = JointReading.measured
-) extends StatelessCostModel[ModuleCost]:
+) extends StatelessCostModel[C, ModuleCost]:
 
-  def cost(shape: Shape, childCosts: Vector[ModuleCost]): ModuleCost = shape match
+  def cost(shape: Shape[C], childCosts: Vector[ModuleCost]): ModuleCost = shape match
     case Shape.Judged(_, _) =>
       val Vector(valueCost, _) = childCosts: @unchecked
       valueCost
@@ -312,12 +351,17 @@ final case class ModuleCostModel(
       val priced = CostModel.pricedUnder(this, shape, childCosts)
       val states = modules.zipWithIndex.map { (module, position) =>
         val children = childCosts.zip(priced).map((cost, isPriced) =>
-          if isPriced then OrderTerm.Folded(cost.states(position), cost.identityContract)
-          else OrderTerm.Unpriced(module.reading(cost.states(position)))
+          if isPriced then OrderTerm.Folded[C](cost.states(position), cost.identityContract)
+          else OrderTerm.Unpriced[C](module.reading(cost.states(position)))
         )
         module.folded(layer(shape, children), reading)
       }
-      ModuleCost(states, modules.zip(states).map((module, state) => module.rank(state)), identityContract(shape, childCosts))
+      ModuleCost(
+        states,
+        modules.zip(states).map((module, state) => module.rank(state)),
+        identityContract(shape, childCosts),
+        contractDomainsOf(shape, childCosts)
+      )
 
   val ordering: Ordering[ModuleCost] =
     (left: ModuleCost, right: ModuleCost) => OrderValue.ranksOrdering.compare(left.ranks, right.ranks)
@@ -326,9 +370,9 @@ final case class ModuleCostModel(
     * (`ThunkCandidates`), every other production's every combination.
     */
   override def candidates(
-      shape: Shape,
-      options: Vector[Vector[gezi.extraction.Entry[ModuleCost]]]
-  ): Vector[gezi.extraction.Entry[ModuleCost]] = shape match
+      shape: Shape[C],
+      options: Vector[Vector[gezi.extraction.Entry[C, ModuleCost]]]
+  ): Vector[gezi.extraction.Entry[C, ModuleCost]] = shape match
     case Shape.Node(_, thunk @ Thunk(_, _, _)) => ThunkCandidates.candidates(this, shape, thunk, options)
     case _                                           => super.candidates(shape, options)
 
@@ -337,14 +381,47 @@ final case class ModuleCostModel(
     * production's every combination.
     */
   override def leastCandidates(
-      shape: Shape,
-      options: Vector[Vector[gezi.extraction.Entry[ModuleCost]]]
-  ): Vector[gezi.extraction.Entry[ModuleCost]] = shape match
+      shape: Shape[C],
+      options: Vector[Vector[gezi.extraction.Entry[C, ModuleCost]]]
+  ): Vector[gezi.extraction.Entry[C, ModuleCost]] = shape match
     case Shape.Node(_, thunk @ Thunk(_, _, _)) => ThunkCandidates.leastCandidates(this, shape, thunk, options)
     case _                                           => super.leastCandidates(shape, options)
 
+  /** A thunk's fillings its candidates settle at the numbers of entries
+    * given (`ThunkCandidates.settledFillings`); no other production's.
+    */
+  override def settledChildren(shape: Shape[C], entryCounts: Vector[Int]): Vector[Boolean] = shape match
+    case Shape.Node(_, thunk @ Thunk(_, _, _)) => ThunkCandidates.settledFillings(this, thunk, entryCounts)
+    case _                                     => shape.children.map(_ => false)
+
+  override def contractDomain(cost: ModuleCost): Option[Int] = cost.contractDomains.headOption
+
+  /** The domains' classes the production's spelling checks its next
+    * arguments by: a thunk read as a contract, its domain and then those of
+    * its range's contract (`DispatchPattern.contractChecks`, over its
+    * fillings' identity contracts and costs); an application, its function's
+    * after the first; a judgment, its value's (which the refinement runs);
+    * every other production none.
+    */
+  private def contractDomainsOf(shape: Shape[C], childCosts: Vector[ModuleCost]): Vector[Int] = shape match
+    case Shape.Node(_, thunk @ Thunk(_, _, fillings)) =>
+      val costs = fillings.zip(childCosts).toMap
+      DispatchPattern
+        .contractChecks(thunk: Layer[Int], (filling: Int) => costs.get(filling).exists(_.identityContract))
+        .fold(Vector.empty[Int])((domain, contract) =>
+          domain +: contract.flatMap(costs.get).fold(Vector.empty[Int])(_.contractDomains)
+        )
+    case Shape.Node(_, Apply(_, _)) =>
+      val Vector(functionCost, _) = childCosts: @unchecked
+      functionCost.contractDomains.drop(1)
+    case Shape.Judged(_, _) =>
+      val Vector(valueCost, _) = childCosts: @unchecked
+      valueCost.contractDomains
+    case _ => Vector.empty
+
   override def sameReading(left: ModuleCost, right: ModuleCost): Boolean =
     left.identityContract == right.identityContract &&
+      left.contractDomains == right.contractDomains &&
       modules.zipWithIndex.forall((module, position) =>
         module.reading(left.states(position)) == module.reading(right.states(position))
       )
@@ -355,12 +432,13 @@ final case class ModuleCostModel(
     * judgment as its value, which the refinement runs; every other
     * production none.
     */
-  private def identityContract(shape: Shape, childCosts: Vector[ModuleCost]): Boolean = shape match
+  private def identityContract(shape: Shape[C], childCosts: Vector[ModuleCost]): Boolean = shape match
     case Shape.Name(instruction) => TermReading.identityContract(OrderTerm.Name(instruction))
     case Shape.Node(_, NoinlineLeaf(instruction)) => TermReading.identityContract(OrderTerm.Name(instruction))
     case Shape.Node(_, thunk @ Thunk(_, _, _)) =>
       DispatchPattern.identityContractLayer(
-        (thunk: Layer[Int]).over(childCosts.map(_.identityContract)),
+        // The children are the costs' flags, no terms of the IR.
+        (thunk: Layer[Int]).over(childCosts.map(_.identityContract))(using gezi.ir.NotTerm.granted[Boolean]),
         (flag: Boolean) => flag
       )
     case Shape.Judged(_, _) =>
@@ -388,10 +466,10 @@ final case class ModuleCostModel(
     * every module reads them as unpriced too, so that no module prices a
     * spelling the run does not read (a narrow function inside a block).
     */
-  override def droppedChildren(shape: Shape, childCosts: Vector[ModuleCost]): Vector[Boolean] = shape match
+  override def droppedChildren(shape: Shape[C], childCosts: Vector[ModuleCost]): Vector[Boolean] = shape match
     case Shape.Node(_, nodeLayer @ (Apply(_, _) | Parallel(_, _))) if compilingModules.nonEmpty =>
       compilingModules.foldLeft(childCosts.map(_ => false)) { case (dropped, (module, position)) =>
-        val readings = childCosts.map(cost => OrderTerm.Unpriced(module.reading(cost.states(position))))
+        val readings = childCosts.map(cost => OrderTerm.Unpriced[C](module.reading(cost.states(position))))
         val compiled = module.compiledChildren(ModuleCostModel.orderLayer(nodeLayer.over(readings)), reading)
         dropped.zip(compiled).map(_ || _)
       }
@@ -412,15 +490,23 @@ final case class ModuleCostModel(
     * application's or a parallel's children, when a module may say the
     * backend compiles them.
     */
-  override def mayDropChildren(shape: Shape): Vector[Boolean] = shape match
+  override def mayDropChildren(shape: Shape[C]): Vector[Boolean] = shape match
     case Shape.Node(_, Choice(_, _))                                          => Vector(true, true)
     case Shape.Node(_, Apply(_, _) | Parallel(_, _)) if compilingModules.nonEmpty => Vector(true, true)
     case _                                                                    => shape.children.map(_ => false)
 
-  /** The modules that may name compiled children, with their positions. */
-  private val compilingModules: Vector[(NormalityModule, Int)] = modules.zipWithIndex.filter(_._1.compilesChildren)
+  /** A name or a leaf the library declares `repeller` (`TermReading.repellers`):
+    * a class that holds an application of it has no entry.
+    */
+  override def repeller(shape: Shape[C]): Boolean = shape match
+    case Shape.Name(instruction)                  => reading.repellers.contains(instruction)
+    case Shape.Node(_, NoinlineLeaf(instruction)) => reading.repellers.contains(instruction)
+    case _                                        => false
 
-  def pricedChildren(shape: Shape): Vector[Boolean] = shape match
+  /** The modules that may name compiled children, with their positions. */
+  private val compilingModules: Vector[(NormalityModule[C], Int)] = modules.zipWithIndex.filter(_._1.compilesChildren)
+
+  def pricedChildren(shape: Shape[C]): Vector[Boolean] = shape match
     case Shape.Name(_) => Vector.empty
     case Shape.Node(_, nodeLayer) =>
       nodeLayer match
@@ -437,7 +523,7 @@ final case class ModuleCostModel(
   /** The term the production is priced as over the children given
     * (`shape_layer/3`): its layer, and a specialization's typed member.
     */
-  private def layer(shape: Shape, children: Vector[OrderTerm]): OrderTerm = shape match
+  private def layer(shape: Shape[C], children: Vector[OrderTerm[C]]): OrderTerm[C] = shape match
     case Shape.Name(instruction) => OrderTerm.Name(instruction)
     case Shape.Node(_, nodeLayer) =>
       nodeLayer match
@@ -453,12 +539,23 @@ final case class ModuleCostModel(
 object ModuleCostModel:
 
   /** The order term of one layer over order terms. */
-  def orderLayer(layer: Layer[OrderTerm]): OrderTerm = layer match
+  def orderLayer[C <: NativeSpecializer & Singleton](layer: LayerWith[OrderTerm[C], Configured[C]]): OrderTerm[C] = layer match
     case Apply(function, argument) => OrderTerm.Apply(function, argument)
     case Parallel(left, right)     => OrderTerm.Parallel(left, right, specializationRange = false)
     case Choice(left, right)       => OrderTerm.Choice(Vector(left, right))
     case Thunk(code, holes, fillings) => OrderTerm.Thunk(code, holes, fillings)
     case NoinlineLeaf(instruction)              => OrderTerm.Name(instruction)
+    case view: gezi.ir.StorageView[?] => throw IllegalStateException(s"a node's layer is never a storage's view: $view")
+
+  /** The order term of a layer a dispatch pattern builds (`DispatchPattern.typedMember`): an application, a parallel or a
+    * choice over order terms, never a noinline leaf or a storage's view.
+    */
+  def orderPatternLayer[C <: NativeSpecializer & Singleton](layer: Layer[OrderTerm[C]]): OrderTerm[C] = layer match
+    case Apply(function, argument) => OrderTerm.Apply(function, argument)
+    case Parallel(left, right)     => OrderTerm.Parallel(left, right, specializationRange = false)
+    case Choice(left, right)       => OrderTerm.Choice(Vector(left, right))
+    case Thunk(code, holes, fillings) => OrderTerm.Thunk(code, holes, fillings)
+    case other => throw IllegalStateException(s"a dispatch pattern's layer holds no leaf or view: $other")
 
 /** The baseline's search strategy of the fixpoint e-graph, the port of
   * `gezi/prolog/gezi/baseline/fixpoint_search.pl`, whose module
@@ -488,13 +585,13 @@ object ModuleCostModel:
   * live only in the term"): the extraction reads the graph's layers and the
   * ordering modules' ranks. The extraction's data are immutable values.
   */
-final case class FixpointEgraph(
-    index: StandardLibraryIndex,
-    saturator: Saturator,
-    extractor: Extractor
-) extends SearchStrategy:
+final case class FixpointEgraph[C <: NativeSpecializer & Singleton](
+    index: StandardLibraryIndex[C],
+    saturator: Saturator[C],
+    extractor: Extractor[C]
+) extends SearchStrategy[C]:
 
-  def ran(inputs: Vector[Instruction], proofWanted: Boolean, stop: StopSignal): Option[StrategyOutcome] =
+  def ran(inputs: Vector[Configured[C]], proofWanted: Boolean, stop: StopSignal): Option[StrategyOutcome[C]] =
     Some(outcome(inputs, saturator.saturated(index, inputs, proofWanted, stop), proofWanted, stop))
 
   /** The round begun on the inputs with at most `budget` instances, in
@@ -505,36 +602,36 @@ final case class FixpointEgraph(
     * whole saturation. Its graph records the terms made when `proofWanted`,
     * the flag its outcome is then taken with.
     */
-  def begun(inputs: Vector[Instruction], budget: Int, proofWanted: Boolean, stop: StopSignal): RoundProgress =
+  def begun(inputs: Vector[Configured[C]], budget: Int, proofWanted: Boolean, stop: StopSignal): RoundProgress[C] =
     RoundProgress(this, inputs, saturator.begun(index, inputs, budget, proofWanted, stop))
 
   /** The outcome of the run: each input's output extracted from its graph,
     * the report of its end, and the proof when it is wanted.
     */
-  private[strategies] def outcome(inputs: Vector[Instruction], run: Run, proofWanted: Boolean, stop: StopSignal): StrategyOutcome =
+  private[strategies] def outcome(inputs: Vector[Configured[C]], run: Run[C], proofWanted: Boolean, stop: StopSignal): StrategyOutcome[C] =
     val graph = run.graph
     val outputs = extractor.extracted(index, graph, run.inputNodes, inputs, stop)
-    val proof = Option.when(proofWanted)(GraphProof.proof(graph, inputs.zip(outputs), saturator.lemmas(index)))
-    StrategyOutcome(outputs, FixpointReport(run.end), proof, this)
+    val proof = Option.when(proofWanted)(GraphProof.proof(graph, inputs.zip(outputs), saturator.lemmas(index))(using index.specializer))
+    StrategyOutcome[C](outputs, FixpointReport(run.end), proof, this)
 
 /** A round of `FixpointEgraph` that can go on: its strategy, its inputs and
   * its saturation so far. Its outcome at any point is sound: every graph of
   * a saturation is equal to its inputs under the lemmas, so a cut graph
   * gives outputs only less refined (`Saturation.saturated`).
   */
-final case class RoundProgress(strategy: FixpointEgraph, inputs: Vector[Instruction], saturation: SaturationProgress):
+final case class RoundProgress[C <: NativeSpecializer & Singleton](strategy: FixpointEgraph[C], inputs: Vector[Configured[C]], saturation: SaturationProgress[C]):
 
   /** How the saturation so far ended, with the instances it spent. */
   def end: End = saturation.run.end
 
   /** The round gone on by at most `more` instances. */
-  def resumed(more: Int, stop: StopSignal): RoundProgress =
+  def resumed(more: Int, stop: StopSignal): RoundProgress[C] =
     copy(saturation = saturation.resumed(more, stop))
 
   /** The round's outcome on the graph as it stands, as `FixpointEgraph.ran`
     * gives it.
     */
-  def outcome(proofWanted: Boolean, stop: StopSignal): StrategyOutcome =
+  def outcome(proofWanted: Boolean, stop: StopSignal): StrategyOutcome[C] =
     strategy.outcome(inputs, saturation.run, proofWanted, stop)
 
 /** The saturation, the extraction and the spellings of the strategy. */
@@ -543,7 +640,7 @@ object FixpointEgraph:
   /** The lemmas of direction `equation` among the options' lemmas, by
     * ascending identifier, as the options' lemma encoding encodes them.
     */
-  def lemmas(index: StandardLibraryIndex, options: SaturationOptions): Vector[EncodedLemma] =
+  def lemmas[C <: NativeSpecializer & Singleton](index: StandardLibraryIndex[C], options: SaturationOptions[C]): Vector[EncodedLemma[C]] =
     index.enabledEquations(options.lemmas).map(options.lemmaEncoding.encoded(index, _))
 
   /** The run of the inputs under the options: the
@@ -554,25 +651,25 @@ object FixpointEgraph:
     * `UnknownLemma` for a lemma the index holds no sides of and
     * with `NegativeBudget` for a negative budget.
     */
-  def saturated(
-      index: StandardLibraryIndex,
-      inputs: Vector[Instruction],
-      options: SaturationOptions,
+  def saturated[C <: NativeSpecializer & Singleton](
+      index: StandardLibraryIndex[C],
+      inputs: Vector[Configured[C]],
+      options: SaturationOptions[C],
       explained: Boolean,
       stop: StopSignal
-  ): Run =
+  )(using C): Run[C] =
     begun(index, inputs, options, explained, stop).run
 
   /** The run of `saturated`, kept with its program and compiled form so
     * that it can go on (`SaturationProgress.resumed`).
     */
-  def begun(
-      index: StandardLibraryIndex,
-      inputs: Vector[Instruction],
-      options: SaturationOptions,
+  def begun[C <: NativeSpecializer & Singleton](
+      index: StandardLibraryIndex[C],
+      inputs: Vector[Configured[C]],
+      options: SaturationOptions[C],
       explained: Boolean,
       stop: StopSignal
-  ): SaturationProgress =
+  )(using C): SaturationProgress[C] =
     begunFrom(index, inputs, options, None, explained, stop)
 
   /** The run of `begun` with the graph keeping the cost analysis given from
@@ -580,24 +677,24 @@ object FixpointEgraph:
     * (`gezi.extraction.AnalysedCostModel`). The analysis only prices
     * classes: the run's merges, instances and end are those of `begun`.
     */
-  def analysedBegun(
-      index: StandardLibraryIndex,
-      inputs: Vector[Instruction],
-      options: SaturationOptions,
-      analysis: ClassAnalysis[?],
+  def analysedBegun[C <: NativeSpecializer & Singleton](
+      index: StandardLibraryIndex[C],
+      inputs: Vector[Configured[C]],
+      options: SaturationOptions[C],
+      analysis: ClassAnalysis[C, ?],
       explained: Boolean,
       stop: StopSignal
-  ): SaturationProgress =
+  )(using C): SaturationProgress[C] =
     begunFrom(index, inputs, options, Some(analysis), explained, stop)
 
-  private def begunFrom(
-      index: StandardLibraryIndex,
-      inputs: Vector[Instruction],
-      options: SaturationOptions,
-      analysis: Option[ClassAnalysis[?]],
+  private def begunFrom[C <: NativeSpecializer & Singleton](
+      index: StandardLibraryIndex[C],
+      inputs: Vector[Configured[C]],
+      options: SaturationOptions[C],
+      analysis: Option[ClassAnalysis[C, ?]],
       explained: Boolean,
       stop: StopSignal
-  ): SaturationProgress =
+  )(using C): SaturationProgress[C] =
     begunIn(compiledRound(index, options), inputs, options.budget, analysis, explained, stop)
 
   /** What a round's saturation computes from the index and the options
@@ -611,22 +708,25 @@ object FixpointEgraph:
     * options, keyed by nothing else (`CONTRIBUTING.md`, "Tables",
     * kind 2).
     */
-  final case class CompiledRound(
-      index: StandardLibraryIndex,
-      options: SaturationOptions,
-      lemmas: Vector[EncodedLemma],
-      compiled: CompiledOrientations,
-      patternGraph: EGraph
+  final case class CompiledRound[C <: NativeSpecializer & Singleton](
+      index: StandardLibraryIndex[C],
+      options: SaturationOptions[C],
+      lemmas: Vector[EncodedLemma[C]],
+      compiled: CompiledOrientations[C],
+      patternGraph: EGraph[C]
   )
 
   /** The round of the index under the options. Throws `FixpointEgraphError`
     * with `UnknownLemma` for a lemma the index holds no sides of.
     */
-  def compiledRound(index: StandardLibraryIndex, options: SaturationOptions): CompiledRound =
+  def compiledRound[C <: NativeSpecializer & Singleton](index: StandardLibraryIndex[C], options: SaturationOptions[C]): CompiledRound[C] =
+    given C = index.specializer
+    if options.constantStorageStop && options.builtInRules.contains(BuiltInRule.StorageView) then
+      throw FixpointEgraphError(FixpointEgraphErrorReason.StopWithStorageView)
     options.lemmas.foreach(lemma =>
       if index.sides(lemma).isEmpty then throw FixpointEgraphError(FixpointEgraphErrorReason.UnknownLemma(lemma))
     )
-    val store = Store(index.noinline)
+    val store = Store(index.noinline, options.construction)
     val encoded = lemmas(index, options)
     val compiled = options.orientationCompiler.compiled(
       encoded.map(lemma => LemmaSides(lemma.lemma, lemma.metavariables, lemma.left, lemma.right)),
@@ -648,14 +748,14 @@ object FixpointEgraph:
     * Throws `FixpointEgraphError` with `NegativeBudget` for a negative
     * budget.
     */
-  def begunIn(
-      round: CompiledRound,
-      inputs: Vector[Instruction],
+  def begunIn[C <: NativeSpecializer & Singleton](
+      round: CompiledRound[C],
+      inputs: Vector[Configured[C]],
       budget: Int,
-      analysis: Option[ClassAnalysis[?]],
+      analysis: Option[ClassAnalysis[C, ?]],
       explained: Boolean,
       stop: StopSignal
-  ): SaturationProgress =
+  )(using C): SaturationProgress[C] =
     if budget < 0 then throw FixpointEgraphError(FixpointEgraphErrorReason.NegativeBudget(budget))
     val program = round.options.indexer.program(
       round.compiled.orientations,
@@ -666,7 +766,9 @@ object FixpointEgraph:
     // round and records no terms made; a run whose proof is wanted turns it
     // on before any union.
     val patternGraph = if explained then round.patternGraph.explaining else round.patternGraph
-    val initial = analysis.fold(patternGraph)(costAnalysis => patternGraph.analysed(costAnalysis))
+    val initial = analysis
+      .fold(patternGraph)(costAnalysis => patternGraph.analysed(costAnalysis))
+      .withConstantStorageStop(round.options.constantStorageStop)
     val run = Saturation.runFrom(program, compiledProgram, round.options.builtInRules, initial, inputs, budget, stop)
     SaturationProgress(run, program, compiledProgram, round.options.builtInRules)
 
@@ -674,8 +776,10 @@ object FixpointEgraph:
     * heads filed up to the largest arity any round's orientations apply
     * them to, so that a later round's index finds the nodes an earlier
     * round made under its own heads. Its leaves are the rounds' leaves, which
-    * must be one set. Throws `FixpointEgraphError` with `RoundsLeavesDiffer`
-    * for rounds whose leaves differ.
+    * must be one set, and so must their constructions, the graph's store
+    * holding one. Throws `FixpointEgraphError` with `RoundsLeavesDiffer`
+    * for rounds whose leaves differ, and with `RoundsConstructionsDiffer`
+    * for rounds whose constructions differ.
     *
     * FIXME: a round's https://github.com/Atry/private-overlay/issues/2047
     * leaves are the round's own configuration, and rounds whose leaves
@@ -686,20 +790,24 @@ object FixpointEgraph:
     * instead of run on the first round's leaves, which is what this function
     * did before the leaves were the rounds'.
     */
-  def sharedGraph(rounds: Vector[CompiledRound], explained: Boolean): EGraph =
+  def sharedGraph[C <: NativeSpecializer & Singleton](rounds: Vector[CompiledRound[C]], explained: Boolean): EGraph[C] =
     require(rounds.nonEmpty, "a shared graph is of one round or more")
+    given C = rounds.head.options.construction.specializer
     rounds.zipWithIndex.find((round, _) => round.index.noinline != rounds.head.index.noinline).foreach((_, position) =>
       throw FixpointEgraphError(FixpointEgraphErrorReason.RoundsLeavesDiffer(position))
     )
+    rounds.zipWithIndex.find((round, _) => round.options.construction != rounds.head.options.construction).foreach((_, position) =>
+      throw FixpointEgraphError(FixpointEgraphErrorReason.RoundsConstructionsDiffer(position))
+    )
     val bounds = rounds
       .map(round => Orientations.headArityBounds(round.compiled.orientations))
-      .foldLeft(Map.empty[Instruction, Int])((merged, more) =>
+      .foldLeft(Map.empty[Configured[C], Int])((merged, more) =>
         more.foldLeft(merged) { case (current, (instruction, arity)) =>
           current.updated(instruction, current.get(instruction).fold(arity)(_ max arity))
         }
       )
     Saturation.initialGraph(
-      Store(rounds.head.index.noinline),
+      Store(rounds.head.index.noinline, rounds.head.options.construction),
       bounds,
       rounds.flatMap(_.compiled.patternInstructions).distinct,
       explained
@@ -712,13 +820,13 @@ object FixpointEgraph:
     * on with `SaturationProgress.resumed`. The graph is `sharedGraph`'s or
     * a later state of it.
     */
-  def begunOn(
-      round: CompiledRound,
-      shared: Vector[CompiledRound],
-      graph: EGraph,
-      inputs: Vector[Instruction],
+  def begunOn[C <: NativeSpecializer & Singleton](
+      round: CompiledRound[C],
+      shared: Vector[CompiledRound[C]],
+      graph: EGraph[C],
+      inputs: Vector[Configured[C]],
       stop: StopSignal
-  ): SaturationProgress =
+  )(using C): SaturationProgress[C] =
     // The graph's own codes too: the earlier rounds wrote thunks whose codes
     // no orientation and no input of this round reaches (reverse beta's
     // abstractions, the bodies of instances built from their roots), and
@@ -727,14 +835,14 @@ object FixpointEgraph:
     val program = round.options.indexer.program(
       round.compiled.orientations,
       Indexing.codesMet(shared.flatMap(_.compiled.orientations), shared.flatMap(_.compiled.patternInstructions) ++ inputs) ++
-        Reachability.codesUnder(Vector.empty, graphCodes)
+        Reachability.codesUnder(graphCodes)
     )
     val compiledProgram = round.options.backend.compiled(program)
     val run = Saturation.runFrom(
       program,
       compiledProgram,
       round.options.builtInRules,
-      graph.everyNodeRedone,
+      graph.everyNodeRedone.withConstantStorageStop(round.options.constantStorageStop),
       inputs,
       graph.instances,
       stop
@@ -746,7 +854,7 @@ object FixpointEgraph:
     * is in: after hash consing a define's instruction is no name of its own, and
     * noinline is what keeps a term unexpanded.
     */
-  def productionNames(index: StandardLibraryIndex): Set[Instruction] =
+  def productionNames[C <: NativeSpecializer & Singleton](index: StandardLibraryIndex[C])(using C): Set[Configured[C]] =
     index.noinline
 
   // TODO (https://github.com/Atry/private-overlay/issues/1530): a round's
@@ -754,20 +862,24 @@ object FixpointEgraph:
   // The retired `outputsExtracted` reads back with
   // `git show c33817721:lambda_jit/strategies/src/main/scala/lambdajit/strategies/FixpointSearch.scala`.
 
-  /** The output of each input, the spelling of its class, interned; the
-    * memo of the classes spelled shared by the outputs (`output_extracted/4`).
+  /** The output of each input, the spelling of its class, built by the
+    * construction (the graph's `Store.construction`, so that a configuration
+    * that converts terms into native storages writes back no plain twin of
+    * one) and interned; the memo of the classes spelled shared by the outputs
+    * (`output_extracted/4`).
     */
-  def outputsSpelled(
-      extracted: Extracted[ModuleCost],
+  def outputsSpelled[C <: NativeSpecializer & Singleton](
+      extracted: Extracted[C, ModuleCost],
       roots: Vector[Int],
-      inputs: Vector[Instruction]
-  ): Vector[Instruction] =
+      inputs: Vector[Configured[C]],
+      construction: TermConstruction[C]
+  )(using C): Vector[Configured[C]] =
     val (_, outputs) =
-      roots.zip(inputs).foldLeft((Spelled[Instruction, Unit]((), Map.empty), Vector.empty[Instruction])) {
+      roots.zip(inputs).foldLeft((Spelled[Configured[C], Unit]((), Map.empty), Vector.empty[Configured[C]])) {
         case ((state, done), (root, input)) =>
           if !extracted.hasEntry(root) then
             throw FixpointSearchError(FixpointSearchErrorReason.NoSpelling(input))
-          val (after, output) = Extraction.spelled(extracted, root, state)(spell)
+          val (after, output) = Extraction.spelled(extracted, root, state)(spell(construction))
           (after, done :+ output)
       }
     outputs
@@ -775,11 +887,11 @@ object FixpointEgraph:
   /** The layer with its children replaced, in child order. Throws
     * `IllegalArgumentException` when their number is not the layer's.
     */
-  def layerOver[Child](layer: Layer[Any], children: Vector[Child]): Layer[Child] = layer.over(children)
+  def layerOver[C <: NativeSpecializer & Singleton, Child, Leaf](layer: LayerWith[Any, Leaf], children: Vector[Child])(using NotTerm[Child]): LayerWith[Child, Leaf] = layer.over(children)
 
-  /** The instruction of a production's shape over its children's spellings: a
-    * name or a leaf its instruction, any other layer, and each layer of a
-    * dispatch pattern, interned (`entry_respelled/5`).
+  /** The term of a production's shape over its children's spellings: a name or a leaf its instruction, any other
+    * layer, and each layer of a dispatch pattern, built through the construction's specializer
+    * (`Shape.spelledTerm`, `entry_respelled/5`).
     */
-  private def spell(unit: Unit, shape: Shape, children: Vector[Instruction]): (Unit, Instruction) =
-    (unit, Shape.spelled[Instruction](shape, children, instruction => instruction, Instruction(_)))
+  private def spell[C <: NativeSpecializer & Singleton](construction: TermConstruction[C])(unit: Unit, shape: Shape[C], children: Vector[Configured[C]])(using C): (Unit, Configured[C]) =
+    (unit, Shape.spelledTerm(shape, children)(using construction.specializer))

@@ -1,5 +1,7 @@
 package gezi.weakhead
 
+import gezi.ir.NoFacts
+
 import gezi.weakhead.EvaluatorTesting.*
 import gezi.frontend.Term
 import gezi.frontend.Term.*
@@ -13,6 +15,8 @@ import gezi.frontend.Term.*
   * their tables, and a suite starts from an empty store.
   */
 class ReadingTest extends gezi.generatedinputs.FailFastSuite:
+
+  given NoFacts.type = NoFacts
 
   private val modes = Vector(Mode.WeakHead, Mode.TablingWeakHead)
 
@@ -32,7 +36,7 @@ class ReadingTest extends gezi.generatedinputs.FailFastSuite:
     */
   private def surfaceVerdict(mode: Mode, term: Term, intended: Intended): Verdict =
     val root = valueOf(term)
-    Judge.verdict(intended, Reading.termReading(mode, root, 1000000))
+    Judge.verdict(intended, Reading.termReading(mode, root, 1000000, gezi.weakhead.ReadingConfiguration.withoutFacts))
 
   private def trueTerm: Term = λ(t => λ(_ => t))
   private def falseTerm: Term = λ(_ => λ(f => f))
@@ -77,9 +81,9 @@ class ReadingTest extends gezi.generatedinputs.FailFastSuite:
     */
   test("theWitnessReadingReadsAParallelOut") {
     val parallel = valueOf(λ(a => a) ∥ λ(b => b))
-    val witness = Value.Neutral(JudgeWitness, Vector.empty)
+    val witness = NeutralValue(JudgeWitness, Vector.empty)
     modes.foreach(mode =>
-      val readings = Reading.witnessReadings(mode, Vector(Value.Apply(parallel, witness)), witness, 100000)
+      val readings = Reading.witnessReadings(mode, Vector(Value.Apply(parallel, witness)), witness, 100000, gezi.weakhead.ReadingConfiguration.withoutFacts)
       assertEquals((mode, readings.map(_.outcome)), (mode, Vector(WitnessOutcome.Found)))
     )
   }

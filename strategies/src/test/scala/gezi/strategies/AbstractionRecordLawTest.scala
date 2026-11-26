@@ -11,7 +11,8 @@ import gezi.frontend.Lambdalattice
 import gezi.generatedinputs.GeneratedProperties
 import gezi.generatedinputs.HoasGenerators
 import gezi.generatedinputs.LambdalatticeText
-import gezi.ir.Instruction
+import gezi.ir.Configured
+import gezi.ir.NoFacts
 import gezi.ir.Layer
 import gezi.ir.LemmaIdentifier
 import gezi.lemmaencoding.baseline.BaselineLemmaEncoding
@@ -39,13 +40,15 @@ import gezi.ir.{NoinlineLeaf, Thunk}
   */
 class AbstractionRecordLawTest extends GeneratedProperties:
 
-  private def closed(text: String): Instruction = Defunctionalization.thunkInstruction(Lambdalattice.term(text))
+  private given NoFacts.type = NoFacts
 
-  private val lemmas: Vector[LemmaSides] = Vector(
+  private def closed(text: String): Configured[NoFacts.type] = Defunctionalization.thunkInstruction[gezi.ir.NoFacts.type](Lambdalattice.term(text))(using gezi.ir.NoFacts)
+
+  private val lemmas: Vector[LemmaSides[NoFacts.type]] = Vector(
     LemmaSides(LemmaIdentifier(0), closed("λa. λb. (λx. λy. x) a b"), closed("λa. λb. a"))
   )
 
-  private val index: StandardLibraryIndex = StandardLibraryIndex(Vector.empty, lemmas, Vector.empty, Vector.empty)
+  private val index: StandardLibraryIndex[NoFacts.type] = StandardLibraryIndex(NoFacts, Vector.empty, lemmas, Vector.empty, Vector.empty)
 
   /** The instances a round may add: the openings, write-backs and lemma
     * instances of a closure with one call of K are a handful.
@@ -54,9 +57,9 @@ class AbstractionRecordLawTest extends GeneratedProperties:
     */
   private val budget: Int = 16
 
-  private val saturator: HigherOrderSaturator = HigherOrderSaturator(
-    SaturationOptions(lemmas.map(_.lemma), Set.empty, budget, BaselineLemmaEncoding, ClosureCompilation, StandardIndexer, StandardOrientationCompiler, MemoRetention.Kept),
-    Some(LocalExtraction(Vector(Compression), _ => Set.empty, MemoRetention.Kept)),
+  private val saturator: HigherOrderSaturator[NoFacts.type] = HigherOrderSaturator(
+    SaturationOptions(lemmas.map(_.lemma), Set.empty, budget, BaselineLemmaEncoding, ClosureCompilation, StandardIndexer.of[gezi.ir.NoFacts.type], StandardOrientationCompiler, MemoRetention.Kept, gezi.ir.TermConstruction(gezi.ir.NoFacts)),
+    Some(LocalExtraction(Vector(Compression.at[gezi.ir.NoFacts.type]), _ => Set.empty, SpellingRetention.KeptWithinAPass)),
     None,
     gezi.saturation.OpeningCriterionChoice.CallsAHead
   )
@@ -75,7 +78,7 @@ class AbstractionRecordLawTest extends GeneratedProperties:
       if shape == 0 then s"λz. (λk. λl. k) ($constant) z"
       else s"λz. z ((λk. λl. k) ($constant) z) ($other)"
 
-  private def holes(graph: EGraph, node: Int): Option[Int] = graph.layer(node) match
+  private def holes(graph: EGraph[NoFacts.type], node: Int): Option[Int] = graph.layer(node) match
     case Thunk(_, holes, _) => Some(holes.size)
     case _                        => None
 

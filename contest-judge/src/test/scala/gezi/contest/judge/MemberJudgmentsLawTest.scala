@@ -19,11 +19,10 @@ import gezi.generatedinputs.GeneratedProperties
   * a seed, or a window of a corpus family's problems starting within the
   * family, read within a small budget. An input whose points are all
   * stopped by the budget yields no judgment point, and the law holds on it
-  * vacuously; the property requires that at least 20% of its 15 inputs
-  * yield one. The share measured on 2026-10-31 was 59% of 100 inputs, in
-  * each of two runs, so a run under 20% (fewer than 3 of 15) has a
-  * probability of about 4e-4 (the binomial tail at 59%) and is a sign that
-  * the writer or the corpora changed.
+  * vacuously, so every iteration checks the law also on a draw of a family
+  * whose references are computed, one normal form each
+  * (`LawFamilies.trapAtEveryPoint`), every point of which yields a judgment
+  * point by construction, and that it yields one.
   *
   * An input is logged by its points' names: Hedgehog's `forAll` logs every
   * input by its `toString`, eagerly, and the derived `toString` of a deep
@@ -54,9 +53,12 @@ class MemberJudgmentsLawTest extends GeneratedProperties:
     */
   private val writerBudget: Long = 200000
 
-  private val seeded: Gen[Vector[PointSource]] =
+  private val seeded: Gen[Vector[PointSource]] = seededOf(Gen.elementUnsafe(LawFamilies.names))
+
+  /** The sources of a family the generator gives, drawn from a seed. */
+  private def seededOf(families: Gen[String]): Gen[Vector[PointSource]] =
     for
-      family <- Gen.elementUnsafe(LawFamilies.names)
+      family <- families
       seed <- Gen.long(Range.constant(0L, (1L << 31) - 1))
       repetitions <- LawFamilies.repetitions(family, 3, 2)
     yield LawFamilies.sources(family, seed, repetitions, "test", BigDecimal(1))
@@ -80,32 +82,36 @@ class MemberJudgmentsLawTest extends GeneratedProperties:
 
   property("every member judgment's candidate is in its evaluation point's reference", _.copy(testLimit = 15)) {
     for
-      points <- Gen
-        .choice1(seeded, corpus)
-        .forAllWithLog(sources => sources.map(_.pointName).mkString(", "))
-        .map(writtenPoints)
-        .cover(20,"yields a judgment point", _.exists(isJudgment))
-    yield
-      val evaluations = points.collect { case point @ Point(name, _, _, _, _, Question.Evaluation(reference)) =>
-        name -> (point, reference)
-      }.toMap
-      val judgments = points.collect { case point @ Point(name, _, _, _, _, Question.Judgment(candidate, member)) =>
-        (name, point, candidate, member)
-      }
-      val attached = judgments.map((name, point, candidate, member) =>
-        val evaluationName = name.substring(0, name.lastIndexOf("/candidate_"))
-        evaluations.get(evaluationName) match
-          case Some((evaluation, reference)) =>
-            Result
-              .assert(reference.contains(gezi.frontend.Defunctionalization.instructionTerm(candidate)) && member)
-              .log(s"$name: the candidate is not a member of $evaluationName's reference")
-              .and(Result.assert(point.program == evaluation.program).log(s"$name: another program than $evaluationName's"))
-              .and(Result.diff(point.family, s"${evaluation.family}_judgments")(_ == _))
-          case None => Result.failure.log(s"$name: no evaluation point $evaluationName")
-      )
-      val counted = evaluations.toVector.map { case (name, (_, reference)) =>
-        Result.diff(judgments.count((judgmentName, _, _, _) => judgmentName.startsWith(s"$name/candidate_")), reference.size)(_ == _)
-          .log(s"$name: judgment points per member")
-      }
-      Result.all((attached ++ counted).toList)
+      points <- Gen.choice1(seeded, corpus).forAllWithLog(logged).map(writtenPoints)
+      judged <- seededOf(Gen.constant(LawFamilies.trapAtEveryPoint)).forAllWithLog(logged).map(writtenPoints)
+    yield membersLaw(points)
+      .and(membersLaw(judged))
+      .and(Result.assert(judged.exists(isJudgment)).log(s"${LawFamilies.trapAtEveryPoint} yields no judgment point"))
   }
+
+  private def logged(sources: Vector[PointSource]): String = sources.map(_.pointName).mkString(", ")
+
+  /** The law on the points of one file. */
+  private def membersLaw(points: Vector[Point]): Result =
+    val evaluations = points.collect { case point @ Point(name, _, _, _, _, Question.Evaluation(reference)) =>
+      name -> (point, reference)
+    }.toMap
+    val judgments = points.collect { case point @ Point(name, _, _, _, _, Question.Judgment(candidate, member)) =>
+      (name, point, candidate, member)
+    }
+    val attached = judgments.map((name, point, candidate, member) =>
+      val evaluationName = name.substring(0, name.lastIndexOf("/candidate_"))
+      evaluations.get(evaluationName) match
+        case Some((evaluation, reference)) =>
+          Result
+            .assert(reference.contains(gezi.frontend.Defunctionalization.instructionTerm(candidate)) && member)
+            .log(s"$name: the candidate is not a member of $evaluationName's reference")
+            .and(Result.assert(point.program == evaluation.program).log(s"$name: another program than $evaluationName's"))
+            .and(Result.diff(point.family, s"${evaluation.family}_judgments")(_ == _))
+        case None => Result.failure.log(s"$name: no evaluation point $evaluationName")
+    )
+    val counted = evaluations.toVector.map { case (name, (_, reference)) =>
+      Result.diff(judgments.count((judgmentName, _, _, _) => judgmentName.startsWith(s"$name/candidate_")), reference.size)(_ == _)
+        .log(s"$name: judgment points per member")
+    }
+    Result.all((attached ++ counted).toList)

@@ -2,8 +2,11 @@ package gezi.standardlibrary
 
 import gezi.frontend.Defunctionalization
 import gezi.ir.Code
-import gezi.ir.Instruction
+import gezi.ir.ChoiceSpine
+import gezi.ir.Configured
 import gezi.ir.Hole
+import gezi.ir.NativeSpecializer.*
+import gezi.ir.NoFacts
 import gezi.ir.Spine
 
 /** Replaying a definitional lemma by beta and eta steps on the IR, the port
@@ -32,7 +35,36 @@ import gezi.ir.Spine
   * the caller reads from the tree (`TreeTerms`): the index keeps no library
   * file.
   */
-final case class LemmaReplay(library: StandardLibrary, names: Set[Instruction]):
+final case class LemmaReplay(library: StandardLibrary, names: Set[Configured[NoFacts.type]]):
+
+  private given NoFacts.type = NoFacts
+
+  private type NoFactsTerm = Configured[NoFacts.type]
+
+  /** The layers of an instruction as extractors, and the instructions built through the specializer of no facts. */
+  private object Layered:
+    object Apply:
+      def unapply(instruction: NoFactsTerm): Option[(NoFactsTerm, NoFactsTerm)] = instruction.layer match
+        case gezi.ir.Apply(function, argument) => Some((function, argument))
+        case _                                 => None
+    object Choice:
+      def unapply(instruction: NoFactsTerm): Option[(NoFactsTerm, NoFactsTerm)] = instruction.layer match
+        case gezi.ir.Choice(left, right) => Some((left, right))
+        case _                           => None
+    object Parallel:
+      def unapply(instruction: NoFactsTerm): Option[(NoFactsTerm, NoFactsTerm)] = instruction.layer match
+        case gezi.ir.Parallel(left, right) => Some((left, right))
+        case _                             => None
+    object Thunk:
+      def unapply(instruction: NoFactsTerm): Option[(Code, Vector[Hole], Vector[NoFactsTerm])] = instruction.layer match
+        case gezi.ir.Thunk(code, holes, fillings) => Some((code, holes, fillings))
+        case _                                    => None
+
+  /** The thunk of the code with its holes and fillings, or, all its holes filled, the instance of its code, a thunk
+    * of no hole being no term of the IR.
+    */
+  private def thunkOf(code: Code, holes: Vector[Hole], fillings: Vector[NoFactsTerm]): NoFactsTerm =
+    NoFacts.thunkOrInstance(code, holes, fillings)
 
   /** The beta and eta steps one side may take; past it the replay throws.
     * The most the two sides of a replayed lemma of prelude or guard_laws take
@@ -45,7 +77,7 @@ final case class LemmaReplay(library: StandardLibrary, names: Set[Instruction]):
   /** The normal forms of the two sides of the lemma, the left's head
     * unfolded first, and the beta and eta steps the two took together.
     */
-  def sidesNormalised(name: String): (Instruction, Instruction, Int) =
+  def sidesNormalised(name: String): (NoFactsTerm, NoFactsTerm, Int) =
     val sides = library.index
       .sides(library.index.lemmaIdentifier(name))
       .getOrElse(throw IllegalArgumentException(s"$name has no sides"))
@@ -55,19 +87,19 @@ final case class LemmaReplay(library: StandardLibrary, names: Set[Instruction]):
     // there is the name.
     val literal = opensWithBinder(sides.left) && opensWithBinder(sides.right)
     val (unfolded, unfoldingSteps) = headUnfolded(sides.left, 0, literal)
-    val unfoldedLiteral = (unfolded eq sides.left) && literal
+    val unfoldedLiteral = Configured.same(unfolded, sides.left) && literal
     val (leftNormal, leftSteps) = canonicalNormal(unfolded, unfoldingSteps, unfoldedLiteral)
     val (rightNormal, rightSteps) = canonicalNormal(sides.right, 0, literal)
     (leftNormal, rightNormal, leftSteps + rightSteps)
 
   /** The normal form both sides of the lemma reach, if they reach one. */
-  def replayed(name: String): Option[Instruction] =
+  def replayed(name: String): Option[NoFactsTerm] =
     val (left, right, _) = sidesNormalised(name)
-    Option.when(left == right)(left)
+    Option.when(Configured.same(left, right))(left)
 
   /** The side is a thunk with at least one hole. */
-  private def opensWithBinder(side: Instruction): Boolean = side match
-    case Instruction.Thunk(_, holes, _) => holes.nonEmpty
+  private def opensWithBinder(side: NoFactsTerm): Boolean = side match
+    case Layered.Thunk(_, holes, _) => holes.nonEmpty
     case _                              => false
 
   // ---- steps ----
@@ -83,28 +115,28 @@ final case class LemmaReplay(library: StandardLibrary, names: Set[Instruction]):
     * unchanged. Only the head's own term is unfolded. `literal` when the
     * instruction is read by its layer though it be a name.
     */
-  private def headUnfolded(instruction: Instruction, steps: Int, literal: Boolean): (Instruction, Int) =
+  private def headUnfolded(instruction: NoFactsTerm, steps: Int, literal: Boolean): (NoFactsTerm, Int) =
     instruction match
       case name if !literal && names.contains(name) =>
         headInstantiated(name, Vector.empty, steps, literal = false) match
           case Some((instantiated, after)) => (instantiated, after)
           case None                        => (instruction, steps)
-      case Instruction.Apply(function, argument) =>
+      case Layered.Apply(function, argument) =>
         val (unfolded, after) = headUnfolded(function, steps, literal = false)
-        (Instruction.Apply(unfolded, argument), after)
-      case Instruction.Thunk(code, holes, fillings) =>
+        (NoFacts.application(unfolded, argument), after)
+      case Layered.Thunk(code, holes, fillings) =>
         Spine.of(code)._1 match
           case Code.Slot(slot) if !holes.contains(Hole.Bound(slot)) =>
             val position = Defunctionalization.fillingPosition(holes, slot)
             val (unfolded, after) = headUnfolded(fillings(position), steps, literal = false)
-            (Instruction.Thunk(code, holes, fillings.updated(position, unfolded)), after)
+            (thunkOf(code, holes, fillings.updated(position, unfolded)), after)
           case _ => (instruction, steps)
       case _ => (instruction, steps)
 
   /** The head and the arguments of the spine, a name a head. */
-  private def spine(instruction: Instruction): (Instruction, Vector[Instruction]) =
+  private def spine(instruction: NoFactsTerm): (NoFactsTerm, Vector[NoFactsTerm]) =
     instruction match
-      case Instruction.Apply(function, argument) if !names.contains(instruction) =>
+      case Layered.Apply(function, argument) if !names.contains(instruction) =>
         val (head, arguments) = spine(function)
         (head, arguments :+ argument)
       case other => (other, Vector.empty)
@@ -117,18 +149,18 @@ final case class LemmaReplay(library: StandardLibrary, names: Set[Instruction]):
     * than there are arguments.
     */
   private def headInstantiated(
-      head: Instruction,
-      arguments: Vector[Instruction],
+      head: NoFactsTerm,
+      arguments: Vector[NoFactsTerm],
       steps: Int,
       literal: Boolean
-  ): Option[(Instruction, Int)] = head match
+  ): Option[(NoFactsTerm, Int)] = head match
     case name if !literal && names.contains(name) =>
       name match
-        case Instruction.Apply(function, argument) =>
+        case Layered.Apply(function, argument) =>
           val (innerHead, inner) = spine(function)
           headInstantiated(innerHead, (inner :+ argument) ++ arguments, steps, literal = false)
         case _ => headInstantiated(name, arguments, steps, literal = true)
-    case Instruction.Thunk(code, holes, fillings) if holes.nonEmpty && holes.size <= arguments.size =>
+    case Layered.Thunk(code, holes, fillings) if holes.nonEmpty && holes.size <= arguments.size =>
       val (taken, remaining) = arguments.splitAt(holes.size)
       val initial = slotValues(holes, fillings.map(Some(_)))
       val (slots, after) = holes.zip(taken).foldLeft((initial, steps)) {
@@ -136,7 +168,7 @@ final case class LemmaReplay(library: StandardLibrary, names: Set[Instruction]):
           (filled(current, hole, argument), counted(count))
       }
       val body = codeInstantiated(code, slots.map(_.getOrElse(throw IllegalStateException("a hole left"))))
-      Some((remaining.foldLeft(body)(Instruction.Apply(_, _)), after))
+      Some((remaining.foldLeft(body)(NoFacts.application(_, _)), after))
     case _ => None
 
   private def filled[Value](slots: Vector[Option[Value]], hole: Hole, value: Value): Vector[Option[Value]] =
@@ -151,23 +183,23 @@ final case class LemmaReplay(library: StandardLibrary, names: Set[Instruction]):
     Defunctionalization.slotValues(holes, holes.map(_ => None), fillings)
 
   /** A thunk body with each slot replaced by the instruction of that slot. */
-  private def codeInstantiated(code: Code, slots: Vector[Instruction]): Instruction = code match
+  private def codeInstantiated(code: Code, slots: Vector[NoFactsTerm]): NoFactsTerm = code match
     case Code.Slot(index) => slots(index)
     case Code.Apply(function, argument) =>
-      Instruction.Apply(codeInstantiated(function, slots), codeInstantiated(argument, slots))
+      NoFacts.application(codeInstantiated(function, slots), codeInstantiated(argument, slots))
     case Code.Parallel(left, right) =>
-      Instruction.Parallel(codeInstantiated(left, slots), codeInstantiated(right, slots))
+      NoFacts.parallel(codeInstantiated(left, slots), codeInstantiated(right, slots))
     case Code.Choice(left, right) =>
-      Instruction.Choice(codeInstantiated(left, slots), codeInstantiated(right, slots))
+      NoFacts.choice(codeInstantiated(left, slots), codeInstantiated(right, slots))
     case Code.Thunk(inner, holes, references) =>
-      Instruction.Thunk(inner, holes, references.map(codeInstantiated(_, slots)))
+      thunkOf(inner, holes, references.map(codeInstantiated(_, slots)))
 
   /** The names whose term is no thunk, which the evaluation keeps opaque;
     * every other instruction, a name whose term is a thunk included, is read by
     * its layer.
     */
-  private lazy val opaqueNames: Set[Instruction] = names.filter {
-    case Instruction.Thunk(_, _, _) => false
+  private lazy val opaqueNames: Set[NoFactsTerm] = names.filter {
+    case Layered.Thunk(_, _, _) => false
     case _                     => true
   }
 
@@ -177,7 +209,7 @@ final case class LemmaReplay(library: StandardLibrary, names: Set[Instruction]):
     * choice or parallel.
     */
   private enum Head:
-    case Opaque(instruction: Instruction)
+    case Opaque(instruction: NoFactsTerm)
     case Variable(level: Int)
     case Stuck(value: Value)
 
@@ -196,7 +228,7 @@ final case class LemmaReplay(library: StandardLibrary, names: Set[Instruction]):
     */
   private enum Open:
     case Level(level: Int)
-    case Reference(instruction: Instruction)
+    case Reference(instruction: NoFactsTerm)
     case Apply(function: Open, argument: Open)
     case Choice(members: Vector[Open])
     case Parallel(left: Open, right: Open)
@@ -205,28 +237,28 @@ final case class LemmaReplay(library: StandardLibrary, names: Set[Instruction]):
   /** The beta eta normal form of a closed instruction: evaluated, then read
     * back; `literal` when its root is read by its layer though it be a name.
     */
-  private def canonicalNormal(instruction: Instruction, steps: Int, literal: Boolean): (Instruction, Int) =
+  private def canonicalNormal(instruction: NoFactsTerm, steps: Int, literal: Boolean): (NoFactsTerm, Int) =
     val (value, afterEvaluation) = evaluated(instruction, steps, literal)
     val (open, afterReadBack) = readBack(value, 0, afterEvaluation)
     (closed(open), afterReadBack)
 
-  private def evaluated(instruction: Instruction, afterSteps: Int): (Value, Int) =
+  private def evaluated(instruction: NoFactsTerm, afterSteps: Int): (Value, Int) =
     evaluated(instruction, afterSteps, literal = false)
 
-  private def evaluated(instruction: Instruction, afterSteps: Int, literal: Boolean): (Value, Int) = instruction match
+  private def evaluated(instruction: NoFactsTerm, afterSteps: Int, literal: Boolean): (Value, Int) = instruction match
     case name if name.opaque || (!literal && opaqueNames.contains(name)) =>
       (Value.Neutral(Head.Opaque(name), Vector.empty), afterSteps)
-    case Instruction.Apply(function, argument) =>
+    case Layered.Apply(function, argument) =>
       val (functionValue, afterFunction) = evaluated(function, afterSteps)
       val (argumentValue, afterArgument) = evaluated(argument, afterFunction)
       applied(functionValue, argumentValue, afterArgument)
-    case Instruction.Thunk(code, holes, fillings) =>
+    case Layered.Thunk(code, holes, fillings) =>
       val (values, after) = allEvaluated(fillings, afterSteps)(evaluated)
       (Value.ThunkValue(code, holes, slotValues(holes, values.map(Some(_)))), after)
-    case Instruction.Choice(left, right) =>
+    case Layered.Choice(left, right) =>
       val (values, after) = allEvaluated(Vector(left, right), afterSteps)(evaluated)
       (Value.ChoiceValue(values), after)
-    case Instruction.Parallel(left, right) =>
+    case Layered.Parallel(left, right) =>
       val (leftValue, afterLeft) = evaluated(left, afterSteps)
       val (rightValue, afterRight) = evaluated(right, afterLeft)
       (Value.ParallelValue(leftValue, rightValue), afterRight)
@@ -412,14 +444,14 @@ final case class LemmaReplay(library: StandardLibrary, names: Set[Instruction]):
   /** The instruction of a choice of no member: top (`Literals.top`), the term of
     * no answer, the choice being binary.
     */
-  private lazy val noAnswer: Instruction = Defunctionalization.thunkInstruction(gezi.frontend.Literals.top)
+  private lazy val noAnswer: NoFactsTerm = Defunctionalization.thunkInstruction[NoFacts.type](gezi.frontend.Literals.top)
 
   /** The instruction of an open term with no level. */
-  private def closed(open: Open): Instruction = open match
+  private def closed(open: Open): NoFactsTerm = open match
     case Open.Level(level) => throw IllegalStateException(s"open_normal_form: level $level is free")
     case Open.Reference(instruction)         => instruction
-    case Open.Apply(function, argument) => Instruction.Apply(closed(function), closed(argument))
+    case Open.Apply(function, argument) => NoFacts.application(closed(function), closed(argument))
     case Open.Choice(members) =>
-      if members.isEmpty then noAnswer else Instruction.Choice.nested(members.map(closed))
-    case Open.Parallel(left, right)     => Instruction.Parallel(closed(left), closed(right))
-    case Open.Thunk(code, holes, fillings) => Instruction.Thunk(code, holes, fillings.map(closed))
+      if members.isEmpty then noAnswer else ChoiceSpine.nested[NoFactsTerm](members.map(closed), NoFacts.choice(_, _))
+    case Open.Parallel(left, right)     => NoFacts.parallel(closed(left), closed(right))
+    case Open.Thunk(code, holes, fillings) => thunkOf(code, holes, fillings.map(closed))

@@ -28,20 +28,20 @@ final class RespelledCycles(corpora: Corpora) extends HardFamily:
   /** The context of the point applied to `self`: the data writes it as a
     * template of one hole, whose body the data spells.
     */
-  private def contextTerm(context: ProblemField, self: Term): Term = ProblemData.program(context, Vector(self))
+  private def contextTerm(context: ProblemField, self: ProblemTerm): ProblemTerm = ProblemData.program(context, Vector(self))
 
   /** `shape(Context, Argument)`: `\p. \arg. C[p p Passed]`, the argument's
     * binder and its passed term from the fact `argument_term(Argument, Arg,
     * Passed)`.
     */
-  private def shape(context: ProblemField, argument: String): Term =
+  private def shape(context: ProblemField, argument: String): ProblemTerm =
     λ(p => λ(binder =>
       contextTerm(context, p(p)(file.template("argument_term", Map(0 -> argument), Map(1 -> binder), 2)))))
 
-  def respelled(context: ProblemField, argument: String): Term =
+  def respelled(context: ProblemField, argument: String): ProblemTerm =
     shape(context, argument)(shape(context, argument))(identity)
 
-  def points: Map[String, () => Term] =
+  def points: Map[String, () => ProblemTerm] =
     respelledPoints.map((point, context, argument) => point -> (() => respelled(context, argument))).toMap
 
   def intended: Vector[(String, Intended)] =
@@ -71,32 +71,32 @@ final class CertificateCycles(corpora: Corpora, clauses: HardClauses) extends Ha
       ProblemData.text(arguments(0)) -> ProblemData.small(arguments(1))
     )
 
-  private def memberPassing(judgment: Term, passed: Term): Term =
+  private def memberPassing(judgment: ProblemTerm, passed: ProblemTerm): ProblemTerm =
     clauses.objectTriple(trueValue)(λ(that => clauses.identityOf(judgment(that))(passed)))(falseValue)
 
-  private def chainedMember(judgment: Term, self: Term, remaining: Int): Term =
+  private def chainedMember(judgment: ProblemTerm, self: ProblemTerm, remaining: Int): ProblemTerm =
     (1 to remaining).foldLeft(self)((next, _) => memberPassing(judgment, next))
 
-  private def cycleMemberGenerator(judgment: Term, count: Int): Term =
+  private def cycleMemberGenerator(judgment: ProblemTerm, count: Int): ProblemTerm =
     λ(self => memberPassing(judgment, chainedMember(judgment, self, count - 1)))
 
-  private def cycleMemberOf(judgment: Term, count: Int): Term =
+  private def cycleMemberOf(judgment: ProblemTerm, count: Int): ProblemTerm =
     λ(left => cycleMemberGenerator(judgment, count)(left(left)))(
       λ(right => cycleMemberGenerator(judgment, count)(right(right))))
 
-  private def cycleJudgmentGenerator(count: Int): Term =
+  private def cycleJudgmentGenerator(count: Int): ProblemTerm =
     λ(judge => λ(subject =>
       clauses.objectTag(subject)(
         clauses.objectBase(subject)(clauses.naturalCertificate)(
           judge(clauses.objectMethod(subject)(cycleMemberOf(judge, count)))))(
         judge(subject)(λ(_ => λ(second => second))))))
 
-  private def cycleJudgment(count: Int): Term =
+  private def cycleJudgment(count: Int): ProblemTerm =
     λ(left => cycleJudgmentGenerator(count)(left(left)))(λ(right => cycleJudgmentGenerator(count)(right(right))))
 
-  def typingCycle(count: Int): Term = λ(judge => judge(cycleMemberOf(judge, count)))(cycleJudgment(count))
+  def typingCycle(count: Int): ProblemTerm = λ(judge => judge(cycleMemberOf(judge, count)))(cycleJudgment(count))
 
-  def points: Map[String, () => Term] =
+  def points: Map[String, () => ProblemTerm] =
     cyclePoints.map((point, count) => point -> (() => typingCycle(count))).toMap
 
   def intended: Vector[(String, Intended)] =
@@ -126,12 +126,12 @@ final class ContinuationCycles(corpora: Corpora) extends HardFamily:
       ProblemData.text(arguments(0)) -> ProblemData.text(arguments(1))
     )
 
-  def continuationPoint(point: String): Term =
+  def continuationPoint(point: String): ProblemTerm =
     fixpoint(λ(self => λ(trueVariable => λ(falseVariable =>
       file.template("continuation_body", Map(0 -> point),
         Map(1 -> self, 2 -> trueVariable, 3 -> falseVariable), 4)))))
 
-  def points: Map[String, () => Term] =
+  def points: Map[String, () => ProblemTerm] =
     classes.map((point, _) => point -> (() => continuationPoint(point))).toMap
 
   def intended: Vector[(String, Intended)] =
@@ -160,9 +160,9 @@ final class EasyTerms(corpora: Corpora) extends HardFamily:
       ProblemData.text(arguments(0)) -> ProblemData.text(arguments(1))
     )
 
-  private def omega: Term = file.program("omega")
+  private def omega: ProblemTerm = file.program("omega")
 
-  def points: Map[String, () => Term] = Map(
+  def points: Map[String, () => ProblemTerm] = Map(
     "easy_second_first" -> (() => λ(p => λ(q => omega(q)(p)))),
     "easy_nested" -> (() => λ(p => λ(q => omega(omega(p)(q))(q)))),
     "easy_applied" -> (() => λ(p => λ(_ => omega(p)))),
@@ -205,14 +205,14 @@ final class ArithmeticTheorems(corpora: Corpora) extends HardFamily:
     case ArithmeticTheorems.TheoremOutcome.Theorem           => true
     case ArithmeticTheorems.TheoremOutcome.Counterexample(_) => false
 
-  private val conjunction: Term = λ(left => λ(right => left(right)(falseValue)))
+  private val conjunction: ProblemTerm = λ(left => λ(right => left(right)(falseValue)))
 
   /** `Y (\self. \n. and (P n) (self (successor n))) zero`, P the predicate. */
-  def search(predicate: ProblemField): Term =
+  def search(predicate: ProblemField): ProblemTerm =
     val property = ProblemData.program(predicate, Vector.empty)
     fixpoint(λ(self => λ(n => conjunction(property(n))(self(successor(n))))))(zero)
 
-  def points: Map[String, () => Term] =
+  def points: Map[String, () => ProblemTerm] =
     theoremPoints.map((point, predicate, _) => point -> (() => search(predicate))).toMap
 
   def intended: Vector[(String, Intended)] =
@@ -274,30 +274,30 @@ final class InfiniteMembers(corpora: Corpora) extends HardFamily:
     )
 
   /** `element(Index)`: true at the multiples of 3. */
-  private def element(index: Int): Term = if index % 3 == 0 then trueValue else falseValue
+  private def element(index: Int): ProblemTerm = if index % 3 == 0 then trueValue else falseValue
 
   /** `periodic`: one fixpoint over a period of `size(period)` cells. */
-  def periodic: Term =
-    fixpoint(λ(self => (0 until size("period")).foldRight(self)((index, rest) => cons(element(index))(rest))))
+  def periodic: ProblemTerm =
+    fixpoint(λ(self => (0 until size("period")).foldRight[ProblemTerm](self)((index, rest) => cons(element(index))(rest))))
 
   /** `layers(Count, Stream)`. */
-  def layers(count: Int, stream: Term): Term = (1 to count).foldLeft(stream)((inner, _) => map(identity)(inner))
+  def layers(count: Int, stream: ProblemTerm): ProblemTerm = (1 to count).foldLeft(stream)((inner, _) => map(identity)(inner))
 
-  private def stack: Term =
+  private def stack: ProblemTerm =
     fixpoint(λ(self => λ(count => λ(stream =>
       count(stream)(λ(predecessor => map(λ(x => x))(self(predecessor)(stream))))))))
 
-  private def premiseFields(build: (Term, Term, Term) => Term): Term =
+  private def premiseFields(build: (ProblemTerm, ProblemTerm, ProblemTerm) => ProblemTerm): ProblemTerm =
     build(λ(_ => λ(_ => trueValue)), zero, zero)
 
-  private def reproduce: Term =
+  private def reproduce: ProblemTerm =
     λ(self => λ(_ => λ(_ => λ(_ => λ(consVariable =>
       premiseFields((head, tail, extra) => consVariable(head)(tail)(extra)(self(self))))))))
 
-  private def premisePassingNonStream: Term =
+  private def premisePassingNonStream: ProblemTerm =
     λ(_ => λ(consVariable => premiseFields((head, tail, extra) => consVariable(head)(tail)(extra)(reproduce(reproduce)))))
 
-  def points: Map[String, () => Term] = Map(
+  def points: Map[String, () => ProblemTerm] = Map(
     "infinite_stream_map_identity_layers" -> (() =>
       contest.streamNth(contest.numeral(size("index")))(layers(size("layers"), periodic))),
     "infinite_stream_map_identity_counted" -> (() =>
@@ -358,22 +358,22 @@ final class ApiCaptureTraps(corpora: Corpora) extends FiniteHeadTraps:
   /** `bounded_self(Count)`: natural_equal's generator applied Count times
     * to `\a. \b. false`.
     */
-  private def boundedSelf(count: Int): Term =
+  private def boundedSelf(count: Int): ProblemTerm =
     (1 to count).foldLeft(λ(_ => λ(_ => falseValue)))((previous, _) => naturalEqualBody(previous))
 
-  private def naturalNumeral(count: Int): Term = (1 to count).foldLeft(zero)((rest, _) => successor(rest))
+  private def naturalNumeral(count: Int): ProblemTerm = (1 to count).foldLeft(zero)((rest, _) => successor(rest))
 
-  def equalSelfTerm(bound: Int, count: Int): Term =
+  def equalSelfTerm(bound: Int, count: Int): ProblemTerm =
     if count <= bound then throw IllegalArgumentException(s"$count is not above $bound")
     else boundedSelf(bound)(naturalNumeral(count))(naturalNumeral(count))
 
-  def timesPlusTerm(left: BigInt, right: BigInt): Term =
+  def timesPlusTerm(left: BigInt, right: BigInt): ProblemTerm =
     val times =
       λ(plus => λ(zeroVariable => arithmetic.timesFunction(plus, zeroVariable))(arithmetic.binary(0)))(
         λ(_ => λ(_ => arithmetic.binary(0))))
     times(arithmetic.binary(left))(arithmetic.binary(right))(trueValue)(λ(_ => falseValue))(λ(_ => falseValue))
 
-  def points: Map[String, () => Term] = Map(
+  def points: Map[String, () => ProblemTerm] = Map(
     "hidden_capture_equal_self_three_five" -> (() => equalSelfTerm(3, 5)),
     "hidden_capture_equal_self_ten_twelve" -> (() => equalSelfTerm(10, 12)),
     "hidden_capture_times_plus_sixty_four_three" -> (() => timesPlusTerm(64, 3)),
@@ -395,9 +395,9 @@ final class ApiDomainTraps(corpora: Corpora) extends FiniteHeadTraps:
       (ProblemData.text(arguments(0)), IntendedValue.BooleanValue(false), ProblemData.text(arguments(1)))
     )
 
-  private def impostor: Term = λ(z => λ(s => s(z)))
+  private def impostor: ProblemTerm = λ(z => λ(s => s(z)))
 
-  def points: Map[String, () => Term] = Map(
+  def points: Map[String, () => ProblemTerm] = Map(
     "hidden_api_natural_equal_impostor" -> (() => naturalEqual(successor(impostor))(successor(zero))),
     "hidden_api_natural_at_least_impostor" -> (() => naturalAtLeast(successor(zero))(successor(impostor))),
     "hidden_api_binary_equality_non_canonical" -> (() =>
@@ -425,21 +425,21 @@ final class LeadingZeroTraps(corpora: Corpora) extends FiniteHeadTraps:
     )
 
   /** `leading_zero(N)`: N in binary over `even zero` instead of zero. */
-  def leadingZero(number: BigInt): Term =
+  def leadingZero(number: BigInt): ProblemTerm =
     if number == 0 then arithmetic.binaryEven(arithmetic.binaryZero)
     else if number % 2 == 0 then arithmetic.binaryEven(leadingZero(number / 2))
     else arithmetic.binaryOdd(leadingZero(number / 2))
 
-  def equalTerm(number: BigInt): Term =
+  def equalTerm(number: BigInt): ProblemTerm =
     arithmetic.withArithmetic(names => names.equality(leadingZero(number))(arithmetic.binary(number)))
 
-  def timesTerm(left: BigInt): Term =
+  def timesTerm(left: BigInt): ProblemTerm =
     arithmetic.withArithmetic(names =>
       λ(zeroVariable =>
         λ(times => names.equality(times(arithmetic.binary(left))(leadingZero(0)))(arithmetic.binary(0)))(
           arithmetic.timesFunction(names.plus, zeroVariable)))(arithmetic.binary(0)))
 
-  def points: Map[String, () => Term] = Map(
+  def points: Map[String, () => ProblemTerm] = Map(
     "hidden_leading_zero_equal_one_thousand" -> (() => equalTerm(1000)),
     "hidden_leading_zero_equal_thirty_two_digits" -> (() => equalTerm(BigInt("12345678901234567890123456789012"))),
     "hidden_leading_zero_times_one_thousand_one" -> (() => timesTerm(1001)),
@@ -457,7 +457,7 @@ abstract class TautologyFamily(corpora: Corpora) extends HardFamily:
   /** The argument of the points' finite heads. */
   def argument: String
 
-  def points: Map[String, () => Term] =
+  def points: Map[String, () => ProblemTerm] =
     circuits.map((point, count, formula, _) => point -> (() => corpora.tautology.quantified(count, formula))).toMap
 
   def intended: Vector[(String, Intended)] =

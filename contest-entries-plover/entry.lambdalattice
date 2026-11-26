@@ -1,14 +1,18 @@
-# An entry written as data: the tiered executor over the typed rounds of the binary
-# naturals. Its rounds and options are read by position by the framework's generic entry.
-# The knowledge of the ordered compositions is not selected here: it needs the narrow
-# blocks with lists (tests/plover_fixtures/ordered_compositions_entry.lambdalattice).
+# An entry written as data: the tiered executor over the narrow blocks with lists and
+# declared families (the extractor module plover_declared_families), a first round that
+# recognises a count of ordered compositions or of unordered combinations, the fewest digit
+# steps, a modular power, the zeros that end a factorial, the total of the divisor sums, the
+# cuts of a rectangle, the distinct subset sums, a power of a power, the most pages within
+# a budget or the fewest coins written by its definition and binds it to its native,
+# and the typed rounds of the binary naturals. Its rounds and options are read by position
+# by the framework's generic entry.
 λ export
 . (λtuple. tuple λmixin. mixin mixin)
 λ omega
 . omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
 λ nil cons _ _ _
 . omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "rules")
-λ beta
+λ beta _
 . omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "indexer")
 λ standard
 . omega
@@ -17,19 +21,25 @@
 . omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "saturator")
 λ higher_order
 . omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "extractor")
-λ narrow_block _ _
+λ _ _ extractor_module
+. omega (omega (omega (omega gezi "corpora") "modules") "plover_declared_families")
+λ plover_declared_families
 . omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "lemma_encoding")
 λ baseline
 . omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "ematching")
 λ closures _ _
 . omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "memo_retention")
 λ memo_kept _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "write_back_spellings")
+λ kept_within_a_pass _ _
 . omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "opening_criterion")
 λ calls_a_head _
 . omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "checkpoints")
 λ profitable _
 . omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "lookahead")
 λ lazily _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "instance_reuse")
+λ within_version _
 . omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "native_blocks")
 λ no_native_blocks
 . omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "application")
@@ -54,6 +64,10 @@
 λ framework_jit module
 . omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "compilation_place")
 λ _ by_executor
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "occurrence_tagging")
+λ untagged _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "group_blocks")
+λ no_group_blocks _
 . omega (omega (omega (omega gezi "corpora") "modules") "solo_tiering")
 λ solo_tiering
 . omega (omega (omega (omega gezi "corpora") "library") "top")
@@ -78,12 +92,63 @@
 λ _ _ _ _ wren_typed_unfolded
 . omega (omega (omega (omega gezi "corpora") "compiler") "solo_binary_preset")
 λ solo_own_loop_typing
+. omega (omega (omega (omega gezi "corpora") "compiler") "plover_ordered_compositions")
+λ plover_ordered_compositions
+. omega (omega (omega (omega gezi "corpora") "compiler") "plover_unordered_combinations")
+λ plover_unordered_combinations
+. omega (omega (omega (omega gezi "corpora") "compiler") "plover_edit_distance")
+λ plover_edit_distance
+. omega (omega (omega (omega gezi "corpora") "compiler") "plover_longest_common_subsequence")
+λ plover_longest_common_subsequence
+. omega (omega (omega (omega gezi "corpora") "compiler") "plover_smallest_team")
+λ plover_smallest_team
+. omega (omega (omega (omega gezi "corpora") "compiler") "plover_billboard")
+λ plover_billboard
+. omega (omega (omega (omega gezi "corpora") "compiler") "plover_digit_steps")
+λ plover_digit_steps
+. omega (omega (omega (omega gezi "corpora") "compiler") "plover_modular_power")
+λ plover_modular_power
+. omega (omega (omega (omega gezi "corpora") "compiler") "plover_trailing_zeros")
+λ plover_trailing_zeros
+. omega (omega (omega (omega gezi "corpora") "compiler") "plover_divisor_sums")
+λ plover_divisor_sums
+. omega (omega (omega (omega gezi "corpora") "compiler") "plover_rectangle_cutting")
+λ plover_rectangle_cutting
+. omega (omega (omega (omega gezi "corpora") "compiler") "plover_money_sums")
+λ plover_money_sums
+. omega (omega (omega (omega gezi "corpora") "compiler") "plover_modular_tower")
+λ plover_modular_tower
+. omega (omega (omega (omega gezi "corpora") "compiler") "plover_book_shop")
+λ plover_book_shop
+. omega (omega (omega (omega gezi "corpora") "compiler") "plover_minimizing_coins")
+λ plover_minimizing_coins
 . export
 λ
 . ( λ every
     . ( λ round compiler_fields
         . compiler_fields
           ( λ
+            . cons
+              ( round
+                (λopened closed. opened)
+                ( plover_ordered_compositions
+                + plover_unordered_combinations
+                + plover_edit_distance
+                + plover_longest_common_subsequence
+                + plover_smallest_team
+                + plover_billboard
+                + plover_digit_steps
+                + plover_modular_power
+                + plover_trailing_zeros
+                + plover_divisor_sums
+                + plover_rectangle_cutting
+                + plover_money_sums
+                + plover_modular_tower
+                + plover_book_shop
+                + plover_minimizing_coins
+                )
+              )
+            λ
             . cons
               ( round
                 (λopened closed. closed)
@@ -107,11 +172,12 @@
               )
           + λ
             . instances
-            λ instance_table instance_retention checkpoints lookahead
+            λ instance_table instance_retention checkpoints lookahead instance_reuse
             . ( instance_table λenabled disabled. enabled
               + instance_retention never_dropped_instances
               + checkpoints profitable
               + lookahead lazily
+              + instance_reuse within_version
               )
           + λ
             . reading
@@ -124,9 +190,11 @@
               )
           + λ
             . execution
-            λ executor compilation_place
+            λ executor compilation_place occurrence_tagging group_blocks
             . ( executor λ. module solo_tiering λparameters. parameters λ. integer_literal 20000
               + compilation_place by_executor
+              + occurrence_tagging untagged
+              + group_blocks no_group_blocks
               )
           )
       )
@@ -142,22 +210,38 @@
         . ( indexer standard
           + orientation_compiler standard_orientations
           + saturator higher_order
-          + extractor λ. narrow_block (integer_literal 256) λ. integer_literal 1
+          + extractor λ. extractor_module plover_declared_families λs. s (integer_literal 256) λ. integer_literal 1
           + lemma_encoding baseline
           + ematching closures
           )
       + λ
         . behaviour
-        λ opened rules respellings write_back_spellings opening_criterion
+        λ opened rules respellings write_back_spellings opening_criterion constant_storage_stop
         . ( opened opening
           + rules beta
           + respellings memo_kept
-          + write_back_spellings memo_kept
+          + write_back_spellings kept_within_a_pass
           + opening_criterion calls_a_head
+          + constant_storage_stop λt f. f
           )
       )
   )
-  ( solo_own_loop_typing
+  ( plover_ordered_compositions
+  + plover_unordered_combinations
+  + plover_edit_distance
+  + plover_longest_common_subsequence
+  + plover_smallest_team
+  + plover_billboard
+  + plover_digit_steps
+  + plover_modular_power
+  + plover_trailing_zeros
+  + plover_divisor_sums
+  + plover_rectangle_cutting
+  + plover_money_sums
+  + plover_modular_tower
+  + plover_book_shop
+  + plover_minimizing_coins
+  + solo_own_loop_typing
   + wren_typed_specialization
   + wren_typed_block
   + wren_binary_preset

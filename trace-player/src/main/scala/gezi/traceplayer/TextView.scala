@@ -71,7 +71,7 @@ object TextView:
     * it; none when the text marks no place on the way, which a printed term
     * never does, its root being marked.
     */
-  def highlighted(printed: ReadableText.Printed, path: Vector[Int]): Option[String] =
+  def highlighted(printed: ReadableText.Printed[gezi.ir.NoFacts.type], path: Vector[Int]): Option[String] =
     val marked = printed.pieces.collect { case ReadableText.Piece.At(place, _) => place.key }.toSet
     path.inits.map(printed.place(_).key).find(marked.contains)
 
@@ -85,7 +85,7 @@ object TextView:
     * so that the element after a mark is still the subterm's.
     */
   def drawn(
-      printed: ReadableText.Printed,
+      printed: ReadableText.Printed[gezi.ir.NoFacts.type],
       highlightedKey: Option[String],
       extractions: Map[String, String],
       clicks: SharingClicks

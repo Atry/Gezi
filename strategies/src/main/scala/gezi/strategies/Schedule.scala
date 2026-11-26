@@ -6,8 +6,8 @@ import gezi.proofs.OpentheoryArticle
 import gezi.proofs.RewriteTrace
 import gezi.proofs.StrategyProof
 import gezi.rewritetrace.Trace
-import gezi.ir.Instruction
 import gezi.saturation.StopSignal
+import gezi.ir.{Configured, NativeSpecializer}
 
 /** A strategy's report of a round, which the schedule passes on and does
   * not read.
@@ -20,11 +20,11 @@ trait StrategyReport
   * as a field of the strategy after; a strategy with no such state gives
   * itself.
   */
-final case class StrategyOutcome(
-    outputs: Vector[Instruction],
+final case class StrategyOutcome[C <: NativeSpecializer & Singleton](
+    outputs: Vector[Configured[C]],
     report: StrategyReport,
-    proof: Option[StrategyProof],
-    strategyAfter: SearchStrategy
+    proof: Option[StrategyProof[C]],
+    strategyAfter: SearchStrategy[C]
 )
 
 /** A search strategy (THE SEARCH STRATEGIES of `schedule.pl`): it searches
@@ -35,40 +35,40 @@ final case class StrategyOutcome(
   * (judge record 4.4); its outputs are then still equal to its inputs, only
   * less refined.
   */
-trait SearchStrategy:
-  def ran(inputs: Vector[Instruction], proofWanted: Boolean, stop: StopSignal): Option[StrategyOutcome]
+trait SearchStrategy[C <: NativeSpecializer & Singleton]:
+  def ran(inputs: Vector[Configured[C]], proofWanted: Boolean, stop: StopSignal): Option[StrategyOutcome[C]]
 
 /** A round: its strategy, and the file its article is written to, when it
   * writes one.
   */
-final case class Round(strategy: SearchStrategy, article: Option[Path])
+final case class Round[C <: NativeSpecializer & Singleton](strategy: SearchStrategy[C], article: Option[Path])
 
 /** The record of one round: its inputs, its strategy's report and its
   * outputs.
   */
-final case class RoundRan(inputs: Vector[Instruction], report: StrategyReport, outputs: Vector[Instruction])
+final case class RoundRan[C <: NativeSpecializer & Singleton](inputs: Vector[Configured[C]], report: StrategyReport, outputs: Vector[Configured[C]])
 
 /** A schedule's result: the last round's
   * outputs, the record of each round, in order, and the schedule after the
   * run: each round's strategy replaced by its strategy after
   * (`StrategyOutcome.strategyAfter`), its article kept.
   */
-final case class Scheduled(
-    outputs: Vector[Instruction],
-    records: Vector[RoundRan],
-    scheduleAfter: Vector[Round]
+final case class Scheduled[C <: NativeSpecializer & Singleton](
+    outputs: Vector[Configured[C]],
+    records: Vector[RoundRan[C]],
+    scheduleAfter: Vector[Round[C]]
 )
 
 /** Why a schedule could not run (`schedule_error(Reason)`). */
-enum ScheduleErrorReason:
-  case NotInputs(inputs: Vector[Instruction])
-  case NotASchedule(rounds: Vector[Round])
-  case StrategyUnanswered(strategy: SearchStrategy)
-  case OutputsUnmatched(strategy: SearchStrategy)
-  case NotAProof(strategy: SearchStrategy)
+enum ScheduleErrorReason[C <: NativeSpecializer & Singleton]:
+  case NotInputs(inputs: Vector[Configured[C]])
+  case NotASchedule(rounds: Vector[Round[C]])
+  case StrategyUnanswered(strategy: SearchStrategy[C])
+  case OutputsUnmatched(strategy: SearchStrategy[C])
+  case NotAProof(strategy: SearchStrategy[C])
 
 /** A schedule that could not run. */
-final case class ScheduleError(reason: ScheduleErrorReason)
+final case class ScheduleError[C <: NativeSpecializer & Singleton](reason: ScheduleErrorReason[C])
     extends RuntimeException(s"schedule error: $reason")
 
 /** A schedule of rounds, each a search strategy, the port of
@@ -133,11 +133,13 @@ object Schedule:
     * and `NotAProof` for a round with an article whose strategy gives no
     * proof; and `OpentheoryArticleError` as the writer throws it.
     */
-  def run(index: StandardLibraryIndex, inputs: Vector[Instruction], rounds: Vector[Round], stop: StopSignal): Scheduled =
+  def run[C <: NativeSpecializer & Singleton](index: StandardLibraryIndex[C], inputs: Vector[Configured[C]], rounds: Vector[Round[C]], stop: StopSignal)(using
+      gezi.ir.StorageAccess
+  )(using C): Scheduled[C] =
     if inputs.isEmpty then throw ScheduleError(ScheduleErrorReason.NotInputs(inputs))
     if rounds.isEmpty then throw ScheduleError(ScheduleErrorReason.NotASchedule(rounds))
     val (scheduled, traces) =
-      rounds.foldLeft((Scheduled(inputs, Vector.empty, Vector.empty), Vector.empty[(Instruction, Trace)])) {
+      rounds.foldLeft((Scheduled[C](inputs, Vector.empty, Vector.empty), Vector.empty[(Configured[C], Trace[C])])) {
         case ((scheduled, traces), round) =>
           val (outcome, trace) = roundRan(index, scheduled.outputs, round, stop)
           (
@@ -157,10 +159,10 @@ object Schedule:
     * `IllegalArgumentException` for an article whose name does not end in
     * `.art`.
     */
-  def traceFile(rounds: Vector[Round]): Option[Path] = tracedArticle(rounds).map(TraceFiles.traceFile)
+  def traceFile[C <: NativeSpecializer & Singleton](rounds: Vector[Round[C]]): Option[Path] = tracedArticle(rounds).map(TraceFiles.traceFile)
 
   /** The first round's article, when every round has one. */
-  private def tracedArticle(rounds: Vector[Round]): Option[Path] =
+  private def tracedArticle[C <: NativeSpecializer & Singleton](rounds: Vector[Round[C]]): Option[Path] =
     val articles = rounds.flatMap(_.article)
     Option.when(articles.size == rounds.size)(articles).flatMap(_.headOption)
 
@@ -173,7 +175,7 @@ object Schedule:
     * one before (`firstNumber + rounds.size`), so that the judge reads the
     * articles of the point's compilation in order from `round-1.art`.
     */
-  def articled(rounds: Vector[Round], directory: Path, firstNumber: Int): Vector[Round] =
+  def articled[C <: NativeSpecializer & Singleton](rounds: Vector[Round[C]], directory: Path, firstNumber: Int): Vector[Round[C]] =
     rounds.zipWithIndex.map((round, position) =>
       round.copy(article = Some(directory.resolve(s"round-${firstNumber + position}.art")))
     )
@@ -182,12 +184,12 @@ object Schedule:
     * written, with the trace of the round when it has an article and the
     * input the trace starts from.
     */
-  private def roundRan(
-      index: StandardLibraryIndex,
-      inputs: Vector[Instruction],
-      round: Round,
+  private def roundRan[C <: NativeSpecializer & Singleton](
+      index: StandardLibraryIndex[C],
+      inputs: Vector[Configured[C]],
+      round: Round[C],
       stop: StopSignal
-  ): (StrategyOutcome, Option[(Instruction, Trace)]) =
+  )(using gezi.ir.StorageAccess)(using C): (StrategyOutcome[C], Option[(Configured[C], Trace[C])]) =
     val outcome = round.strategy
       .ran(inputs, round.article.isDefined, stop)
       .getOrElse(throw ScheduleError(ScheduleErrorReason.StrategyUnanswered(round.strategy)))

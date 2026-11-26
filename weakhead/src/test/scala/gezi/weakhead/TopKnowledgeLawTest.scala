@@ -1,11 +1,13 @@
 package gezi.weakhead
 
+import gezi.ir.NoFacts
+import gezi.ir.Configured
 import hedgehog.Result
 import gezi.frontend.Defunctionalization
 import gezi.frontend.Literals
 import gezi.generatedinputs.GeneratedProperties
 import gezi.generatedinputs.HoasGenerators
-import gezi.ir.Instruction
+import gezi.ir.Value
 import gezi.standardlibrary.LibraryFiles
 import gezi.weakhead.EvaluatorTesting.*
 
@@ -27,6 +29,8 @@ import gezi.weakhead.EvaluatorTesting.*
   * another file would fail it.
   */
 class TopKnowledgeLawTest extends GeneratedProperties:
+
+  given NoFacts.type = NoFacts
 
   private lazy val library = LibraryFiles.compiled("corpora/compiler/top.lambdalattice", Vector.empty)
 
@@ -54,7 +58,7 @@ class TopKnowledgeLawTest extends GeneratedProperties:
 
   private val closed = HoasGenerators.closedTerm
 
-  private def sides(name: String): (Instruction, Instruction) =
+  private def sides(name: String): (Configured[NoFacts.type], Configured[NoFacts.type]) =
     val found = library.index
       .sides(library.index.lemmaIdentifier(name))
       .getOrElse(throw IllegalStateException(s"$name has no sides"))
@@ -70,8 +74,8 @@ class TopKnowledgeLawTest extends GeneratedProperties:
           mode <- modes.toList
         yield
           val (left, right) = sides(name)
-          def read(side: Instruction) =
-            normalFormsWithin(mode, Value.Apply(side, argument), limit + besideLimit)
+          def read(side: Configured[NoFacts.type]) =
+            normalFormsWithin(mode, Value.Apply(Value.of(side), argument), limit + besideLimit)
           if readNoOperand(name) || normalFormsWithin(mode, argument, limit).finished then
             (read(left), read(right)) match
               case (Bounded.Finished(leftRead), Bounded.Finished(rightRead)) =>
@@ -83,5 +87,5 @@ class TopKnowledgeLawTest extends GeneratedProperties:
   }
 
   test("theNoinlineTermOfTheFileIsTheFrontEndsTop") {
-    assertEquals(library.index.noinline, Set(Defunctionalization.thunkInstruction(Literals.top)))
+    assertEquals(library.index.noinline, Set[Configured[NoFacts.type]](Defunctionalization.thunkInstruction[NoFacts.type](Literals.top)))
   }

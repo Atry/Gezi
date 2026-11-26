@@ -1,0 +1,6 @@
+Error planted.scala:11:55 marking "guard": [wartremover:NoThreadConfinedCapture] a ThreadConfined value is captured in a closure
+Error planted.scala:12:45 marking "guard": [wartremover:NoThreadConfinedCapture] a ThreadConfined value is captured in a closure
+Error planted.scala:13:37 marking "guard": [wartremover:NoThreadConfinedCapture] a ThreadConfined value is captured in a closure
+Error planted.scala:14:63 marking "guard": [wartremover:NoThreadConfinedCapture] a ThreadConfined value is captured in a closure
+Error planted.scala:15:84 marking "guard": [wartremover:NoThreadConfinedCapture] a ThreadConfined value is captured in a closure
+5 errors found

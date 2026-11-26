@@ -1,5 +1,8 @@
 package gezi.weakhead
 
+import gezi.ir.NoFacts
+
+import gezi.ir.Configured
 import gezi.frontend.Term
 import gezi.frontend.Term.*
 
@@ -14,6 +17,8 @@ import gezi.frontend.Term.*
   * of a value this deep would itself recurse per level.
   */
 class DeepTermsTest extends gezi.generatedinputs.FailFastSuite:
+
+  given NoFacts.type = NoFacts
 
   // Measured 2026-11-14 on 2 CPUs (contest-lean.slice): the slowest test, "a deep normal form is read in both modes", takes 2.42 s; the bound is 1.5 times that rounded up to 5 s.
   // FIXME: this suite is within measurement noise of the 3 s default (its slowest test took 2 to 3 s) with no reason yet; its slow tests are to be made fast. The body runs on the JVM's default stack. https://github.com/Atry/private-overlay/issues/1925
@@ -52,6 +57,9 @@ class DeepTermsTest extends gezi.generatedinputs.FailFastSuite:
       val expected = EvaluatorTesting.instructionOf(deepNormalForm(depth(mode)))
       val bounded = EvaluatorTesting.normalFormsWithin(mode, value, 10000000)
       assert(bounded.finished, s"the reading under $mode stopped")
-      assert(bounded == Bounded.Finished(Vector(expected)), s"under $mode the normal forms read are not the term's own")
+      val readOwn = bounded match
+        case Bounded.Finished(Vector(found)) => Configured.same(found, expected)
+        case _                               => false
+      assert(readOwn, s"under $mode the normal forms read are not the term's own")
     )
   }

@@ -8,12 +8,12 @@ import gezi.contest.corpora.reductions.NominalRanges
 import gezi.contest.corpora.reductions.ReductionGroup
 import gezi.contest.corpora.reductions.ReductionProblemsRepeated
 import gezi.frontend.Defunctionalization
-import gezi.ir.Instruction
 import gezi.jit.BackendChecks
 import gezi.jit.BackendFacts
 import gezi.jit.ClosureBackend
 import gezi.jit.DispatchMode
 import gezi.jit.Jit
+import gezi.jit.StorageEncoding
 import gezi.jit.JitConfiguration
 import gezi.jit.PredicatePerCode
 import gezi.programfamilies.FixedPointLines
@@ -22,7 +22,7 @@ import gezi.weakhead.Computed
 import gezi.weakhead.Expansions
 import gezi.weakhead.NormalForms
 import gezi.weakhead.ReadingState
-import gezi.weakhead.Value
+import gezi.ir.Value
 import gezi.weakhead.Values
 import org.openjdk.jmh.annotations.Benchmark
 import org.openjdk.jmh.annotations.BenchmarkMode
@@ -33,56 +33,74 @@ import org.openjdk.jmh.annotations.OutputTimeUnit
 import org.openjdk.jmh.annotations.Scope
 import org.openjdk.jmh.annotations.State
 import org.openjdk.jmh.annotations.Warmup
+import gezi.ir.{Configured, NativeSpecializer}
 
 /** Two programs drawn from the seed 20261031: the family
   * `repeated_reduction_problems_products` at R = 64, and one site of the
   * longest common subsequence's family (`LibraryLongestCommonSubsequences`,
   * direct) of two strings of `InstanceTableInputs.subsequenceLength`
-  * characters, whose recursive instances have large fillings; and two JITs over the library modules
-  * of `contest-entries-wren`, with the instance table on and off; built once, outside
-  * the timed calls. The fields are lazy vals, so no line here is exempt.
+  * characters, whose recursive instances have large fillings; and two JITs over the benchmarks'
+  * generated knowledge for an executor (`KnowledgeReadings.executorKnowledgeTerm`), with the
+  * instance table on and off; built once, outside the timed calls. The fields are lazy vals, so no line here is exempt.
   */
 @State(Scope.Benchmark)
 class InstanceTableInputs:
 
   lazy val group: ReductionGroup = ReductionGroup(FixedPointLines.buildRoot, Expansions.none, gezi.contest.entry.Defaults.caches())
 
-  lazy val program: Value =
-    val term = ReductionProblemsRepeated.Products.point(group, InstanceTableInputs.seed, InstanceTableInputs.repetitions).program
-    Values.ofInstruction(Defunctionalization.thunkInstruction(term.deBruijnTerm(Map.empty)), Set.empty)
+  /** The two programs and the two JITs, in the configuration of the encoding of the executor knowledge's facts, which
+    * the setup's type parameter names for the benchmarks that open it.
+    */
+  lazy val setup: InstanceTableSetup[?] =
+    val library = KnowledgeReadings.compiled(KnowledgeReadings.executorKnowledgeTerm, Vector(BackendChecks))
+    val encoding = BackendFacts.of(library).storageEncoding
+    InstanceTableInputs.setupOf[encoding.type](encoding, group)
 
-  lazy val subsequences: Value =
+/** The programs read in the configuration `C` and the two JITs that read them, the instance table on and off. */
+final case class InstanceTableSetup[C <: NativeSpecializer & Singleton](
+    program: Value[C],
+    subsequences: Value[C],
+    tabled: Jit[C],
+    untabled: Jit[C]
+):
+
+  /** The specializer of the configuration, the one the JITs are built over. */
+  def specializer: C = tabled.configuration.specializer
+
+object InstanceTableInputs:
+  val seed: Long = 20261031
+
+  /** The programs and the two JITs over the encoding. */
+  def setupOf[C <: NativeSpecializer & Singleton](encoding: StorageEncoding & C, group: ReductionGroup): InstanceTableSetup[C] =
+    given C = encoding
+    val products = ReductionProblemsRepeated.Products.point(group, seed, repetitions).program
     val nominal = NominalRanges(
       1 to 1,
       Vector(
-        NominalParameter("length", InstanceTableInputs.subsequenceLength to InstanceTableInputs.subsequenceLength),
+        NominalParameter("length", subsequenceLength to subsequenceLength),
         NominalParameter("character", 0 to 25)
       )
     )
-    val term = LibraryLongestCommonSubsequences(Spelling.Direct, nominal, LibraryLongestCommonSubsequences.name).point(group, InstanceTableInputs.seed, 1).program
-    Values.ofInstruction(Defunctionalization.thunkInstruction(term.deBruijnTerm(Map.empty)), Set.empty)
+    val subsequence = LibraryLongestCommonSubsequences(Spelling.Direct, nominal, LibraryLongestCommonSubsequences.name).point(group, seed, 1).program
+    InstanceTableSetup(
+      Values.ofInstruction(Defunctionalization.thunkInstruction[C](products.deBruijnTerm(Map.empty)), Set.empty),
+      Values.ofInstruction(Defunctionalization.thunkInstruction[C](subsequence.deBruijnTerm(Map.empty)), Set.empty),
+      configured(encoding, instanceTable = true),
+      configured(encoding, instanceTable = false)
+    )
 
-  private lazy val facts: BackendFacts =
-    BackendFacts.of(KnowledgeReadings.compiled(KnowledgeReadings.knowledgeFile, Vector(BackendChecks)))
-
-  private def configured(instanceTable: Boolean): Jit =
+  private def configured[C <: NativeSpecializer & Singleton](encoding: StorageEncoding & C, instanceTable: Boolean): Jit[C] =
     Jit(
-      JitConfiguration(
-        facts,
+      JitConfiguration[C](
+        encoding,
         JitConfiguration.defaultBudget,
         PredicatePerCode,
         ClosureBackend,
         DispatchMode.Dispatch(DispatchStrategies.fallback),
-        instanceTable = instanceTable
+        instanceTable = instanceTable,
+        storageAccess = gezi.ir.StorageAccess.granted()
       )
     )
-
-  lazy val tabled: Jit = configured(instanceTable = true)
-
-  lazy val untabled: Jit = configured(instanceTable = false)
-
-object InstanceTableInputs:
-  val seed: Long = 20261031
   val repetitions: Int = 64
 
   /** The length of each string of the longest common subsequence's site:
@@ -111,25 +129,37 @@ class InstanceTableBenchmarks:
   /** The normal forms read with the table on. */
   @Benchmark
   @OutputTimeUnit(TimeUnit.MILLISECONDS)
-  def productsTabled(input: InstanceTableInputs): Vector[Instruction] = InstanceTableBenchmarks.read(input.tabled, input.program)
+  def productsTabled(input: InstanceTableInputs): Vector[Configured[?]] = InstanceTableBenchmarks.productsTabled(input.setup)
 
   /** The normal forms read with the table off. */
   @Benchmark
   @OutputTimeUnit(TimeUnit.MILLISECONDS)
-  def productsUntabled(input: InstanceTableInputs): Vector[Instruction] = InstanceTableBenchmarks.read(input.untabled, input.program)
+  def productsUntabled(input: InstanceTableInputs): Vector[Configured[?]] = InstanceTableBenchmarks.productsUntabled(input.setup)
 
   /** The subsequence's normal forms read with the table on. */
   @Benchmark
   @OutputTimeUnit(TimeUnit.MILLISECONDS)
-  def subsequenceTabled(input: InstanceTableInputs): Vector[Instruction] = InstanceTableBenchmarks.read(input.tabled, input.subsequences)
+  def subsequenceTabled(input: InstanceTableInputs): Vector[Configured[?]] = InstanceTableBenchmarks.subsequenceTabled(input.setup)
 
 object InstanceTableBenchmarks:
+
+  /** The setup's products read with the table on, in the setup's configuration, which the method binds. */
+  def productsTabled[C <: NativeSpecializer & Singleton](setup: InstanceTableSetup[C]): Vector[Configured[C]] =
+    read(setup.tabled, setup.program)(using setup.specializer)
+
+  /** The setup's products read with the table off. */
+  def productsUntabled[C <: NativeSpecializer & Singleton](setup: InstanceTableSetup[C]): Vector[Configured[C]] =
+    read(setup.untabled, setup.program)(using setup.specializer)
+
+  /** The setup's subsequence read with the table on. */
+  def subsequenceTabled[C <: NativeSpecializer & Singleton](setup: InstanceTableSetup[C]): Vector[Configured[C]] =
+    read(setup.tabled, setup.subsequences)(using setup.specializer)
 
   /** The normal forms of the program; throws `IllegalStateException` when
     * the reading stops, since a benchmark of a stopped reading times
     * nothing the points need.
     */
-  def read(jit: Jit, program: Value): Vector[Instruction] =
-    NormalForms.normalForms(gezi.weakhead.Mode.Jit(jit), program).result(ReadingState.fresh(InstanceTableInputs.limit)) match
+  def read[C <: NativeSpecializer & Singleton](jit: Jit[C], program: Value[C])(using C): Vector[Configured[C]] =
+    NormalForms.normalForms(gezi.weakhead.Mode.Jit(jit), program).result(ReadingState.fresh(InstanceTableInputs.limit, jit.readingConfiguration)) match
       case Computed.Done(normalForms, _) => normalForms
       case Computed.Stopped(after)       => throw IllegalStateException(s"the reading stopped after ${after.budget.spent} steps")

@@ -1,5 +1,6 @@
 package gezi.weakhead
 
+import gezi.ir.NoFacts
 import hedgehog.Gen
 import hedgehog.Range
 import hedgehog.Result
@@ -23,6 +24,8 @@ import gezi.standardlibrary.SplitMix
   */
 class TableRetentionLawTest extends GeneratedProperties:
 
+  given NoFacts.type = NoFacts
+
   private val stepLimit: Long = 20000
 
   /** A table limit small enough that the rounds drop their tables often. */
@@ -42,12 +45,12 @@ class TableRetentionLawTest extends GeneratedProperties:
     */
   private def read(
       terms: List[gezi.frontend.DeBruijnTerm],
-      start: ReadingState,
-      next: ReadingState => ReadingState
-  ): (Vector[Option[Vector[ParallelSet]]], Vector[Int]) =
-    val (_, heads, held) = terms.foldLeft((start, Vector.empty[Option[Vector[ParallelSet]]], Vector.empty[Int])) {
+      start: ReadingState[NoFacts.type],
+      next: ReadingState[NoFacts.type] => ReadingState[NoFacts.type]
+  ): (Vector[Option[Vector[ParallelSet[NoFacts.type]]]], Vector[Int]) =
+    val (_, heads, held) = terms.foldLeft((start, Vector.empty[Option[Vector[ParallelSet[NoFacts.type]]]], Vector.empty[Int])) {
       case ((state, found, tables), term) =>
-        val value = Defunctionalization.thunkInstruction(term)
+        val value = gezi.ir.Value.of(Defunctionalization.thunkInstruction[NoFacts.type](term))
         WeakHead.heads(Mode.TablingWeakHead, value).collected.result(state) match
           case Computed.Done(sets, after) =>
             val following = next(after)
@@ -71,8 +74,8 @@ class TableRetentionLawTest extends GeneratedProperties:
     property(s"rounds under $retention read the heads that rounds keeping every table read") {
       for terms <- rounds.forAll
       yield
-        val (kept, _) = read(terms, ReadingState.fresh(stepLimit).copy(tableLimit = Int.MaxValue), _.nextReading(stepLimit))
-        val (retained, held) = read(terms, ReadingState.fresh(stepLimit).copy(tableLimit = tableLimit), _.next(retention, stepLimit))
+        val (kept, _) = read(terms, ReadingState.fresh(stepLimit, gezi.weakhead.ReadingConfiguration.withoutFacts).copy(tableLimit = Int.MaxValue), _.nextReading(stepLimit))
+        val (retained, held) = read(terms, ReadingState.fresh(stepLimit, gezi.weakhead.ReadingConfiguration.withoutFacts).copy(tableLimit = tableLimit), _.next(retention, stepLimit))
         val compared = kept.zip(retained).collect { case (Some(keptHeads), Some(retainedHeads)) => (keptHeads, retainedHeads) }
         Result.all(
           List(

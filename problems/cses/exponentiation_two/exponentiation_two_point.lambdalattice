@@ -1,0 +1,70 @@
+# The base problems of the CSES families repeated_cses_exponentiation_two_*: three integers a, b and c, the answer a to the power (b to the power c) modulo 10^9 + 7.
+#
+# THE ANSWER of each row is the problem's definition computed exhaustively by a
+# brute-force script (2026-11-22), which enumerates every candidate the problem's
+# statement describes. PROOF: the program of the problem's file follows the
+# definition, and its header argues under Definition 14 that its one normal form
+# is that answer; the data are finite and within the family's bottom rungs, which
+# the reference reading answers. The inputs are the author's own, no CSES test
+# data.
+#
+#   exponentiation_two_point(?Point, ?Base, ?Exponent, ?Power, ?Result)
+#
+# Base, Exponent and Power are integers (corpora/library/integer/cbor); Result is an
+# integer. A number to the power 0 is 1, 0^0 included.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λvalue. value)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λvalue. value)
+λ integer
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "pair")
+λ pair _ _
+. export
+λ
+. cons
+  ( λ _exponentiation_two_point
+    . _exponentiation_two_point (text "cses_exponentiation_two_sample_small") (integer 3) (integer 7) (integer 1) λ. (integer 2187)
+  )
+λ
+. cons
+  ( λ _exponentiation_two_point
+    . _exponentiation_two_point (text "cses_exponentiation_two_fifteen_squared_twice") (integer 15) (integer 2) (integer 2) λ. (integer 50625)
+  )
+λ
+. cons
+  ( λ _exponentiation_two_point
+    . _exponentiation_two_point (text "cses_exponentiation_two_exponent_to_the_zero_power") (integer 5) (integer 4) (integer 0) λ. (integer 5)
+  )
+λ
+. cons
+  ( λ _exponentiation_two_point
+    . _exponentiation_two_point (text "cses_exponentiation_two_base_to_the_zero") (integer 7) (integer 0) (integer 2) λ. (integer 1)
+  )
+λ
+. cons
+  ( λ _exponentiation_two_point
+    . _exponentiation_two_point (text "cses_exponentiation_two_one_exponent") (integer 5) (integer 1) (integer 9) λ. (integer 5)
+  )
+λ
+. cons
+  ( λ _exponentiation_two_point
+    . _exponentiation_two_point (text "cses_exponentiation_two_base_zero") (integer 0) (integer 2) (integer 3) λ. (integer 0)
+  )
+λ
+. cons
+  ( λ _exponentiation_two_point
+    . _exponentiation_two_point (text "cses_exponentiation_two_two_to_the_nine") (integer 2) (integer 3) (integer 2) λ. (integer 512)
+  )
+λ
+. cons
+  ( λ _exponentiation_two_point
+    . _exponentiation_two_point (text "cses_exponentiation_two_zero_to_the_zero_power") (integer 0) (integer 0) (integer 0) λ. (integer 0)
+  ) nil

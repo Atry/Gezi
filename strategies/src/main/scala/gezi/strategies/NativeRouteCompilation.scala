@@ -5,6 +5,7 @@ import gezi.ematching.Backend
 import gezi.lemmaencoding.LemmaEncoding
 import gezi.ir.BuiltInRule
 import gezi.ir.LemmaIdentifier
+import gezi.ir.NativeSpecializer
 import gezi.orientation.OrientationCompiler
 import gezi.standardlibrary.StandardLibraryIndex
 
@@ -16,13 +17,15 @@ import gezi.standardlibrary.StandardLibraryIndex
   * framework's defaults are chosen in one place,
   * `gezi.contest.entry.Defaults`.
   */
-final case class RoundModules(
-    saturatorOf: SaturationOptions => Saturator,
-    extractor: Extractor,
+final case class RoundModules[C <: NativeSpecializer & Singleton](
+    saturatorOf: SaturationOptions[C] => Saturator[C],
+    extractor: Extractor[C],
     lemmaEncoding: LemmaEncoding,
-    indexer: Indexer,
+    indexer: Indexer[C],
     backend: Backend,
-    orientationCompiler: OrientationCompiler
+    orientationCompiler: OrientationCompiler,
+    // How the rounds write back: the construction of the program's configuration.
+    construction: gezi.ir.TermConstruction[C]
 )
 
 /** The schedules that compile a program on the native route, the port of
@@ -60,7 +63,7 @@ final case class RoundModules(
   * `gezi.jit.Jit`'s `fallbackPointHeads`.
   *
   * FIXME: the native route's rounds fix every built-in rule https://github.com/Atry/private-overlay/issues/2032
-  * (`BuiltInRule.all`), one budget for every round, the extraction modules (`extraction`), and a graph that keeps its
+  * (`BuiltInRule.beforeOptIn`), one budget for every round, the extraction modules (`extraction`), and a graph that keeps its
   * respellings (`MemoRetention.Kept`). Each is to become an
   * option of one interface chosen by configuration (entry data and `Defaults`).
   */
@@ -70,50 +73,50 @@ object NativeRouteCompilation:
     * `typeCheck` and the erasure the lemmas `erasure` (occurrence_erasure's),
     * each saturation bounded by the budget.
     */
-  def nativeRouteSchedule(
-      index: StandardLibraryIndex,
+  def nativeRouteSchedule[C <: NativeSpecializer & Singleton](
+      index: StandardLibraryIndex[C],
       typeCheck: Vector[LemmaIdentifier],
       erasure: Vector[LemmaIdentifier],
       budget: Int,
-      modules: RoundModules
-  ): Vector[Round] =
+      modules: RoundModules[C]
+  ): Vector[Round[C]] =
     require(budget >= 0, s"a budget is not negative: $budget")
     Vector(
-      round(index, typeCheck, BuiltInRule.all, budget, modules),
-      round(index, erasure, BuiltInRule.all, budget, modules)
+      round(index, typeCheck, BuiltInRule.beforeOptIn, budget, modules),
+      round(index, erasure, BuiltInRule.beforeOptIn, budget, modules)
     )
 
   /** The round of the lemmas `closureApplication` (closure_application's
     * lemma), the type check and the erasure, each saturation bounded by the
     * budget.
     */
-  def beyondHindleyMilnerSchedule(
-      index: StandardLibraryIndex,
+  def beyondHindleyMilnerSchedule[C <: NativeSpecializer & Singleton](
+      index: StandardLibraryIndex[C],
       closureApplication: Vector[LemmaIdentifier],
       typeCheck: Vector[LemmaIdentifier],
       erasure: Vector[LemmaIdentifier],
       budget: Int,
-      modules: RoundModules
-  ): Vector[Round] =
-    round(index, closureApplication, BuiltInRule.all, budget, modules) +:
+      modules: RoundModules[C]
+  ): Vector[Round[C]] =
+    round(index, closureApplication, BuiltInRule.beforeOptIn, budget, modules) +:
       nativeRouteSchedule(index, typeCheck, erasure, budget, modules)
 
   /** The extraction of every round. */
   val extraction: ExtractionOptions = ExtractionOptions(Vector("specialization_attraction", "compression"))
 
   /** A round enabling the lemmas and the built-in rules given. */
-  private def round(
-      index: StandardLibraryIndex,
+  private def round[C <: NativeSpecializer & Singleton](
+      index: StandardLibraryIndex[C],
       lemmas: Vector[LemmaIdentifier],
       builtInRules: Set[BuiltInRule],
       budget: Int,
-      modules: RoundModules
-  ): Round =
+      modules: RoundModules[C]
+  ): Round[C] =
     Round(
       FixpointEgraph(
         index,
         modules.saturatorOf(
-          SaturationOptions(lemmas, builtInRules, budget, modules.lemmaEncoding, modules.backend, modules.indexer, modules.orientationCompiler, MemoRetention.Kept)
+          SaturationOptions(lemmas, builtInRules, budget, modules.lemmaEncoding, modules.backend, modules.indexer, modules.orientationCompiler, MemoRetention.Kept, modules.construction)
         ),
         modules.extractor
       ),

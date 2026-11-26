@@ -42,7 +42,7 @@ final case class Scott():
     * (`ScottDecoding.treeSurface`). Throws for a type with no such name or a
     * tree that is no value of the type.
     */
-  def canonical(typeName: String, tree: ScottTree): Term =
+  def canonical(typeName: String, tree: ScottTree): ProblemTerm =
     ScottDecoding.treeSurface(Scott.dataType(typeName), tree.decoded)
 
 /** The trees of numbers, and the data types by name. */

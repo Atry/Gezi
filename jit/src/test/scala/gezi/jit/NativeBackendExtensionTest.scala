@@ -4,9 +4,12 @@ import gezi.jit.JitTesting.*
 import gezi.jit.NativesTesting.*
 import gezi.frontend.Defunctionalization
 import gezi.frontend.Term
+import gezi.frontend.TermOf
+import gezi.ir.Configured
+import gezi.ir.NoFacts
 import gezi.weakhead.Bounded
 import gezi.weakhead.Mode
-import gezi.weakhead.Value
+import gezi.ir.Value
 import gezi.standardlibrary.LibraryFiles
 import gezi.standardlibrary.MalformedReason
 import gezi.standardlibrary.StandardLibrary
@@ -14,12 +17,13 @@ import gezi.weakhead.Expansions
 import gezi.standardlibrary.StandardLibraryMalformed
 
 /** A natural pair, the value of the test's data family `natural_pair`. */
-final case class NaturalPair(first: BigInt, second: BigInt) extends NativeValue
+final case class NaturalPair(first: BigInt, second: BigInt) extends NativeValue[Nothing]
 
 /** The pairs of naturals as a data family of one constructor, `pair l r`,
   * `\p. p l r`, whose two fields are naturals: decoded from the library's
-  * pair encoding into a `NaturalPair`, and encoded back with the define the
-  * fixture binds to `natural_pair_make`.
+  * pair encoding into a `NaturalPair`, and encoded back with the term at
+  * position 0 of the fixture's `data_family` of `natural_pair_type`, its
+  * constructor native.
   */
 object NaturalPairFamily extends DataFamily:
 
@@ -30,18 +34,18 @@ object NaturalPairFamily extends DataFamily:
   private val unparameterisedConstructors: Vector[DataConstructor] =
     Vector(
       DataConstructor(
-        NativeName.Function("natural_pair_make"),
+        NativeName.Constructor(identity, 0),
         Vector(DataField.unparameterised(Representation.BigInteger.familyIdentity), DataField.unparameterised(Representation.BigInteger.familyIdentity))
       )
     )
 
-  def constructors(parameter: Option[NativeValue]): Vector[DataConstructor] = unparameterisedConstructors
+  def constructors[Term](parameter: Option[FamilyParameter[Term]]): Vector[DataConstructor] = unparameterisedConstructors
 
-  def built(parameter: Option[NativeValue], layer: DataLayer): NativeValue = layer match
+  def built[Term](parameter: Option[FamilyParameter[Term]], layer: DataLayer[Term]): NativeValue[Term] = layer match
     case DataLayer(0, Vector(NativeValue.Natural(first), NativeValue.Natural(second))) => NaturalPair(first, second)
     case other => throw IllegalArgumentException(s"no layer of a natural pair: $other")
 
-  def taken(parameter: Option[NativeValue], value: NativeValue): DataLayer = value match
+  def taken[Term](parameter: Option[FamilyParameter[Term]], value: NativeValue[Term]): DataLayer[Term] = value match
     case NaturalPair(first, second) => DataLayer(0, Vector(NativeValue.Natural(first), NativeValue.Natural(second)))
     case other                      => throw IllegalArgumentException(s"no natural pair: $other")
 
@@ -56,20 +60,17 @@ object NaturalPairFamily extends DataFamily:
 class NativeBackendExtensionTest extends gezi.generatedinputs.FailFastSuite:
 
   private val pairPlace = NativePlace.Fixed(Representation.Data(NaturalPairFamily.identity, None))
-  private val naturalPlace = NativePlace.Fixed(Representation.BigInteger)
 
-  /** The standard set with the family `natural_pair`, its constructor
-    * `natural_pair_make` and the exchange `natural_pair_swap`.
+  /** A closed HOAS term over the terms of no facts. */
+  private type Hoas = TermOf[Configured[NoFacts.type]]
+
+  /** The standard set with the family `natural_pair`, the native of its
+    * constructor and the exchange `natural_pair_swap`.
     */
   private val pairNatives: NativeBackend = NativeBackend.standard.extended(
-    NativeBackend.functions(
-      Map(
-        "natural_pair_make" -> Native(Vector(naturalPlace, naturalPlace), pairPlace, {
-          case Vector(NativeArgument.Represented(NativeValue.Natural(first)), NativeArgument.Represented(NativeValue.Natural(second))) =>
-            NaturalPair(first, second)
-          case other => Native.outsidePlaces("natural_pair_make", other)
-        }),
-        "natural_pair_swap" -> Native(Vector(pairPlace), pairPlace, {
+    NativeBackend(
+      NativeBackend.familyConstructorNatives(NaturalPairFamily) ++ Map(
+        NativeName.Function("natural_pair_swap") -> Native(Vector(pairPlace), pairPlace, {
           case Vector(NativeArgument.Represented(NaturalPair(first, second))) => NaturalPair(second, first)
           case other                                                          => Native.outsidePlaces("natural_pair_swap", other)
         })
@@ -77,6 +78,9 @@ class NativeBackendExtensionTest extends gezi.generatedinputs.FailFastSuite:
       Vector(NaturalPairFamily)
     )
   )
+
+  /** The native of the pair's constructor. */
+  private val makeNative: NativeName = NativeName.Constructor(NaturalPairFamily.identity, 0)
 
   /** The fixture's knowledge file, the one field of its tuple. */
   private val knowledgeFile = "tests/standard_library_fixtures/natural_pairs/compiler/natural_pairs_backend.lambdalattice"
@@ -93,7 +97,7 @@ class NativeBackendExtensionTest extends gezi.generatedinputs.FailFastSuite:
     * fixture's library (`natural_pairs/library/natural_pairs/<key>`) read by
     * projection (`StandardLibrary.entryMember`), as a closed HOAS term.
     */
-  private def fixtureTerm(key: String): Term =
+  private def fixtureTerm(key: String): Hoas =
     val fixture = LibraryFiles.fixture("natural_pairs")
     Term.closed(StandardLibrary.entryMember(fixture, fixture.resolve(s"library/natural_pairs/$key.lambdalattice"), Expansions.none)._1)
 
@@ -103,18 +107,28 @@ class NativeBackendExtensionTest extends gezi.generatedinputs.FailFastSuite:
   private lazy val successor = fixtureTerm("successor")
   private lazy val naturalPairType = fixtureTerm("natural_pair_type")
 
+  /** The native specializer of the facts of the library under the pairs' natives, whose singleton type is the
+    * configuration the programs are read in.
+    */
+  private lazy val encoding: StorageEncoding = BackendFacts.of(library, pairNatives).storageEncoding
+
+  private given encoding.type = encoding
+
   /** The library with the pairs' natives and the fixture's terms, forced before the first test and not charged to it (FailFastSuite). */
   override def sharedFixtures: Vector[scala.concurrent.Future[Unit] => Any] =
-    Vector(_ => library, _ => pair, _ => swap, _ => zero, _ => successor, _ => naturalPairType)
+    Vector(_ => library, _ => encoding, _ => pair, _ => swap, _ => zero, _ => successor, _ => naturalPairType)
 
-  private def valueOf(program: Term): Value =
-    Defunctionalization.thunkInstruction(program.deBruijnTerm(Map.empty))
+  /** The value of the program written over terms of no facts, crossed into the encoding's configuration. */
+  private def valueOf(program: Hoas): Value[encoding.type] =
+    instructionValue[encoding.type](
+      instructionCrossed(encoding)(Defunctionalization.thunkInstruction[NoFacts.type](program.deBruijnTerm(Map.empty))(using NoFacts))
+    )
 
-  private def jitNormalForms(program: Term): Read[Vector[gezi.ir.Instruction]] =
-    normalFormsRead(Mode.Jit(Jit(configured(BackendFacts.of(library, pairNatives), JitConfiguration.defaultBudget))), valueOf(program), readingLimit)
+  private def jitNormalForms(program: Hoas): Read[encoding.type, Vector[Configured[encoding.type]]] =
+    normalFormsRead(Jit(configured(encoding, JitConfiguration.defaultBudget)), valueOf(program), readingLimit)
 
-  private def referenceNormalForms(program: Term): Bounded[Vector[gezi.ir.Instruction]] =
-    normalFormsRead(Mode.TablingWeakHead, valueOf(program), readingLimit).outcome
+  private def referenceNormalForms(program: Hoas): Bounded[Vector[Configured[encoding.type]]] =
+    normalFormsRead(Mode.TablingWeakHead, plainConfiguration(encoding), valueOf(program), readingLimit).outcome
 
   // Without the entry's set, the standard checks reject the fixture: its
   // natives are not the standard set's.
@@ -124,7 +138,7 @@ class NativeBackendExtensionTest extends gezi.generatedinputs.FailFastSuite:
     )
     rejected.reason match
       case MalformedReason.BackendRejected(BackendSetReason.UnknownNative(native)) =>
-        assert(Set("natural_pair_make", "natural_pair_swap").contains(native), native)
+        assertEquals(native, "natural_pair_swap")
       case other => fail(s"rejected for $other")
   }
 
@@ -133,20 +147,22 @@ class NativeBackendExtensionTest extends gezi.generatedinputs.FailFastSuite:
   // back as the reference reads the swapped pair written out.
   test("aNativeOfAnAddedFamilyRunsOnADecodedOperand") {
     val read = jitNormalForms(swap(pair(zero)(successor(zero)) ∥ naturalPairType))
-    assertEquals(read.outcome, referenceNormalForms(pair(successor(zero))(zero)))
+    assert(sameOutcomes(read.outcome, referenceNormalForms(pair(successor(zero))(zero))))
     val found = counts(read.jitState)
     assertEquals((found.callsOf(NativeName.Function("natural_pair_swap")), found.decodings), (1L, 1L))
   }
 
   // Two swaps: the inner result stays in the family, so the outer swap is
-  // eliminated by the family's codec and the pair rebuilt by
-  // natural_pair_make on the represented naturals; one decoding in all.
+  // eliminated by the family's codec, with one decoding in all. The pair is
+  // rebuilt by pair's own term: the native of a family's constructor is
+  // called only under a filter of its family, whose criterion gives the
+  // result's parameter (`Jit.nativeAppliedHeads`), and none is written here.
   test("aResultOfAnAddedFamilyStaysRepresented") {
     val read = jitNormalForms(swap(swap(pair(zero)(successor(zero)) ∥ naturalPairType)))
-    assertEquals(read.outcome, referenceNormalForms(pair(zero)(successor(zero))))
+    assert(sameOutcomes(read.outcome, referenceNormalForms(pair(zero)(successor(zero)))))
     val found = counts(read.jitState)
     assertEquals(
-      (found.callsOf(NativeName.Function("natural_pair_swap")), found.callsOf(NativeName.Function("natural_pair_make")), found.decodings),
-      (1L, 1L, 1L)
+      (found.callsOf(NativeName.Function("natural_pair_swap")), found.callsOf(makeNative), found.decodings),
+      (1L, 0L, 1L)
     )
   }

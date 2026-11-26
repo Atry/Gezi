@@ -1,0 +1,10 @@
+# The round wren_elimination_type_check the strategies' tests saturate with
+# (gezi.strategies.StrategyTesting.round): the type-check round of
+# corpora/compiler/wren_elimination_preset.lambdalattice, the one field of its
+# tuple (ScottEliminationTypingTest).
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega gezi "corpora") "compiler") "wren_elimination_preset")
+λ _ wren_elimination_type_check
+. export wren_elimination_type_check

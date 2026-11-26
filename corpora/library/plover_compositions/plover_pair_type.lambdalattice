@@ -1,0 +1,16 @@
+# A pair as a declared data family of one constructor and two fields. plover_pair is the
+# prelude's pair under the marker $constructor, the identity, so that binding it as the
+# family's constructor leaves the prelude's pair an ordinary term, as native_types/list
+# does for cons. plover_pair_type first second is the pairs whose fields are in first and
+# in second; it is a term of its own, not the constructor, since a family's identity is
+# its criterion.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "native_types") "markers")
+λ _ $constructor _ _ _
+. (λtuple. tuple λ. $constructor λl r p. p l r)
+λ plover_pair
+. (λtuple. tuple λ first second. plover_pair first second)
+λ plover_pair_type
+. export plover_pair plover_pair_type

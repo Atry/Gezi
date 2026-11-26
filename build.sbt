@@ -39,7 +39,8 @@
 //                           point); its tests also use standardlibrary's
 //                           test helpers
 //   jmh-pipeline         -> programfamilies, contest-corpora, jit,
-//                           contest-entry-generic, provenance (JMH
+//                           contest-entry-generic, provenance, and
+//                           standardlibrary's test generators (JMH
 //                           benchmarks only: the pipeline's stages, the
 //                           classic Hindley-Milner reference, the contest
 //                           families' native solvers, the JIT's run of a
@@ -78,11 +79,13 @@
 //                           jit on the corpora (the corpora stand above
 //                           jit), and build their cache
 //                           service with hotspot-baselines' provider
-//   jit                  -> weakhead, standardlibrary, strategies
-//                           (whole-block compilation, the JIT, the natives,
-//                           the backend's checks and the dispatch of a test
-//                           under a strategy, whose schedule `strategies`
-//                           runs, as jit_strategies.pl called schedule.pl);
+//   jit                  -> weakhead, standardlibrary, strategies,
+//                           rewrite-trace (whole-block compilation, the JIT,
+//                           the natives, the backend's checks, whose premise
+//                           check steps by rewrite-trace's β rule, and the
+//                           dispatch of a test under a strategy, whose
+//                           schedule `strategies` runs, as jit_strategies.pl
+//                           called schedule.pl);
 //                           its tests also use their test helpers
 //   interface-laws       -> jit, strategies and their test helpers,
 //                           generatedinputs (the laws of the replaceable
@@ -212,6 +215,7 @@ ThisBuild / wartremoverErrors ++= Seq(Wart.Var, Wart.MutableDataStructures, Wart
   "NoJavaUtilMutableCollection",
   "NoNewBuilder",
   "NoStringBuilder",
+  "NoThreadConfinedCapture",
   "NoThreadLocal",
   "NoUnsafe",
   "NoVarHandle",
@@ -274,7 +278,7 @@ lazy val `ematching-closures` = project.dependsOn(ematching, generatedinputs % T
 
 lazy val `ematching-bytecode` = project.dependsOn(ematching)
 
-lazy val saturation = project.dependsOn(ematching, generatedinputs % Test)
+lazy val saturation = project.dependsOn(ematching, generatedinputs % Test, ir % "test->test")
 
 lazy val extraction = project.dependsOn(egraph, saturation, generatedinputs % Test)
 
@@ -406,7 +410,21 @@ lazy val programfamilies = project
 // contest-entries-fixture/entry.lambdalattice, compiles it under the generic
 // entry (`CompiledRunBenchmark`), and what reading a text with its locations
 // and computing a saturated graph's provenance cost (`LocationBenchmarks`).
-lazy val `jmh-pipeline` = project.dependsOn(programfamilies, `contest-corpora`, jit, `contest-entry-generic`, provenance, generatedinputs % Test)
+// The benchmarks' knowledge is generated from a fixed seed by
+// standardlibrary's generator of knowledge, which lives in its test sources
+// as every module's generators do; the benchmarks, which are this project's
+// main sources, depend on those test sources and on generatedinputs for it.
+lazy val `jmh-pipeline` =
+  project.dependsOn(
+    programfamilies,
+    `contest-corpora`,
+    jit,
+    `contest-entry-generic`,
+    `jupyter-kernel`,
+    provenance,
+    standardlibrary % "compile->test",
+    generatedinputs
+  )
 
 // The baseline's search strategies, the port of the Prolog baseline/
 // strategies and schedule.pl: the
@@ -432,6 +450,7 @@ lazy val strategies = project
     `lemma-encoding`,
     `lemma-encoding-baseline` % Test,
     generatedinputs % Test,
+    ir % "test->test",
     orientation,
     `ematching-indexing`,
     `ematching-interpretation`,
@@ -549,6 +568,7 @@ lazy val jit = project
     `hotspot-baselines`,
     standardlibrary % "compile->compile;test->test",
     strategies % "compile->compile;test->test",
+    `rewrite-trace`,
     `lemma-encoding-baseline` % Test,
     generatedinputs % Test
   )

@@ -14,12 +14,16 @@ import gezi.weakhead.Reading
 import gezi.weakhead.ReadingOutcome
 import gezi.weakhead.ReadingState
 import gezi.weakhead.Resource
-import gezi.weakhead.Value
+import gezi.ir.Value
 import gezi.weakhead.Values
 import gezi.weakhead.WeakHead
 import gezi.frontend.DeBruijnTerm
 import gezi.frontend.Defunctionalization
 import gezi.frontend.Term
+import gezi.ir.{Configured, NoFacts}
+
+/** The corpora are read under no facts. */
+private given contestAnswersNoFacts: NoFacts.type = NoFacts
 
 /** A decoding of a head by observation (`contest_answers:verdict/5`):
   * `decoded(Value)` or `failure(Reason)`.
@@ -46,7 +50,7 @@ enum Verdict:
   /** The reading ran past its budget or out of a resource: no verdict. The
     * Prolog verdict said `differs` of any outcome other than `heads(...)`.
     */
-  case ReadingStopped(outcome: ReadingOutcome)
+  case ReadingStopped(outcome: ReadingOutcome[NoFacts.type])
 
 /** The contest's verdict on a reading and the evaluator steps its decode
   * took (`verdict/5`'s Verdict and Spent), 0 when nothing was decoded.
@@ -74,7 +78,7 @@ final case class Judged(verdict: Verdict, spent: Long)
   * `certificates` are the closed terms the corpora name by `certificate/2`
   * (`HardClauses.certificates`).
   */
-final class ContestAnswers(corpora: Corpora, certificates: Map[String, () => Term]):
+final class ContestAnswers(corpora: Corpora, certificates: Map[String, () => ProblemTerm]):
 
   private def file: ProblemFamily = corpora.contestAnswers
 
@@ -114,13 +118,13 @@ final class ContestAnswers(corpora: Corpora, certificates: Map[String, () => Ter
     * when the verdict is `Matches`). Throws for a point with no intended
     * answer.
     */
-  def pointVerdict(point: String, outcome: ReadingOutcome): Judged =
+  def pointVerdict(point: String, outcome: ReadingOutcome[NoFacts.type]): Judged =
     verdict(intended(point).getOrElse(throw IllegalArgumentException(s"$point has no intended answer")), outcome)
 
   /** `verdict(Intended, Value, Outcome, Verdict, Spent)`: the verdict on a
     * reading of a program (the class comment). A reading that stopped gets no verdict, `ReadingStopped`.
     */
-  def verdict(intended: Intended, outcome: ReadingOutcome): Judged =
+  def verdict(intended: Intended, outcome: ReadingOutcome[NoFacts.type]): Judged =
     (intended, outcome) match
       case (_, stopped @ (ReadingOutcome.StepLimit | ReadingOutcome.Exhausted(_))) =>
         Judged(Verdict.ReadingStopped(stopped), 0)
@@ -135,13 +139,13 @@ final class ContestAnswers(corpora: Corpora, certificates: Map[String, () => Ter
   /** The decodings of every head within the decode's budget, then
     * `decodingsVerdict`; a decode that stops is `DecodeStopped`.
     */
-  private def headsVerdict(value: IntendedValue, heads: Vector[ParallelSet]): Judged =
+  private def headsVerdict(value: IntendedValue, heads: Vector[ParallelSet[NoFacts.type]]): Judged =
     val (zeroMarker, successorMarker) = ContestAnswers.markers
     val observation = Observation(zeroMarker, successorMarker)
     val decodings = Computation
       .traversed(heads)(set => observation.decodings(value, set, certificateTerm))
       .map(_.flatten)
-      .result(ReadingState.knowingTop(ContestAnswers.decodeLimit))
+      .result(ReadingState.knowingTop(ContestAnswers.decodeLimit, gezi.weakhead.ReadingConfiguration.withoutFacts))
     decodings match
       case Computed.Done(found, after) => Judged(decodingsVerdict(found.toSet, value), after.budget.spent)
       case Computed.Stopped(after)     => Judged(Verdict.DecodeStopped(after.exhausted), after.budget.spent)
@@ -150,12 +154,12 @@ final class ContestAnswers(corpora: Corpora, certificates: Map[String, () => Ter
     * one head. Throws for a name no certificate has, or a certificate with
     * other than one head within the decode's budget.
     */
-  private def certificateTerm(name: String): DeBruijnTerm =
+  private def certificateTerm(name: String): ProblemDeBruijnTerm =
     val certificate = certificates.getOrElse(name, throw IllegalArgumentException(s"no_certificate($name)"))()
     val value = Values.ofInstruction(Defunctionalization.thunkInstruction(certificate.deBruijnTerm(Map.empty)), Set.empty)
-    Reading.termReading(Mode.TablingWeakHead, value, ContestAnswers.decodeLimit) match
+    Reading.termReading(Mode.TablingWeakHead, value, ContestAnswers.decodeLimit, gezi.weakhead.ReadingConfiguration.withoutFacts) match
       case ReadingOutcome.Heads(Vector(set)) =>
-        set.view match
+        set.view(NoFacts) match
           case ParallelView.Single(head) => ContestAnswers.headTerm(head)
           case _ => throw IllegalArgumentException(s"certificate_not_one_head($name, $set)")
       case other => throw IllegalArgumentException(s"certificate_not_one_head($name, $other)")
@@ -173,14 +177,14 @@ object ContestAnswers:
     * Scott boolean or natural has three or four binders, so neither marker
     * is mistaken for a value.
     */
-  def markers: (Head, Head) =
+  def markers: (Head[NoFacts.type], Head[NoFacts.type]) =
     import DeBruijnTerm.{Lambda, Variable}
     val zeroValue = Values.ofInstruction(Defunctionalization.thunkInstruction(Lambda(Lambda(Lambda(Variable(0))))), Set.empty)
     val successorValue =
       Values.ofInstruction(Defunctionalization.thunkInstruction(Lambda(Lambda(Lambda(Lambda(Lambda(Variable(4))))))), Set.empty)
     (asHead(zeroValue), asHead(successorValue))
 
-  private def asHead(value: Value): Head = value match
+  private def asHead(value: Value[NoFacts.type]): Head[NoFacts.type] = value match
     case Value.Thunk(code, holes, fillings) if holes.nonEmpty => Head.Lambda(code, holes, fillings)
     case other => throw IllegalStateException(s"a marker is a lambda, not $other")
 
@@ -188,32 +192,32 @@ object ContestAnswers:
     * whole. Every value being interned, a library name is the term it was
     * written as, so a head holds no instruction apart from its term.
     */
-  def headTerm(head: Head): DeBruijnTerm =
+  def headTerm(head: Head[NoFacts.type]): ProblemDeBruijnTerm =
     Defunctionalization.instructionTerm(Values.instruction(head.value))
 
 /** The observation of heads against the two markers (`observed_decoding/3`
   * and the predicates under it), each evaluation under tabling(weak_head)
   * in the decode's state.
   */
-private final case class Observation(zeroMarker: Head, successorMarker: Head):
+private final case class Observation(zeroMarker: Head[NoFacts.type], successorMarker: Head[NoFacts.type]):
 
-  private type Decodings = Computation[ReadingState, Vector[Decoding]]
+  private type Decodings = Computation[ReadingState[NoFacts.type], Vector[Decoding]]
 
-  private def heads(term: Value): Computation[ReadingState, Vector[ParallelSet]] =
+  private def heads(term: Value[NoFacts.type]): Computation[ReadingState[NoFacts.type], Vector[ParallelSet[NoFacts.type]]] =
     WeakHead.heads(Mode.TablingWeakHead, term).collected
 
-  private def appliedToMarkers(term: Value): Value =
+  private def appliedToMarkers(term: Value[NoFacts.type]): Value[NoFacts.type] =
     Value.Apply(Value.Apply(term, zeroMarker.value), successorMarker.value)
 
   /** The parallel set as a value. The decode's state lists no least term
     * (`ReadingState.knowingTop`), so the evaluator answers no empty parallel
     * set.
     */
-  private def valueOf(set: ParallelSet): Value =
-    set.value.getOrElse(throw IllegalStateException("a state that lists no least term answers no empty parallel set"))
+  private def valueOf(set: ParallelSet[NoFacts.type]): Value[NoFacts.type] =
+    set.value(NoFacts).getOrElse(throw IllegalStateException("a state that lists no least term answers no empty parallel set"))
 
   /** `observed_decoding(Value, Head, Decoding)`, every decoding. */
-  def decodings(value: IntendedValue, set: ParallelSet, certificate: String => DeBruijnTerm): Decodings =
+  def decodings(value: IntendedValue, set: ParallelSet[NoFacts.type], certificate: String => ProblemDeBruijnTerm): Decodings =
     value match
       case IntendedValue.BooleanValue(_) =>
         heads(appliedToMarkers(valueOf(set))).flatMap(choices =>
@@ -235,8 +239,8 @@ private final case class Observation(zeroMarker: Head, successorMarker: Head):
     * no decoding: top applied to the markers is a parallel set that holds the
     * abstraction λx. top ∥ x, a head that is no value.
     */
-  private def shared(left: Value, right: Value)(chosen: ParallelSet => Decodings): Decodings =
-    def side(term: Value): Decodings =
+  private def shared(left: Value[NoFacts.type], right: Value[NoFacts.type])(chosen: ParallelSet[NoFacts.type] => Decodings): Decodings =
+    def side(term: Value[NoFacts.type]): Decodings =
       heads(term).flatMap(sideHeads =>
         Computation.traversed(sideHeads)(chosen).map(_.flatten.distinct.collect { case value @ Decoding.Decoded(_) => value })
       )
@@ -246,8 +250,8 @@ private final case class Observation(zeroMarker: Head, successorMarker: Head):
     )
 
   /** `chosen_boolean(Chosen, ZeroHead, SuccessorHead, Decoding)`. */
-  private def chosenBoolean(chosen: ParallelSet): Decodings =
-    chosen.view match
+  private def chosenBoolean(chosen: ParallelSet[NoFacts.type]): Decodings =
+    chosen.view(NoFacts) match
       case ParallelView.Single(head) if head == zeroMarker =>
         Computation.pure(Vector(Decoding.Decoded("boolean(true)")))
       case ParallelView.Single(head) if head == successorMarker =>
@@ -256,7 +260,7 @@ private final case class Observation(zeroMarker: Head, successorMarker: Head):
       case _                                 => Computation.pure(Vector(Decoding.Failure("not_a_boolean")))
 
   /** `observed_natural(Head, ZeroHead, SuccessorHead, Accumulated, Decoding)`. */
-  private def observedNatural(term: Value, accumulated: Int): Decodings =
+  private def observedNatural(term: Value[NoFacts.type], accumulated: Int): Decodings =
     heads(appliedToMarkers(term)).flatMap(choices =>
       if choices.isEmpty then Computation.pure(Vector(Decoding.Failure("not_a_natural")))
       else Computation.traversed(choices)(chosenNatural(_, accumulated)).map(_.flatten)
@@ -266,7 +270,7 @@ private final case class Observation(zeroMarker: Head, successorMarker: Head):
     * head a Scott successor answers the markers with: the marker's code with
     * the marker's holes but the first.
     */
-  private def successorOfAPredecessor(chosen: Head): Boolean = (chosen, successorMarker) match
+  private def successorOfAPredecessor(chosen: Head[NoFacts.type]): Boolean = (chosen, successorMarker) match
     case (Head.Lambda(code, holes, _), Head.Lambda(markerCode, markerHoles, _)) =>
       code == markerCode && holes == markerHoles.tail
     case _ => false
@@ -277,8 +281,8 @@ private final case class Observation(zeroMarker: Head, successorMarker: Head):
     * the decode ends on a head that would answer itself again after the six
     * arguments, such as `λb. λc. c`, and on top's `λx. top ∥ x`.
     */
-  private def chosenNatural(chosen: ParallelSet, accumulated: Int): Decodings =
-    chosen.view match
+  private def chosenNatural(chosen: ParallelSet[NoFacts.type], accumulated: Int): Decodings =
+    chosen.view(NoFacts) match
       case ParallelView.Single(head) if head == zeroMarker =>
         Computation.pure(Vector(Decoding.Decoded(s"natural($accumulated)")))
       case ParallelView.Several(left, right) => shared(left, right)(chosenNatural(_, accumulated))
@@ -295,12 +299,12 @@ private final case class Observation(zeroMarker: Head, successorMarker: Head):
       case _ => Computation.pure(Vector(Decoding.Failure("not_a_natural")))
 
   /** `certificate_observed(Head, Name, CertificateTerm, Decoding)`. */
-  private def certificateObserved(set: ParallelSet, name: String, certificateTerm: DeBruijnTerm): Decodings =
-    set.view match
+  private def certificateObserved(set: ParallelSet[NoFacts.type], name: String, certificateTerm: ProblemDeBruijnTerm): Decodings =
+    set.view(NoFacts) match
       case ParallelView.Several(left, right) => shared(left, right)(certificateObserved(_, name, certificateTerm))
       case ParallelView.Single(head) =>
         Computation.pure(
           if ContestAnswers.headTerm(head) == certificateTerm then Vector(Decoding.Decoded(s"certificate($name)"))
           else Vector(Decoding.Decoded(s"not_the_certificate($name)"))
         )
-      case ParallelView.Bottom => throw IllegalStateException("the plain evaluator answers no empty parallel set")
+      case ParallelView.Bottom() => throw IllegalStateException("the plain evaluator answers no empty parallel set")

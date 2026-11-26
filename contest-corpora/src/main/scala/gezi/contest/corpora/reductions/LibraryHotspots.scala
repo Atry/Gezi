@@ -157,7 +157,7 @@ final class LibraryHotspots(
     )
 
   /** The library's term of the operation. */
-  private def libraryFunction(terms: StandardLibraryTerms, operation: Operation): Term = operation match
+  private def libraryFunction(terms: StandardLibraryTerms, operation: Operation): ProblemTerm = operation match
     case Operation.Plus      => terms.binaryPlus
     case Operation.Maximum   => terms.binaryMaximum
     case Operation.Minimum   => terms.binaryMinimum
@@ -166,7 +166,7 @@ final class LibraryHotspots(
   /** The operation, the site's variable bound to its library term (by the
     * operation's ordinal), applied to its two operands in the spelling.
     */
-  private def operated(operations: Vector[Term], operation: Operation, left: Term, right: Term): Term =
+  private def operated(operations: Vector[ProblemTerm], operation: Operation, left: ProblemTerm, right: ProblemTerm): ProblemTerm =
     val function = operations(operation.ordinal)
     spelling match
       case Spelling.Direct    => function(left)(right)
@@ -177,13 +177,13 @@ final class LibraryHotspots(
     * significant bit outermost and no binary_even over binary_zero, as
     * `StandardLibraryTerms.binary` builds it with the library's terms.
     */
-  private def constant(constructors: Constructors, value: BigInt): Term =
+  private def constant(constructors: Constructors, value: BigInt): ProblemTerm =
     require(value >= 0, s"a natural is not negative: $value")
     if value == 0 then constructors.zero
     else if value.testBit(0) then constructors.odd(constant(constructors, value >> 1))
     else constructors.even(constant(constructors, value >> 1))
 
-  private def operandTerm(constructors: Constructors, operand: Operand, intermediates: Vector[Term]): Term = operand match
+  private def operandTerm(constructors: Constructors, operand: Operand, intermediates: Vector[ProblemTerm]): ProblemTerm = operand match
     case Operand.Intermediate(index) => intermediates(index)
     case Operand.Constant(value)     => constant(constructors, value)
 
@@ -192,8 +192,8 @@ final class LibraryHotspots(
     * grows linearly in L whatever the wiring; the last step is the body's
     * value.
     */
-  private def straightLine(constructors: Constructors, operations: Vector[Term], function: StraightLine): Term =
-    def from(index: Int, intermediates: Vector[Term]): Term =
+  private def straightLine(constructors: Constructors, operations: Vector[ProblemTerm], function: StraightLine): ProblemTerm =
+    def from(index: Int, intermediates: Vector[ProblemTerm]): ProblemTerm =
       val step = function.steps(index)
       val value = operated(
         operations,
@@ -207,7 +207,7 @@ final class LibraryHotspots(
     λ(input => from(0, Vector(input)))
 
   /** iterate in the spelling. */
-  private def iterate(terms: StandardLibraryTerms): Term =
+  private def iterate(terms: StandardLibraryTerms): ProblemTerm =
     terms.fixpoint(
       λ(self =>
         λ(count =>
@@ -224,7 +224,7 @@ final class LibraryHotspots(
     )
 
   /** The site in the variant's shape. */
-  private def site(terms: StandardLibraryTerms, problem: Problem): Term = shape match
+  private def site(terms: StandardLibraryTerms, problem: Problem): ProblemTerm = shape match
     case Shape.Iterated => iteratedSite(terms, problem)
     case Shape.Inlined  => inlinedSite(terms, problem)
     case Shape.Nested   => nestedSite(terms, problem)
@@ -232,7 +232,7 @@ final class LibraryHotspots(
   /** The constructors of the site's first three let variables, bound to
     * binary_zero, binary_even and binary_odd in that order.
     */
-  private def constructorsOf(variables: Vector[Term]): Constructors = variables match
+  private def constructorsOf(variables: Vector[ProblemTerm]): Constructors = variables match
     case Vector(zero, even, odd) => Constructors(zero, even, odd)
     case other                   => throw IllegalStateException(s"three constructor variables, not $other")
 
@@ -242,7 +242,7 @@ final class LibraryHotspots(
     * body, and each function in the driver's order iterated its count of
     * times on the state.
     */
-  private def iteratedSite(terms: StandardLibraryTerms, problem: Problem): Term =
+  private def iteratedSite(terms: StandardLibraryTerms, problem: Problem): ProblemTerm =
     val constructorTerms = Vector(terms.binaryZero, terms.binaryEven, terms.binaryOdd)
     lets(
       (constructorTerms ++ Operation.values.toVector.map(libraryFunction(terms, _))) :+ iterate(terms),
@@ -272,7 +272,7 @@ final class LibraryHotspots(
     * respelled odd case is `\m. self m (self m (G s))`. The loop's state is
     * a natural and its count a natural: it takes no function.
     */
-  private def ownLoop(fixed: Term, function: Term): Term =
+  private def ownLoop(fixed: ProblemTerm, function: ProblemTerm): ProblemTerm =
     fixed(
       λ(self =>
         λ(count =>
@@ -291,7 +291,7 @@ final class LibraryHotspots(
     * function in the driver's order run by its own loop (`ownLoop`) for its
     * count of times on the state.
     */
-  private def inlinedSite(terms: StandardLibraryTerms, problem: Problem): Term =
+  private def inlinedSite(terms: StandardLibraryTerms, problem: Problem): ProblemTerm =
     val constructorTerms = Vector(terms.binaryZero, terms.binaryEven, terms.binaryOdd)
     lets(
       (constructorTerms ++ Operation.values.toVector.map(libraryFunction(terms, _))) :+ terms.fixpoint,
@@ -314,7 +314,7 @@ final class LibraryHotspots(
     * `iterate n (\t. iterate k G t) s`: the outer iterate's function is a
     * loop of k applications of G, so G runs n * k = c times.
     */
-  private def nestedSite(terms: StandardLibraryTerms, problem: Problem): Term =
+  private def nestedSite(terms: StandardLibraryTerms, problem: Problem): ProblemTerm =
     val constructorTerms = Vector(terms.binaryZero, terms.binaryEven, terms.binaryOdd)
     lets(
       (constructorTerms ++ Operation.values.toVector.map(libraryFunction(terms, _))) :+ iterate(terms),
@@ -336,10 +336,10 @@ final class LibraryHotspots(
         )
     )
 
-  protected def program(terms: StandardLibraryTerms, drawn: LibraryHotspots.Drawn): Term =
+  protected def program(terms: StandardLibraryTerms, drawn: LibraryHotspots.Drawn): ProblemTerm =
     terms.list(drawn.sites.map(site(terms, _)))
 
-  protected def singlePrograms(terms: StandardLibraryTerms, drawn: LibraryHotspots.Drawn): Vector[Term] =
+  protected def singlePrograms(terms: StandardLibraryTerms, drawn: LibraryHotspots.Drawn): Vector[ProblemTerm] =
     drawn.sites.map(site(terms, _))
 
 /** The draws, the native solver, the nominal ranges and the rungs of
@@ -386,7 +386,7 @@ object LibraryHotspots:
   /** The site's variables bound to binary_zero, binary_even and
     * binary_odd.
     */
-  final case class Constructors(zero: Term, even: Term, odd: Term)
+  final case class Constructors(zero: ProblemTerm, even: ProblemTerm, odd: ProblemTerm)
 
   /** The functions a hot variant keeps: the hottest four. */
   val hotFunctions: Int = 4

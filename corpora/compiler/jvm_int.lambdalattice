@@ -1,0 +1,68 @@
+# The 32-bit words' backend facts as the JVM's int and their conversion lemma, a knowledge
+# module an entry imports beside fixed_width_prolog_backend when it holds 32-bit words as
+# ints. jvm_int_type is represented natively in the codec jvm_int (gezi.jit.JvmIntFamily),
+# whose storage is one int (gezi.jit.IntStorage); its one constructor is word_type's
+# word_cell, of the fields a boolean and the word of 31 bits above it, so a stored int reads
+# as word_cell (b ∥ boolean_type) (w ∥ word_type 31) ∥ jvm_int_type. The codec registers no
+# native of that constructor: word_cell in the head position is word's, which builds the
+# 32-bit word. The thin defines of int32_arithmetic and int32_comparison are bound to the
+# natives of gezi.jit.JvmIntNatives, which compute them on operands held as ints: the JVM's
+# int arithmetic, wrapping modulo 2^32, is word_add, word_subtract, word_multiply and
+# word_negate at the width 32, and word_less_than compares two's complement words; a native
+# fires only on operands already in the representation, and its result r ∥ jvm_int_type is r
+# by theorem (S) of docs/design/gezi-type-preservation-proofs.md. The conversion lemma x ∥ int32_type = x ∥ jvm_int_type is a theorem of the
+# β rule (docs/design/gezi-set-equations-proofs.md, section 25), so the e-graph may merge the
+# two spellings and the extraction choose one. It is not folded into a backend's preset, so
+# that an entry choosing that preset reads as before.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "prelude") "list")
+λ prelude_nil prelude_cons _ _ _
+. omega (omega (omega (omega corpora "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λx. x)
+λ integer_literal
+. omega (omega (omega (omega corpora "library") "fixed_width") "word_representation")
+λ _ word_cell _ _ _ _
+. omega (omega (omega (omega corpora "library") "fixed_width") "int32_representation")
+λ _ int32_type _ _
+. omega (omega (omega (omega corpora "library") "fixed_width") "jvm_int_type")
+λ jvm_int_type
+. omega (omega (omega (omega corpora "library") "fixed_width") "int32_arithmetic")
+λ int32_add int32_subtract int32_multiply int32_negate
+. omega (omega (omega (omega corpora "library") "fixed_width") "int32_comparison")
+λ int32_equal int32_less_than
+. export
+  ( λ _ _ _ backend
+    . backend
+    λ _ natives _ _ _ _
+    . natives
+      ( λs. s int32_add λk. k "jvm_int_add"
+      + λs. s int32_subtract λk. k "jvm_int_subtract"
+      + λs. s int32_multiply λk. k "jvm_int_multiply"
+      + λs. s int32_negate λk. k "jvm_int_negate"
+      + λs. s int32_equal λk. k "jvm_int_equal"
+      + λs. s int32_less_than λk. k "jvm_int_less_than"
+      )
+  + λ _ _ _ backend
+    . backend
+    λ _ _ _ families _ _
+    . families λs. s jvm_int_type (integer_literal 0) λ. prelude_cons word_cell prelude_nil
+  + λ _ _ _ backend
+    . backend
+    λ _ _ representations _ _ _
+    . representations λs. s jvm_int_type λk. k "jvm_int"
+  + λ _ rewriting _ _
+    . rewriting
+    λ _ lemmas _
+    . lemmas
+      ( λ s
+        . s
+          (λk. k "jvm_int_conversion")
+          (λx_0. (x_0 ∥ int32_type))
+          (λx_0. (x_0 ∥ jvm_int_type))
+        λ _ metadata _
+        . metadata λk. k "[jvm_int_type](docs/design/gezi-set-equations-proofs.md#jvm_int_type)"
+      )
+  )

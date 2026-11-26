@@ -15,9 +15,9 @@ import gezi.ir.BuiltInRule
 import gezi.ir.CodeLayer
 import gezi.ir.Code
 import gezi.ir.Direction
-import gezi.ir.Instruction
+import gezi.ir.Configured
 import gezi.ir.Hole
-import gezi.ir.Layer
+import gezi.ir.NoFacts
 import gezi.ir.LemmaIdentifier
 import gezi.ir.Pattern
 import gezi.ir.Store
@@ -29,21 +29,25 @@ import gezi.ir.{Apply, Parallel, Slot}
   */
 class IndexedSaturationTest extends gezi.generatedinputs.FailFastSuite:
 
-  private val leaf = Instruction.opaque("leaf")
-  private val name = Instruction.opaque("name")
+  private type C = NoFacts.type
+
+  private given NoFacts.type = NoFacts
+
+  private val leaf = NoFacts.opaque("leaf")
+  private val name = NoFacts.opaque("name")
 
   private def saturated(
-      orientations: Vector[Orientation],
-      store: Store,
-      patternInstructions: Vector[Instruction],
-      input: Instruction,
+      orientations: Vector[Orientation[C]],
+      store: Store[C],
+      patternInstructions: Vector[Configured[C]],
+      input: Configured[C],
       stop: StopSignal
-  ): Run =
+  ): Run[C] =
     val program = Indexing.program(orientations, Indexing.codesMet(orientations, patternInstructions :+ input))
     Saturation.run(
       program,
       ClosureCompilation.compiled(program),
-      BuiltInRule.all,
+      BuiltInRule.beforeOptIn,
       store,
       Orientations.headArityBounds(orientations),
       patternInstructions,
@@ -53,7 +57,7 @@ class IndexedSaturationTest extends gezi.generatedinputs.FailFastSuite:
       stop
     )
 
-  private def orientation(matched: Pattern, added: Pattern) = Orientation(
+  private def orientation(matched: Pattern[C], added: Pattern[C]): Orientation[C] = Orientation(
     index = 0,
     lemma = LemmaIdentifier(0),
     direction = Direction.Forward,
@@ -66,15 +70,15 @@ class IndexedSaturationTest extends gezi.generatedinputs.FailFastSuite:
   )
 
   stoppableTest("idempotence unites a parallel of one class with that class") { stopped =>
-    val pair = Instruction(Parallel(leaf, leaf))
+    val pair = NoFacts.parallel(leaf, leaf)
     val result = saturated(
       Vector(
         orientation(
-          Pattern.Parallel(Pattern.Metavariable(0), Pattern.Metavariable(0)),
-          Pattern.Metavariable(0)
+          Pattern.Parallel(Pattern.Metavariable[C](0), Pattern.Metavariable[C](0)),
+          Pattern.Metavariable[C](0)
         )
       ),
-      Store(Set(leaf)),
+      Store(Set(leaf), gezi.ir.TermConstruction(NoFacts)),
       Vector.empty,
       pair,
       StopSignal.completedWith(stopped)
@@ -95,19 +99,19 @@ class IndexedSaturationTest extends gezi.generatedinputs.FailFastSuite:
   }
 
   stoppableTest("an added side applying a lambda takes a β step, united with the body") { stopped =>
-    val applied = Instruction(Apply(name, leaf))
+    val applied = NoFacts.application(name, leaf)
     val identity = Code(Slot(0))
     val result = saturated(
       Vector(
         orientation(
-          Pattern.Apply(Pattern.InstructionReference(name), Pattern.Metavariable(0)),
+          Pattern.Apply(Pattern.InstructionReference(name), Pattern.Metavariable[C](0)),
           Pattern.Apply(
-            Pattern.Thunk(identity, Vector(Hole.Bound(0)), Vector.empty),
-            Pattern.Metavariable(0)
+            Pattern.Thunk[C](identity, Vector(Hole.Bound(0)), Vector.empty),
+            Pattern.Metavariable[C](0)
           )
         )
       ),
-      Store(Set(leaf, name)),
+      Store(Set(leaf, name), gezi.ir.TermConstruction(NoFacts)),
       Vector(name),
       applied,
       StopSignal.completedWith(stopped)

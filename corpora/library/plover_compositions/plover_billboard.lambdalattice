@@ -1,0 +1,33 @@
+# Whether a target is a height two disjoint sets of rods both reach, written by its
+# definition, the choice of the three things each rod can do, parallel with the target, and
+# its typed version, which a native computes. The function has the structure a program
+# written by the definition gives it, so that plover_billboard is the same IR term as that
+# program's function.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "native_types") "fixpoint")
+λ fixpoint
+. omega (omega (omega corpora "library") "top")
+λ top
+. omega (omega (omega (omega corpora "library") "binary") "natural")
+λ binary_zero _ _ _ binary_set
+. omega (omega (omega (omega corpora "library") "binary") "arithmetic")
+λ _ merge_binary_plus _ merge_binary_equality
+. omega (omega (omega (omega corpora "library") "native_types") "list")
+λ _ _ _ list_type
+. omega (omega (omega (omega corpora "library") "native_types") "boolean")
+λ criterion_true _ _ _
+# plover_billboard:
+# B of the proofs file, section 13. A noinline attractor.
+. (λtuple. tuple λrods target. (fixpoint (λself remaining left right. remaining (merge_binary_equality left right left top) λrod rest. (self rest left (merge_binary_plus rod right) + self rest (merge_binary_plus rod left) right + self rest left right)) rods binary_zero binary_zero ∥ target))
+λ plover_billboard
+# plover_typed_billboard:
+# B_T of the proofs file, section 13: the rods and the target canonical naturals.
+. ( λ tuple
+    . tuple
+    λ rods target
+    . (plover_billboard (rods ∥ list_type (binary_set criterion_true)) (target ∥ binary_set criterion_true) ∥ binary_set criterion_true)
+  )
+λ plover_typed_billboard
+. export plover_billboard plover_typed_billboard

@@ -152,7 +152,7 @@ final class MixinDatalog(problems: ProblemFamilies, library: MixinLibrary):
   /** `Relation.First.is_Second` of the program's module
     * (`datalog_surface/5`).
     */
-  def datalogSurface(program: DatalogProgram, relation: String, first: String, second: String): Term =
+  def datalogSurface(program: DatalogProgram, relation: String, first: String, second: String): ProblemTerm =
     val constants = program.constants
     val relations = program.relations
     library.withMixinLibrary(
@@ -170,7 +170,7 @@ final class MixinDatalog(problems: ProblemFamilies, library: MixinLibrary):
   /** The module's mixin of the constant's class: its marker and accept
     * (`constant_module_mixin/4`).
     */
-  private def constantModuleMixin(constants: Vector[String], relations: Vector[String], constant: String): Term =
+  private def constantModuleMixin(constants: Vector[String], relations: Vector[String], constant: String): ProblemTerm =
     library.selfMixin(datalogModule(constants, relations), constant, _ =>
       choice(
         library.valueMixin(datalogConstant(constants), marker(constant) -> library.trueTerm),
@@ -184,34 +184,34 @@ final class MixinDatalog(problems: ProblemFamilies, library: MixinLibrary):
   /** The constants, the relations and the module's self that the mixins of
     * a relation's class read through.
     */
-  private final case class Context(constants: Vector[String], relations: Vector[String], module: Term):
+  private final case class Context(constants: Vector[String], relations: Vector[String], module: ProblemTerm):
 
     /** The module's slot of the name, a constant's or a relation's class
       * (`module_class/3`).
       */
-    def moduleClass(name: String): Term = library.readSlot(datalogModule(constants, relations), name, module)
+    def moduleClass(name: String): ProblemTerm = library.readSlot(datalogModule(constants, relations), name, module)
 
     /** relation.constant (`row/4`). */
-    def row(relation: String, constant: String): Term =
+    def row(relation: String, constant: String): ProblemTerm =
       library.readSlot(datalogRelation(constants), constant, moduleClass(relation))
 
     /** `set.is_constant then []`, then once for each occurrence of the
       * constant in the set (`guard/5`). The failure is top (`Term.top`), as the
       * unhandled slots of `MixinLibrary.readHandled` are (its FIXME). https://github.com/Atry/private-overlay/issues/1990
       */
-    def guard(constant: String, set: Term, guarded: Term): Term =
+    def guard(constant: String, set: ProblemTerm, guarded: ProblemTerm): ProblemTerm =
       library.slotApplied(datalogConstant(constants), marker(constant), set, guarded, Term.top)
 
     /** `set.accept relation`, the choice of the rows of the set's constants
       * (`accepted/4`).
       */
-    def accepted(set: Term, relation: String): Term =
+    def accepted(set: ProblemTerm, relation: String): ProblemTerm =
       library.slotApplied(datalogConstant(constants), "accept", set, moduleClass(relation))
 
   /** The module's mixin of the relation's class: the mixins of its facts,
     * then of the rules whose head it is (`relation_module_mixin/4`).
     */
-  private def relationModuleMixin(program: DatalogProgram, relations: Vector[String], relation: String): Term =
+  private def relationModuleMixin(program: DatalogProgram, relations: Vector[String], relation: String): ProblemTerm =
     val constants = program.constants
     library.selfMixin(datalogModule(constants, relations), relation, module =>
       val context = Context(constants, relations, module)
@@ -225,7 +225,7 @@ final class MixinDatalog(problems: ProblemFamilies, library: MixinLibrary):
     )
 
   /** The rule's row of the constant (`rule_row/4`). */
-  private def ruleRow(context: Context, rule: DatalogRule, constant: String): Term = rule match
+  private def ruleRow(context: Context, rule: DatalogRule, constant: String): ProblemTerm = rule match
     case DatalogRule.Join(_, relations) =>
       relations.tail.foldLeft(context.row(relations.head, constant))((set, relation) => context.accepted(set, relation))
     case DatalogRule.Intersection(_, left, right) =>
@@ -293,7 +293,7 @@ final class MixinDatalog(problems: ProblemFamilies, library: MixinLibrary):
   /** The point's program, after the reference has found its tuple in the
     * least fixed point (`point_term/2`). Throws when it has not.
     */
-  def pointTerm(name: String): Term =
+  def pointTerm(name: String): ProblemTerm =
     points.find(_._1 == name) match
       case Some((_, programName, relation, first, second, _)) =>
         val datalog = program(programName)

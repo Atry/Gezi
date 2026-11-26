@@ -1,0 +1,32 @@
+# The length of a longest common subsequence of two lists of naturals, written by its
+# definition, the recursion on the two suffixes, and its typed version, which a native
+# computes. The recursion has the structure a program written by the definition gives it,
+# so that plover_longest_common_subsequence is the same IR term as that program's function.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "native_types") "fixpoint")
+λ fixpoint
+. omega (omega (omega (omega corpora "library") "binary") "natural")
+λ binary_zero _ _ _ binary_set
+. omega (omega (omega (omega corpora "library") "binary") "arithmetic")
+λ merge_binary_increment _ _ merge_binary_equality
+. omega (omega (omega (omega corpora "library") "binary") "order")
+λ _ binary_maximum _
+. omega (omega (omega (omega corpora "library") "native_types") "list")
+λ _ _ _ list_type
+. omega (omega (omega (omega corpora "library") "native_types") "boolean")
+λ criterion_true _ _ _
+# plover_longest_common_subsequence:
+# C of the proofs file, section 11. A noinline attractor.
+. (λtuple. tuple λ. fixpoint λself first second. first binary_zero λcharacter first_rest. second binary_zero λother second_rest. merge_binary_equality character other (merge_binary_increment (self first_rest second_rest)) (binary_maximum (self first_rest second) (self first second_rest)))
+λ plover_longest_common_subsequence
+# plover_typed_longest_common_subsequence:
+# C_T of the proofs file, section 11: the characters canonical naturals.
+. ( λ tuple
+    . tuple
+    λ first second
+    . (plover_longest_common_subsequence (first ∥ list_type (binary_set criterion_true)) (second ∥ list_type (binary_set criterion_true)) ∥ binary_set criterion_true)
+  )
+λ plover_typed_longest_common_subsequence
+. export plover_longest_common_subsequence plover_typed_longest_common_subsequence

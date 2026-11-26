@@ -1,0 +1,63 @@
+# The typed branches of the increment and the equality of the binary naturals,
+# bound to the natives wren_binary_increment and wren_binary_equality of the
+# standard set. A call of the define equals the choice of itself and the typed
+# version at filtered operands, for every operand, by monotonicity alone. The
+# typed version never replaces the define: the two are not equal on a choice of
+# operands. The paper proofs are section 21 of the file the declarations cite.
+#
+# Both typed versions are noinline leaves, so a lemma never matches inside its
+# own right side. Termination of this module's saturation, derived and not
+# proved: the left sides' instances are the program's own calls, and the right
+# sides add only a leaf applied to filters of operands already there.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "binary") "natural")
+λ _ _ _ _ binary_set
+. omega (omega (omega (omega corpora "library") "binary") "arithmetic")
+λ merge_binary_increment _ _ merge_binary_equality
+. omega (omega (omega (omega corpora "library") "native_types") "boolean")
+λ true _ _ _
+. omega (omega (omega (omega corpora "library") "plover_compositions") "plover_typed_natives")
+λ plover_typed_increment plover_typed_equality _ _ _
+. export
+  ( λ _ rewriting _ _
+    . rewriting
+    λ _ _ leaves
+    . leaves
+      ( λkey. key merge_binary_increment
+      + λkey. key merge_binary_equality
+      + λkey. key plover_typed_increment
+      + λkey. key plover_typed_equality
+      )
+  + λ _ _ _ backend
+    . backend
+    λ _ natives _ _ _ _
+    . natives
+      ( λ binding. binding plover_typed_increment λkey. key "wren_binary_increment"
+      + λ binding. binding plover_typed_equality λkey. key "wren_binary_equality"
+      )
+  + λ _ rewriting _ _
+    . rewriting
+    λ _ lemmas _
+    . lemmas
+      ( λ lemma
+        . lemma
+          (λkey. key "plover_typed_increment_branch")
+          (λ number. merge_binary_increment number)
+          (λ number. (merge_binary_increment number + plover_typed_increment (number ∥ binary_set true)))
+        λ _ metadata _
+        . metadata λkey. key "[plover_typed_increment_branch](docs/design/gezi-plover-ordered-compositions-proofs.md)"
+      + λ lemma
+        . lemma
+          (λkey. key "plover_typed_equality_branch")
+          (λ first second. merge_binary_equality first second)
+          ( λ first second
+            . ( merge_binary_equality first second
+              + plover_typed_equality (first ∥ binary_set true) (second ∥ binary_set true)
+              )
+          )
+        λ _ metadata _
+        . metadata λkey. key "[plover_typed_equality_branch](docs/design/gezi-plover-ordered-compositions-proofs.md)"
+      )
+  )

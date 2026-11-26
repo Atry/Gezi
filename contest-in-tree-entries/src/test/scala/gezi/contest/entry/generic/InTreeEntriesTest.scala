@@ -52,7 +52,7 @@ class InTreeEntriesTest extends gezi.generatedinputs.FailFastSuite:
       val (data, afterEntry) = EntryData.read(entryDirectory, Defaults.entryDataState)
       val entry = GenericEntryProvider.initialized(data, gezi.contest.entry.ExecutorModules.registeredFor(entryDirectory), gezi.contest.entry.ExtractorModules.registeredFor(entryDirectory), NativesProvider.loaded, ArticleDestination.Discarded, afterEntry, gezi.contest.entry.Defaults.caches())
       val bound = BackendFacts.bindings(entry.index, entry.natives).map(_.instruction).distinct
-      val check = NarrowBlockCompilation(entry.index, entry.natives)
+      val check = NarrowBlockCompilation(entry.index, entry.natives, gezi.weakhead.ReadingConfiguration.withoutFacts)
       val read = bound.map(term => (term, check.kinds(Vector(term))(term), NarrowBlocks.nameKind(term, entry.index, entry.natives)))
       assert(
         read.exists {

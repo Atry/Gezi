@@ -18,19 +18,21 @@ import gezi.contest.entry.Report
 import gezi.contest.runner.PipeLines
 import gezi.frontend.DeBruijnTerm
 import gezi.frontend.Defunctionalization
+import gezi.frontend.ExchangeText
 import gezi.ir.Code
 import gezi.ir.Hole
-import gezi.ir.Instruction
 import gezi.ir.Spine
+import gezi.weakhead.ScottADTChoices
 import gezi.hotspot.LifecycleEvent
 import gezi.knowledgereading.KnowledgeReading
 import gezi.standardlibrary.StandardLibrary
-import gezi.weakhead.Value
+import gezi.ir.Value
 import scala.annotation.tailrec
 import scala.jdk.CollectionConverters.*
 import scala.util.control.TailCalls.TailRec
 import scala.util.control.TailCalls.done
 import scala.util.control.TailCalls.tailcall
+import gezi.ir.{Configured, NoFacts}
 
 /** How the judge read a point, from what the display of its cell's Output asserts
   * (`Display.asserted`), by the contest's rules for scoring an evaluation and
@@ -62,13 +64,13 @@ object Outcome:
   /** The outcome and the share of the display of the point's cell's
     * Output.
     */
-  def judged(question: Question, display: OutputDisplay): (Outcome, Share) =
+  def judged(question: Question, display: OutputDisplay[NoFacts.type]): (Outcome, Share) =
     val asserted = Display.asserted(display)
-    // The reference's normal forms as instructions, each converted once, to
-    // compare with the display's members, which are instructions.
+    // The reference's normal forms and the display's members are instructions of the one configuration the judge
+    // reads under, no facts.
     val reference = question match
-      case Question.Evaluation(normalForms)     => normalForms.map(Defunctionalization.thunkInstruction)
-      case Question.Judgment(candidate, member) => if member then Set(candidate) else Set.empty[Instruction]
+      case Question.Evaluation(normalForms)     => normalForms
+      case Question.Judgment(candidate, member) => if member then Set(candidate) else Set.empty[Configured[NoFacts.type]]
     if !asserted.normalForms.subsetOf(reference) then (False, Share.none)
     else
       val complete = asserted.normalForms == reference && !asserted.remainder
@@ -121,7 +123,7 @@ object Share:
   * βη normal forms are one term exactly when their front end instructions
   * are one interned instruction.
   */
-final case class Asserted(normalForms: Set[Instruction], remainder: Boolean)
+final case class Asserted(normalForms: Set[Configured[NoFacts.type]], remainder: Boolean)
 
 /** Reading a display, on its instruction and never on a tree: the display
   * comes from an untrusted process, and a line of the exchange format of n
@@ -135,26 +137,31 @@ object Display:
     * display of no normal form; for a term, its members that are normal
     * forms, and whether another member stands beside them.
     */
-  def asserted(display: OutputDisplay): Asserted = display match
-    case OutputDisplay.NoNormalForm => Asserted(Set.empty, false)
-    case OutputDisplay.Shown(shown) =>
+  def asserted(display: OutputDisplay[NoFacts.type]): Asserted = display match
+    case OutputDisplay.Values(choices) =>
+      Asserted(ScottADTChoices.members(choices).map(ScottADTChoices.withFilters).toSet, false)
+    case OutputDisplay.Remainder(shown) =>
       val (normalForms, remainder) = members(shown).partition(normalForm)
       Asserted(normalForms.toSet, remainder.nonEmpty)
+    case OutputDisplay.Mixed(choices, shown) =>
+      val (normalForms, _) = members(shown).partition(normalForm)
+      Asserted(ScottADTChoices.members(choices).map(ScottADTChoices.withFilters).toSet ++ normalForms, true)
 
   /** The members of the display's top-level choice, split along the `+`
     * spine with a left side that is itself a choice split as well, since
     * answers form a set, each distinct member once, in order; a display that
     * is not a choice is its own one member.
     */
-  def members(display: Instruction): Vector[Instruction] =
+  def members(display: Configured[NoFacts.type]): Vector[Configured[NoFacts.type]] =
     @tailrec
-    def walked(pending: List[Instruction], visited: Set[Instruction], found: Vector[Instruction]): Vector[Instruction] =
+    def walked(pending: List[Configured[NoFacts.type]], visited: Set[Configured[NoFacts.type]], found: Vector[Configured[NoFacts.type]]): Vector[Configured[NoFacts.type]] =
       pending match
         case Nil                                           => found
         case current :: rest if visited.contains(current) => walked(rest, visited, found)
-        case (current @ Instruction.Choice(left, right)) :: rest =>
-          walked(left :: right :: rest, visited + current, found)
-        case current :: rest => walked(rest, visited + current, found :+ current)
+        case current :: rest =>
+          current.layer match
+            case gezi.ir.Choice(left, right) => walked(left :: right :: rest, visited + current, found)
+            case _                           => walked(rest, visited + current, found :+ current)
     walked(List(display), Set.empty, Vector.empty)
 
   /** Whether the instruction is a closed pure beta eta normal form: its
@@ -168,35 +175,37 @@ object Display:
     * last binder, applied as the code's last argument, is read elsewhere in
     * the code. A closed term is all the pipe carries (`ExchangeText.term`).
     */
-  def normalForm(instruction: Instruction): Boolean = closedNormalForms(instruction)(instruction)
+  def normalForm(instruction: Configured[NoFacts.type]): Boolean = closedNormalForms(instruction)(instruction)
 
   /** What a slot reads while a code is checked: the binder of a hole, by
     * its level, or a closed instruction, a filling.
     */
   private enum SlotRead:
     case Binder(level: Int)
-    case Closed(instruction: Instruction)
+    case Closed(instruction: Configured[NoFacts.type])
 
   /** Whether each closed instruction under the root that the root's
     * readback writes in its own right (the root, and the fillings of
     * thunks) is a normal form, each decided after the fillings it reads.
     */
-  private def closedNormalForms(root: Instruction): Map[Instruction, Boolean] =
+  private def closedNormalForms(root: Configured[NoFacts.type]): Map[Configured[NoFacts.type], Boolean] =
     @tailrec
-    def walked(pending: List[(Instruction, Boolean)], known: Map[Instruction, Boolean]): Map[Instruction, Boolean] =
+    def walked(pending: List[(Configured[NoFacts.type], Boolean)], known: Map[Configured[NoFacts.type], Boolean]): Map[Configured[NoFacts.type], Boolean] =
       pending match
         case Nil                                          => known
         case (current, _) :: rest if known.contains(current) => walked(rest, known)
-        case (current @ Instruction.Thunk(_, _, fillings), false) :: rest =>
-          walked(fillings.toList.map((_, false)) ++ ((current, true) :: rest), known)
+        case (current, false) :: rest =>
+          current.layer match
+            case gezi.ir.Thunk(_, _, fillings) => walked(fillings.toList.map((_, false)) ++ ((current, true) :: rest), known)
+            case _                             => walked(rest, known.updated(current, closedNormalForm(current, known)))
         case (current, _) :: rest => walked(rest, known.updated(current, closedNormalForm(current, known)))
     walked(List((root, false)), Map.empty)
 
   /** Whether the closed instruction is a normal form, its fillings' answers
     * known.
     */
-  private def closedNormalForm(instruction: Instruction, known: Map[Instruction, Boolean]): Boolean = instruction match
-    case Instruction.Thunk(code, holes, fillings) =>
+  private def closedNormalForm(instruction: Configured[NoFacts.type], known: Map[Configured[NoFacts.type], Boolean]): Boolean = instruction.layer match
+    case gezi.ir.Thunk(code, holes, fillings) =>
       val reads = Defunctionalization.slotValues(
         holes,
         holes.indices.toVector.map(SlotRead.Binder(_)),
@@ -208,7 +217,7 @@ object Display:
   /** Whether the code is a normal form under the reads of its slots, the
     * binders around it numbered below `level`.
     */
-  private def codeNormalForm(code: Code, reads: Vector[SlotRead], level: Int, known: Map[Instruction, Boolean]): TailRec[Boolean] =
+  private def codeNormalForm(code: Code, reads: Vector[SlotRead], level: Int, known: Map[Configured[NoFacts.type], Boolean]): TailRec[Boolean] =
     code match
       case Code.Slot(slot) =>
         done(reads(slot) match
@@ -237,7 +246,7 @@ object Display:
       case _ => done(false)
 
   /** Whether every argument is a normal form. */
-  private def allNormalForms(arguments: List[Code], reads: Vector[SlotRead], level: Int, known: Map[Instruction, Boolean]): TailRec[Boolean] =
+  private def allNormalForms(arguments: List[Code], reads: Vector[SlotRead], level: Int, known: Map[Configured[NoFacts.type], Boolean]): TailRec[Boolean] =
     arguments match
       case Nil => done(true)
       case argument :: rest =>
@@ -467,7 +476,7 @@ final case class Session(process: Process, answers: InputStream, points: OutputS
 /** A reader's pass: its rows, and the answer of each evaluation point it
   * answered, by the point's name (the article re-read compares them).
   */
-final case class ReaderRead(rows: Vector[Row], answers: Map[String, Option[Set[Instruction]]])
+final case class ReaderRead(rows: Vector[Row], answers: Map[String, Option[Set[Configured[NoFacts.type]]]])
 
 /** A pass: the rows of every reader, and, by the reader's name, the answers
   * of the evaluation points it answered (none for a reused reader) and its
@@ -475,7 +484,7 @@ final case class ReaderRead(rows: Vector[Row], answers: Map[String, Option[Set[I
   */
 final case class PassRead(
     rows: Vector[Row],
-    answers: Map[String, Map[String, Option[Set[Instruction]]]],
+    answers: Map[String, Map[String, Option[Set[Configured[NoFacts.type]]]]],
     budgets: Map[String, Map[String, Double]]
 )
 
@@ -548,6 +557,18 @@ final case class SetupFailed(reader: String, reason: String, standardError: Stri
   * bytes available every `pollInterval`, so a wall time is late by at most
   * that interval and the polling's own cost. The JVM's standard error goes
   * to a file of the log directory, so that it never fills a pipe.
+  *
+  * A point's program is held and written as the line its points file holds
+  * (`Point.programLine`, `pointLine`), never read here: the runner reads it
+  * and builds the cell in the entry's JVM, inside the point's wall time, as
+  * it read the cell's line when the supervisor built the cell. The
+  * reference's normal forms and a judgment's candidate are read as
+  * instructions when the points are read, and every answer line is read as
+  * an instruction when it arrives (`PipeLines.answerRead`): an answer is
+  * compared with the reference as instructions, never as lines
+  * (`Outcome.judged`), so no comparison of lines stands for a comparison of
+  * terms, and an answer that `ExchangeText.term` does not read, another
+  * spelling of a term included, is no answer, its point stopped as above.
   */
 object Supervisor:
 
@@ -582,7 +603,7 @@ object Supervisor:
       limits: Limits,
       reused: Vector[Row]
   ): PassRead =
-    val withLines = families.map((family, points) => (family, points.map(point => (point, PipeLines.cellLine(point.name, cell(point)) + "\n"))))
+    val withLines = families.map((family, points) => (family, points.map(point => (point, pointLine(point) + "\n"))))
     def readOf(reader: Reader, budget: String => Double): ReaderRead =
       reused.filter(_.reader == reader.name) match
         case Vector() => readerPass(reader, withLines, budget, limits)
@@ -613,7 +634,7 @@ object Supervisor:
       rows: Vector[Row],
       launches: Int,
       roundStarted: Boolean,
-      answers: Map[String, Option[Set[Instruction]]]
+      answers: Map[String, Option[Set[Configured[NoFacts.type]]]]
   )
 
   /** What a family's reading carries from one point to the next: the pass's
@@ -668,17 +689,18 @@ object Supervisor:
         stopped(session)
         None
 
-  /** The cell of the point on the pipe: `λs.λk. k s p` for an evaluation of the program p,
-    * `λs.λk. k s (N ∥ p)` for a judgment of the candidate N; never its
-    * reference or its expected answer, and nothing that tells the two kinds
-    * apart but the term itself. The program and the candidate are closed,
-    * so they are the same terms under the cell's two binders, and the cell
-    * is converted with them as constants, never read back into a tree.
+  /** The line of the point on the pipe, from which the runner builds the
+    * point's cell (`PipeLines.cellRead`): `λs.λk. k s p` for an evaluation
+    * of the program p, `λs.λk. k s (N ∥ p)` for a judgment of the candidate
+    * N; never its reference or its expected answer. The program is written
+    * as the line the points file holds, never read here: the supervisor
+    * holds programs as text (`Point`). The candidate, an instruction, is
+    * written as its line, which reads back as it, since it was read from
+    * one.
     */
-  def cell(point: Point): Instruction =
-    Defunctionalization.thunkInstruction(Cells.cell(DeBruijnTerm.Constant(point.question match
-      case Question.Evaluation(_)          => point.program
-      case Question.Judgment(candidate, _) => Instruction.Parallel(candidate, point.program))))
+  def pointLine(point: Point): String = point.question match
+    case Question.Evaluation(_)          => PipeLines.evaluationLine(point.name, point.programLine)
+    case Question.Judgment(candidate, _) => PipeLines.judgmentLine(point.name, ExchangeText.line(candidate), point.programLine)
 
   private def kind(point: Point): String = point.question match
     case Question.Evaluation(_)  => "evaluation"
@@ -847,7 +869,7 @@ object Supervisor:
     // FIXME: the allowance (`--article-allowance`, default 2) was set when https://github.com/Atry/private-overlay/issues/2049
     // the re-read read the whole family, warm; it now reads one cell cold and is to be measured
     // again.
-    val lines = Vector((target, PipeLines.cellLine(target.name, cell(target)) + "\n"))
+    val lines = Vector((target, pointLine(target) + "\n"))
     val read = readerPass(
       reader,
       Vector((family, lines)),
@@ -866,7 +888,7 @@ object Supervisor:
     * asserted being `None` (the article re-read compares them); nothing for
     * a judgment point or another line.
     */
-  private def evaluationAnswer(point: Point, line: String): Option[Option[Set[Instruction]]] =
+  private def evaluationAnswer(point: Point, line: String): Option[Option[Set[Configured[NoFacts.type]]]] =
     (point.question, PipeLines.answerRead(line)) match
       case (Question.Evaluation(_), PipeLines.AnswerRead.Answer(_, _, display)) =>
         val asserted = Display.asserted(display)
@@ -1417,18 +1439,42 @@ object SupervisorCommand:
     val read = Supervisor.passRead(anchor, readers, families, limits, reused)
     Files.writeString(output, Supervisor.table(seed, provenance, read.rows))
     options.get("article-seed").map(_.toLong).foreach { articleSeed =>
-      val (knowledgeFile, library) = options.get("article-knowledge") match
-        case Some(file) => (file, articleLibrary(buildRoot, file))
+      val articleRoot = output.getParent.resolve("articles")
+      val knowledgeArguments = options.get("article-knowledge") match
+        case Some(file) => Vector("--knowledge-name", file, "--article-knowledge", file)
         case None =>
-          (s"contest-entries-$player/$entryDataFileName", entryKnowledgeLibrary(buildRoot.resolve(s"contest-entries-$player")))
+          Vector(
+            "--knowledge-name",
+            s"contest-entries-$player/$entryDataFileName",
+            "--entry-directory",
+            buildRoot.resolve(s"contest-entries-$player").toString
+          )
+      def manifestsWritten(requests: Vector[(Point, ArticleOutcome, Path)]): Unit =
+        val requestsFile = articleRoot.resolve(ArticleManifests.requestsFileName)
+        Files.writeString(requestsFile, ArticleManifests.requestLines(requests).mkString("", "\n", "\n"))
+        manifestsJvmRun(
+          Vector(
+            "--requests",
+            requestsFile.toString,
+            "--points",
+            Paths.get(required("points")).toAbsolutePath.toString,
+            "--build-root",
+            buildRoot.toString,
+            "--build",
+            build
+          ) ++ knowledgeArguments,
+          ownClasspath,
+          articleRoot,
+          limits
+        )
       val lines = ArticleRereading.table(
         entryReader(player),
         families,
         read,
         articleSeed,
         options.getOrElse("article-allowance", "2").toDouble,
-        output.getParent.resolve("articles"),
-        ManifestProvenance(build, knowledgeFile, library.index),
+        articleRoot,
+        manifestsWritten,
         limits,
         options.get("trace-player").map(Paths.get(_))
       )
@@ -1468,6 +1514,27 @@ object SupervisorCommand:
   def entryKnowledgeLibrary(entryDirectory: Path): StandardLibrary =
     val (data, afterEntry) = EntryData.read(entryDirectory, Defaults.entryDataState)
     StandardLibrary.compiled(data.knowledge, Vector.empty, afterEntry)._1
+
+  /** The manifests' JVM (`judgeArticleManifests`) run with the arguments
+    * on the judge's own classpath, on the pass's placement (slice, cores,
+    * niceness) with the round's entry heap, its standard output and error
+    * in `manifests.stderr` of the articles' directory. Throws
+    * `IllegalStateException` naming that file when it ends with another
+    * status than 0.
+    */
+  def manifestsJvmRun(arguments: Vector[String], classpath: String, articleRoot: Path, limits: Limits): Unit =
+    val java = Paths.get(System.getProperty("java.home"), "bin", "java").toString
+    val errors = articleRoot.resolve("manifests.stderr")
+    val command =
+      limits.slice.toVector.flatMap(slice => Vector("systemd-run", "--user", "--scope", "--quiet", s"--slice=$slice")) ++
+        limits.cores.toVector.flatMap(cores => Vector("taskset", "-c", cores)) ++
+        limits.niceness.toVector.flatMap(niceness => Vector("nice", "-n", niceness.toString)) ++
+        Vector(java, s"-Xmx${limits.entryHeap}", "-XX:+UseSerialGC", "-XX:+ExitOnOutOfMemoryError", "-cp", classpath, "gezi.contest.judge.judgeArticleManifests") ++
+        arguments
+    // The standard output goes to the same file: the JVM writes the cause of an
+    // exit under -XX:+ExitOnOutOfMemoryError there.
+    val status = ProcessBuilder(command.asJava).redirectErrorStream(true).redirectOutput(Redirect.to(errors.toFile)).start().waitFor()
+    if status != 0 then throw IllegalStateException(s"the manifests' JVM ended with status $status; see $errors")
 
   /** The library of the knowledge of the file at the path relative to the
     * build root, the first field of the Scott tuple its tuple holds

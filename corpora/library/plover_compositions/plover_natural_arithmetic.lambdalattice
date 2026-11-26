@@ -1,0 +1,36 @@
+# The typed versions of two recursions on canonical binary naturals, each of which a
+# native computes: the remainder, plover_binary_modulo, and the difference with no
+# borrow, binary_subtract minuend subtrahend false. The recursions are the terms
+# plover_compositions and plover_binary_arithmetic spell, so that a program's own
+# recursion of that structure is the same IR term.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "prelude") "boolean")
+λ _ false _ _
+. omega (omega (omega (omega corpora "library") "binary") "natural")
+λ _ _ _ _ binary_set
+. omega (omega (omega (omega corpora "library") "native_types") "boolean")
+λ criterion_true _ _ _
+. omega (omega (omega (omega corpora "library") "plover_compositions") "plover_binary_arithmetic")
+λ _ binary_subtract
+. omega (omega (omega (omega corpora "library") "plover_compositions") "plover_compositions")
+λ _ _ plover_binary_modulo _ _ _
+# plover_typed_natural_modulo:
+# Both operands canonical naturals, a zero modulus included.
+. ( λ tuple
+    . tuple
+    λ number modulus
+    . (plover_binary_modulo (number ∥ binary_set criterion_true) (modulus ∥ binary_set criterion_true) ∥ binary_set criterion_true)
+  )
+λ plover_typed_natural_modulo
+# plover_typed_natural_difference:
+# Both operands canonical naturals. The value is the recursion's on every such pair,
+# a subtrahend larger than the minuend included.
+. ( λ tuple
+    . tuple
+    λ minuend subtrahend
+    . (binary_subtract (minuend ∥ binary_set criterion_true) (subtrahend ∥ binary_set criterion_true) false ∥ binary_set criterion_true)
+  )
+λ plover_typed_natural_difference
+. export plover_typed_natural_modulo plover_typed_natural_difference

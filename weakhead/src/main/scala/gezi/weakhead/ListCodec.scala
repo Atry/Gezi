@@ -1,6 +1,6 @@
 package gezi.weakhead
 
-import gezi.ir.Instruction
+import gezi.ir.{Configured, NativeSpecializer, Value}
 
 /** A constructor of the lists the codec decodes into and encodes from. */
 enum ListConstructor:
@@ -39,16 +39,16 @@ enum ListFieldName:
 final case class ListField(decoding: Decoding, field: ListFieldName) extends NeutralVariable
 
 /** What a head of a value applied to a decoding's cases reads. */
-enum ListReading:
+enum ListReading[C <: NativeSpecializer & Singleton]:
 
   /** The first case with no argument. */
-  case Nil
+  case Nil()
 
   /** The second case over two arguments, the head and the tail. */
-  case Cons(head: Value, tail: Value)
+  case Cons(head: Value[C], tail: Value[C])
 
   /** Any other head (the Prolog codec's `none`). */
-  case NoCase
+  case NoCase()
 
 /** A value of the representation list(E) (list_codec.pl), over the JIT's
   * run-time values of type Item: `items(Length, Items)`, the items kept as
@@ -57,18 +57,23 @@ enum ListReading:
   */
 enum ListRepresentation[+Item]:
 
-  /** The items and their number. */
+  /** The items and their number: a native's whole list, and the empty list
+    * a storage holds.
+    */
   case Items(length: Int, items: Vector[Item])
 
-  /** An item and a tail not read. */
-  case Cell(item: Item, tail: ListTail[Item])
-
-/** The tail of a cell: a term nothing has read (`unread(Term)`), or a list
-  * of the representation.
-  */
-enum ListTail[+Item]:
-  case Unread(term: Item)
-  case Listed(list: ListRepresentation[Item])
+  /** One cell, a storage's one layer `cons (item ∥ E) tail ∥ list_type E`:
+    * the item and the tail's node as written, never read here. The tail is
+    * `t ∥ list_type E` or a storage of the list, the unique spelling, except
+    * for a cell cons's native makes under the default construction, whose
+    * tail is the term as given.
+    *
+    * FIXME: that cell's view is not the unique spelling, its tail unfiltered;
+    * https://github.com/Atry/private-overlay/issues/2202
+    * kept as main has it, by copy-on-write, and a decode point filters such a
+    * tail (`gezi.jit.JitRules.decodePointValue`).
+    */
+  case Cell(item: Item, tail: Item)
 
 /** A field a value of the representation hands out to a case it is applied
   * to (`eliminatedBranch`).
@@ -78,12 +83,8 @@ enum ListElementField[+Item]:
   /** An item filtered by the element, `parallel(Item, Element)`. */
   case Filtered(item: Item, element: Item)
 
-  /** A list of the representation list(Element), `represented(list(E), L)`.
-    */
-  case Represented(element: Item, list: ListRepresentation[Item])
-
-  /** The term of a tail not read, as it was given. */
-  case Term(term: Item)
+  /** A cell's tail node, handed out as it is. */
+  case Node(node: Item)
 
 /** The codec of the representation list(E): the library's lists as host
   * vectors. The port of `gezi/prolog/gezi/list_codec.pl`, a
@@ -116,17 +117,12 @@ enum ListElementField[+Item]:
   * decoded one level deeper with cases of its own level, the head kept as it
   * is. The codec assumes this one shape of value and decides no type.
   *
-  * WHY A DECODED LIST STANDS FOR THE FILTERED VALUE: the Prolog module
-  * comment, unchanged: x ⊑ cons h1 (... (cons hn nil)) by the decoding,
-  * provided that no item mentions a case of the decoding, which the decoding
-  * does not check.
-  *
-  * FIXME (carried from list_codec.pl:83, following the FIXME at the JIT's https://github.com/Atry/private-overlay/issues/1939
-  * reading_decoded/5, jit.pl:2144, carried to the port of answer_decoded/5,
-  * `gezi.jit.Jit`'s `answerDecoded`): an item is
-  * kept with no check that it mentions no case of the decoding; a value that
-  * passes its own case to its cons case keeps the decoding's neutral value
-  * as an item, and the reader throws on it.
+  * WHY A DECODED LIST STANDS FOR THE FILTERED VALUE: x ⊑ cons h1 (... (cons
+  * hn nil)) by the decoding, provided that no item mentions a case of the
+  * decoding. So the decoded list may lose answers of the filtered value and
+  * adds none. The decoding itself does not check the proviso: its caller, the
+  * JIT's decode point, does (`gezi.jit.JitValues.mayHoldDecodingCase`), and
+  * reads the filtered value as a parallel where an item may mention a case.
   *
   * FIXME (2026-11-07, data families declared by facts): the lists' family is now declared by facts (`data_family`, https://github.com/Atry/private-overlay/issues/1940
   * `data_fields` and `jvm_type(list)` on `list_type`), and the declaration
@@ -140,21 +136,23 @@ object ListCodec:
 
   /** The two cases a value of the decoding is applied to at the tail depth.
     */
-  def decodingCases(decoding: Decoding, level: Int): (Value, Value) =
+  def decodingCases[C <: NativeSpecializer & Singleton](decoding: Decoding, level: Int)(using C): (Value[C], Value[C]) =
     (
-      Value.Neutral(ListCase(decoding, level, ListConstructor.Nil), Vector.empty),
-      Value.Neutral(ListCase(decoding, level, ListConstructor.Cons), Vector.empty)
+      NeutralValue(ListCase(decoding, level, ListConstructor.Nil), Vector.empty),
+      NeutralValue(ListCase(decoding, level, ListConstructor.Cons), Vector.empty)
     )
 
   /** What a head of a value applied to the decoding's cases at the level
     * reads.
     */
-  def caseReading(head: Head, decoding: Decoding, level: Int): ListReading = head match
+  def caseReading[C <: NativeSpecializer & Singleton](head: Head[C], decoding: Decoding, level: Int)(using
+      C
+  ): ListReading[C] = head match
     case Head.Neutral(ListCase(`decoding`, `level`, ListConstructor.Nil), arguments) if arguments.isEmpty =>
-      ListReading.Nil
+      ListReading.Nil()
     case Head.Neutral(ListCase(`decoding`, `level`, ListConstructor.Cons), Vector(listHead, listTail)) =>
       ListReading.Cons(listHead, listTail)
-    case _ => ListReading.NoCase
+    case _ => ListReading.NoCase()
 
   /** The position of the constructor among the cases, by the assumed shape,
     * and so in the `data_family` of a type the codec holds: nil 0, cons 1.
@@ -167,38 +165,20 @@ object ListCodec:
   /** The term the list of the representation list(element) stands for,
     * applied to the count of arguments, answers its branch-th argument
     * applied to the fields, by the assumed shape: the empty list answers the
-    * first of two arguments with no field; a list of a first item i answers
-    * the second applied to i filtered by the element and to its tail: the
-    * rest of the items in the representation, its length one less, for
-    * `Items`; for `Cell`, the tail as it was given (`tailField`), read only
-    * now that a consumer reads it. The count, the branch and the fields.
+    * first of two arguments with no field; a cell of an item i answers the
+    * second applied to i filtered by the element and to its tail's node as
+    * it is. The count, the branch and the fields. A whole list of items is
+    * never stored (`gezi.jit.RepresentedStorage.apply` makes it into cells).
     */
   def eliminatedBranch[Item](
       element: Item,
       list: ListRepresentation[Item]
   ): (Int, Int, Vector[ListElementField[Item]]) = list match
-    case ListRepresentation.Items(length, items) =>
-      assert(length == items.size, s"a list of ${items.size} items says its length is $length")
-      if items.isEmpty then (2, 1, Vector.empty)
-      else
-        (
-          2,
-          2,
-          Vector(
-            ListElementField.Filtered(items.head, element),
-            ListElementField.Represented(element, ListRepresentation.Items(length - 1, items.tail))
-          )
-        )
+    case ListRepresentation.Items(0, _) => (2, 1, Vector.empty)
+    case items @ ListRepresentation.Items(_, _) =>
+      throw IllegalStateException(s"a stored list is the empty list or one cell, not the whole list $items")
     case ListRepresentation.Cell(item, tail) =>
-      (2, 2, Vector(ListElementField.Filtered(item, element), tailField(element, tail)))
-
-  /** The field the tail of a cell of the representation list(element)
-    * stands for: the term of a tail not read, and a list of the
-    * representation as a represented value.
-    */
-  def tailField[Item](element: Item, tail: ListTail[Item]): ListElementField[Item] = tail match
-    case ListTail.Unread(term) => ListElementField.Term(term)
-    case ListTail.Listed(list) => ListElementField.Represented(element, list)
+      (2, 2, Vector(ListElementField.Filtered(item, element), ListElementField.Node(tail)))
 
   /** Whether the defines nil and cons have the assumed shape, read under
     * weak_head: every head of nil applied to the cases reads Nil, and every
@@ -207,19 +187,22 @@ object ListCodec:
     * when a reading runs past its budget. Each reading within
     * `Codecs.shapeStepLimit` steps.
     */
-  def constructorsShape(nil: Instruction, cons: Instruction): Shape[ListReading] =
-    val (nilCase, consCase) = decodingCases(Decoding.Shape, 0)
-    val listHead = Value.Neutral(ListField(Decoding.Shape, ListFieldName.Head), Vector.empty)
-    val listTail = Value.Neutral(ListField(Decoding.Shape, ListFieldName.Tail), Vector.empty)
+  def constructorsShape[C <: NativeSpecializer & Singleton](nil: Configured[C], cons: Configured[C])(using
+      C,
+      gezi.ir.StorageAccess
+  ): Shape[ListReading[C]] =
+    val (nilCase, consCase) = decodingCases[C](Decoding.Shape, 0)
+    val listHead = NeutralValue[C](ListField(Decoding.Shape, ListFieldName.Head), Vector.empty)
+    val listTail = NeutralValue[C](ListField(Decoding.Shape, ListFieldName.Tail), Vector.empty)
     val nilReadings = Codecs.readingsWithin(
-      Value.Apply(Value.Apply(nil, nilCase), consCase),
-      ListReading.NoCase
+      Value.Apply(Value.Apply(Value.of(nil), nilCase), consCase),
+      ListReading.NoCase[C]()
     )(caseReading(_, Decoding.Shape, 0))
     val consReadings = Codecs.readingsWithin(
       Value.Apply(
-        Value.Apply(Value.Apply(Value.Apply(cons, listHead), listTail), nilCase),
+        Value.Apply(Value.Apply(Value.Apply(Value.of(cons), listHead), listTail), nilCase),
         consCase
       ),
-      ListReading.NoCase
+      ListReading.NoCase[C]()
     )(caseReading(_, Decoding.Shape, 0))
-    Codecs.shapeOf(nilReadings, consReadings, ListReading.Nil, ListReading.Cons(listHead, listTail))
+    Codecs.shapeOf(nilReadings, consReadings, ListReading.Nil[C](), ListReading.Cons(listHead, listTail))

@@ -34,7 +34,7 @@ import gezi.ematching.Program
 import gezi.ematching.SeedTree
 import gezi.ematching.Step
 import gezi.ir.Code
-import gezi.ir.Instruction
+import gezi.ir.NativeSpecializer
 import gezi.ir.Layer
 import scala.jdk.CollectionConverters.*
 import gezi.ir
@@ -61,15 +61,15 @@ private object ClassFileGeneration:
   private val generatedInterface = described(classOf[GeneratedProgram])
   private val support =
     ClassDesc.of("gezi.ematching.bytecode.GeneratedCodeSupport")
-  private val graphView = described(classOf[GraphView])
-  private val graphBuilding = described(classOf[GraphBuilding[?]])
+  private val graphView = described(classOf[GraphView[?]])
+  private val graphBuilding = described(classOf[GraphBuilding[?, ?]])
   private val matchingClass = described(classOf[Matching])
   private val searchedClass = described(classOf[Searched])
   // A layer is a union of constructor classes and an instruction or a code an
   // opaque alias of AnyRef: none is a class, so each descriptor is the
   // erasure the Scala compiler gave a method whose signature names the type.
-  private val layerClass = described(classOf[GraphView].getMethod("layer", Integer.TYPE).getReturnType)
-  private val instructionClass = described(classOf[GraphView].getMethod("instructionNode", classOf[AnyRef]).getParameterTypes.head)
+  private val layerClass = described(classOf[GraphView[?]].getMethod("layer", Integer.TYPE).getReturnType)
+  private val instructionClass = described(classOf[GraphView[?]].getMethod("instructionNode", classOf[AnyRef]).getParameterTypes.head)
   // A code is the same opaque alias of AnyRef as an instruction, so it erases alike.
   private val codeIdentifierClass = instructionClass
   private val applyLayer = described(classOf[ir.Apply[?]])
@@ -81,7 +81,7 @@ private object ClassFileGeneration:
   private val someClass = described(classOf[Some[?]])
   private val tupleClass = described(classOf[(?, ?)])
   private val positionUserClass = described(classOf[PositionUser])
-  private val headClass = described(classOf[Head])
+  private val headClass = described(classOf[Head[?]])
   private val memberShapeClass = described(classOf[MemberShape])
   private val userRoleClass = described(classOf[UserRole])
   private val positionRoleClass = described(classOf[PositionRole])
@@ -98,7 +98,7 @@ private object ClassFileGeneration:
 
   /** The constant a step or a building names, with the class it is read as. */
   private def constantOf(value: AnyRef): ClassDesc = value match
-    case _: Head        => headClass
+    case _: Head[?]        => headClass
     case _: MemberShape => memberShapeClass
     case _: UserRole    => userRoleClass
     case _: PositionRole => positionRoleClass
@@ -110,11 +110,11 @@ private object ClassFileGeneration:
     case other =>
       throw IllegalArgumentException(s"no constant of the class ${other.getClass}")
 
-  private def stepConstants(step: Step): Vector[AnyRef] = step match
+  private def stepConstants[C <: NativeSpecializer & Singleton](step: Step[C]): Vector[AnyRef] = step match
     case Step.Layer(_, LayerTemplate.Thunk(code, holes), _) => Vector(code, holes)
     case Step.Lookup(LayerTemplate.Thunk(code, holes), _, _) => Vector(code, holes)
-    case Step.InstructionIn(instruction, _)                        => Vector(instruction)
-    case Step.InstructionNode(instruction, _)                      => Vector(instruction)
+    case Step.InstructionIn(instruction, _)                        => Vector(instruction.representation)
+    case Step.InstructionNode(instruction, _)                      => Vector(instruction.representation)
     case Step.EachHeadMember(_, head, _)                 => Vector(head)
     case Step.EachMember(_, shape, _)                    => Vector(shape)
     case Step.EachUser(_, role, _)                       => Vector(role)
@@ -122,21 +122,21 @@ private object ClassFileGeneration:
     case Step.Once(steps)                                => steps.flatMap(stepConstants)
     case _                                               => Vector.empty
 
-  private def buildingConstants(building: Building): Vector[AnyRef] = building match
+  private def buildingConstants[C <: NativeSpecializer & Singleton](building: Building[C]): Vector[AnyRef] = building match
     case Building.Apply(function, argument, _) =>
       buildingConstants(function) ++ buildingConstants(argument)
     case Building.Parallel(left, right) => buildingConstants(left) ++ buildingConstants(right)
     case Building.Choice(left, right)   => buildingConstants(left) ++ buildingConstants(right)
     case Building.Thunk(code, holes, fillings) =>
       Vector(code, holes) ++ fillings.flatMap(buildingConstants)
-    case Building.InstructionNode(instruction) => Vector(instruction)
+    case Building.InstructionNode(instruction) => Vector(instruction.representation)
     case Building.CodeBody(body)     => Vector(body)
     case Building.Value(_)           => Vector.empty
 
   /** The registers a step reads or writes, those of a witness's steps
     * included.
     */
-  private def registersOf(step: Step): Vector[Int] = step match
+  private def registersOf[C <: NativeSpecializer & Singleton](step: Step[C]): Vector[Int] = step match
     case Step.Layer(node, _, children)                    => node +: children
     case Step.Root(node, target)                          => Vector(node, target)
     case Step.Same(first, second)                         => Vector(first, second)
@@ -151,7 +151,7 @@ private object ClassFileGeneration:
     case Step.Once(steps)                                 => steps.flatMap(registersOf)
 
   /** The steps of the tree, its branches' included. */
-  private def treeSteps(tree: SeedTree): Vector[Step] =
+  private def treeSteps[C <: NativeSpecializer & Singleton](tree: SeedTree[C]): Vector[Step[C]] =
     tree.steps ++ tree.branches.flatMap(treeSteps)
 
   /** The program's class defined, and its one instance. The entries are the
@@ -159,9 +159,9 @@ private object ClassFileGeneration:
     * the backend numbered them; each code of the program has the number the
     * backend gave it.
     */
-  def generated(
-      program: Program,
-      entries: Vector[(SeedTree, Int)],
+  def generated[C <: NativeSpecializer & Singleton](
+      program: Program[C],
+      entries: Vector[(SeedTree[C], Int)],
       codeNumbers: Map[Code, Int]
   ): GeneratedProgram =
     val shared = program.orientations.flatMap(_.shared)
@@ -329,7 +329,7 @@ private object ClassFileGeneration:
     /** An entry's method: its tree run from the delta in local 1, the
       * matches handed over grouped by seed.
       */
-    def entryBody(code: CodeBuilder, tree: SeedTree, seedCount: Int): Unit =
+    def entryBody[C <: NativeSpecializer & Singleton](code: CodeBuilder, tree: SeedTree[C], seedCount: Int): Unit =
       val count = math.max(
         SeedTree.registerCount(tree),
         1 + (0 +: treeSteps(tree).flatMap(registersOf)).max
@@ -352,7 +352,7 @@ private object ClassFileGeneration:
       * seeds that end there and each branch in turn; then a jump to
       * `failure`, to try the next entry.
       */
-    private def treeRun(code: CodeBuilder, frame: SeedFrame, tree: SeedTree, failure: Label): Unit =
+    private def treeRun[C <: NativeSpecializer & Singleton](code: CodeBuilder, frame: SeedFrame, tree: SeedTree[C], failure: Label): Unit =
       steps(code, frame, tree.steps.toList, failure, Mode.Collect, Right(tree))
 
     /** The matches of the seeds that end at the tree's node, then each
@@ -361,7 +361,7 @@ private object ClassFileGeneration:
       * registers the next branch reads still hold what the shared steps
       * wrote.
       */
-    private def treeEnd(code: CodeBuilder, frame: SeedFrame, tree: SeedTree, failure: Label): Unit =
+    private def treeEnd[C <: NativeSpecializer & Singleton](code: CodeBuilder, frame: SeedFrame, tree: SeedTree[C], failure: Label): Unit =
       tree.ends.foreach(end =>
         code.aload(frame.searched)
         integerConstant(code, end.seed)
@@ -401,13 +401,13 @@ private object ClassFileGeneration:
       * them with a CyclicReference (BufferedMethodBuilder, measured on
       * 2026-10-31).
       */
-    private def steps(
+    private def steps[C <: NativeSpecializer & Singleton](
         code: CodeBuilder,
         frame: SeedFrame,
-        remaining: List[Step],
+        remaining: List[Step[C]],
         failure: Label,
         mode: Mode,
-        finish: Either[Label, SeedTree]
+        finish: Either[Label, SeedTree[C]]
     ): Unit = remaining match
       case Nil =>
         finish.fold(
@@ -434,7 +434,7 @@ private object ClassFileGeneration:
           case Step.InstructionIn(instruction, root) =>
             val option = code.allocateLocal(TypeKind.REFERENCE)
             code.aload(frame.graph)
-            constant(code, instruction)
+            constant(code, instruction.representation)
             code.invokeinterface(graphView, "instructionNode", method(optionClass, instructionClass))
             code.astore(option)
             code.aload(option).instanceOf(someClass).ifeq(failure)
@@ -452,7 +452,7 @@ private object ClassFileGeneration:
             continued(failure)
           case Step.InstructionNode(instruction, target) =>
             code.aload(frame.graph)
-            constant(code, instruction)
+            constant(code, instruction.representation)
             code.invokeinterface(graphView, "instructionNode", method(optionClass, instructionClass))
             nodeFound(code, frame, target, failure)
             continued(failure)
@@ -693,7 +693,7 @@ private object ClassFileGeneration:
 
     // ---- buildings ----
 
-    def buildingMethod(classBuilder: ClassBuilder, name: String, building: Building): Unit =
+    def buildingMethod[C <: NativeSpecializer & Singleton](classBuilder: ClassBuilder, name: String, building: Building[C]): Unit =
       classBuilder.withMethodBody(
         name,
         buildingType,
@@ -710,7 +710,7 @@ private object ClassFileGeneration:
       * graph after it and of its node, fresh ones written once. Local 1
       * holds the values.
       */
-    private def built(code: CodeBuilder, building: Building, graph: Int): (Int, Int) =
+    private def built[C <: NativeSpecializer & Singleton](code: CodeBuilder, building: Building[C], graph: Int): (Int, Int) =
       building match
         case Building.Value(index) =>
           val node = code.allocateLocal(TypeKind.INT)
@@ -721,7 +721,7 @@ private object ClassFileGeneration:
           (graph, node)
         case Building.InstructionNode(instruction) =>
           code.aload(graph)
-          constant(code, instruction)
+          constant(code, instruction.representation)
           code.invokeinterface(graphBuilding, "instructionAdded", method(tupleClass, instructionClass))
           unpacked(code)
         case Building.CodeBody(body) =>
@@ -771,9 +771,9 @@ private object ClassFileGeneration:
           )
           layerAdded(code)
 
-    private def childrenBuilt(
+    private def childrenBuilt[C <: NativeSpecializer & Singleton](
         code: CodeBuilder,
-        buildings: Vector[Building],
+        buildings: Vector[Building[C]],
         graph: Int
     ): (Int, Vector[Int]) =
       buildings.foldLeft((graph, Vector.empty[Int])) { case ((current, nodes), building) =>

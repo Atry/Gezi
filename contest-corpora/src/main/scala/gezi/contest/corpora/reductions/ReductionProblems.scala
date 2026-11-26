@@ -54,7 +54,7 @@ object ReductionProblems:
     }
     fibonacci ++ products ++ grids ++ sums
 
-  private def problem(point: String, program: Term, value: BigInt): ReductionProblem =
+  private def problem(point: String, program: ProblemTerm, value: BigInt): ReductionProblem =
     ReductionProblem(point, program, "binary", Expected.One(Scott.binaryTree(value)), Reduction.defaultLimits)
 
   /** C(total, chosen) by its product formula (`binomial/3`). */
@@ -64,13 +64,13 @@ object ReductionProblems:
   /** fib(n) under the lets of zero, one and the Fibonacci function of
     * `problems/merge_fibonacci`.
     */
-  def fibonacciProgram(group: ReductionGroup, number: Int): Term =
+  def fibonacciProgram(group: ReductionGroup, number: Int): ProblemTerm =
     withFibonacci(group)(function => function(unary(number)))
 
   /** The body under the lets of the arithmetic, zero, one and the Fibonacci
     * function; the body is given the let variable of the function.
     */
-  private[reductions] def withFibonacci(group: ReductionGroup)(body: Term => Term): Term =
+  private[reductions] def withFibonacci(group: ReductionGroup)(body: ProblemTerm => ProblemTerm): ProblemTerm =
     group.arithmetic.withArithmetic(names =>
       λ(zero =>
         λ(one => λ(function => body(function))(group.fibonacci.fibonacciFunction(names.plus, zero, one)))(
@@ -80,13 +80,13 @@ object ReductionProblems:
     )
 
   /** The product under the lets of zero and times. */
-  def productProgram(group: ReductionGroup, left: BigInt, right: BigInt): Term =
+  def productProgram(group: ReductionGroup, left: BigInt, right: BigInt): ProblemTerm =
     withTimes(group)(times => times(binary(left))(binary(right)))
 
   /** The body under the lets of the arithmetic, zero and times; the body is
     * given the let variable times.
     */
-  private[reductions] def withTimes(group: ReductionGroup)(body: Term => Term): Term =
+  private[reductions] def withTimes(group: ReductionGroup)(body: ProblemTerm => ProblemTerm): ProblemTerm =
     group.arithmetic.withArithmetic(names =>
       λ(zero => λ(times => body(times))(group.arithmetic.timesFunction(names.plus, zero)))(
         binary(0)
@@ -94,30 +94,30 @@ object ReductionProblems:
     )
 
   /** The lattice paths of the grid under the lets of one and the paths. */
-  def gridProgram(group: ReductionGroup, size: Int): Term =
+  def gridProgram(group: ReductionGroup, size: Int): ProblemTerm =
     withGrid(group)(grid => squareGridPaths(grid, unary(size)))
 
   /** The body under the lets of the arithmetic, one and the paths; the body
     * is given the let variable of the paths.
     */
-  private[reductions] def withGrid(group: ReductionGroup)(body: Term => Term): Term =
+  private[reductions] def withGrid(group: ReductionGroup)(body: ProblemTerm => ProblemTerm): ProblemTerm =
     group.arithmetic.withArithmetic(names =>
       λ(one => λ(grid => body(grid))(group.arithmetic.gridFunction(names.plus, one)))(binary(1))
     )
 
   /** The paths of the square grid whose side is the unary numeral. */
-  private[reductions] def squareGridPaths(grid: Term, side: Term): Term = grid(side)(side)
+  private[reductions] def squareGridPaths(grid: ProblemTerm, side: ProblemTerm): ProblemTerm = grid(side)(side)
 
   /** `[plus a b, plus b a]` under the lets of the arithmetic. */
-  def sumBothOrdersProgram(group: ReductionGroup, left: BigInt, right: BigInt): Term =
+  def sumBothOrdersProgram(group: ReductionGroup, left: BigInt, right: BigInt): ProblemTerm =
     withPlus(group)(plus => sumBothOrders(plus, binary(left), binary(right)))
 
   /** The body under the lets of the arithmetic; the body is given the let
     * variable plus.
     */
-  private[reductions] def withPlus(group: ReductionGroup)(body: Term => Term): Term =
+  private[reductions] def withPlus(group: ReductionGroup)(body: ProblemTerm => ProblemTerm): ProblemTerm =
     group.arithmetic.withArithmetic(names => body(names.plus))
 
   /** `[plus a b, plus b a]`. */
-  private[reductions] def sumBothOrders(plus: Term, left: Term, right: Term): Term =
+  private[reductions] def sumBothOrders(plus: ProblemTerm, left: ProblemTerm, right: ProblemTerm): ProblemTerm =
     members(Vector(plus(left)(right), plus(right)(left)))

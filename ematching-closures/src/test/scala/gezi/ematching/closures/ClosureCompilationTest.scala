@@ -16,44 +16,46 @@ import gezi.ematching.Step
 import gezi.ir.CodeLayer
 import gezi.ir.Code
 import gezi.ir.Direction
-import gezi.ir.Instruction
-import gezi.ir.Layer
+import gezi.ir.Configured
+import gezi.ir.NoFacts
 import gezi.ir.LemmaIdentifier
 import gezi.ir.Store
 import gezi.ir.{Apply, NoinlineLeaf, Parallel, Slot}
 
 class ClosureCompilationTest extends gezi.generatedinputs.FailFastSuite:
 
-  private val name = Instruction.opaque("name")
-  private val first = Instruction.opaque("first")
-  private val second = Instruction.opaque("second")
-  private val same = Instruction(Parallel(first, first))
-  private val different = Instruction(Parallel(first, second))
-  private val nameOfFirst = Instruction(Apply(name, first))
-  private val nameOfSecond = Instruction(Apply(name, second))
+  private type C = NoFacts.type
 
-  private val store = Store(noinline = Set(name, first, second))
+  private val name = NoFacts.opaque("name")
+  private val first = NoFacts.opaque("first")
+  private val second = NoFacts.opaque("second")
+  private val same = NoFacts.parallel(first, first)
+  private val different = NoFacts.parallel(first, second)
+  private val nameOfFirst = NoFacts.application(name, first)
+  private val nameOfSecond = NoFacts.application(name, second)
 
-  private def added(graph: EGraph, instruction: Instruction): (EGraph, Int) =
+  private val store = Store(noinline = Set(name, first, second), gezi.ir.TermConstruction(NoFacts))
+
+  private def added(graph: EGraph[C], instruction: Configured[C]): (EGraph[C], Int) =
     graph.instructionAdded(instruction)
 
   /** The seed of `X ∥ X` at its root, the index's for the orientation
     * `X ∥ X = X`.
     */
-  private val idempotence = Seed(
+  private val idempotence = Seed[C](
     0,
     Vector(
-      Step.Layer(0, LayerTemplate.Parallel, Vector(1, 2)),
-      Step.Root(1, 3),
-      Step.Root(2, 4),
-      Step.Same(4, 3),
-      Step.Root(0, 5)
+      Step.Layer[C](0, LayerTemplate.Parallel, Vector(1, 2)),
+      Step.Root[C](1, 3),
+      Step.Root[C](2, 4),
+      Step.Same[C](4, 3),
+      Step.Root[C](0, 5)
     ),
     5,
     Vector(Some(3))
   )
 
-  private def plan(added: Building) = OrientationPlan(
+  private def plan(added: Building[C]) = OrientationPlan[C](
     LemmaIdentifier(0),
     Direction.Forward,
     added,
@@ -62,49 +64,49 @@ class ClosureCompilationTest extends gezi.generatedinputs.FailFastSuite:
   )
 
   test("a seed's steps find exactly the matches of its pattern") {
-    val program = Program(
-      Map((SeedKind.Merge, SeedKey.Parallel) -> Vector(idempotence)),
-      Vector(plan(Building.Value(0))),
+    val program = Program[C](
+      Map((SeedKind.Merge, SeedKey.Parallel[C]()) -> Vector(idempotence)),
+      Vector(plan(Building.Value[C](0))),
       Map.empty
     )
     val compiled = ClosureCompilation.compiled(program)
     val (withSame, sameNode) = added(EGraph.empty(store, Map.empty, explained = false), same)
     val (graph, differentNode) = added(withSame, different)
     assertEquals(
-      compiled.matches(SeedKind.Merge, SeedKey.Parallel, graph, sameNode),
+      compiled.matches(SeedKind.Merge, SeedKey.Parallel[C](), graph, sameNode),
       Matching(Vector(Match(0, sameNode, Vector(Some(0)))), 0)
     )
     assertEquals(
-      compiled.matches(SeedKind.Merge, SeedKey.Parallel, graph, differentNode),
+      compiled.matches(SeedKind.Merge, SeedKey.Parallel[C](), graph, differentNode),
       Matching.none
     )
     assertEquals(
-      compiled.matches(SeedKind.Add, SeedKey.Parallel, graph, sameNode),
+      compiled.matches(SeedKind.Add, SeedKey.Parallel[C](), graph, sameNode),
       Matching.none
     )
   }
 
   test("the matches of the entries an Each step reads come out in their order, and a witness once") {
-    val members = Seed(
+    val members = Seed[C](
       0,
       Vector(
-        Step.Root(0, 1),
-        Step.EachMember(1, MemberShape.Apply, 2),
-        Step.Layer(2, LayerTemplate.Apply, Vector(3, 4)),
-        Step.Root(4, 5)
+        Step.Root[C](0, 1),
+        Step.EachMember[C](1, MemberShape.Apply, 2),
+        Step.Layer[C](2, LayerTemplate.Apply, Vector(3, 4)),
+        Step.Root[C](4, 5)
       ),
       1,
       Vector(Some(5))
     )
-    val witness = Seed(
+    val witness = Seed[C](
       1,
-      Vector(Step.Root(0, 1), Step.Once(members.steps.drop(1))),
+      Vector(Step.Root[C](0, 1), Step.Once(members.steps.drop(1))),
       1,
       Vector(Some(5))
     )
-    val program = Program(
-      Map((SeedKind.Add, SeedKey.Apply) -> Vector(members, witness)),
-      Vector(plan(Building.Value(0)), plan(Building.Value(0))),
+    val program = Program[C](
+      Map((SeedKind.Add, SeedKey.Apply[C]()) -> Vector(members, witness)),
+      Vector(plan(Building.Value[C](0)), plan(Building.Value[C](0))),
       Map.empty
     )
     val (withFirst, firstNode) = added(EGraph.empty(store, Map.empty, explained = false), nameOfFirst)
@@ -115,7 +117,7 @@ class ClosureCompilationTest extends gezi.generatedinputs.FailFastSuite:
     assertEquals(
       ClosureCompilation
         .compiled(program)
-        .matches(SeedKind.Add, SeedKey.Apply, graph, firstNode),
+        .matches(SeedKind.Add, SeedKey.Apply[C](), graph, firstNode),
       Matching(
         Vector(
           Match(0, firstNode, Vector(Some(firstArgument))),
@@ -131,22 +133,22 @@ class ClosureCompilationTest extends gezi.generatedinputs.FailFastSuite:
   test("a building adds its layers children first and reads what it marks") {
     val identity = Code(Slot(0))
     val body = Code(Apply(identity, identity))
-    val program = Program(
+    val program = Program[C](
       Map.empty,
       Vector(
         plan(
           Building.Apply(
             Building.InstructionNode(name),
-            Building.Parallel(Building.Value(0), Building.Value(0)),
+            Building.Parallel(Building.Value[C](0), Building.Value[C](0)),
             read = true
           )
         )
       ),
       Map(
-        identity -> Building.Value(0),
+        identity -> Building.Value[C](0),
         body -> Building.Apply(
-          Building.CodeBody(identity),
-          Building.CodeBody(identity),
+          Building.CodeBody[C](identity),
+          Building.CodeBody[C](identity),
           read = false
         )
       )

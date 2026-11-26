@@ -2,27 +2,28 @@ package gezi.lemmaencoding.baseline
 
 import gezi.frontend.Defunctionalization
 import gezi.ir.Code
-import gezi.ir.Instruction
+import gezi.ir
 import gezi.ir.Hole
 import gezi.ir.Pattern
 import gezi.lemmaencoding.EncodedLemma
 import gezi.lemmaencoding.LemmaEncoding
 import gezi.standardlibrary.LemmaSides
 import gezi.standardlibrary.StandardLibraryIndex
+import gezi.ir.{Configured, NativeSpecializer}
 
 /** A pattern as the Prolog front end writes it: a term of the IR with
   * metavariable leaves and the instructions of names as references.
   */
-enum LemmaPattern:
-  case Metavariable(index: Int)
-  case Reference(instruction: Instruction)
-  case Apply(function: LemmaPattern, argument: LemmaPattern)
-  case Parallel(left: LemmaPattern, right: LemmaPattern)
-  case Choice(left: LemmaPattern, right: LemmaPattern)
-  case Thunk(code: Code, holes: Vector[Hole], fillings: Vector[LemmaPattern])
+enum LemmaPattern[C <: NativeSpecializer & Singleton]:
+  case Metavariable[C <: NativeSpecializer & Singleton](index: Int) extends LemmaPattern[C]
+  case Reference(instruction: Configured[C])
+  case Apply(function: LemmaPattern[C], argument: LemmaPattern[C])
+  case Parallel(left: LemmaPattern[C], right: LemmaPattern[C])
+  case Choice(left: LemmaPattern[C], right: LemmaPattern[C])
+  case Thunk(code: Code, holes: Vector[Hole], fillings: Vector[LemmaPattern[C]])
 
   /** The patterns one layer below, in order. */
-  def children: Vector[LemmaPattern] = this match
+  def children: Vector[LemmaPattern[C]] = this match
     case Metavariable(_) | Reference(_) => Vector.empty
     case Apply(function, argument)      => Vector(function, argument)
     case Parallel(left, right)          => Vector(left, right)
@@ -51,14 +52,14 @@ enum LemmaPattern:
 object BaselineLemmaEncoding extends LemmaEncoding:
 
   /** The lemma's patterns of the framework, its closed subterms references. */
-  def encoded(index: StandardLibraryIndex, sides: LemmaSides): EncodedLemma =
+  def encoded[C <: NativeSpecializer & Singleton](index: StandardLibraryIndex[C], sides: LemmaSides[C]): EncodedLemma[C] =
     val (arity, left, right) = lemmaPatterns(sides)
     EncodedLemma(sides.lemma, arity, subrepoPattern(left), subrepoPattern(right))
 
   /** The number of the lemma's metavariables and the patterns of its two
     * sides, every closed subterm a reference.
     */
-  def lemmaPatterns(sides: LemmaSides): (Int, LemmaPattern, LemmaPattern) =
+  def lemmaPatterns[C <: NativeSpecializer & Singleton](sides: LemmaSides[C]): (Int, LemmaPattern[C], LemmaPattern[C]) =
     val arity = metavariables(sides)
     (arity, sidePattern(sides.left, arity), sidePattern(sides.right, arity))
 
@@ -71,18 +72,18 @@ object BaselineLemmaEncoding extends LemmaEncoding:
     * instructions, the eta-equal spellings `f` and `\w. f w` are different
     * encodings the author chooses.
     */
-  def metavariables(sides: LemmaSides): Int = binders(sides.left) min binders(sides.right)
+  def metavariables[C <: NativeSpecializer & Singleton](sides: LemmaSides[C]): Int = binders(sides.left) min binders(sides.right)
 
-  private def binders(side: Instruction): Int = side match
-    case Instruction.Thunk(_, holes, _) => holes.size
-    case _                              => 0
+  private def binders[C <: NativeSpecializer & Singleton](side: Configured[C]): Int = side.layer match
+    case ir.Thunk(_, holes, _) => holes.size
+    case _                     => 0
 
   /** What a slot of a side holds while its code is read: a pattern, or the
     * placeholder of a binder of the object lambda.
     */
-  private enum SlotValue:
-    case Value(pattern: LemmaPattern)
-    case LambdaHole
+  private enum SlotValue[C <: NativeSpecializer & Singleton]:
+    case Value(pattern: LemmaPattern[C])
+    case LambdaHole[C <: NativeSpecializer & Singleton]() extends SlotValue[C]
 
   /** The pattern of a side whose first `arity` binders are the lemma's
     * metavariables: its code with each slot replaced by the metavariable or
@@ -91,39 +92,41 @@ object BaselineLemmaEncoding extends LemmaEncoding:
     * in slot order. A side of no metavariable is closed, the pattern of its
     * instruction.
     */
-  private def sidePattern(side: Instruction, arity: Int): LemmaPattern = side match
-    case _ if arity == 0 => LemmaPattern.Reference(side)
-    case Instruction.Thunk(code, holes, fillings) =>
-      val (metavariableHoles, lambdaHoles) = holes.splitAt(arity)
-      val holeValues =
-        metavariableHoles.indices.map(index => SlotValue.Value(LemmaPattern.Metavariable(index))) ++
-          lambdaHoles.map(_ => SlotValue.LambdaHole)
-      val environment = Defunctionalization.slotValues(
-        holes,
-        holeValues.toVector,
-        fillings.map(filling => SlotValue.Value(LemmaPattern.Reference(filling)))
-      )
-      if lambdaHoles.isEmpty then
-        codePattern(
-          code,
-          environment.map {
-            case SlotValue.Value(pattern) => pattern
-            case SlotValue.LambdaHole =>
-              throw IllegalStateException("a lambda hole with no binder left over")
-          }
-        )
-      else
-        LemmaPattern.Thunk(
-          code,
-          lambdaHoles,
-          environment.collect { case SlotValue.Value(pattern) => pattern }
-        )
-    case other => throw IllegalArgumentException(s"a side that is no thunk has no $arity metavariables: $other")
+  private def sidePattern[C <: NativeSpecializer & Singleton](side: Configured[C], arity: Int): LemmaPattern[C] =
+    if arity == 0 then LemmaPattern.Reference(side)
+    else
+      side.layer match
+        case ir.Thunk(code, holes, fillings) =>
+          val (metavariableHoles, lambdaHoles) = holes.splitAt(arity)
+          val holeValues: Vector[SlotValue[C]] =
+            metavariableHoles.indices.toVector.map(index => SlotValue.Value(LemmaPattern.Metavariable[C](index))) ++
+              lambdaHoles.map(_ => SlotValue.LambdaHole[C]())
+          val environment = Defunctionalization.slotValues(
+            holes,
+            holeValues,
+            fillings.map(filling => SlotValue.Value(LemmaPattern.Reference(filling)))
+          )
+          if lambdaHoles.isEmpty then
+            codePattern(
+              code,
+              environment.map {
+                case SlotValue.Value(pattern) => pattern
+                case SlotValue.LambdaHole() =>
+                  throw IllegalStateException("a lambda hole with no binder left over")
+              }
+            )
+          else
+            LemmaPattern.Thunk(
+              code,
+              lambdaHoles,
+              environment.collect { case SlotValue.Value(pattern) => pattern }
+            )
+        case other => throw IllegalArgumentException(s"a side that is no thunk has no $arity metavariables: $other")
 
   /** The code with its slots replaced; an inner thunk's fillings are slot
     * references of the enclosing code.
     */
-  private def codePattern(code: Code, environment: Vector[LemmaPattern]): LemmaPattern =
+  private def codePattern[C <: NativeSpecializer & Singleton](code: Code, environment: Vector[LemmaPattern[C]]): LemmaPattern[C] =
     code match
       case Code.Slot(index) => environment(index)
       case Code.Apply(function, argument) =>
@@ -138,7 +141,7 @@ object BaselineLemmaEncoding extends LemmaEncoding:
   /** The metavariable of an eta-shaped thunk pattern `\x. M x`, M the
     * metavariable: a lambda pattern.
     */
-  def lambdaPattern(pattern: LemmaPattern): Option[Int] = pattern match
+  def lambdaPattern[C <: NativeSpecializer & Singleton](pattern: LemmaPattern[C]): Option[Int] = pattern match
     case LemmaPattern.Thunk(
           Code.Apply(Code.Slot(function), Code.Slot(hole)),
           Vector(Hole.Bound(boundHole)),
@@ -150,7 +153,7 @@ object BaselineLemmaEncoding extends LemmaEncoding:
   /** The metavariables that occur in the pattern, each once, in the order
     * met.
     */
-  def mentions(pattern: LemmaPattern): Vector[Int] = (pattern match
+  def mentions[C <: NativeSpecializer & Singleton](pattern: LemmaPattern[C]): Vector[Int] = (pattern match
     case LemmaPattern.Metavariable(index) => Vector(index)
     case other                           => other.children.flatMap(mentions)
   ).distinct
@@ -158,7 +161,7 @@ object BaselineLemmaEncoding extends LemmaEncoding:
   /** The pattern has a rigid symbol: an instruction, a thunk, a choice, a
     * parallel, or an application with a rigid side. An arrangement of metavariables alone matches every application.
     */
-  def rigid(pattern: LemmaPattern): Boolean = pattern match
+  def rigid[C <: NativeSpecializer & Singleton](pattern: LemmaPattern[C]): Boolean = pattern match
     case LemmaPattern.Metavariable(_)     => false
     case LemmaPattern.Apply(function, argument) => rigid(function) || rigid(argument)
     case _                                => true
@@ -166,9 +169,9 @@ object BaselineLemmaEncoding extends LemmaEncoding:
   /** The pattern of the framework, its codes interned. A lambda pattern
     * stays a thunk pattern: the orientation compiler reads it as a closure.
     */
-  def subrepoPattern(pattern: LemmaPattern): Pattern =
+  def subrepoPattern[C <: NativeSpecializer & Singleton](pattern: LemmaPattern[C]): Pattern[C] =
     pattern match
-      case LemmaPattern.Metavariable(index) => Pattern.Metavariable(index)
+      case LemmaPattern.Metavariable(index) => Pattern.Metavariable[C](index)
       case LemmaPattern.Reference(instruction)   => Pattern.InstructionReference(instruction)
       case LemmaPattern.Apply(function, argument) =>
         Pattern.Apply(subrepoPattern(function), subrepoPattern(argument))

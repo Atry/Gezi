@@ -42,7 +42,7 @@ final class MergeTwins(
     )
 
   /** The twin's program on its original's data (`twin_term/2`). */
-  def program(twin: String): Term =
+  def program(twin: String): ProblemTerm =
     twins.find(_._1 == twin) match
       case Some((_, TwinProblem.Grid, original)) =>
         val (_, size, claimed) = dynamic.gridPoints
@@ -60,7 +60,7 @@ final class MergeTwins(
   /** Grid paths casing on c first, paths(r, c - 1) + paths(r - 1, c)
     * (`twin_grid_term/3`).
     */
-  def twinGridTerm(size: Int, claimed: BigInt): Term =
+  def twinGridTerm(size: Int, claimed: BigInt): ProblemTerm =
     dynamic.withTwinArithmetic(names =>
       λ(one =>
         λ(grid => names.equality(grid(dynamic.unary(size))(dynamic.unary(size)))(dynamic.binary(claimed)))(
@@ -70,7 +70,7 @@ final class MergeTwins(
     )
 
   /** fib(n - 2) + fib(n - 1) (`twin_fibonacci_term/3`). */
-  def twinFibonacciTerm(n: Int, claimed: BigInt): Term =
+  def twinFibonacciTerm(n: Int, claimed: BigInt): ProblemTerm =
     dynamic.withTwinArithmetic(names =>
       λ(zero =>
         λ(one =>
@@ -84,7 +84,7 @@ final class MergeTwins(
     )
 
   /** The product with the twin multiplication (`twin_product_term/4`). */
-  def twinProductTerm(left: BigInt, right: BigInt, claimed: BigInt): Term =
+  def twinProductTerm(left: BigInt, right: BigInt, claimed: BigInt): ProblemTerm =
     dynamic.withTwinArithmetic(names =>
       λ(zero =>
         λ(times => names.equality(times(dynamic.binary(left))(dynamic.binary(right)))(dynamic.binary(claimed)))(

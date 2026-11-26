@@ -26,7 +26,7 @@ object LambdalatticeFormatting:
     * its tree. Throws the reader's errors when the file does not read in
     * that scope.
     */
-  def formatted(file: Path): String =
+  def formatted(file: Path)(using gezi.ir.StorageAccess): String =
     formatted(DirectoryTree.scope(file.toAbsolutePath.normalize), Files.readString(file))
 
   /** The text formatted, read in the scope of the enclosing names
@@ -35,7 +35,7 @@ object LambdalatticeFormatting:
     * formatted text reads to another term or holds other comments, a defect
     * of the formatter).
     */
-  def formatted(enclosing: Vector[String], text: String): String = SourceFormatting.formatted(enclosing, text)
+  def formatted(enclosing: Vector[String], text: String)(using gezi.ir.StorageAccess): String = SourceFormatting.formatted(enclosing, text)
 
   /** The lambdalattice files under the directories, in order of their
     * paths: every file of the extension `DirectoryTree.fileExtension`,
@@ -53,7 +53,7 @@ object LambdalatticeFormatting:
   /** Each file under the directories formatted and written back when its
     * text changes; returns the files written.
     */
-  def formattedInPlace(directories: Vector[Path]): Vector[Path] =
+  def formattedInPlace(directories: Vector[Path])(using gezi.ir.StorageAccess): Vector[Path] =
     files(directories).flatMap(file =>
       val written = formatted(file)
       if written == Files.readString(file) then None
@@ -70,4 +70,6 @@ object LambdalatticeFormatting:
   * (`LambdalatticeFormatting.formattedInPlace`) and prints the files written.
   */
 @main def formatLambdalatticeFiles(directories: String*): Unit =
+  // The command line is where this tool sets up its reader: the text it formats reads no storage's view.
+  given gezi.ir.StorageAccess = gezi.ir.StorageAccess.granted()
   LambdalatticeFormatting.formattedInPlace(directories.toVector.map(Paths.get(_))).foreach(println)

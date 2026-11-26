@@ -2,15 +2,17 @@
 # CSES 1671, Shortest Routes I (https://cses.fi/problemset/task/1671), in our
 # own words: city_count cities and one-way flights, each from a city to another with a
 # positive cost; the least total cost of a trip from city 1 to each city, the
-# answer the list of these city_count costs in the order of the cities. CSES promises
-# that every city can be reached; for a city that cannot, this program answers
-# the total cost of all flights plus one, which no trip costs. Part of the CSES
-# port's second batch.
+# answer the sum of these city_count costs (CSES asks the list of the costs; the
+# sum keeps the work and makes the answer one number, where the list of 10^5
+# costs at the top rung made a point's answer and its traps tens of megabytes).
+# CSES promises that every city can be reached; for a city that cannot, this
+# program counts the total cost of all flights plus one, which no trip costs.
+# Part of the CSES port's second batch.
 #
 # INPUT: the number of cities, a binary natural (corpora/library/binary/natural),
 # and the flights, a Scott list (corpora/library/prelude/list) of triples
 # `pair from (pair to cost)` (corpora/library/prelude/pair), each a positive
-# binary natural. The answer is a Scott list of binary naturals.
+# binary natural. The answer is a binary natural.
 #
 # THE PROGRAM, written by the definition: a trip of total cost exactly trip_cost
 # reaches the city (reaches trip_cost city) when trip_cost = 0 and the city is city 1, or when some flight
@@ -24,11 +26,12 @@
 # queue, about (city_count + flight_count) log city_count steps, on fixed-width integers.
 #
 # DEFINITION 14: the program P, the point's term, is built of λ and application
-# only, with no top, no choice and no parallel. It β-reduces to V, the Scott
-# list of the canonical binary numerals of the costs (reaches consumes trip_cost, the
-# search consumes total - trip_cost, each fold a finite list, and every flight costs at
-# least 1, as the problem states, so the argument trip_cost - cost of the recursive call
-# is smaller than d). binary_subtract, which writes no top
+# only, with no top, no choice and no parallel. It β-reduces to V, the
+# canonical binary numeral of the sum of the costs (reaches consumes trip_cost, the
+# search consumes total - trip_cost, the sum consumes city_count - city, each fold
+# a finite list, and every flight costs at least 1, as the problem states, so the
+# argument trip_cost - cost of the recursive call is smaller than trip_cost).
+# binary_subtract, which writes no top
 # (../common/binary_modular), is never asked for less than zero, since the
 # program subtracts only a cost that is no larger. So ⊢_β P = V, and P ≃_O V by
 # the soundness of the derivable equations for the contextual preorder of
@@ -44,8 +47,6 @@
 λ fixpoint
 . omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "boolean")
 λ true false _ _
-. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
-λ nil cons _ _ _
 . omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "natural")
 λ binary_zero _ binary_odd _ _
 . omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "arithmetic")
@@ -100,7 +101,7 @@
     . ( λ total
         . fixpoint
           ( λ self city
-            . binary_less_than city_count city nil (cons (distance flights total city) (self (merge_binary_increment city)))
+            . binary_less_than city_count city binary_zero (merge_binary_plus (distance flights total city) (self (merge_binary_increment city)))
           ) one
       ) (total_cost flights)
   )

@@ -1,5 +1,7 @@
 package gezi.strategies
 
+import gezi.ir.NativeSpecializer
+
 import gezi.ir.Code
 import gezi.ir.Spine
 import gezi.ir.Hole
@@ -54,18 +56,18 @@ final case class RepulsionReading(head: RepulsionHead, criterionCount: Option[Bi
   * reading (`RepulsionReading`) carries their difference, so that within a
   * reading the rank orders the states.
   */
-object InputFilterRepulsion extends NormalityModule:
+object InputFilterRepulsion extends ConfigurationFreeModule:
 
   val name: String = "input_filter_repulsion"
 
   val meetsExtractionContract: Boolean = true
 
-  def folded(layer: OrderTerm, reading: TermReading): FoldState = state(layer, reading)
+  def folded[C <: NativeSpecializer & Singleton](layer: OrderTerm[C], reading: TermReading[C]): FoldState = state(layer, reading)
 
   /** The position of the function binder of an input filter, when the
     * instruction is one (`input_filter/2`).
     */
-  private def inputFilter(term: OrderTerm, reading: TermReading): Option[Int] = term match
+  private def inputFilter[C <: NativeSpecializer & Singleton](term: OrderTerm[C], reading: TermReading[C]): Option[Int] = term match
     case OrderTerm.Name(instruction) =>
       reading.nameTerm(instruction) match
         case Some(OrderTerm.Thunk(code, holes, Vector())) =>
@@ -83,7 +85,7 @@ object InputFilterRepulsion extends NormalityModule:
         case _ => None
     case _ => None
 
-  private def state(term: OrderTerm, reading: TermReading): RepulsionState = term match
+  private def state[C <: NativeSpecializer & Singleton](term: OrderTerm[C], reading: TermReading[C]): RepulsionState = term match
     case OrderTerm.Folded(folded, _) => TermOrder.ownState[RepulsionState](folded)
     case name @ OrderTerm.Name(_) =>
       reading.filterFunction(name) match
@@ -136,11 +138,11 @@ object InputFilterRepulsion extends NormalityModule:
     * its value at the skeleton, its criterion a criterion
     * (`repulsion_filter_function/4`).
     */
-  private def filterFunctionState(
+  private def filterFunctionState[C <: NativeSpecializer & Singleton](
       code: Code,
       holes: Vector[Hole],
-      fillings: Vector[OrderTerm],
-      reading: TermReading
+      fillings: Vector[OrderTerm[C]],
+      reading: TermReading[C]
   ): RepulsionState =
     TermReading.instantiated(code, holes, fillings, Vector.empty)._1 match
       case OrderTerm.Parallel(value, _, _) =>

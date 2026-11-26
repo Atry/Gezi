@@ -1,0 +1,71 @@
+# The most pages of books whose prices sum to at most a budget, each book bought at most
+# once, written by the definition (the totals of every subset are built and the best one
+# within the budget taken), and its typed version, which a native computes. The helpers
+# have the structure problems/cses/book_shop gives them, so that plover_book_shop is the
+# same IR term as the function a program writes.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "prelude") "fixpoint")
+λ fixpoint
+. omega (omega (omega (omega corpora "library") "prelude") "list")
+λ nil cons append map _
+. omega (omega (omega (omega corpora "library") "prelude") "pair")
+λ pair _ _
+. omega (omega (omega (omega corpora "library") "binary") "natural")
+λ binary_zero _ _ _ binary_set
+. omega (omega (omega (omega corpora "library") "binary") "arithmetic")
+λ _ merge_binary_plus _ _
+. omega (omega (omega (omega corpora "library") "binary") "order")
+λ binary_less_than binary_maximum _
+. omega (omega (omega (omega corpora "library") "native_types") "boolean")
+λ criterion_true _ _ _
+. omega (omega (omega (omega corpora "library") "native_types") "list")
+λ _ _ _ list_type
+. omega (omega (omega (omega corpora "library") "plover_compositions") "plover_pair_type")
+λ _ plover_pair_type
+. ( λ tuple
+    . tuple
+    λ. fixpoint
+    λ self books
+    . books (cons (pair binary_zero binary_zero) nil)
+      λ book others
+      . ( λ without
+          . append without
+            λ. map
+            ( λ total
+              . total
+                λ price pages
+                . book
+                  λ book_price book_pages
+                  . pair (merge_binary_plus price book_price) λ. merge_binary_plus pages book_pages
+            ) without
+        ) λ. self others
+  )
+λ subset_totals
+. ( λ tuple
+    . tuple
+    λ. fixpoint
+    λ self budget most totals
+    . totals most
+      λ total others
+      . self budget
+        ( total
+          λ price pages
+          . binary_less_than budget price most λ. binary_maximum most pages
+        ) others
+  )
+λ most_within
+# plover_book_shop:
+# The function a program writes, a noinline attractor.
+. (λtuple. tuple λbooks budget. most_within budget binary_zero λ. subset_totals books)
+λ plover_book_shop
+# plover_typed_book_shop:
+# The books a list of pairs of canonical naturals and the budget a canonical natural.
+. ( λ tuple
+    . tuple
+    λ books budget
+    . (plover_book_shop (books ∥ list_type (plover_pair_type (binary_set criterion_true) (binary_set criterion_true))) (budget ∥ binary_set criterion_true) ∥ binary_set criterion_true)
+  )
+λ plover_typed_book_shop
+. export plover_book_shop plover_typed_book_shop

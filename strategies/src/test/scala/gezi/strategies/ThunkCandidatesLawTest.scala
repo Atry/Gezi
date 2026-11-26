@@ -10,7 +10,9 @@ import gezi.extraction.Shape
 import gezi.generatedinputs.GeneratedProperties
 import gezi.ir.Code
 import gezi.ir.Hole
-import gezi.ir.Instruction
+import gezi.ir.Configured
+import gezi.ir.NoFacts
+import gezi.ir.Pure
 import gezi.ir.Layer
 import gezi.standardlibrary.CombinatorProperty
 import gezi.standardlibrary.Property
@@ -37,20 +39,22 @@ import gezi.ir.{Apply, Choice, Parallel, Thunk}
   */
 class ThunkCandidatesLawTest extends GeneratedProperties:
 
-  private val criterion = Instruction.opaque("thunk-candidates-criterion")
-  private val identity = Instruction.Thunk(Code.Slot(0), Vector(Hole.Bound(0)), Vector.empty)
-  private val named = Instruction.Thunk(
+  private given NoFacts.type = NoFacts
+
+  private val criterion = NoFacts.opaque("thunk-candidates-criterion")
+  private val identity = NoFacts.thunkOrInstance(Code.Slot(0), Vector(Hole.Bound(0)), Vector.empty)
+  private val named = NoFacts.thunkOrInstance(
     Code.Thunk(Code.Slot(1), Vector(Hole.Bound(0)), Vector(Code.Slot(0))),
     Vector(Hole.Bound(0)),
     Vector.empty
   )
-  private val nextTag = Instruction.Thunk(Code.Parallel(Code.Slot(0), Code.Slot(1)), Vector(Hole.Bound(0)), Vector(criterion))
-  private val identityContract = Instruction.Thunk(
+  private val nextTag = NoFacts.thunkOrInstance(Code.Parallel(Code.Slot(0), Code.Slot(1)), Vector(Hole.Bound(0)), Vector(criterion))
+  private val identityContract = NoFacts.thunkOrInstance(
     Code.Apply(Code.Slot(0), Code.Slot(1)),
     Vector(Hole.Bound(0), Hole.Bound(1)),
     Vector.empty
   )
-  private val lastArgumentContract = Instruction.Thunk(
+  private val lastArgumentContract = NoFacts.thunkOrInstance(
     Code.Choice(
       Code.Apply(Code.Slot(0), Code.Slot(1)),
       Code.Parallel(Code.Apply(Code.Slot(0), Code.Parallel(Code.Slot(1), Code.Slot(2))), Code.Slot(2))
@@ -62,12 +66,13 @@ class ThunkCandidatesLawTest extends GeneratedProperties:
 
   private val reading = TermReading(
     StandardLibraryIndex(
+      NoFacts,
       Vector.empty,
       Vector.empty,
       Vector.empty,
       Vector(
-        CombinatorProperty(named, Property.NameMarker),
-        CombinatorProperty(nextTag, Property.TagNext)
+        CombinatorProperty(Pure.required(named), Property.NameMarker),
+        CombinatorProperty(Pure.required(nextTag), Property.TagNext)
       )
     )
   )
@@ -75,7 +80,7 @@ class ThunkCandidatesLawTest extends GeneratedProperties:
   /** The cost of a generated term: a name, or a layer over generated terms,
     * as the extraction prices it.
     */
-  private def termCost(model: ModuleCostModel, depth: Int): Gen[ModuleCost] =
+  private def termCost(model: ModuleCostModel[NoFacts.type], depth: Int): Gen[ModuleCost] =
     val name = Gen.element(instructions.head, instructions.tail.toList).map(instruction => model.cost(Shape.Name(instruction), Vector.empty))
     if depth <= 0 then name
     else
@@ -125,14 +130,14 @@ class ThunkCandidatesLawTest extends GeneratedProperties:
     )
 
   /** The best cost of each reading among the entries. */
-  private def bestOfEachReading(model: ModuleCostModel, entries: Vector[Entry[ModuleCost]]): Vector[ModuleCost] =
+  private def bestOfEachReading(model: ModuleCostModel[NoFacts.type], entries: Vector[Entry[NoFacts.type, ModuleCost]]): Vector[ModuleCost] =
     entries.map(_.cost).foldLeft(Vector.empty[ModuleCost]) { (kept, cost) =>
       kept.indexWhere(model.sameReading(_, cost)) match
         case -1       => kept :+ cost
         case position => if model.ordering.compare(cost, kept(position)) < 0 then kept.updated(position, cost) else kept
     }
 
-  private def oracle(model: ModuleCostModel) =
+  private def oracle(model: ModuleCostModel[NoFacts.type]) =
     for
       holeCount <- Gen.int(Range.linear(1, 2)).forAll
       fillingCount <- Gen.int(Range.linear(1, 4)).forAll
@@ -142,7 +147,7 @@ class ThunkCandidatesLawTest extends GeneratedProperties:
       val entries = options.toVector.zipWithIndex.map((costs, position) =>
         costs.toVector.map(cost => Entry(cost, Shape.Name(instructions(position % instructions.size)), Vector.empty))
       )
-      val thunkLayer = new Thunk(body, Vector.tabulate(holeCount)(Hole.Bound(_)), Vector.tabulate(fillingCount)(_ + 1))
+      val thunkLayer = Thunk(body, Vector.tabulate(holeCount)(Hole.Bound(_)), Vector.tabulate(fillingCount)(_ + 1))
       val shape = Shape.Node(0, thunkLayer)
       val everyCombination = CostModel.combinations(entries).map(chosen => Entry(model.cost(shape, chosen.map(_.cost)), shape, chosen))
       val decomposed = ThunkCandidates.candidates(model, shape, thunkLayer, entries)
@@ -161,7 +166,7 @@ class ThunkCandidatesLawTest extends GeneratedProperties:
         .log(s"every combination's best ranks ${expected.map(_.ranks)}")
         .log(s"the candidates' best ranks ${found.map(_.ranks)}")
 
-  BaselineModules.table.filterNot(_ == FilterAttraction).foreach { module =>
+  BaselineModules.table[gezi.ir.NoFacts.type].filterNot(_.name == FilterAttraction.name).foreach { module =>
     stoppableProperty(s"theCandidatesOf${module.name}HaveEveryReadingsBestCost") { stopped =>
       oracle(ModuleCostModel(Vector(module), reading, StopSignal.completedWith(stopped)))
     }
@@ -174,7 +179,7 @@ class ThunkCandidatesLawTest extends GeneratedProperties:
     * a part whose least alternative of a reading is not part of the whole's
     * least.
     */
-  private def leastOracle(model: ModuleCostModel) =
+  private def leastOracle(model: ModuleCostModel[NoFacts.type]) =
     for
       holeCount <- Gen.int(Range.linear(1, 2)).forAll
       fillingCount <- Gen.int(Range.linear(1, 4)).forAll
@@ -188,14 +193,14 @@ class ThunkCandidatesLawTest extends GeneratedProperties:
           if large then Entry(cost, Shape.Node(100 + number, Apply(0, 1)), Vector(name, name)) else name
         }
       )
-      val thunkLayer = new Thunk(body, Vector.tabulate(holeCount)(Hole.Bound(_)), Vector.tabulate(fillingCount)(_ + 1))
+      val thunkLayer = Thunk(body, Vector.tabulate(holeCount)(Hole.Bound(_)), Vector.tabulate(fillingCount)(_ + 1))
       val shape = Shape.Node(0, thunkLayer)
       val everyCombination = CostModel.combinations(entries).map(chosen => Entry(model.cost(shape, chosen.map(_.cost)), shape, chosen))
       val expected = CostModel.leastOfEachReading(model, everyCombination).toSet
       val found = CostModel.leastOfEachReading(model, ThunkCandidates.leastCandidates(model, shape, thunkLayer, entries)).toSet
       Result.diff(found, expected)(_ == _).log(s"thunk $thunkLayer")
 
-  BaselineModules.table.filterNot(_ == FilterAttraction).foreach { module =>
+  BaselineModules.table[gezi.ir.NoFacts.type].filterNot(_.name == FilterAttraction.name).foreach { module =>
     stoppableProperty(s"theLeastCandidatesOf${module.name}AreEveryReadingsLeastCombination") { stopped =>
       leastOracle(ModuleCostModel(Vector(module), reading, StopSignal.completedWith(stopped)))
     }
@@ -204,17 +209,151 @@ class ThunkCandidatesLawTest extends GeneratedProperties:
   stoppableProperty("theLeastCandidatesOfTheNativeRouteCombinationAreEveryReadingsLeastCombination") { stopped =>
     leastOracle(
       ModuleCostModel(
-        TermOrder.modulesChecked(BaselineModules.table, NativeRouteCompilation.extraction.modules),
+        TermOrder.modulesChecked(BaselineModules.table[gezi.ir.NoFacts.type], NativeRouteCompilation.extraction.modules),
         reading,
         StopSignal.completedWith(stopped)
       )
     )
   }
 
+  /** What a thunk's candidates settle (`ThunkCandidates.settledFillings`)
+    * is monotone in the numbers of entries: a filling settled at some
+    * numbers is settled at numbers at least as large, position by position,
+    * under generated bounds, the whole fold bound above the enumeration
+    * bound included. Its purpose is to catch a path chosen by the numbers
+    * (read whole or by parts) that settles at fewer entries what it does not
+    * at more, which `gezi.extraction.CountedExtraction` relies on not
+    * happening (`gezi.extraction.CostModel.settledChildren`).
+    */
+  private def settlingMonotone(model: ModuleCostModel[NoFacts.type]) =
+    for
+      holeCount <- Gen.int(Range.linear(1, 2)).forAll
+      fillingCount <- Gen.int(Range.linear(1, 4)).forAll
+      body <- (if holeCount == 1 then thunk(1, fillingCount) else code(2 + fillingCount, 4, true)).forAll
+      lower <- Gen.int(Range.linear(1, 4)).list(Range.singleton(fillingCount)).map(_.toVector).forAll
+      added <- Gen.int(Range.linear(0, 3)).list(Range.singleton(fillingCount)).map(_.toVector).forAll
+      enumerationBound <- Gen.long(Range.linear(1L, 8L)).forAll
+      wholeFoldBound <- Gen.long(Range.linear(0L, 16L)).forAll
+    yield
+      val bounded = model.copy(jointReading = JointReading(enumerationBound, wholeFoldBound))
+      val thunkLayer = Thunk(body, Vector.tabulate(holeCount)(Hole.Bound(_)), Vector.tabulate(fillingCount)(_ + 1))
+      val upper = lower.zip(added).map(_ + _)
+      val atLower = ThunkCandidates.settledFillings(bounded, thunkLayer, lower)
+      val atUpper = ThunkCandidates.settledFillings(bounded, thunkLayer, upper)
+      Result
+        .assert(atLower.zip(atUpper).forall((settledLower, settledUpper) => !settledLower || settledUpper))
+        .log(s"thunk $thunkLayer, bounds $enumerationBound and $wholeFoldBound")
+        .log(s"settled at $lower: $atLower; at $upper: $atUpper")
+
+  /** Every candidate of a thunk (`ThunkCandidates.candidates` and
+    * `leastCandidates`) has, at each filling the thunk is said to settle at
+    * its options' numbers of entries (`ThunkCandidates.settledFillings`),
+    * that filling's first entry by size, then content
+    * (`CodeCandidates.first`), under generated small bounds. Its purpose is
+    * to catch a filling reported settled that the candidates enumerate, as a
+    * path chosen apart from `decomposed`'s would: directed by its one
+    * recorded reading, such a filling would lose readings the candidates
+    * give. A filling the candidates settle and that is not reported is not
+    * caught here; `gezi.extraction.CountedExtraction` throws on it when its
+    * passes settle apart.
+    */
+  private def settledAsReported(model: ModuleCostModel[NoFacts.type]) =
+    for
+      holeCount <- Gen.int(Range.linear(1, 2)).forAll
+      fillingCount <- Gen.int(Range.linear(1, 4)).forAll
+      body <- (if holeCount == 1 then thunk(1, fillingCount) else code(2 + fillingCount, 4, true)).forAll
+      options <- termCost(model, 3).list(Range.linear(1, 3)).list(Range.singleton(fillingCount)).forAll
+      enumerationBound <- Gen.long(Range.linear(1L, 4L)).forAll
+      wholeFoldBound <- Gen.long(Range.linear(0L, enumerationBound)).forAll
+    yield
+      val bounded = model.copy(jointReading = JointReading(enumerationBound, wholeFoldBound))
+      val entries = options.toVector.zipWithIndex.map((costs, position) =>
+        costs.toVector.map(cost => Entry(cost, Shape.Name(instructions(position % instructions.size)), Vector.empty))
+      )
+      val thunkLayer = Thunk(body, Vector.tabulate(holeCount)(Hole.Bound(_)), Vector.tabulate(fillingCount)(_ + 1))
+      val shape = Shape.Node(0, thunkLayer)
+      val settled = ThunkCandidates.settledFillings(bounded, thunkLayer, entries.map(_.size))
+      val found = ThunkCandidates.candidates(bounded, shape, thunkLayer, entries) ++ ThunkCandidates.leastCandidates(bounded, shape, thunkLayer, entries)
+      Result
+        .assert(found.forall(entry => settled.indices.forall(position => !settled(position) || entry.childEntries(position) == CodeCandidates.first(entries(position)))))
+        .log(s"thunk $thunkLayer, bounds $enumerationBound and $wholeFoldBound, settled $settled")
+
+  stoppableProperty("theNativeRouteCombinationsCandidatesHaveTheFirstEntryAtEveryFillingSaidToSettle") { stopped =>
+    settledAsReported(
+      ModuleCostModel(
+        TermOrder.modulesChecked(BaselineModules.table[gezi.ir.NoFacts.type], NativeRouteCompilation.extraction.modules),
+        reading,
+        StopSignal.completedWith(stopped)
+      )
+    )
+  }
+
+  stoppableProperty("theCandidatesOfAModelWithNoCodeFoldingHaveTheFirstEntryAtEveryFillingSaidToSettle") { stopped =>
+    settledAsReported(
+      ModuleCostModel(BaselineModules.table[gezi.ir.NoFacts.type].filter(_.codeFolding.isEmpty).take(1), reading, StopSignal.completedWith(stopped))
+    )
+  }
+
+  /** The same law on the thunk `(f1 + f2) y`, y its hole, whose two
+    * fillings are read once each under a choice: read whole they are read
+    * jointly and settled above the enumeration bound; read by parts they are
+    * not. Its purpose is to catch a whole fold bound above the enumeration
+    * bound reading such a thunk whole, and so settling it, at fewer entries
+    * than those at which it is read by parts and settles nothing; the
+    * generated law above reaches such a thunk too rarely.
+    */
+  private def choiceSettlingMonotone(model: ModuleCostModel[NoFacts.type]) =
+    for
+      lower <- Gen.int(Range.linear(1, 4)).list(Range.singleton(2)).map(_.toVector).forAll
+      added <- Gen.int(Range.linear(0, 4)).list(Range.singleton(2)).map(_.toVector).forAll
+      enumerationBound <- Gen.long(Range.linear(1L, 4L)).forAll
+      above <- Gen.long(Range.linear(enumerationBound + 1L, 16L)).forAll
+    yield
+      // Each iteration checks the whole fold bound equal to the enumeration
+      // bound and one above it, the case the law is for, by construction.
+      val thunkLayer = Thunk(Code.Apply(Code.Choice(Code.Slot(1), Code.Slot(2)), Code.Slot(0)), Vector(Hole.Bound(0)), Vector(1, 2))
+      val upper = lower.zip(added).map(_ + _)
+      Result.all(
+        List(enumerationBound, above).map(wholeFoldBound =>
+          val bounded = model.copy(jointReading = JointReading(enumerationBound, wholeFoldBound))
+          val atLower = ThunkCandidates.settledFillings(bounded, thunkLayer, lower)
+          val atUpper = ThunkCandidates.settledFillings(bounded, thunkLayer, upper)
+          Result
+            .assert(atLower.zip(atUpper).forall((settledLower, settledUpper) => !settledLower || settledUpper))
+            .log(s"bounds $enumerationBound and $wholeFoldBound; settled at $lower: $atLower; at $upper: $atUpper")
+        )
+      )
+
+  stoppableProperty("whatTheNativeRouteCombinationSettlesOfAChoiceOfTwoFillingsIsMonotoneInTheNumbersOfEntries", _.copy(testLimit = hedgehog.core.SuccessCount(200))) { stopped =>
+    choiceSettlingMonotone(
+      ModuleCostModel(
+        TermOrder.modulesChecked(BaselineModules.table[gezi.ir.NoFacts.type], NativeRouteCompilation.extraction.modules),
+        reading,
+        StopSignal.completedWith(stopped)
+      )
+    )
+  }
+
+  stoppableProperty("whatTheNativeRouteCombinationSettlesIsMonotoneInTheNumbersOfEntries") { stopped =>
+    settlingMonotone(
+      ModuleCostModel(
+        TermOrder.modulesChecked(BaselineModules.table[gezi.ir.NoFacts.type], NativeRouteCompilation.extraction.modules),
+        reading,
+        StopSignal.completedWith(stopped)
+      )
+    )
+  }
+
+  stoppableProperty("whatAModelWithNoCodeFoldingSettlesIsMonotoneInTheNumbersOfEntries") { stopped =>
+    settlingMonotone(
+      ModuleCostModel(BaselineModules.table[gezi.ir.NoFacts.type].filter(_.codeFolding.isEmpty).take(1), reading, StopSignal.completedWith(stopped))
+    )
+  }
+
   stoppableProperty("theCandidatesOfTheNativeRouteCombinationHaveEveryReadingsBestCost") { stopped =>
     oracle(
       ModuleCostModel(
-        TermOrder.modulesChecked(BaselineModules.table, NativeRouteCompilation.extraction.modules),
+        TermOrder.modulesChecked(BaselineModules.table[gezi.ir.NoFacts.type], NativeRouteCompilation.extraction.modules),
         reading,
         StopSignal.completedWith(stopped)
       )

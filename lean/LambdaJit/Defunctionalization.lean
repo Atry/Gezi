@@ -87,8 +87,9 @@ constant; its defunctionalization `defunctionalize` is
   filled thunk keeps `a` and `c` in two. So two different finite terms, two addresses, read back
   to one term.
 
-What is not proved is that `thunk_instruction/2` computes `thunkInstruction` (the FIXME in the
-section on the agreement with the Prolog below).
+What is not proved is that the front end, `Defunctionalization.thunkInstruction` of the Scala
+project `frontend`, computes `thunkInstruction` (the FIXME in the section on the agreement with the
+Prolog below).
 -/
 
 namespace LambdaJit.Defunctionalization
@@ -2508,23 +2509,19 @@ not the defunctionalization of its δ. `choiceFrontEnd` checks a right-nested ch
 
 FIXME (2026-10-10, link (i) of D6 and D3 in https://github.com/Atry/private-overlay/issues/1561): what
 is proved here of `thunkInstruction` (link (i), `readbackThunkInstruction`) and of
-`defunctionalize` (D3's items 3 and 5, the injectivity) holds of the Prolog's `thunk_instruction/2`,
-its handles replaced by the finite terms of their layers, only where the two compute one finite
-term, and that they do is not proved: the Prolog is a separate implementation of the same clauses,
-not compiled from this definition. Measured (2026-10-10): the kernel checks the eight programs of
-this section against the Prolog's printed output, and X2 with the 23 defines it names (module
-`TypeCheckingRunSourceFixtures`: `thunkInstruction` of X2 is the input of the type-checking runs
-as the Prolog converted it); the test `gezi/tests/defunctionalization_agreement.plt`
-compares the two, the finite terms printed in the Prolog syntax byte for byte, on 300 random
-source programs drawn from a fixed seed with choices of none to four members and constants naming
-the prelude's defines, on the term of every define of the prelude (31) and of [generic_types,
-generic_fold, concrete_types] (55), and on 300 random closed terms of the calculus: all agree, and
-each of three mutations of a copy of the Prolog (argument slots before the function's, choices of
-three or more members nested, equal closed subterms in separate slots) fails the first comparison.
-Nothing is known beyond the samples. Candidate fixes: this definition compiled and run as the front
-end in place of `thunk_instruction/2`; or a check of each run, the run carrying its source program
-and the defines' terms into Lean and the kernel checking `thunkInstruction` of the source against
-the run's input, as module `TypeCheckingRunSourceFixtures` does for X2. -/
+`defunctionalize` (D3's items 3 and 5, the injectivity) holds of the front end,
+`Defunctionalization.thunkInstruction` of the Scala project `frontend`, its instructions replaced by
+the finite terms of their layers, only where the two compute one finite term, and that they do is
+not proved: the Scala is a separate implementation of the same clauses, not compiled from this
+definition. The kernel checks the eight programs of this section against the output the Prolog
+front end, which the Scala one replaced, printed on 2026-10-07. The test
+`gezi/standardlibrary/src/test/scala/gezi/standardlibrary/DefunctionalizationAgreementTest.scala`
+compares the Scala front end with this definition, the finite terms printed in one syntax byte for
+byte, on 100 random source programs over the prelude's files drawn from a fixed seed, on the term
+of every file of the prelude, and on 100 random closed terms of the calculus. Nothing is known
+beyond the samples. Candidate fixes: this definition compiled and run as the front end in place of
+the Scala one; or a check of each run, the run carrying its source program and the library's terms
+into Lean and the kernel checking `thunkInstruction` of the source against the run's input. -/
 
 namespace Agreement
 

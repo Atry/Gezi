@@ -7,18 +7,22 @@ import java.nio.file.Paths
 import gezi.contest.entry.ArticleDestination
 import gezi.contest.entry.Cells
 import gezi.contest.entry.CompilationPlaceOption
+import gezi.contest.entry.UnitSelectionOption
 import gezi.contest.entry.Defaults
 import gezi.contest.entry.EntryData
 import gezi.contest.entry.ExecutorModules
 import gezi.contest.entry.ExecutorOption
 import gezi.contest.entry.ExtractorModules
 import gezi.contest.entry.Interaction
-import gezi.frontend.DeBruijnTerm
+import gezi.frontend.DeBruijnTermOf
 import gezi.frontend.Defunctionalization
 import gezi.frontend.Lambdalattice
 import gezi.generatedinputs.GeneratedProperties
 import gezi.hotspot.ExpansionSource
+import gezi.ir.Configured
+import gezi.ir.NativeSpecializer
 import gezi.jit.NativesProvider
+import gezi.narrowblocks.ProgramCompilation
 import gezi.narrowblocks.ProgramCompiler
 import gezi.saturation.StopSignal
 import scala.util.Random
@@ -35,7 +39,7 @@ import scala.util.Random
   * (`ProgramCompiler.compiledProgram`), as before the option; under
   * `by_executor` it receives the program uncompiled; under both it is handed
   * the entry's prepared compilation, and the two entries' compilations are
-  * equal. The rounds rewrite every drawn site, so that the two places are
+  * equal but for their configurations. The rounds rewrite every drawn site, so that the two places are
   * told apart by what the executor receives. Its purpose is to catch an
   * entry that runs its rounds under `by_executor` or skips them under
   * `upfront`, and a module handed another compilation than the entry's, or
@@ -69,12 +73,12 @@ class CompilationPlaceLawTest extends GeneratedProperties:
     * options pinned: the test module as its executor and the compilation's
     * place given, whatever solo's data writes.
     */
-  private def entryAt(place: CompilationPlaceOption): GenericEntry =
+  private def entryAt(place: CompilationPlaceOption): GenericEntry[?] =
     val (data, afterEntry) = EntryData.read(entryDirectory, Defaults.entryDataState)
     val Vector(selector) = (modules.bySelector.keys.toVector: @unchecked)
     GenericEntryProvider.initialized(
       data.copy(
-        executor = ExecutorOption.Module(selector, Defunctionalization.thunkInstruction(Lambdalattice.term("λx. x"))),
+        executor = ExecutorOption.Module(selector, Defunctionalization.thunkInstruction(Lambdalattice.term("λx. x"))(using gezi.ir.NoFacts)),
         compilationPlace = place
       ),
       modules,
@@ -85,29 +89,23 @@ class CompilationPlaceLawTest extends GeneratedProperties:
       caches
     )
 
-  private lazy val upfront: GenericEntry = entryAt(CompilationPlaceOption.Upfront)
+  private lazy val upfront: GenericEntry[?] = entryAt(CompilationPlaceOption.Upfront(UnitSelectionOption.WholeProgram))
 
-  private lazy val byExecutor: GenericEntry = entryAt(CompilationPlaceOption.ByExecutor)
+  private lazy val byExecutor: GenericEntry[?] = entryAt(CompilationPlaceOption.ByExecutor)
 
-  private lazy val hotSites: HotSites = HotSites.read(buildRoot)
+  private lazy val hotSites: HotSites[gezi.ir.NoFacts.type] = HotSites.read(buildRoot)
+
+  /** Each entry with the hot sites crossed into its configuration. */
+  private lazy val upfrontOpened: Opened[?] = Opened.of(upfront, hotSites)
+
+  private lazy val byExecutorOpened: Opened[?] = Opened.of(byExecutor, hotSites)
 
   override def sharedFixtures: Vector[scala.concurrent.Future[Unit] => Any] =
-    Vector(_ => modules, _ => natives, _ => caches, _ => upfront, _ => byExecutor, _ => hotSites)
-
-  /** The compilation the entry's executor was handed and the programs it was given, after the entry ran the cell
-    * of the point.
-    */
-  private def received(entry: GenericEntry, point: DeBruijnTerm, stop: StopSignal): ProgramRecordingExecutor =
-    entry.run(Cells.cell(point), ExpansionSource.fresh(), stop) match
-      case Interaction.Finished(_, _, after: GenericEntry) =>
-        after.executor match
-          case recording: ProgramRecordingExecutor => recording
-          case other                               => throw AssertionError(s"the entry's executor is $other")
-      case other => throw AssertionError(s"the entry's cell ended as $other")
+    Vector(_ => modules, _ => natives, _ => caches, _ => upfront, _ => byExecutor, _ => hotSites, _ => upfrontOpened, _ => byExecutorOpened)
 
   /** Its purpose is to catch a place given in the entry's data that does not reach the entry. */
   test("the place given reaches the entry") {
-    assertEquals((upfront.compilationPlace, byExecutor.compilationPlace), (CompilationPlaceOption.Upfront, CompilationPlaceOption.ByExecutor))
+    assertEquals((upfront.compilationPlace, byExecutor.compilationPlace), (CompilationPlaceOption.Upfront(UnitSelectionOption.WholeProgram), CompilationPlaceOption.ByExecutor))
   }
 
   // One input: each input runs solo's rounds twice and reads the site twice, and the laws hold of any site, so a run
@@ -122,22 +120,101 @@ class CompilationPlaceLawTest extends GeneratedProperties:
       bits <- Gen.int(Range.linear(2, 5)).forAll
     yield
       val stop = StopSignal.completedWith(stopped)
-      // The site is written once: its draws happen inside the bodies of `λ` (`HotSites`).
-      val point = hotSites.site(Random(seed), 1, bits).locallyNamelessTerm
-      val program = Defunctionalization.thunkInstruction(point)
-      val (compiled, _) = ProgramCompiler.compiledProgram(upfront.compilation, program, explained = false, stop)
-      val beforeTheRounds = received(byExecutor, point, stop)
-      val afterTheRounds = received(upfront, point, stop)
       Result
         .all(
           List(
-            Result.diff(afterTheRounds.received, Vector(compiled))(_ == _).log("upfront: the programs received and the rounds' program"),
-            Result.diff(beforeTheRounds.received, Vector(program))(_ == _).log("by_executor: the programs received and the program"),
-            Result.diff(afterTheRounds.compilation, upfront.compilation)(_ == _).log("upfront: the compilation handed and the entry's"),
-            Result.diff(beforeTheRounds.compilation, byExecutor.compilation)(_ == _).log("by_executor: the compilation handed and the entry's"),
-            Result.diff(byExecutor.compilation, upfront.compilation)(_ == _).log("the two entries' compilations"),
-            Result.assert(compiled != program).log("the rounds left the program as it was")
+            upfrontOpened.receivedCompiled(seed, bits, stop),
+            byExecutorOpened.receivedUncompiled(seed, bits, stop),
+            Result
+              .diff(configurationFree(byExecutor.compilation), configurationFree(upfront.compilation))(_ == _)
+              .log("the two entries' compilations, but for their configurations")
           )
         )
         .log(s"a site of one iterated call of $bits binary digits, drawn from the seed $seed")
   }
+
+  /** What of a compilation does not depend on its configuration: each round's lemmas, built-in rules, budget, narrow
+    * blocks' route and instances per node, and the natives. The two entries are built apart, each with the encoding of
+    * its own facts, so their compilations, which hold the encoding's index and constructions, are of two
+    * configurations, which no comparison of terms equates; what the place could change is this.
+    */
+  private def configurationFree(compilation: ProgramCompilation[?]) =
+    (
+      compilation.rounds.map(round =>
+        (
+          round.compilation.saturator.options.lemmas,
+          round.compilation.saturator.options.builtInRules,
+          round.compilation.budget,
+          round.compilation.route,
+          round.instancesPerNode
+        )
+      ),
+      compilation.natives
+    )
+
+  /** An entry opened in its configuration `C`, the hot sites crossed into it, with the laws on what its executor
+    * received.
+    */
+  private final case class Opened[C <: NativeSpecializer & Singleton](entry: GenericEntry[C], sites: HotSites[C]):
+
+    private given C = entry.specializer
+
+    /** The point of the drawn site and its program, in `C`. The site is written once: its draws happen inside the
+      * bodies of `λ` (`HotSites`).
+      */
+    private def drawn(seed: Long, bits: Int): (DeBruijnTermOf[Configured[C]], Configured[C]) =
+      val point = sites.site(Random(seed), 1, bits).locallyNamelessTerm
+      (point, Defunctionalization.thunkInstruction[C](point))
+
+    /** The compilation the entry's executor was handed and the programs it was given, after the entry ran the cell
+      * of the point, in the entry's configuration: the executor the module built and the entry the cell returned
+      * are read in `C` after checking that their specializers are the entry's (`NativeSpecializer.sameAs`).
+      */
+    private def received(point: DeBruijnTermOf[Configured[C]], stop: StopSignal): ProgramRecordingExecutor[C] =
+      entry.run(Cells.cell(point), ExpansionSource.fresh(), stop) match
+        case Interaction.Finished(_, _, after: GenericEntry[?]) =>
+          after.executor match
+            case recording: ProgramRecordingExecutor[?] => recordedIn(recording)
+            case other                                  => throw AssertionError(s"the entry's executor is $other")
+        case other => throw AssertionError(s"the entry's cell ended as $other")
+
+    private def recordedIn[D <: NativeSpecializer & Singleton](recording: ProgramRecordingExecutor[D]): ProgramRecordingExecutor[C] =
+      NativeSpecializer.sameAs(recording.compilation.encoding: D, entry.specializer) match
+        case Some(same) => same[ProgramRecordingExecutor](recording)
+        case None       => throw AssertionError("the module's executor is of another configuration than the entry's")
+
+    /** Under `upfront` the executor receives the program the rounds give, and the entry's compilation; the rounds
+      * rewrite the site.
+      */
+    def receivedCompiled(seed: Long, bits: Int, stop: StopSignal): Result =
+      val (point, program) = drawn(seed, bits)
+      val (compiled, _) = ProgramCompiler.compiledProgram(entry.compilation, program, explained = false, stop)
+      val afterTheRounds = received(point, stop)
+      Result.all(
+        List(
+          Result
+            .assert(afterTheRounds.received.size == 1 && afterTheRounds.received.forall(Configured.same(_, compiled)))
+            .log("upfront: the programs received and the rounds' program"),
+          Result.diff(afterTheRounds.compilation, entry.compilation)(_ == _).log("upfront: the compilation handed and the entry's"),
+          Result.assert(!Configured.same(compiled, program)).log("the rounds left the program as it was")
+        )
+      )
+
+    /** Under `by_executor` the executor receives the program uncompiled, and the entry's compilation. */
+    def receivedUncompiled(seed: Long, bits: Int, stop: StopSignal): Result =
+      val (point, program) = drawn(seed, bits)
+      val beforeTheRounds = received(point, stop)
+      Result.all(
+        List(
+          Result
+            .assert(beforeTheRounds.received.size == 1 && beforeTheRounds.received.forall(Configured.same(_, program)))
+            .log("by_executor: the programs received and the program"),
+          Result.diff(beforeTheRounds.compilation, entry.compilation)(_ == _).log("by_executor: the compilation handed and the entry's")
+        )
+      )
+
+  private object Opened:
+
+    /** The entry opened in its configuration, the sites crossed into it. */
+    def of[C <: NativeSpecializer & Singleton](entry: GenericEntry[C], sites: HotSites[gezi.ir.NoFacts.type]): Opened[C] =
+      Opened(entry, HotSites.crossed(sites, entry.specializer))

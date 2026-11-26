@@ -5,7 +5,6 @@ import gezi.contest.corpora.claims.Spelling
 import gezi.contest.corpora.reductions.LibraryHotspots
 import gezi.contest.corpora.reductions.ReductionGroup
 import gezi.frontend.Defunctionalization
-import gezi.ir.Instruction
 import gezi.jit.BackendChecks
 import gezi.jit.BackendFacts
 import gezi.jit.ClosureBackend
@@ -13,6 +12,7 @@ import gezi.jit.DispatchMode
 import gezi.jit.EveryStepsCheckpoints
 import gezi.jit.InstanceCheckpoints
 import gezi.jit.Jit
+import gezi.jit.StorageEncoding
 import gezi.jit.InstanceRetention
 import gezi.jit.JitConfiguration
 import gezi.jit.PredicatePerCode
@@ -23,7 +23,7 @@ import gezi.weakhead.Expansions
 import gezi.weakhead.NormalForms
 import gezi.weakhead.Reading
 import gezi.weakhead.ReadingState
-import gezi.weakhead.Value
+import gezi.ir.Value
 import gezi.weakhead.Values
 import org.openjdk.jmh.annotations.Benchmark
 import org.openjdk.jmh.annotations.BenchmarkMode
@@ -34,6 +34,7 @@ import org.openjdk.jmh.annotations.OutputTimeUnit
 import org.openjdk.jmh.annotations.Scope
 import org.openjdk.jmh.annotations.State
 import org.openjdk.jmh.annotations.Warmup
+import gezi.ir.{Configured, NativeSpecializer}
 
 /** The point of the hot variant of the rung of 10,000 calls, direct, at
   * R = 1, drawn from the seed 20261031 (the family `calls_10000_hot` of the
@@ -46,40 +47,61 @@ import org.openjdk.jmh.annotations.Warmup
 @State(Scope.Benchmark)
 class InstanceCheckpointInputs:
 
-  lazy val program: Value =
+  /** The point and the three JITs, in the configuration of the encoding of the knowledge file's facts, which the
+    * setup's type parameter names for the benchmarks that open it.
+    */
+  lazy val setup: InstanceCheckpointSetup[?] =
+    val library = KnowledgeReadings.compiled(InstanceCheckpointInputs.knowledgeFile, Vector(BackendChecks))
+    val encoding = BackendFacts.of(library).storageEncoding
+    InstanceCheckpointInputs.setupOf[encoding.type](encoding)
+
+/** The point read in the configuration `C` and the three JITs that read it: under the default checkpoint policy and
+  * under `EveryStepsCheckpoints` at two intervals.
+  */
+final case class InstanceCheckpointSetup[C <: NativeSpecializer & Singleton](
+    program: Value[C],
+    default: Jit[C],
+    shortInterval: Jit[C],
+    longInterval: Jit[C]
+):
+
+  /** The specializer of the configuration, the one the three JITs are built over. */
+  def specializer: C = default.configuration.specializer
+
+object InstanceCheckpointInputs:
+  val calls: Int = 10000
+
+  /** The point and the three JITs over the encoding. */
+  def setupOf[C <: NativeSpecializer & Singleton](encoding: StorageEncoding & C): InstanceCheckpointSetup[C] =
+    given C = encoding
     val group = ReductionGroup(FixedPointLines.buildRoot, Expansions.none, gezi.contest.entry.Defaults.caches())
     val term = LibraryHotspots
-      .calibrated(Spelling.Direct, InstanceCheckpointInputs.calls, LibraryHotspots.Calibration.Hot)
+      .calibrated(Spelling.Direct, calls, LibraryHotspots.Calibration.Hot)
       .point(group, InstanceTableInputs.seed, 1)
       .program
-    Values.ofInstruction(Defunctionalization.thunkInstruction(term.deBruijnTerm(Map.empty)), Set.empty)
+    val program = Values.ofInstruction(Defunctionalization.thunkInstruction[C](term.deBruijnTerm(Map.empty)), Set.empty)
+    InstanceCheckpointSetup(
+      program,
+      configured(encoding, ProfitableCheckpoints),
+      configured(encoding, EveryStepsCheckpoints(shortInterval)),
+      configured(encoding, EveryStepsCheckpoints(longInterval))
+    )
 
-  private lazy val facts: BackendFacts =
-    BackendFacts.of(KnowledgeReadings.compiled(InstanceCheckpointInputs.knowledgeFile, Vector(BackendChecks)))
-
-  private def configured(checkpoints: InstanceCheckpoints): Jit =
+  private def configured[C <: NativeSpecializer & Singleton](encoding: StorageEncoding & C, checkpoints: InstanceCheckpoints): Jit[C] =
     Jit(
-      JitConfiguration(
-        facts,
+      JitConfiguration[C](
+        encoding,
         JitConfiguration.defaultBudget,
         PredicatePerCode,
         ClosureBackend,
         DispatchMode.NoDispatch,
         instanceTable = true,
-        instanceTableTrial = InstanceCheckpointInputs.instanceTableTrial,
-        instanceRetention = InstanceRetention.Generations(InstanceCheckpointInputs.instanceTableGeneration),
-        instanceCheckpoints = checkpoints
+        instanceTableTrial = instanceTableTrial,
+        instanceRetention = InstanceRetention.Generations(instanceTableGeneration),
+        instanceCheckpoints = checkpoints,
+        storageAccess = gezi.ir.StorageAccess.granted()
       )
     )
-
-  lazy val default: Jit = configured(ProfitableCheckpoints)
-
-  lazy val shortInterval: Jit = configured(EveryStepsCheckpoints(InstanceCheckpointInputs.shortInterval))
-
-  lazy val longInterval: Jit = configured(EveryStepsCheckpoints(InstanceCheckpointInputs.longInterval))
-
-object InstanceCheckpointInputs:
-  val calls: Int = 10000
 
   /** The knowledge (the fixture whose one field is the choice of six
     * knowledge files: native_types, native_arithmetic, hindley_milner_unions,
@@ -115,8 +137,8 @@ object InstanceCheckpointInputs:
     * when it stops. A stopped reading is a result of the policy, not a
     * failure of the benchmark, so it is returned and not thrown.
     */
-  def read(jit: Jit, program: Value): Either[Long, Vector[Instruction]] =
-    NormalForms.normalForms(gezi.weakhead.Mode.Jit(jit), program).result(ReadingState.fresh(limit)) match
+  def read[C <: NativeSpecializer & Singleton](jit: Jit[C], program: Value[C])(using C): Either[Long, Vector[Configured[C]]] =
+    NormalForms.normalForms(gezi.weakhead.Mode.Jit(jit), program).result(ReadingState.fresh(limit, jit.readingConfiguration)) match
       case Computed.Done(normalForms, _) => Right(normalForms)
       case Computed.Stopped(after)       => Left(after.budget.spent)
 
@@ -156,4 +178,10 @@ class InstanceCheckpointBenchmarks:
   /** The hot point read under the default policy. */
   @Benchmark
   @OutputTimeUnit(TimeUnit.MILLISECONDS)
-  def hotDefault(input: InstanceCheckpointInputs): Either[Long, Vector[Instruction]] = InstanceCheckpointInputs.read(input.default, input.program)
+  def hotDefault(input: InstanceCheckpointInputs): Either[Long, Vector[Configured[?]]] = InstanceCheckpointBenchmarks.hotDefaultOf(input.setup)
+
+object InstanceCheckpointBenchmarks:
+
+  /** The hot point read under the default policy of the setup, whose configuration the method binds. */
+  def hotDefaultOf[C <: NativeSpecializer & Singleton](setup: InstanceCheckpointSetup[C]): Either[Long, Vector[Configured[C]]] =
+    InstanceCheckpointInputs.read(setup.default, setup.program)(using setup.specializer)

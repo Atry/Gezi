@@ -6,7 +6,7 @@ import gezi.contest.entry.EntryDataError
 import gezi.contest.entry.ExecutorModule
 import gezi.contest.entry.ExecutorModuleInputs
 import gezi.hotspot.Executor
-import gezi.ir.Instruction
+import gezi.ir.{Configured, NativeSpecializer, NoFacts, Value}
 import gezi.knowledgereading.KnowledgeReading
 import gezi.knowledgereading.KnowledgeReadingError
 import gezi.narrowblocks.ProgramCompiler
@@ -29,11 +29,12 @@ final class TieringModule extends ExecutorModule:
     * (`λs. s n`, n written by the library's integer `from_cbor`). Throws
     * `EntryDataError` for other parameters.
     */
-  def executor(parameters: Instruction, inputs: ExecutorModuleInputs): Executor[?] =
+  def executor[C <: NativeSpecializer & Singleton](parameters: Configured[NoFacts.type], inputs: ExecutorModuleInputs[C]): Executor[C, ?] =
+    given NoFacts.type = NoFacts
     val steps =
       try
         KnowledgeReading.run(
-          KnowledgeReading.fields(parameters, 1).flatMap {
+          KnowledgeReading.fields(Value.of(parameters), 1).flatMap {
             case Vector(steps) => KnowledgeReading.integer(steps)
             case fields        => throw EntryDataError(s"solo's tiering module's parameters have ${fields.size} fields, not 1")
           },
@@ -42,7 +43,8 @@ final class TieringModule extends ExecutorModule:
       catch case KnowledgeReadingError(reason) => throw EntryDataError(s"solo's tiering module's parameters: $reason")
     if steps < 0 || !steps.isValidLong then
       throw EntryDataError(s"solo's tiering module's interpretation steps are $steps, not a non-negative integer of 64 bits")
-    TieredExecutor(
+    TieredExecutor[C](
+      inputs.jit.configuration.specializer,
       Defaults.executor(inputs.jit, inputs.reading),
       ProgramCompiler(inputs.compilation),
       InterpretFirst(inputs.compilation, steps.toLong)

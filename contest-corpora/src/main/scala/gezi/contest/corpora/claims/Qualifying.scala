@@ -17,31 +17,31 @@ final class Qualifying(corpora: Corpora, clauses: HardClauses):
 
   private def contest = corpora.contest
 
-  def lengthOfMap(count: Int): Term =
+  def lengthOfMap(count: Int): ProblemTerm =
     naturalEqual(length(map(successor)(clauses.zerosList(count))))(contest.numeral(count))
 
-  def appendLength(count: Int): Term =
+  def appendLength(count: Int): ProblemTerm =
     naturalEqual(length(append(clauses.zerosList(count))(clauses.zerosList(count))))(contest.numeral(2 * count))
 
-  def reverseTwice(count: Int): Term =
+  def reverseTwice(count: Int): ProblemTerm =
     naturalEqual(clauses.listHead(clauses.listReverse(clauses.listReverse(contest.labelsList(1 to count, nil)))))(
       contest.numeral(1))
 
-  def allZero(count: Int): Term = contest.everyElementIs(zero)(clauses.zerosList(count))
+  def allZero(count: Int): ProblemTerm = contest.everyElementIs(zero)(clauses.zerosList(count))
 
-  def hotLoop(rounds: Int): Term =
+  def hotLoop(rounds: Int): ProblemTerm =
     val heavy = λ(k => corpora.longRuns.churchNumeral(256)(identity)(k))
     fixpoint(λ(self => λ(m => m(identity)(λ(m1 => heavy(self(m1)))))))(contest.numeral(rounds))(trueValue)
 
-  def streamNth(count: Int): Term =
+  def streamNth(count: Int): ProblemTerm =
     naturalEqual(contest.streamNth(contest.numeral(count))(contest.streamNaturalsByMap))(contest.numeral(count))
 
-  def sum(count: Int): Term =
+  def sum(count: Int): ProblemTerm =
     val total = fixpoint(λ(self => λ(items => items(zero)(λ(item => λ(rest => clauses.naturalPlus(item)(self(rest))))))))
     naturalEqual(total(contest.labelsList(1 to count, nil)))(contest.numeral(count * (count + 1) / 2))
 
   /** The points of `contest_qualifying`, by name. */
-  def points: Map[String, () => Term] = Map(
+  def points: Map[String, () => ProblemTerm] = Map(
     "qualifying_length_of_map" -> (() => lengthOfMap(700)),
     "qualifying_append_length" -> (() => appendLength(400)),
     "qualifying_reverse_twice" -> (() => reverseTwice(400)),

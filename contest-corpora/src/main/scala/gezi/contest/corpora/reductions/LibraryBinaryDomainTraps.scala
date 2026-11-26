@@ -116,7 +116,7 @@ final class LibraryBinaryDomainTraps(spelling: Spelling, val nominal: NominalRan
       throw IllegalStateException(s"a canonical site answers $definitional on trees and $roundTrip on integers: $site")
     (site, afterSite)
 
-  private def site(terms: StandardLibraryTerms, drawnSite: Site): Term =
+  private def site(terms: StandardLibraryTerms, drawnSite: Site): ProblemTerm =
     import terms.*
     val left = term(terms, drawnSite.left.tree)
     val right = term(terms, drawnSite.right.tree)
@@ -126,9 +126,9 @@ final class LibraryBinaryDomainTraps(spelling: Spelling, val nominal: NominalRan
       case Spelling.Respelled =>
         compose(λ(total => binaryEquality(total)(compared)))(λ(addend => binaryPlus(left)(addend)))(right)
 
-  protected def program(terms: StandardLibraryTerms, drawn: Drawn): Term = terms.list(drawn.sites.map(site(terms, _)))
+  protected def program(terms: StandardLibraryTerms, drawn: Drawn): ProblemTerm = terms.list(drawn.sites.map(site(terms, _)))
 
-  protected def singlePrograms(terms: StandardLibraryTerms, drawn: Drawn): Vector[Term] = drawn.sites.map(site(terms, _))
+  protected def singlePrograms(terms: StandardLibraryTerms, drawn: Drawn): Vector[ProblemTerm] = drawn.sites.map(site(terms, _))
 
 /** The draws, the trees' semantics, the nominal ranges and the variants of
   * `LibraryBinaryDomainTraps`.
@@ -214,7 +214,7 @@ object LibraryBinaryDomainTraps:
   def integerAnswer(site: Site): Boolean = site.left.value + site.right.value == site.compared.value
 
   /** The tree's term, built with binary_zero, binary_even and binary_odd. */
-  def term(terms: StandardLibraryTerms, tree: Tree): Term =
+  def term(terms: StandardLibraryTerms, tree: Tree): ProblemTerm =
     import terms.*
     tree match
       case Tree.Zero       => binaryZero

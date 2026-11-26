@@ -1,7 +1,7 @@
 package gezi.frontend
 
 // TODO: FreeNameConversionLawTest stood here. Its purpose: converting a locally nameless term with names
-// (`Defunctionalization.thunkInstruction(term, names)`, `FreeNames.Allowed`, which stays) gives the instruction of
+// (`Defunctionalization.thunkInstruction(term, names)(using gezi.ir.NoFacts)`, `FreeNames.Allowed`, which stays) gives the instruction of
 // the term with each free name replaced by the constant of its instruction, so that a conversion does not tell two
 // closed subterms apart by the spelling of free names whose instructions are equal.
 // It named library terms by Term.define leaves of HoasGenerators.closedTerm over library names, a free variable

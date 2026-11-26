@@ -10,7 +10,8 @@ import gezi.frontend.Term
 import gezi.generatedinputs.GeneratedProperties
 import gezi.generatedinputs.HoasGenerators
 import gezi.ir.Code
-import gezi.ir.Instruction
+import gezi.ir.Configured
+import gezi.ir.NoFacts
 import gezi.ir.Reachability
 import gezi.ir.Store
 import gezi.ir.{Apply, Thunk}
@@ -36,6 +37,8 @@ import gezi.saturation.Saturation
   */
 class BodyReadingLawTest extends GeneratedProperties:
 
+  private given NoFacts.type = NoFacts
+
   /** `λx. (λy. y x + B x y) A x`, B and A generated: the code applies the
     * inner thunk `λy. …`, which reads x and so stays in the code.
     */
@@ -58,11 +61,11 @@ class BodyReadingLawTest extends GeneratedProperties:
   property("reading a code's body builds the compiled body's nodes, its redexes marked alike") {
     for lambda <- lambdas.forAllWithLog(gezi.generatedinputs.LambdalatticeText.text)
     yield
-      val instruction = Defunctionalization.thunkInstruction(lambda.deBruijnTerm(Map.empty))
+      val instruction = Defunctionalization.thunkInstruction[gezi.ir.NoFacts.type](lambda.deBruijnTerm(Map.empty))(using gezi.ir.NoFacts)
       instruction.layer match
         case Thunk(code, holes, fillings) =>
-          val leaves = holes.indices.toVector.map(position => Instruction.opaque(s"hole $position"))
-          val (withLeaves, leafNodes) = leaves.foldLeft((EGraph.empty(Store(noinline = leaves.toSet), Map.empty, explained = false), Vector.empty[Int])) {
+          val leaves = holes.indices.toVector.map(position => NoFacts.opaque(s"hole $position"))
+          val (withLeaves, leafNodes) = leaves.foldLeft((EGraph.empty(Store(noinline = leaves.toSet, gezi.ir.TermConstruction(gezi.ir.NoFacts)), Map.empty, explained = false), Vector.empty[Int])) {
             case ((current, nodes), leaf) =>
               val (next, node) = current.instructionAdded(leaf)
               (next, nodes :+ node)
@@ -75,7 +78,7 @@ class BodyReadingLawTest extends GeneratedProperties:
           val (read, readNode) = HigherOrderMatching.bodyAdded(graph, code, values)
           val compiled = ClosureCompilation.compiled(Indexing.program(Vector.empty, Reachability.codesUnder(Vector(instruction), Vector(code))))
           val (built, builtNode) = compiled.body(code, graph, values)
-          def marked(of: EGraph): Vector[(gezi.ir.Layer[Int], Boolean)] =
+          def marked(of: EGraph[NoFacts.type]): Vector[(gezi.ir.Layer[Int], Boolean)] =
             (0 until of.nodeCount).toVector.map(node => (of.layer(node), of.readable(node)))
           Result
             .all(

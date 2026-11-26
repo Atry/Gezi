@@ -6,11 +6,15 @@ import gezi.frontend.Term.λ
 import gezi.generatedinputs.GeneratedProperties
 import gezi.generatedinputs.HoasGenerators
 import gezi.standardlibrary.LibraryFiles
+import gezi.frontend.Defunctionalization
 import gezi.weakhead.Bounded
-import gezi.weakhead.EvaluatorTesting.plainHeadsWithin
-import gezi.weakhead.EvaluatorTesting.valueOf
+import gezi.weakhead.Computed
+import gezi.weakhead.EvaluatorTesting
 import gezi.weakhead.KnownExtremes
 import gezi.weakhead.Mode
+import gezi.weakhead.ReadingConfiguration
+import gezi.weakhead.ReadingState
+import gezi.weakhead.WeakHead
 
 /** The JIT reads a listed extreme of ⊑_O as the reference,
   * tabling(weak_head), does:
@@ -29,24 +33,36 @@ class JitKnownExtremesLawTest extends GeneratedProperties:
 
   private def top: Term = λ(f => λ(x => f(x(x)))(λ(x => f(x(x)))))(λ(z => λ(x => z ∥ x)))
 
-  private def known: KnownExtremes = KnownExtremes(Vector(valueOf(top)), Vector(valueOf(omega)))
+  private def known: KnownExtremes =
+    KnownExtremes(Vector(Defunctionalization.pure(top.deBruijnTerm(Map.empty))), Vector(Defunctionalization.pure(omega.deBruijnTerm(Map.empty))))
+
+  private lazy val encoding: StorageEncoding =
+    BackendFacts.of(LibraryFiles.compiled("tests/library_fixtures/no_knowledge.lambdalattice", Vector.empty)).storageEncoding
+
+  private given encoding.type = encoding
 
   /** A JIT over no knowledge: the extremes are the reading's, not the
     * library's.
     */
-  private lazy val jit: Jit =
-    Jit(JitConfiguration.of(BackendFacts.of(LibraryFiles.compiled("tests/library_fixtures/no_knowledge.lambdalattice", Vector.empty)), instanceTable = false))
+  private lazy val jit: Jit[encoding.type] =
+    Jit(JitConfiguration.of[encoding.type](encoding, instanceTable = false, gezi.ir.StorageAccess.granted()))
 
   override def sharedFixtures: Vector[scala.concurrent.Future[Unit] => Any] = Vector(_ => jit)
 
   private val limit: Long = 20000
 
+  /** The parallel sets of the value under the mode and the configuration, within the limit and under the known extremes. */
+  private def headsWithin(mode: Mode, configuration: ReadingConfiguration[encoding.type], value: gezi.ir.Value[encoding.type]): Bounded[Vector[gezi.weakhead.ParallelSet[encoding.type]]] =
+    WeakHead.heads(mode, value).collected.result(ReadingState.knowing(limit, known, configuration)) match
+      case Computed.Done(heads, _) => Bounded.Finished(heads)
+      case Computed.Stopped(after) => EvaluatorTesting.stopped(after)
+
   /** The JIT's answers are tabling(weak_head)'s where both finish within the
     * limit; a term either reader does not finish proves nothing either way.
     */
   private def agrees(term: Term, label: String): Result =
-    val value = valueOf(term)
-    (plainHeadsWithin(Mode.Jit(jit), value, limit, known), plainHeadsWithin(Mode.TablingWeakHead, value, limit, known)) match
+    val value = JitTesting.termValue[encoding.type](term)
+    (headsWithin(Mode.Jit, jit.readingConfiguration, value), headsWithin(Mode.TablingWeakHead, JitTesting.referenceConfiguration(jit), value)) match
       case (Bounded.Finished(byJit), Bounded.Finished(byWeakHead)) =>
         Result.diff(byJit.toSet, byWeakHead.toSet)(_ == _).log(label)
       case _ => Result.success

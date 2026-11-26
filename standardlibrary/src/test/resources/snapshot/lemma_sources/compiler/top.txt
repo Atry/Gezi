@@ -1,5 +1,0 @@
-top_choice_left: λx_0. (x_0 + top) = λx_0. x_0
-top_choice_right: λx_0. (top + x_0) = λx_0. x_0
-top_applied: λx_0. top x_0 = λx_0. top
-top_parallel_left: λx_0. (top ∥ x_0) = λx_0. top
-top_parallel_right: λx_0. (x_0 ∥ top) = λx_0. top

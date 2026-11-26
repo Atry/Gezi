@@ -31,7 +31,7 @@ class LocationsBoundaryTest extends gezi.generatedinputs.FailFastSuite:
   private val allowedSources: Map[String, String] = Map(
     "standardlibrary/src/main/scala/gezi/standardlibrary/LemmaSources.scala" ->
       "the spans of a knowledge file's lemma declarations, read beside the library, which reads none of them",
-    "standardlibrary/src/test/scala/gezi/standardlibrary/LemmaSourcesSnapshotTest.scala" -> "the snapshot of those spans",
+    "standardlibrary/src/test/scala/gezi/standardlibrary/LemmaDeclarationsLawTest.scala" -> "a law of those spans",
     "contest-entry-generic/src/main/scala/gezi/contest/entry/generic/GenericEntry.scala" ->
       "the lemmas' texts handed to the trace it writes as evidence",
     "strategies/src/test/scala/gezi/strategies/TraceSourceMapsLawTest.scala" ->

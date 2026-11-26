@@ -12,6 +12,7 @@ import gezi.strategies.NormalityModule
 import gezi.strategies.TermOrder
 import gezi.strategies.TermReading
 import gezi.frontend.DeBruijnTerm
+import gezi.frontend.DeBruijnTermOf
 import gezi.frontend.Defunctionalization
 import gezi.frontend.Occurrences
 import gezi.egraph.EGraph
@@ -22,10 +23,13 @@ import gezi.backendcomparison.RunInput
 import gezi.saturation.End
 import gezi.saturation.Saturation
 import gezi.ematching.indexing.Indexing
-import gezi.ir.Instruction
 import gezi.ir.Reachability
 import gezi.ir.Store
 import scala.annotation.tailrec
+import gezi.ir.{Configured, NativeSpecializer, NoFacts}
+
+/** The configuration of the terms here: no facts. */
+private given pipelineNoFacts: NoFacts.type = NoFacts
 
 /** A size family of the two configurations: its configuration and its
   * name.
@@ -44,15 +48,15 @@ final case class SizeFamily(configuration: Configuration, family: String):
   * after the occurrence tagging, and the program's instruction.
   */
 final case class FrontEnd(
-    untagged: DeBruijnTerm,
-    tagged: DeBruijnTerm,
-    inputInstruction: Instruction
+    untagged: DeBruijnTermOf[Configured[NoFacts.type]],
+    tagged: DeBruijnTermOf[Configured[NoFacts.type]],
+    inputInstruction: Configured[NoFacts.type]
 )
 
 /** An item's saturation: the graph at the End, the End, the nodes the input
   * made when it was added, and the input's node.
   */
-final case class Saturated(graph: EGraph, end: End, inputNodesMade: Int, inputNodes: Vector[Int])
+final case class Saturated(graph: EGraph[NoFacts.type], end: End, inputNodesMade: Int, inputNodes: Vector[Int])
 
 /** The deterministic counts of each stage of the pipeline on one item, for
   * the migration's criterion 4 (`CriterionFourTest`). Every count is read off the values the stages
@@ -182,18 +186,18 @@ object Pipeline:
     FixedPointRuns.compiled(configuration, buildRoot)
 
   /** The closed program through the front end. */
-  def frontEnd(compiled: CompiledConfiguration, program: gezi.frontend.Term): FrontEnd =
+  def frontEnd(compiled: CompiledConfiguration, program: ProgramTerm): FrontEnd =
     val untagged = program.deBruijnTerm(Map.empty)
     val tagged = compiled.occurrenceMarkers match
       case None          => untagged
-      case Some(markers) => Occurrences.tagged(untagged, markers)
-    FrontEnd(untagged, tagged, Defunctionalization.thunkInstruction(tagged))
+      case Some(markers) => Occurrences.tagged[NoFacts.type](untagged, markers)
+    FrontEnd(untagged, tagged, Defunctionalization.thunkInstruction(tagged)(using gezi.ir.NoFacts))
 
   /** The run's input, compiled by the index and the closure backend. */
-  def indexCompiled(compiled: CompiledConfiguration, frontEnd: FrontEnd): Compiled =
+  def indexCompiled(compiled: CompiledConfiguration, frontEnd: FrontEnd): Compiled[NoFacts.type] =
     Compiled.of(
       RunInput(
-        Store(compiled.library.index.noinline),
+        Store(compiled.library.index.noinline, gezi.ir.TermConstruction(gezi.ir.NoFacts)),
         compiled.orientations.orientations,
         compiled.orientations.patternInstructions,
         Vector(frontEnd.inputInstruction),
@@ -204,24 +208,24 @@ object Pipeline:
   /** The graph of the pattern instructions built, the input added and the graph
     * saturated to its End.
     */
-  def saturated(item: Compiled): Saturated =
+  def saturated(item: Compiled[NoFacts.type]): Saturated =
     val input = item.input
     val initial = Saturation.initialGraph(input.store, item.headArityBounds, input.patternInstructions, explained = false)
     val (withInputs, inputNodes) = Saturation.inputsAdded(initial, input.inputs)
     val (graph, end) =
-      Saturation.saturated(item.program, item.compiled, BuiltInRule.all, withInputs, input.budget, StopSignal.NeverStopped)
+      Saturation.saturated(item.program, item.compiled, BuiltInRule.beforeOptIn, withInputs, input.budget, StopSignal.NeverStopped)
     Saturated(graph, end, withInputs.canonicalNodeCount - initial.canonicalNodeCount, inputNodes)
 
   /** The ordering modules of the extraction of every round of the native
     * route, from the baseline's table, checked once.
     */
-  val extractionModules: Vector[NormalityModule] =
+  val extractionModules: Vector[NormalityModule[NoFacts.type]] =
     TermOrder.extractionModulesChecked(TermOrder.modulesChecked(BaselineModules.table, NativeRouteCompilation.extraction.modules))
 
   /** The output of the saturated graph extracted as the baseline's round
     * extracts it, the program's instruction the one input.
     */
-  def extracted(compiled: CompiledConfiguration, frontEnd: FrontEnd, run: Saturated): ExtractedOutputs =
+  def extracted(compiled: CompiledConfiguration, frontEnd: FrontEnd, run: Saturated): ExtractedOutputs[NoFacts.type] =
     val index = compiled.library.index
     val model = ModuleCostModel(extractionModules, TermReading(index), StopSignal.NeverStopped)
     val extraction = CountedExtraction
@@ -229,7 +233,7 @@ object Pipeline:
       .getOrElse(throw IllegalStateException("an extraction under NeverStopped was stopped"))
     ExtractedOutputs(
       extraction,
-      FixpointEgraph.outputsSpelled(extraction, run.inputNodes.map(run.graph.root), Vector(frontEnd.inputInstruction))
+      FixpointEgraph.outputsSpelled(extraction, run.inputNodes.map(run.graph.root), Vector(frontEnd.inputInstruction), run.graph.store.construction)
     )
 
   /** The counts of every stage on the item, the library compiled once for
@@ -275,11 +279,11 @@ object Pipeline:
     */
   private final case class ExtractionCounts(classesEntered: Int, productionReads: Long, layersSpelled: Int)
 
-  private def extractionCounts(
-      extraction: ExtractedOutputs,
-      programInstructions: Set[Instruction],
-      libraryInstructions: Set[Instruction]
-  ): ExtractionCounts =
+  private def extractionCounts[C <: NativeSpecializer & Singleton](
+      extraction: ExtractedOutputs[C],
+      programInstructions: Set[Configured[C]],
+      libraryInstructions: Set[Configured[C]]
+  )(using C): ExtractionCounts =
     ExtractionCounts(
       extraction.extracted.classes.values.count(_.best.isDefined),
       extraction.extracted.classes.values.map(_.readers.size.toLong).sum,
@@ -288,7 +292,7 @@ object Pipeline:
 
   /** The nodes of the terms, counted with an explicit stack. */
   @tailrec
-  private def nodeCount(pending: List[DeBruijnTerm], counted: Int): Int = pending match
+  private def nodeCount[Constant](pending: List[DeBruijnTermOf[Constant]], counted: Int): Int = pending match
     case Nil => counted
     case term :: rest =>
       val subterms = term match

@@ -32,7 +32,7 @@ class WordFamilyLawTest extends GeneratedProperties:
   property("built after taken is the identity at each width, with the fields the constructor declares") {
     for value <- word.forAll
     yield
-      val parameter = Some(NativeValue.Natural(value.width))
+      val parameter = Some(WordWidth(value.width))
       val layer = WordFamily.taken(parameter, value)
       val constructor = WordFamily.constructors(parameter)(layer.constructor)
       val declared = constructor.fields.map(field =>
@@ -41,7 +41,7 @@ class WordFamilyLawTest extends GeneratedProperties:
           case other                                       => (other.familyIdentity, None)
       )
       val found = layer.fields.map {
-        case Word(width, _)       => (WordFamily.identity, Some(NativeValue.Natural(width)))
+        case Word(width, _)       => (WordFamily.identity, Some(WordWidth(width)))
         case NativeValue.Truth(_) => (BooleanFamily.identity, None)
         case other                => (FamilyIdentity.Codec("unknown"), Some(other))
       }
@@ -55,12 +55,15 @@ class WordFamilyLawTest extends GeneratedProperties:
   }
 
   test("the shape check accepts fixed_width's constructors and rejects either in the other's place") {
-    val end = JitTesting.libraryTerms("word_end")
-    val cell = JitTesting.libraryTerms("word_cell")
-    val atZero = Some(NativeValue.Natural(0))
-    val atOne = Some(NativeValue.Natural(1))
-    assertEquals(WordFamily.constructorsShape(atZero, Vector(end)), Shape.Fits)
-    assertEquals(WordFamily.constructorsShape(atOne, Vector(cell)), Shape.Fits)
-    assertNotEquals(WordFamily.constructorsShape(atOne, Vector(end)), Shape.Fits)
-    assertNotEquals(WordFamily.constructorsShape(atZero, Vector(cell)), Shape.Fits)
+    val encoding = JitTesting.noFactsEncoding
+    given encoding.type = encoding
+    given gezi.ir.StorageAccess = gezi.ir.StorageAccess.granted()
+    val end = JitTesting.libraryInstruction[encoding.type]("word_end")
+    val cell = JitTesting.libraryInstruction[encoding.type]("word_cell")
+    val atZero = Some(WordWidth(0))
+    val atOne = Some(WordWidth(1))
+    assertEquals(WordFamily.constructorsShape[encoding.type](atZero, Vector(end)), Shape.Fits)
+    assertEquals(WordFamily.constructorsShape[encoding.type](atOne, Vector(cell)), Shape.Fits)
+    assertNotEquals(WordFamily.constructorsShape[encoding.type](atOne, Vector(end)), Shape.Fits)
+    assertNotEquals(WordFamily.constructorsShape[encoding.type](atZero, Vector(cell)), Shape.Fits)
   }

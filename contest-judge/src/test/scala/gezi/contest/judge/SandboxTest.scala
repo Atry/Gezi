@@ -1,6 +1,8 @@
 package gezi.contest.judge
 
 import java.io.BufferedReader
+import gezi.ir.Configured
+import gezi.ir.NoFacts
 import java.io.InputStreamReader
 import java.lang.ProcessBuilder.Redirect
 import java.net.InetAddress
@@ -34,7 +36,7 @@ import scala.util.Using
   */
 final class SandboxProbe extends EntryProvider:
 
-  def initial(entryDirectory: Path, caches: Cache, articles: ArticleDestination): Entry =
+  def initial(entryDirectory: Path, caches: Cache, articles: ArticleDestination): Entry[?] =
     Files.readString(entryDirectory.resolve("attempt")).trim.split(' ').toVector match
       case Vector("read", file) =>
         Files.readString(Paths.get(file))
@@ -55,13 +57,13 @@ final class SandboxProbe extends EntryProvider:
 object SandboxProbe:
 
   /** The entry that answers no cell: it displays the Output unreduced. */
-  final case class Unanswering(cache: Cache) extends Entry:
-    def run(cell: DeBruijnTerm, source: gezi.hotspot.ExpansionSource, stop: StopSignal): Interaction =
+  final case class Unanswering(cache: Cache) extends Entry[NoFacts.type]:
+    def run(cell: gezi.frontend.DeBruijnTermOf[Configured[NoFacts.type]], source: gezi.hotspot.ExpansionSource, stop: StopSignal): Interaction[NoFacts.type] =
       Interaction.Finished(Cells.unreducedOutput(cell, Cells.initialState), Vector.empty, this)
 
   /** The entry that spins forever on every cell. */
-  final case class Spinning(cache: Cache) extends Entry:
-    def run(cell: DeBruijnTerm, source: gezi.hotspot.ExpansionSource, stop: StopSignal): Interaction = spun(0L)
+  final case class Spinning(cache: Cache) extends Entry[NoFacts.type]:
+    def run(cell: gezi.frontend.DeBruijnTermOf[Configured[NoFacts.type]], source: gezi.hotspot.ExpansionSource, stop: StopSignal): Interaction[NoFacts.type] = spun(0L)
 
   @tailrec
   private def spun(count: Long): Nothing = spun(count + 1)
@@ -97,7 +99,7 @@ class SandboxTest extends gezi.generatedinputs.FailFastSuite:
   private val buildRoot: Path = Paths.get(sys.props("gezi.buildRoot"))
 
   private val point =
-    Point("identity", "test", "test", BigDecimal(1), gezi.frontend.Defunctionalization.thunkInstruction(DeBruijnTerm.Lambda(DeBruijnTerm.Variable(0))), Question.Evaluation(Set.empty))
+    Point("identity", "test", "test", BigDecimal(1), gezi.frontend.ExchangeText.line(gezi.frontend.Defunctionalization.thunkInstruction(DeBruijnTerm.Lambda(DeBruijnTerm.Variable(0)))(using gezi.ir.NoFacts)), Question.Evaluation(Set.empty))
 
   /** A directory for one setup: `entry`, the probe entry's directory with
     * its file `attempt`; `private/points.tsv`, beside it; `logs`, the

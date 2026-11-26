@@ -3,19 +3,18 @@ package gezi.egraph
 import gezi.ir.BindingNormalForm
 import gezi.ir.Code
 import gezi.ir.Hole
-import gezi.ir.Instruction
 
 /** The front end's spelling of a thunk layer with holes, a function of its
   * code, holes and number of fillings alone
   * (`BindingNormalForm.respelled`): the layer itself (`Canonical`), or a
-  * code, holes and fillings that are closed terms over the placeholders of
-  * the fillings (`Respelled`). A subterm a code kept inline that reads no
+  * code, holes and fillings that are codes over the slots of the layer's
+  * fillings, slot p standing for the filling of position p (`Respelled`). A subterm a code kept inline that reads no
   * binder, which a β residual leaves once the arguments fill the binders it
   * read, becomes a filling.
   */
 enum Respelling:
   case Canonical
-  case Respelled(code: Code, holes: Vector[Hole], fillings: Vector[Instruction])
+  case Respelled(code: Code, holes: Vector[Hole], fillings: Vector[Code])
 
 object Respelling:
 

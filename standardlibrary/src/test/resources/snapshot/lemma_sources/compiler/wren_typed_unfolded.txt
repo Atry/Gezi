@@ -1,6 +1,0 @@
-wren_typed_plus_unfolded: λx_0 x_1. wren_typed_plus x_0 x_1 = λx_0 x_1. (merge_binary_plus (x_0 ∥ binary_set true) (x_1 ∥ binary_set true) ∥ binary_set true)
-wren_typed_maximum_unfolded: λx_0 x_1. wren_typed_maximum x_0 x_1 = λx_0 x_1. (binary_maximum (x_0 ∥ binary_set true) (x_1 ∥ binary_set true) ∥ binary_set true)
-wren_typed_minimum_unfolded: λx_0 x_1. wren_typed_minimum x_0 x_1 = λx_0 x_1. (binary_minimum (x_0 ∥ binary_set true) (x_1 ∥ binary_set true) ∥ binary_set true)
-wren_typed_even_unfolded: λx_0. wren_typed_even x_0 = λx_0. (binary_even (x_0 ∥ binary_set false) ∥ binary_set false)
-wren_typed_odd_unfolded: λx_0. wren_typed_odd x_0 = λx_0. (binary_odd (x_0 ∥ binary_set true) ∥ binary_set false)
-wren_typed_bitwise_or_unfolded: λx_0 x_1. wren_typed_bitwise_or x_0 x_1 = λx_0 x_1. (binary_bitwise_or (x_0 ∥ binary_set true) (x_1 ∥ binary_set true) ∥ binary_set true)

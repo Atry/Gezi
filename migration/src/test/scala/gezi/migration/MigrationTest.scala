@@ -11,9 +11,12 @@ import gezi.generatedinputs.GeneratedProperties
 import gezi.generatedinputs.HoasGenerators
 import gezi.generatedinputs.LambdalatticeText
 import gezi.generatedinputs.SeededSnapshots
+import gezi.ir.Configured
 import gezi.ir.LemmaIdentifier
+import gezi.ir.NoFacts
 import gezi.ir.Pattern
 import gezi.ir.Store
+import gezi.ir.TermConstruction
 import gezi.locations.Span
 import gezi.orientation.LemmaSides
 import snapshot4s.generated.snapshotConfig
@@ -50,20 +53,22 @@ import snapshot4s.generated.snapshotConfig
   */
 class MigrationTest extends GeneratedProperties with SeededSnapshots:
 
+  given NoFacts.type = NoFacts
+
   private val uri: java.net.URI = java.net.URI.create("file:///generated.lambdalattice")
 
-  private val store: Store = Store(Set.empty)
+  private val store: Store[NoFacts.type] = Store[NoFacts.type](Set.empty, TermConstruction(NoFacts))
 
-  private def metavariable(index: Int): Pattern = Pattern.Metavariable(index)
+  private def metavariable(index: Int): Pattern[NoFacts.type] = Pattern.Metavariable(index)
 
   /** M + N = N + M, law (1), a theorem of the formal definition. */
-  private val commutativity: LemmaSides =
-    LemmaSides(LemmaIdentifier(0), 2, Pattern.Choice(metavariable(0), metavariable(1)), Pattern.Choice(metavariable(1), metavariable(0)))
+  private val commutativity: LemmaSides[NoFacts.type] =
+    LemmaSides[NoFacts.type](LemmaIdentifier(0), 2, Pattern.Choice(metavariable(0), metavariable(1)), Pattern.Choice(metavariable(1), metavariable(0)))
 
   /** K M N = M, two steps of the β rule, K being λx. λy. x. */
-  private val constant: LemmaSides =
-    val k = Defunctionalization.thunkInstruction(Lambdalattice.term("λx. λy. x"))
-    LemmaSides(
+  private val constant: LemmaSides[NoFacts.type] =
+    val k = Defunctionalization.thunkInstruction[NoFacts.type](Lambdalattice.term("λx. λy. x"))
+    LemmaSides[NoFacts.type](
       LemmaIdentifier(1),
       2,
       Pattern.Apply(Pattern.Apply(Pattern.InstructionReference(k), metavariable(0)), metavariable(1)),
@@ -89,7 +94,7 @@ class MigrationTest extends GeneratedProperties with SeededSnapshots:
     closedText.list(Range.linear(2, 4)).map(_.map(member => s"($member)").mkString(" + "))
 
   /** A text and the lemma that migrates it. */
-  private val migrations: Gen[(String, LemmaSides)] =
+  private val migrations: Gen[(String, LemmaSides[NoFacts.type])] =
     Gen.choice1(textWithChoices.map((_, commutativity)), textWithConstant.map((_, constant)))
 
   private def read(text: String): Option[gezi.frontend.DeBruijnTerm] =
@@ -181,13 +186,13 @@ class MigrationTest extends GeneratedProperties with SeededSnapshots:
   }
 
   /** The instruction of a closed text read alone. */
-  private def instructionOf(text: String): gezi.ir.Instruction =
-    Defunctionalization.thunkInstruction(Lambdalattice.term(text))
+  private def instructionOf(text: String): Configured[NoFacts.type] =
+    Defunctionalization.thunkInstruction[NoFacts.type](Lambdalattice.term(text))
 
   /** Where the migration does not keep the text outside its sites, or a
     * site and its replacement are not the instances of the lemma's sides.
     */
-  private def migrationProblems(text: String, lemma: LemmaSides): Vector[String] =
+  private def migrationProblems(text: String, lemma: LemmaSides[NoFacts.type]): Vector[String] =
     val migrated = TermMigration.migrated(text, uri, lemma, store, budget = 200)
     val original = SpellingMigration.codePointsOf(text)
     val written = SpellingMigration.codePointsOf(migrated.text)
@@ -201,7 +206,7 @@ class MigrationTest extends GeneratedProperties with SeededSnapshots:
       val before = instructionOf(site.original.of(original))
       val after = instructionOf(site.replaced.of(written))
       val matched = Matching.bindings(lemma.left, before, lemma.arity)
-      if matched.exists(bindings => TermMigration.instantiated(lemma.right, bindings) eq after) then Vector.empty
+      if matched.exists(bindings => Configured.same(TermMigration.instantiated(lemma.right, bindings), after)) then Vector.empty
       else Vector(s"`${site.original.of(original)}` to `${site.replaced.of(written)}` is no instance of the lemma")
     )
     kept ++ instances

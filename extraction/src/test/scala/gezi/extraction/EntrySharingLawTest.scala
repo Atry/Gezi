@@ -4,8 +4,7 @@ import hedgehog.Gen
 import hedgehog.Range
 import hedgehog.Result
 import gezi.generatedinputs.GeneratedProperties
-import gezi.ir.Instruction
-import gezi.ir.Layer
+import gezi.ir.NoFacts
 import scala.concurrent.Await
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
@@ -29,8 +28,8 @@ class EntrySharingLawTest extends GeneratedProperties:
   /** The entry of the depth over a leaf named by the leaf's number, each
     * level built from the one below, of cost the level.
     */
-  private def shared(depth: Int, leaf: Int): Entry[Int] =
-    (1 to depth).foldLeft(Entry(0, Shape.Name(Instruction.opaque(s"leaf$leaf")), Vector.empty)) { (below, level) =>
+  private def shared(depth: Int, leaf: Int): Entry[NoFacts.type, Int] =
+    (1 to depth).foldLeft(Entry(0, Shape.Name(NoFacts.opaque(s"leaf$leaf")), Vector.empty)) { (below, level) =>
       Entry(level, Shape.Node(level, Apply(level - 1, level - 1)), Vector(below, below))
     }
 

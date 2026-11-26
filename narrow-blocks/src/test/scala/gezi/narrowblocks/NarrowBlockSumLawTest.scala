@@ -1,17 +1,24 @@
 package gezi.narrowblocks
 
+import gezi.generatedinputs.GeneratedProperties
+import gezi.ir.Code
+import gezi.ir.Hole
+import gezi.ir.Configured
+import gezi.ir.NoFacts
+import gezi.ir.Pure
+import gezi.jit.BinaryNaturalFamily
+import gezi.jit.NativesProvider
+import gezi.saturation.StopSignal
+import gezi.standardlibrary.CombinatorProperty
+import gezi.standardlibrary.NativeBound
+import gezi.standardlibrary.Property
+import gezi.standardlibrary.StandardLibraryIndex
 import hedgehog.Gen
 import hedgehog.Range
 import hedgehog.Result
 import java.math.BigInteger
-import gezi.generatedinputs.GeneratedProperties
-import gezi.ir.Code
-import gezi.ir.Hole
-import gezi.ir.Instruction
-import gezi.jit.NativesProvider
-import gezi.saturation.StopSignal
-import gezi.standardlibrary.NativeBound
-import gezi.standardlibrary.StandardLibraryIndex
+
+private given narrowBlockSumLawTestNoFacts: NoFacts.type = NoFacts
 
 /** The laws of a left-nested sum of the binary naturals' plus over
   * canonical numerals, zero among them, `plus (… (plus l0 l1) …) ln`: it is
@@ -30,47 +37,55 @@ import gezi.standardlibrary.StandardLibraryIndex
 class NarrowBlockSumLawTest extends GeneratedProperties:
 
   /** λx. x x, bound to zero. */
-  private val zero = Instruction.Thunk(Code.Apply(Code.Slot(0), Code.Slot(0)), Vector(Hole.Bound(0)), Vector.empty)
+  private val zero = NoFacts.thunkOrInstance(Code.Apply(Code.Slot(0), Code.Slot(0)), Vector(Hole.Bound(0)), Vector.empty)
 
   /** λx y. y x, bound to even. */
   private val even =
-    Instruction.Thunk(Code.Apply(Code.Slot(1), Code.Slot(0)), Vector(Hole.Bound(0), Hole.Bound(1)), Vector.empty)
+    NoFacts.thunkOrInstance(Code.Apply(Code.Slot(1), Code.Slot(0)), Vector(Hole.Bound(0), Hole.Bound(1)), Vector.empty)
 
   /** λx y z. z y x, bound to odd. */
-  private val odd = Instruction.Thunk(
+  private val odd = NoFacts.thunkOrInstance(
     Code.Apply(Code.Apply(Code.Slot(2), Code.Slot(1)), Code.Slot(0)),
     Vector(Hole.Bound(0), Hole.Bound(1), Hole.Bound(2)),
     Vector.empty
   )
 
+  /** λx y. x (y y), the criterion `binary_set` whose `data_family` lists
+    * zero, even and odd, in the codec's order (`BinaryNaturalFamily`).
+    */
+  private val binarySet = NoFacts.thunkOrInstance(
+    Code.Apply(Code.Slot(0), Code.Apply(Code.Slot(1), Code.Slot(1))),
+    Vector(Hole.Bound(0), Hole.Bound(1)),
+    Vector.empty
+  )
+
   /** λx y. y y x, bound to plus. */
-  private val plus = Instruction.Thunk(
+  private val plus = NoFacts.thunkOrInstance(
     Code.Apply(Code.Apply(Code.Slot(1), Code.Slot(1)), Code.Slot(0)),
     Vector(Hole.Bound(0), Hole.Bound(1)),
     Vector.empty
   )
 
   private val compilation = NarrowBlockCompilation(
-    StandardLibraryIndex(
-      Vector.empty,
+    StandardLibraryIndex(NoFacts, Vector.empty,
       Vector.empty,
       Vector(
-        NativeBound(zero, "binary_zero"),
-        NativeBound(even, "binary_even"),
-        NativeBound(odd, "binary_odd"),
-        NativeBound(plus, "wren_binary_plus")
+        NativeBound(Pure.required(plus), "wren_binary_plus")
       ),
-      Vector.empty
+      Vector(
+        CombinatorProperty(Pure.required(binarySet), Property.NativeSpecialization(BinaryNaturalFamily.identity.name)),
+        CombinatorProperty(Pure.required(binarySet), Property.DataFamily(0, Vector(zero, even, odd).map(Pure.required)))
+      )
     ),
     NativesProvider.loaded
-  )
+  , gezi.weakhead.ReadingConfiguration.withoutFacts)
 
   /** The canonical binary numeral of the value, least significant digit
     * outermost.
     */
-  private def numeral(value: Int): Instruction =
+  private def numeral(value: Int): Configured[NoFacts.type] =
     if value == 0 then zero
-    else Instruction.Apply(if (value & 1) == 1 then odd else even, numeral(value >> 1))
+    else NoFacts.application(if (value & 1) == 1 then odd else even, numeral(value >> 1))
 
   /** A numeral's value, zero one time in three. */
   private val value: Gen[Int] = Gen.frequency1(1 -> Gen.constant(0), 2 -> Gen.int(Range.constant(1, 7)))
@@ -89,8 +104,8 @@ class NarrowBlockSumLawTest extends GeneratedProperties:
   /** The closed function of the sum's body, its parameter the numeral at
     * `parameter`.
     */
-  private def function(values: Vector[Int], parameter: Int): Instruction =
-    Instruction.Thunk(
+  private def function(values: Vector[Int], parameter: Int): Configured[NoFacts.type] =
+    NoFacts.thunkOrInstance(
       body(values, parameter),
       Vector(Hole.Bound(0)),
       plus +: values.indices.filter(_ != parameter).map(position => numeral(values(position))).toVector
@@ -103,11 +118,11 @@ class NarrowBlockSumLawTest extends GeneratedProperties:
       parameter <- Gen.int(Range.constant(0, rest.size)).forAll
     yield
       val values = (first +: rest).toVector
-      val sum = rest.foldLeft(numeral(first))((sum, literal) => Instruction.Apply(Instruction.Apply(plus, sum), numeral(literal)))
-      val call = Instruction.Apply(function(values, parameter), numeral(values(parameter)))
+      val sum = rest.foldLeft(numeral(first))((sum, literal) => NoFacts.application(NoFacts.application(plus, sum), numeral(literal)))
+      val call = NoFacts.application(function(values, parameter), numeral(values(parameter)))
       val stop = StopSignal.completedWith(stopped)
       val expected = Right(Vector(Some(BigInteger.valueOf(values.map(_.toLong).sum))))
-      def computed(program: Instruction) =
+      def computed(program: Configured[NoFacts.type]) =
         compilation.compiled(compilation.blocks(program), DebugAttributes.Omitted, stop).map(_.map(_.run(stop)))
       Result
         .all(

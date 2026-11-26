@@ -4,8 +4,11 @@ import hedgehog.Gen
 import hedgehog.Range
 import hedgehog.Result
 import gezi.contest.entry.OutputDisplay
+import gezi.ir.NoFacts
 import gezi.frontend.DeBruijnTerm
 import gezi.generatedinputs.GeneratedProperties
+
+private given outputReadingLawTestNoFacts: NoFacts.type = NoFacts
 
 /** The laws of the judge's reading of an output, the contest's rules for
   * scoring an evaluation and for reading an output, on generated references and displays
@@ -34,9 +37,18 @@ class OutputReadingLawTest extends GeneratedProperties:
     */
   private val counts = Gen.element(0, List(2, 3, 4, 5, 6, 7, 8, 9))
 
-  private def display(shown: Set[DeBruijnTerm], withRemainder: Boolean): OutputDisplay =
+  /** The display of the normal forms the term holds as its choice's members, read as Scott ADT values. */
+  private def normalFormsDisplay(term: DeBruijnTerm): OutputDisplay[NoFacts.type] =
+    given gezi.ir.StorageAccess = gezi.weakhead.ReadingConfiguration.withoutFacts.storageAccess
+    OutputDisplay.Values(
+      gezi.weakhead.ScottADTChoices
+        .ofNormalForm(gezi.frontend.Defunctionalization.thunkInstruction[NoFacts.type](term))
+        .getOrElse(throw IllegalArgumentException(s"the term is no Scott ADT value: $term"))
+    )
+
+  private def display(shown: Set[DeBruijnTerm], withRemainder: Boolean): OutputDisplay[NoFacts.type] =
     val members = shown.toVector.sortBy(_.toString) ++ Option.when(withRemainder)(remainder).toVector
-    if members.isEmpty then OutputDisplay.NoNormalForm else OutputDisplay.shown(DeBruijnTerm.nestedChoice(members))
+    if members.isEmpty then OutputDisplay.noScottADTValue[NoFacts.type] else normalFormsDisplay(DeBruijnTerm.nestedChoice(members))
 
   property("anEvaluationEarnsItsNormalFormsAndOneMoreForTheWholeSetWithNoRemainder") {
     for
@@ -62,14 +74,14 @@ class OutputReadingLawTest extends GeneratedProperties:
       candidate <- counts.forAll.map(numeral)
       member <- Gen.boolean.forAll
     yield
-      val question = Question.Judgment(gezi.frontend.Defunctionalization.thunkInstruction(candidate), member)
+      val question = Question.Judgment(gezi.frontend.Defunctionalization.thunkInstruction(candidate)(using gezi.ir.NoFacts), member)
       Result.all(List(
         Result.diff(Outcome.judged(question, display(Set.empty, false)), if member then (Outcome.Unknown, Share(0, 2)) else (Outcome.Refuted, Share(1, 1)))(_ == _)
           .log("the empty answer"),
-        Result.diff(Outcome.judged(question, OutputDisplay.shown(candidate)), if member then (Outcome.Proved, Share(2, 2)) else (Outcome.False, Share.none))(_ == _)
+        Result.diff(Outcome.judged(question, normalFormsDisplay(candidate)), if member then (Outcome.Proved, Share(2, 2)) else (Outcome.False, Share.none))(_ == _)
           .log("the candidate alone"),
         Result.diff(Outcome.judged(question, display(Set(candidate), true)), if member then (Outcome.Incomplete, Share(1, 2)) else (Outcome.False, Share.none))(_ == _)
           .log("the candidate with a remainder"),
-        Result.diff(Outcome.judged(question, OutputDisplay.shown(remainder)), (Outcome.Unknown, Share(0, if member then 2 else 1)))(_ == _).log("no normal form")
+        Result.diff(Outcome.judged(question, normalFormsDisplay(remainder)), (Outcome.Unknown, Share(0, if member then 2 else 1)))(_ == _).log("no normal form")
       ))
   }

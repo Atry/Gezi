@@ -1,10 +1,10 @@
 package gezi.contest.corpora.reductions
 
+import gezi.ir.{Configured, NoFacts}
 import scala.annotation.tailrec
 import gezi.frontend.DeBruijnTerm
 import gezi.frontend.Defunctionalization
 import gezi.frontend.Term
-import gezi.ir.Instruction
 
 /** `value steps root` of `problems/speculative_untabling/weighted_paths`,
   * built as a CSES family is (`CsesFamily`), each rung in both spellings: the value of the
@@ -47,9 +47,9 @@ final class WeightedPaths(spelling: Spelling, rung: CsesRung, val seeds: Weighte
 
   protected def site(draws: Draws): (WeightedPaths.Site, Draws) = WeightedPaths.site(draws, nominal, seeds)
 
-  protected def function(problems: CsesProblems): Instruction = problems.weightedPaths
+  protected def function(problems: CsesProblems): Configured[NoFacts.type] = problems.weightedPaths
 
-  def arguments(site: WeightedPaths.Site): Vector[Term] = WeightedPaths.arguments(site)
+  def arguments(problems: CsesProblems, site: WeightedPaths.Site): Vector[ProblemTerm] = WeightedPaths.arguments(site)
 
   /** The answer when every node's weight is the root's. */
   def wrongAnswers(site: WeightedPaths.Site, answer: NativeValue): Vector[NativeValue] = Vector(WeightedPaths.rootWeightAnswer(site))
@@ -260,20 +260,20 @@ object WeightedPaths:
     * at 1,000 and 12.0 s at 2,000, and at 4,000 ran the heap out after
     * 298 s.
     */
-  def arguments(site: Site): Vector[Term] =
-    val seedInstructions = site.seeds.distinct.map(seed => seed -> Defunctionalization.thunkInstruction(StandardLibraryNormalForms.binary(BigInt(seed)))).toMap
-    val nil = DeBruijnTerm.Constant(Defunctionalization.thunkInstruction(StandardLibraryNormalForms.list(Vector.empty)))
-    def list(elements: Vector[DeBruijnTerm]): DeBruijnTerm =
+  def arguments(site: Site): Vector[ProblemTerm] =
+    val seedInstructions = site.seeds.distinct.map(seed => seed -> Defunctionalization.thunkInstruction(StandardLibraryNormalForms.binary(BigInt(seed)))(using gezi.ir.NoFacts)).toMap
+    val nil = DeBruijnTerm.Constant(Defunctionalization.thunkInstruction(StandardLibraryNormalForms.list(Vector.empty))(using gezi.ir.NoFacts))
+    def list(elements: Vector[ProblemDeBruijnTerm]): ProblemDeBruijnTerm =
       elements.foldRight(nil)((head, tail) =>
         DeBruijnTerm.Lambda(DeBruijnTerm.Lambda(DeBruijnTerm.Apply(DeBruijnTerm.Apply(DeBruijnTerm.Variable(0), head), tail)))
       )
-    val nodes = (site.seeds.size - 1 to 0 by -1).foldLeft(Map.empty[Int, Instruction])((converted, node) =>
+    val nodes = (site.seeds.size - 1 to 0 by -1).foldLeft(Map.empty[Int, Configured[NoFacts.type]])((converted, node) =>
       val definition = DeBruijnTerm.Lambda(
         DeBruijnTerm.Apply(
           DeBruijnTerm.Apply(DeBruijnTerm.Variable(0), DeBruijnTerm.Constant(seedInstructions(site.seeds(node)))),
           list(site.successors(node).map(successor => DeBruijnTerm.Constant(converted(successor))))
         )
       )
-      converted.updated(node, Defunctionalization.thunkInstruction(definition))
+      converted.updated(node, Defunctionalization.thunkInstruction(definition)(using gezi.ir.NoFacts))
     )
     Vector(CsesEncodings.natural(site.steps), Term.closed(nodes(0)))

@@ -101,6 +101,26 @@ object LawFamilies:
     _ => group.cses.countingDivisors,
     _ => group.cses.binomialCoefficients,
     _ => group.cses.distinctNumbers,
+    _ => group.cses.moneySums,
+    _ => group.cses.rectangleCutting,
+    _ => group.cses.increasingSubsequence,
+    _ => group.cses.arrayDescription,
+    _ => group.cses.buildingRoads,
+    _ => group.cses.roadReparation,
+    _ => group.cses.gameRoutes,
+    _ => group.cses.staticRangeSums,
+    _ => group.cses.trailingZeros,
+    _ => group.cses.sumOfDivisors,
+    _ => group.cses.exponentiationTwo,
+    _ => group.cses.ferrisWheel,
+    _ => group.cses.missingNumber,
+    _ => group.cses.repetitions,
+    _ => group.cses.staticRangeMinimums,
+    _ => group.cses.stringMatching,
+    _ => group.cses.subarraySums,
+    _ => group.cses.sumOfTwoValues,
+    _ => group.cses.treeDiameter,
+    _ => group.cses.treeMatching,
     _ => group.cses.weightedPaths
   )
 
@@ -132,6 +152,17 @@ object LawFamilies:
 
   /** The family names, sorted. */
   val names: List[String] = variants.keys.toList.sorted
+
+  /** A family every point of which gets a trap, by construction: the CSES
+    * problem `missing_number` at its bottom rung, whose common wrong solution
+    * is off by one (`MissingNumber.wrongAnswers`, `CsesFamily.offByOne`),
+    * an answer below 9 plus one, never the answer, at every site, so that
+    * the list of its answers is a trap candidate outside the reference
+    * (`CsesFamily.trapCandidates`); its programs are pure below the top rung
+    * (`CsesPurityLawTest`) and its reference computed, one normal form, so
+    * that the writer takes the candidate (`PointsFile.written`).
+    */
+  val trapAtEveryPoint: String = gezi.contest.corpora.reductions.CsesFamily.familyName("missing_number", "upper_8")
 
   /** The largest R every variant of the family allows. */
   def largestRepetitions(family: String): Int = variants(family).map(_.nominal.repetitions.end).min

@@ -43,7 +43,7 @@ class IoMemberLawTest extends GeneratedProperties:
 
   private val buildRoot = Paths.get(sys.props("gezi.buildRoot")).toAbsolutePath.normalize
 
-  private lazy val entry: Entry =
+  private lazy val entry: Entry[?] =
     val (data, afterEntry) = EntryData.at(
       buildRoot,
       buildRoot.resolve("tests/moore_fixtures/entry_with_moore.lambdalattice"),

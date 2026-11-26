@@ -11,14 +11,18 @@ import gezi.contest.entry.Cells
 import gezi.contest.entry.Defaults
 import gezi.contest.entry.EntryData
 import gezi.contest.entry.Interaction
+import gezi.contest.entry.generic.GenericEntry
 import gezi.contest.entry.generic.GenericEntryProvider
 import gezi.ematching.closures.ClosureCompilation
+import gezi.frontend.DeBruijnTerm
+import gezi.frontend.DeBruijnTermOf
 import gezi.frontend.Defunctionalization
 import gezi.frontend.Lambdalattice
 import gezi.frontend.Term
 import gezi.ir.Apply
 import gezi.ir.BuiltInRule
-import gezi.ir.Instruction
+import gezi.ir.Configured
+import gezi.ir.NoFacts
 import gezi.ir.LemmaIdentifier
 import gezi.jit.NativesProvider
 import gezi.lemmaencoding.baseline.BaselineLemmaEncoding
@@ -49,6 +53,9 @@ import gezi.strategies.StandardSaturator
 import gezi.strategies.StrategyTesting
 import gezi.strategies.TraceFiles
 import gezi.weakhead.Expansions
+import gezi.ir.{Configured, NativeSpecializer}
+
+private given showcasePagesNoFacts: NoFacts.type = NoFacts
 
 /** The trace player's end-to-end showcase:
   * four traces, each with its player page, an index page, and the player
@@ -70,6 +77,8 @@ import gezi.weakhead.Expansions
   *     graph that does not join the two throws.
   */
 object ShowcasePages:
+
+  given gezi.ir.StorageAccess = gezi.ir.StorageAccess.granted()
 
   /** Writes the showcase: the arguments are the destination directory,
     * the player's linked `main.js` and the directory of its assets
@@ -116,7 +125,7 @@ object ShowcasePages:
       val paths = scala.util.Using.resource(Files.walk(directory))(_.toList.asScala.toVector)
       paths.sortBy(-_.getNameCount).foreach(Files.delete)
 
-  private def closed(text: String): Instruction = Defunctionalization.thunkInstruction(Lambdalattice.term(text))
+  private def closed[C <: NativeSpecializer & Singleton](text: String)(using C): Configured[C] = Defunctionalization.thunkInstruction[C](Lambdalattice.term(text))
 
   /** The page of the trace written at the file, beside its directory: the
     * player page `TraceFiles` writes, copied to `name.html`, whose relative
@@ -130,11 +139,28 @@ object ShowcasePages:
     * so that the showcase's files do not depend on where Gezi is checked out
     * and a location still leads to its file in the repository.
     */
-  private def relativeTo(
+  private def relativeTo[C <: NativeSpecializer & Singleton](
       directory: Path,
-      texts: Map[(Instruction, Instruction), LemmaText]
-  ): Map[(Instruction, Instruction), LemmaText] =
+      texts: Map[(Configured[C], Configured[C]), LemmaText[C]]
+  )(using C): Map[(Configured[C], Configured[C]), LemmaText[C]] =
     texts.map((sides, text) => sides -> text.copy(uri = relative(directory, Paths.get(text.uri))))
+
+  /** The entry with its lemma texts relative to the directory, run on the point, its constants of no facts crossed
+    * into the entry's configuration, under the stop.
+    */
+  private def ranWithRelativeTexts[C <: NativeSpecializer & Singleton](
+      entry: GenericEntry[C],
+      directory: Path,
+      point: DeBruijnTermOf[Configured[NoFacts.type]],
+      stop: StopSignal
+  ): Unit =
+    given C = entry.specializer
+    val relative = entry.copy(lemmaTexts = relativeTo(directory, entry.lemmaTexts))
+    val crossed = DeBruijnTerm.constantsMapped(point, (constant: Configured[NoFacts.type]) =>
+      entry.specializer.crossedAllFromNoFacts(Vector(constant))(constant)
+    )
+    relative.run(Cells.cell(crossed), gezi.hotspot.ExpansionSource.fresh(), stop) match
+      case Interaction.Finished(_, _, _) => ()
 
   /** The path as a relative URI from the directory, its separators `/`. */
   private def relative(directory: Path, file: Path): java.net.URI =
@@ -161,18 +187,18 @@ object ShowcasePages:
     val directory = destination.resolve(name)
     Files.createDirectories(directory)
     val lemmaFile = directory.resolve("lemmas.lambdalattice")
-    val (texts, _) = lemmas.zip(sides).foldLeft((Map.empty[(Instruction, Instruction), LemmaText], 0)) {
+    val (texts, _) = lemmas.zip(sides).foldLeft((Map.empty[(Configured[NoFacts.type], Configured[NoFacts.type]), LemmaText], 0)) {
       case ((found, offset), ((left, right), lemma)) =>
         val leftSpan = Span(offset, offset + left.length)
         val rightSpan = Span(leftSpan.end + 1, leftSpan.end + 1 + right.length)
         (found.updated((lemma.left, lemma.right), LemmaText(relative(directory, lemmaFile), leftSpan, rightSpan, left, right, Vector.empty)), rightSpan.end + 1)
     }
-    val index = StandardLibraryIndex(Vector.empty, sides, Vector.empty, Vector.empty)
+    val index = StandardLibraryIndex(NoFacts, Vector.empty, sides, Vector.empty, Vector.empty)
     val modules = BaselineRounds.modules
     val strategy = FixpointEgraph(
       index,
       StandardSaturator(
-        SaturationOptions(sides.map(_.lemma), BuiltInRule.all, 24, BaselineLemmaEncoding, ClosureCompilation, StandardIndexer, modules.orientationCompiler, gezi.egraph.MemoRetention.Kept)
+        SaturationOptions(sides.map(_.lemma), BuiltInRule.beforeOptIn, 24, BaselineLemmaEncoding, ClosureCompilation, StandardIndexer, modules.orientationCompiler, gezi.egraph.MemoRetention.Kept, gezi.ir.TermConstruction(gezi.ir.NoFacts))
       ),
       CountedExtractor(ExtractionOptions(Vector("compression")), BaselineModules.table)
     )
@@ -196,7 +222,7 @@ object ShowcasePages:
     val directory = destination.resolve(name)
     Files.createDirectories(directory)
     val (data, afterEntry) = EntryData.read(root.resolve("contest-entries-wren"), Defaults.entryDataState)
-    val (_, initialized) =
+    val (library, initialized) =
       GenericEntryProvider.initializedWithLibrary(
         data,
         gezi.contest.entry.ExecutorModules.registeredFor(root.resolve("contest-entries-wren")),
@@ -206,8 +232,7 @@ object ShowcasePages:
         afterEntry,
         Defaults.caches()
       )
-    val withTexts = GenericEntryProvider.withLemmaTexts(initialized, root.resolve("contest-entries-wren"))
-    val entry = withTexts.copy(lemmaTexts = relativeTo(directory, withTexts.lemmaTexts))
+    val withTexts = initialized.withLemmaTexts(library, root.resolve("contest-entries-wren"))
     val group = ReductionGroup(root, Expansions.none, Defaults.caches())
     val Vector(variant) = RepeatedVariants.families
       .filter((family, _) => family == "repeated_library_hotspots_calls_1000_hot")
@@ -217,8 +242,7 @@ object ShowcasePages:
     val traceFile = directory.resolve("trace-1.lambdalattice")
     val traceWritten = new StopSignal:
       def stopRequested: Boolean = Files.exists(traceFile)
-    entry.run(Cells.cell(point), gezi.hotspot.ExpansionSource.fresh(), traceWritten) match
-      case Interaction.Finished(_, _, _) => ()
+    ranWithRelativeTexts(withTexts, directory, point, traceWritten)
     if !Files.exists(traceFile) then throw IllegalStateException(s"wren's entry wrote no trace in $directory")
     published(destination, name, traceFile)
     Page(
@@ -238,14 +262,14 @@ object ShowcasePages:
     val root = LibraryFiles.buildRoot
     val library = LibraryFiles.compiled("tests/library_fixtures/native_route_with_prolog_backend.lambdalattice", Vector.empty)
     val round = StrategyTesting.round("prolog_backend_type_check")
-    val options = BaselineRounds.saturationOptions(library, round, BuiltInRule.all, 6000)
+    val options = BaselineRounds.saturationOptions(library, round, BuiltInRule.beforeOptIn, 6000)
     val terms = StandardLibrary.entryMembers(root, TermTables.jitLibraryTerms, Expansions.none)._1
     val showcase = StandardLibrary.entryMembers(root, TermTables.showcaseTerms, Expansions.none)._1
     val heads = FixpointVerdicts.zeroUniverseHeads
     def term(key: String): Term = Term.closed(terms(key))
     val input = StrategyTesting.programInput(library, term("compose")(term("boolean_not"))(term("boolean_not")))
     val run = FixpointEgraph.saturated(library.index, Vector(input), options, explained = true, StopSignal.completedWith(scala.concurrent.Future.never))
-    val left = Instruction(Apply(showcase("type_of"), input))
+    val left = NoFacts.application(showcase("type_of"), input)
     val right = showcase("function_from_bool_to_bool")
     val proof = GraphProof.proof(run.graph, Vector((left, right)), FixpointEgraph.lemmas(library.index, options))
     val trace = RewriteTrace.trace(OpentheoryArticle.derivation(library.index, left, right, proof))

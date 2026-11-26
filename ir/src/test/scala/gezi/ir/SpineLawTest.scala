@@ -4,6 +4,7 @@ import hedgehog.Gen
 import hedgehog.Range
 import hedgehog.Result
 import gezi.generatedinputs.GeneratedProperties
+import gezi.generatedinputs.StandInStorages
 
 /** The flat spine an application stores (`Apply.spineHead`,
   * `Apply.spineArguments`, read by `Spine`) on generated spines: a head that
@@ -17,24 +18,24 @@ import gezi.generatedinputs.GeneratedProperties
   */
 class SpineLawTest extends GeneratedProperties:
 
-  private val names: Gen[Instruction] = Gen.int(Range.linear(0, 50)).map(index => Instruction.opaque(s"name$index"))
+  private val names: Gen[StandInStorages.Term] = Gen.int(Range.linear(0, 50)).map(index => StandInStorages.opaque(s"name$index"))
 
-  private val arguments: Gen[Instruction] =
-    Gen.choice1(names, for function <- names; argument <- names yield Instruction.Apply(function, argument))
+  private val arguments: Gen[StandInStorages.Term] =
+    Gen.choice1(names, for function <- names; argument <- names yield StandInStorages.application(function, argument))
 
-  private val heads: Gen[Instruction] =
-    Gen.choice1(names, for left <- names; right <- names yield Instruction.Choice(left, right))
+  private val heads: Gen[StandInStorages.Term] =
+    Gen.choice1(names, for left <- names; right <- names yield StandInStorages.choice(left, right))
 
   property("an application's spine is its head and its arguments in order") {
     for
       head <- heads.forAll
       applied <- arguments.list(Range.linear(0, 2000)).forAll
     yield
-      val term = applied.foldLeft(head)(Instruction.Apply(_, _))
-      val (foundHead, foundArguments) = Spine.of(term)
+      val term = applied.foldLeft(head)(StandInStorages.application(_, _))
+      val (foundHead, foundArguments) = Configured.Spine.of(term)
       Result.all(List(
-        Result.assert(foundHead eq head).log("the head"),
-        Result.assert(foundArguments.size == applied.size && foundArguments.lazyZip(applied).forall(_ eq _)).log("the arguments"),
-        Result.assert(Spine.unapplySeq(term).isDefined == applied.nonEmpty).log("an application, and only one, has a spine")
+        Result.assert(Configured.same(foundHead, head)(using StandInStorages)).log("the head"),
+        Result.assert(foundArguments.size == applied.size && foundArguments.lazyZip(applied).forall(Configured.same(_, _)(using StandInStorages))).log("the arguments"),
+        Result.assert(Configured.Spine.unapplySeq(term).isDefined == applied.nonEmpty).log("an application, and only one, has a spine")
       ))
   }

@@ -10,3 +10,12 @@ package gezi.contest.corpora
   * No other package of the module uses this one outside its tests.
   */
 package object oldcorpora
+:
+
+  /** A program of the corpora in the higher-order abstract syntax: a term whose constants are closed terms of no
+    * facts, the library's terms and the problems' data, read under no facts.
+    */
+  type ProblemTerm = gezi.frontend.TermOf[gezi.ir.Configured[gezi.ir.NoFacts.type]]
+
+  /** A closed de Bruijn term of the corpora whose constants are closed terms of no facts. */
+  type ProblemDeBruijnTerm = gezi.frontend.DeBruijnTermOf[gezi.ir.Configured[gezi.ir.NoFacts.type]]

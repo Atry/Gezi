@@ -32,13 +32,17 @@ import java.math.BigInteger
 object BinaryNaturalNatives:
 
   /** The canonical binary naturals' representation. */
-  val canonical: Representation = Representation.Data(BinaryNaturalFamily.identity, Some(NativeValue.Truth(true)))
+  val canonical: Representation[Nothing] = Representation.Data(BinaryNaturalFamily.identity, Some(BinaryCanonicity(true)))
 
   /** The positive binary naturals' representation, the one `binary_set false` names. */
-  val positive: Representation = Representation.Data(BinaryNaturalFamily.identity, Some(NativeValue.Truth(false)))
+  val positive: Representation[Nothing] = Representation.Data(BinaryNaturalFamily.identity, Some(BinaryCanonicity(false)))
 
-  /** The six natives, part of the standard set. */
-  val operations: NativeBackend = NativeBackend.functions(
+  /** The six natives, part of the standard set: lazy, so that this object's
+    * initialization reaches no `NativeBackend`, whose standard set reads
+    * these natives while it is made; whichever of the two a run touched
+    * first, the other read a null.
+    */
+  lazy val operations: NativeBackend = NativeBackend.functions(
     Map(
       "wren_binary_plus"       -> binary("plus", BinaryNaturalOperations.plus),
       "wren_binary_maximum"    -> binary("maximum", BinaryNaturalOperations.maximum),
@@ -104,12 +108,12 @@ object BinaryNaturalOperations:
   * `BinaryNaturalOperations` named `methodName`, which computes the same.
   */
 private final class Pairwise(val methodName: String, operation: (BigInteger, BigInteger) => BigInteger)
-    extends (Vector[NativeArgument] => NativeValue),
+    extends (Vector[NativeArgument[Any]] => NativeValue[Nothing]),
       StaticBlockMethod:
 
   val className: String = classOf[BinaryNaturalOperations.type].getName.stripSuffix("$")
 
-  def apply(arguments: Vector[NativeArgument]): NativeValue = arguments match
+  def apply(arguments: Vector[NativeArgument[Any]]): NativeValue[Nothing] = arguments match
     case Vector(NativeArgument.Represented(BinaryNatural(left)), NativeArgument.Represented(BinaryNatural(right))) =>
       BinaryNatural(BigInt(operation(left.bigInteger, right.bigInteger)))
     case other => throw IllegalArgumentException(s"a binary natural operation of two canonical binary naturals, not $other")
@@ -121,12 +125,12 @@ private final class Pairwise(val methodName: String, operation: (BigInteger, Big
   * `BinaryNaturalOperations` named `methodName`, which computes the same.
   */
 private final class UnaryOperation(val methodName: String, operation: BigInteger => BigInteger)
-    extends (Vector[NativeArgument] => NativeValue),
+    extends (Vector[NativeArgument[Any]] => NativeValue[Nothing]),
       StaticBlockMethod:
 
   val className: String = classOf[BinaryNaturalOperations.type].getName.stripSuffix("$")
 
-  def apply(arguments: Vector[NativeArgument]): NativeValue = arguments match
+  def apply(arguments: Vector[NativeArgument[Any]]): NativeValue[Nothing] = arguments match
     case Vector(NativeArgument.Represented(BinaryNatural(value))) => BinaryNatural(BigInt(operation(value.bigInteger)))
     case other => throw IllegalArgumentException(s"a binary natural operation of one canonical binary natural, not $other")
 
@@ -138,14 +142,14 @@ private final class UnaryOperation(val methodName: String, operation: BigInteger
   * `methodName`, which computes the same as a JVM `boolean`.
   */
 private final class NaturalComparison(val methodName: String, comparison: (BigInteger, BigInteger) => Boolean)
-    extends (Vector[NativeArgument] => NativeValue),
+    extends (Vector[NativeArgument[Any]] => NativeValue[Nothing]),
       StaticBlockMethod:
 
   val className: String = classOf[BinaryNaturalOperations.type].getName.stripSuffix("$")
 
   override val result: StaticBlockResult = StaticBlockResult.Truth
 
-  def apply(arguments: Vector[NativeArgument]): NativeValue = arguments match
+  def apply(arguments: Vector[NativeArgument[Any]]): NativeValue[Nothing] = arguments match
     case Vector(NativeArgument.Represented(BinaryNatural(left)), NativeArgument.Represented(BinaryNatural(right))) =>
       NativeValue.Truth(comparison(left.bigInteger, right.bigInteger))
     case other => throw IllegalArgumentException(s"a comparison of two canonical binary naturals, not $other")

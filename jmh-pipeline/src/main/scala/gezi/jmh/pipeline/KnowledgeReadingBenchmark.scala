@@ -1,7 +1,7 @@
 package gezi.jmh.pipeline
 
+import gezi.ir.{ChoiceSpine, Configured, NoFacts}
 import java.util.concurrent.TimeUnit // the JMH protocol's exception (the user, 2026-10-31: "好的，用sbt-jmh，需要配合JMH协议时，必要时可以作为例外使用可变数据结构"): the time unit of JMH's annotations, an immutable enum of the concurrency package
-import gezi.ir.Instruction
 import gezi.standardlibrary.StandardLibrary
 import gezi.weakhead
 import org.openjdk.jmh.annotations.Benchmark
@@ -18,8 +18,11 @@ import org.openjdk.jmh.annotations.State
 import org.openjdk.jmh.annotations.Warmup
 import scala.compiletime.uninitialized
 
+/** The configuration of the terms here: no facts. */
+private given knowledgeReadingBenchmarkNoFacts: NoFacts.type = NoFacts
+
 /** The input of a knowledge reading: the library of the benchmarks'
-  * knowledge (`KnowledgeReadings.knowledgeFile`) as the current
+  * generated knowledge (`KnowledgeReadings.knowledgeTerm`) as the current
   * reader loads it, the knowledge term combined a number of times, and the
   * reading's mode and slot reading, each reading checked once against the
   * current reader's index in the trial's setup, outside the timed code.
@@ -70,7 +73,7 @@ class KnowledgeInput:
   lazy val slots: Vector[KnowledgeSlot] = KnowledgeInLambdalattice.slots(library.index)
 
   /** The knowledge term combined `copies` times. */
-  lazy val knowledge: Instruction =
+  lazy val knowledge: Configured[NoFacts.type] =
     KnowledgeInLambdalattice.combined(KnowledgeInLambdalattice.term(library.index), copies)
 
   /** The library and the term built, and the reading checked, before the
@@ -82,13 +85,12 @@ class KnowledgeInput:
     assert(checked.spent > 0, "a reading spends steps")
     assert(knowledge == KnowledgeInLambdalattice.combined(KnowledgeInLambdalattice.term(library.index), copies))
 
-/** The cost of reading the benchmarks' knowledge base
-  * (`KnowledgeReadings.knowledgeFile`) written as one term
+/** The cost of reading the benchmarks' generated knowledge base
+  * (`KnowledgeReadings.knowledgeTerm`) written as one term
   * ([[KnowledgeInLambdalattice]]), with the weak-head evaluator, against the current reader's
-  * load of the same knowledge (`StandardLibrary.compiled` on the nine
-  * knowledge modules, with no backend's check). The reading starts from the
-  * knowledge term already interned, and does not include writing or parsing
-  * a text; the current reader's load reads and parses its files. Each
+  * load of the same knowledge (`StandardLibrary.compiled` on the knowledge
+  * term, with no backend's check). Both start from a term already interned,
+  * and neither includes writing or parsing a text. Each
   * benchmark returns what it read, so that JMH consumes it. The mode is the
   * average time of a call; the fork has the serial collector and the heap of
   * the build's tests. The warm-up and measurement iterations are set below,
@@ -108,7 +110,7 @@ class KnowledgeReadingBenchmark:
   def weakHeadRead(input: KnowledgeInput): KnowledgeReading =
     KnowledgeReader.read(input.mode, input.applications, input.slotReading, input.knowledge, input.slots, KnowledgeReadings.stepLimit)
 
-/** The current reader's load of the benchmarks' nine knowledge modules, the
+/** The current reader's load of the benchmarks' generated knowledge, the
   * reference the weak-head reading is compared with. Same JMH settings as
   * `KnowledgeReadingBenchmark`.
   */
@@ -118,7 +120,7 @@ class KnowledgeReadingBenchmark:
 @Measurement(iterations = 5, time = 1, timeUnit = TimeUnit.SECONDS)
 class CurrentReaderBenchmark:
 
-  /** The nine modules compiled by the current reader. */
+  /** The generated knowledge compiled by the current reader. */
   @Benchmark
   @OutputTimeUnit(TimeUnit.MICROSECONDS)
   def currentReaderLoad(): StandardLibrary = KnowledgeReadings.library()

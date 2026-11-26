@@ -1,0 +1,17 @@
+# An option as a declared data family of two constructors, none of no field and some of
+# one. Each constructor is a Scott constructor under the marker $constructor, the identity,
+# so that binding it as the family's leaves a program's own none and some ordinary terms,
+# as native_types/list does for cons. plover_option_type value is none, or some of a member
+# of value.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "native_types") "markers")
+λ _ $constructor _ _ _
+. (λtuple. tuple λ. $constructor λn s. n)
+λ plover_none
+. (λtuple. tuple λ. $constructor λv n s. s v)
+λ plover_some
+. (λtuple. tuple λ value. (plover_some value + plover_none))
+λ plover_option_type
+. export plover_none plover_some plover_option_type

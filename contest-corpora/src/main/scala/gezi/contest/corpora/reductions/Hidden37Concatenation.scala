@@ -33,7 +33,7 @@ object Hidden37Concatenation:
   /** The program (`concatenation_term/3`):
     * `(\words. (\pick. \drop. (\fit. Body) Fit) Pick Drop) Words`.
     */
-  def concatenationTerm(attractors: Attractors, string: Vector[Int], words: Vector[Vector[Int]]): Term =
+  def concatenationTerm(attractors: Attractors, string: Vector[Int], words: Vector[Vector[Int]]): ProblemTerm =
     val length = attractors.functionSurface("length", Spelling.Direct)
     val concat = attractors.functionSurface("concat", Spelling.Direct)
     λ(wordsVariable =>
@@ -49,7 +49,7 @@ object Hidden37Concatenation:
     )(SetFree.bitLists(attractors, words))
 
   /** Each word picked, the rest passed on (`pick_function/1`). */
-  private def pickFunction(attractors: Attractors): Term =
+  private def pickFunction(attractors: Attractors): ProblemTerm =
     val cons = attractors.attractorSurface("cons", Spelling.Direct)
     attractors.fixpoint(
       λ(self =>
@@ -68,7 +68,7 @@ object Hidden37Concatenation:
     )
 
   /** The string with its first n elements dropped (`drop_function/1`). */
-  def dropFunction(attractors: Attractors): Term =
+  def dropFunction(attractors: Attractors): ProblemTerm =
     val nil = attractors.attractorSurface("nil", Spelling.Direct)
     attractors.fixpoint(
       λ(self =>
@@ -77,7 +77,7 @@ object Hidden37Concatenation:
     )
 
   /** The words fitted onto the string in some order (`fit_function/3`). */
-  private def fitFunction(attractors: Attractors, pick: Term, drop: Term): Term =
+  private def fitFunction(attractors: Attractors, pick: ProblemTerm, drop: ProblemTerm): ProblemTerm =
     val prefix = attractors.functionSurface("bits_prefix", Spelling.Direct)
     val length = attractors.functionSurface("length", Spelling.Direct)
     attractors.fixpoint(
@@ -99,7 +99,7 @@ object Hidden37Concatenation:
     )
 
   /** Every start whose window the words fit (`starts_function/4`). */
-  private def startsFunction(attractors: Attractors, fit: Term, words: Term, total: Term): Term =
+  private def startsFunction(attractors: Attractors, fit: ProblemTerm, words: ProblemTerm, total: ProblemTerm): ProblemTerm =
     val atLeast = attractors.functionSurface("natural_at_least", Spelling.Direct)
     val length = attractors.functionSurface("length", Spelling.Direct)
     val successor = attractors.functionSurface("successor", Spelling.Direct)

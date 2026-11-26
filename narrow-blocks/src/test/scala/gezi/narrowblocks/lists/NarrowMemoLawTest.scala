@@ -8,8 +8,11 @@ import gezi.frontend.Defunctionalization
 import gezi.frontend.Term
 import gezi.frontend.Term.λ
 import gezi.generatedinputs.GeneratedProperties
-import gezi.ir.Instruction
+import gezi.ir.Configured
+import gezi.ir.NoFacts
 import gezi.saturation.StopSignal
+
+private given narrowMemoLawTestNoFacts: NoFacts.type = NoFacts
 
 /** The laws of a narrow block's memo ([[gezi.narrowblocks.lists.NarrowMemo]]), on a recursion over two lists whose calls reach
   * every pair of suffixes along many paths, as the edit distance's do:
@@ -29,7 +32,7 @@ class NarrowMemoLawTest extends GeneratedProperties:
 
   import NarrowListLibrary.*
 
-  private def closed(instruction: Instruction): Term = Term.closed(instruction)
+  private def closed(instruction: Configured[NoFacts.type]): Term = Term.closed(instruction)
 
   private val fixpoint = closed(NarrowBlocks.fixpointByValue)
 
@@ -65,9 +68,9 @@ class NarrowMemoLawTest extends GeneratedProperties:
   /** The list of the elements, filtered at its root by `list_type (binary_set
     * true)`, as an operand of a block is written.
     */
-  private def filteredList(elements: Vector[(Int, Boolean)]): Term = closed(Instruction.Parallel(list(elements), listCriterion(true)))
+  private def filteredList(elements: Vector[(Int, Boolean)]): Term = closed(NoFacts.parallel(list(elements), listCriterion(true)))
 
-  private def program(term: Term): Instruction = Defunctionalization.thunkInstruction(term.deBruijnTerm(Map.empty))
+  private def program(term: Term): Configured[NoFacts.type] = Defunctionalization.thunkInstruction(term.deBruijnTerm(Map.empty))(using gezi.ir.NoFacts)
 
   /** A numeral's value, zero one time in three. */
   private val value: Gen[Int] = Gen.frequency1(1 -> Gen.constant(0), 2 -> Gen.int(Range.constant(1, 7)))

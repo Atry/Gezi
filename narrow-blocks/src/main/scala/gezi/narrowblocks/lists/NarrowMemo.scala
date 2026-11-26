@@ -87,6 +87,9 @@ object NarrowMemo:
     case ListAt(decodePoint: DecodePoint, start: Int)
     case Truth(value: Boolean)
 
+    /** A list of records, by reference (`NarrowRecords`). */
+    case RecordsAt(records: NarrowRecords)
+
   object ArgumentKey:
 
     /** The key of a value of a block. Throws `IllegalArgumentException` for
@@ -96,7 +99,8 @@ object NarrowMemo:
       case natural: BigInteger        => ArgumentKey.Natural(natural)
       case list: NarrowList           => ArgumentKey.ListAt(DecodePoint(list.elements), list.start)
       case truth: java.lang.Boolean   => ArgumentKey.Truth(truth.booleanValue)
-      case other                      => throw IllegalArgumentException(s"a narrow block's value is no natural, list or boolean: $other")
+      case records: NarrowRecords     => ArgumentKey.RecordsAt(records)
+      case other                      => throw IllegalArgumentException(s"a narrow block's value is no natural, list, boolean or list of records: $other")
 
   /** The decode point of a list, its elements as one literal decoded them,
     * compared by reference: two decode points of equal lists are two points,

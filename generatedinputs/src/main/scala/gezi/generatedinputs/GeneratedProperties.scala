@@ -40,16 +40,17 @@ trait GeneratedProperties extends gezi.generatedinputs.FailFastSuite:
       name: String,
       configured: PropertyConfig => PropertyConfig = identity
   )(law: => Property)(using munit.Location): Unit =
-    stoppableProperty(name, configured)(_ => law)
+    stoppableProperty(munit.TestOptions(name), configured)(_ => law)
 
   /** `property` whose law receives the test's stop request (the read-only
     * future of `stoppableTest`), to hand to the computations it runs.
     */
   def stoppableProperty(
-      name: String,
+      options: munit.TestOptions,
       configured: PropertyConfig => PropertyConfig = identity
   )(law: Future[Unit] => Property)(using munit.Location): Unit =
-    stoppableTest(name) { stopped =>
+    val name = options.name
+    stoppableTest(options) { stopped =>
       val seedSource = SeedSource.fromEnvOrTime()
       // The seed is logged before the check, not only in the failure's report:
       // an Error such as OutOfMemoryError escapes `Property.check` before any

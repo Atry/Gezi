@@ -1,8 +1,9 @@
 package gezi.egraph
 
-import gezi.ir.Instruction
 import gezi.ir.Layer
+import gezi.ir.LayerWith
 import gezi.ir.LemmaIdentifier
+import gezi.ir.{Configured, NativeSpecializer}
 import gezi.ir.{Apply, Choice, NoinlineLeaf, Parallel, Thunk}
 
 /** A closure state of a class: a thunk node with the arguments given to it
@@ -54,11 +55,46 @@ enum Justification:
   case Beta(thunk: Int)
   case BetaConversion(reduct: Int)
   case Abstraction(eigenvariables: Vector[Int], body: Int, spelling: Int)
+  /** The pattern view of a native storage the graph keeps as a leaf united
+    * with the leaf, `s ∥ T = s`: by the storage's definition s = v ∥ T, then
+    * (4), `(v ∥ T) ∥ T = v ∥ (T ∥ T)`, and the idempotence of ∥, which (6)
+    * and (5) give, `T ∥ T = T ∥ (T + (T ∥ T)) = T`.
+    */
+  case PatternView(leaf: Int)
+  /** A native storage the graph keeps as a leaf united with the node of its
+    * view, `s = v ∥ T`: the storage is the term its view spells, so the union
+    * is the definition of the storage, the expansion direction of the
+    * built-in rule "the storage's view" (`gezi.ir.BuiltInRule.StorageView`).
+    */
+  case StorageView(leaf: Int)
+  /** An application united with the storage of the result of the native
+    * named on the storages the classes `arguments` hold as leaves, its
+    * function's class (the node `define`) holding a define bound to that
+    * native: the application equals
+    * `define a1 … an` by the forest, its function and arguments read in
+    * their classes, and that equals the result by the native's obligation
+    * `native = define`, trusted as its binding states on unfiltered values,
+    * with the unique spelling's pattern theorem at each storage
+    * (`docs/design/gezi-set-equations-proofs.md`, section 23, under the
+    * premise the fold requires).
+    */
+  case Folding(native: String, define: Int, arguments: Vector[Int])
+  /** The η rule: the node `thunk`, a thunk of one hole whose code applies
+    * its one filling to the hole (`λx. M x`, x not free in M), united with
+    * the node of that filling, M.
+    */
+  case Eta(thunk: Int)
+  /** A closure unit's compilation (`gezi.narrowblocks.ClosureUnits`): the
+    * unit `function` united with the artifact its compilation gave, an
+    * equation that compilation's own graph derives (its eigenvariables'
+    * openings, the abstraction rule and the η rule); `function` is the unit's node.
+    */
+  case Compiled(function: Int)
 
 /** A node that is not a duplicate, the root of its class and its layer over
   * the roots of its children's classes, as read at one time.
   */
-final case class LiveNode(node: Int, root: Int, layer: Layer[Int])
+final case class LiveNode[C <: NativeSpecializer & Singleton](node: Int, root: Int, layer: LayerWith[Int, Configured[C]])
 
 /** The counts of a run: the nodes made, the unions that joined two classes,
   * the instances that changed the graph and the matches found.
@@ -135,14 +171,14 @@ final case class InstanceKey(
   * per distinct term made, a hash-consing hit recorded as a congruence
   * union); in one that does not, `made` is the layer over roots itself.
   */
-final case class NodeRecord(
-    layer: Layer[Int],
+final case class NodeRecord[C <: NativeSpecializer & Singleton](
+    layer: LayerWith[Int, Configured[C]],
     parent: Int,
-    heads: Vector[Head],
-    instruction: Option[Instruction],
+    heads: Vector[Head[C]],
+    instruction: Option[Configured[C]],
     duplicate: Boolean,
     readable: Boolean,
-    made: Layer[Int]
+    made: LayerWith[Int, Configured[C]]
 )
 
 /** The entries of one collection of a class, every one ever filed in filing
@@ -171,15 +207,15 @@ object Entries:
   * its users of each role; and its closure states, none until the class
   * holds one, a state dead when its thunk is a duplicate.
   */
-final case class ClassData(
+final case class ClassData[C <: NativeSpecializer & Singleton](
     size: Int,
     applyMembers: Entries[Int],
     parallelMembers: Entries[Int],
     choiceMembers: Entries[Int],
     thunkMembers: Entries[Int],
     leafMembers: Entries[Int],
-    headMembers: Map[Head, Entries[Int]],
-    heads: Vector[Head],
+    headMembers: Map[Head[C], Entries[Int]],
+    heads: Vector[Head[C]],
     functionUsers: Entries[Int],
     argumentUsers: Entries[Int],
     leftUsers: Entries[Int],
@@ -195,7 +231,7 @@ final case class ClassData(
     case MemberShape.Thunk     => thunkMembers
     case MemberShape.Leaf      => leafMembers
 
-  def membersReplaced(shape: MemberShape, entries: Entries[Int]): ClassData =
+  def membersReplaced(shape: MemberShape, entries: Entries[Int]): ClassData[C] =
     shape match
       case MemberShape.Apply     => copy(applyMembers = entries)
       case MemberShape.Parallel  => copy(parallelMembers = entries)
@@ -209,7 +245,7 @@ final case class ClassData(
     case UserRole.Left     => leftUsers
     case UserRole.Right    => rightUsers
 
-  def usersReplaced(role: UserRole, entries: Entries[Int]): ClassData =
+  def usersReplaced(role: UserRole, entries: Entries[Int]): ClassData[C] =
     role match
       case UserRole.Function => copy(functionUsers = entries)
       case UserRole.Argument => copy(argumentUsers = entries)
@@ -223,16 +259,16 @@ final case class ClassData(
   def positionUsersReplaced(
       role: PositionRole,
       entries: Entries[PositionUser]
-  ): ClassData = role match
+  ): ClassData[C] = role match
     case PositionRole.Member  => copy(memberUsers = entries)
     case PositionRole.Filling => copy(fillingUsers = entries)
 
-  def headEntries(head: Head): Entries[Int] =
+  def headEntries(head: Head[C]): Entries[Int] =
     headMembers.getOrElse(head, Entries.empty)
 
 object ClassData:
   /** The data of a class of one node, before the node is filed in it. */
-  val single: ClassData = ClassData(
+  def single[C <: NativeSpecializer & Singleton]: ClassData[C] = ClassData[C](
     size = 1,
     applyMembers = Entries.empty,
     parallelMembers = Entries.empty,
@@ -253,10 +289,11 @@ object ClassData:
   /** The data of a class that lost a union, let go: no reader reads the
     * class data of a node that is not a root.
     */
-  val released: ClassData = single.copy(size = 0)
+  def released[C <: NativeSpecializer & Singleton]: ClassData[C] = single[C].copy(size = 0)
 
 /** The shape a node's layer is filed under. */
 def shapeOf(layer: Layer[Any]): MemberShape = layer match
+  case view: gezi.ir.StorageView[?] => throw IllegalStateException(s"a node's layer is never a storage's view: $view")
   case Apply(_, _)     => MemberShape.Apply
   case Parallel(_, _)  => MemberShape.Parallel
   case Choice(_, _)    => MemberShape.Choice

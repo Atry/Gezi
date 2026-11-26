@@ -6,8 +6,11 @@ import gezi.frontend.Defunctionalization
 import gezi.frontend.LambdalatticeProblem
 import gezi.frontend.SyntaxError
 import gezi.ir.Code
-import gezi.ir.Instruction
+import gezi.ir.Configured
 import gezi.ir.Hole
+import gezi.ir.NativeSpecializer.*
+import gezi.ir.NoFacts
+import gezi.ir.NonEmptyHoles
 import scala.jdk.StreamConverters.*
 
 /** Malformed inputs with exactly one planted defect of a known kind, so that
@@ -79,21 +82,25 @@ object PlantedDefects:
     * one past the last, or its last filling dropped when a hole is bound to
     * its last slot.
     */
-  def malformedThunk: Gen[(Instruction, ThunkDefect)] =
+  def malformedThunk: Gen[(Configured[NoFacts.type], ThunkDefect)] =
     val planted = for
       body <- HoasGenerators.closedTerm
       defect <- Gen.element1(ThunkDefect.SlotOutOfRange, ThunkDefect.MissingFilling)
     yield
-      Defunctionalization.thunkInstruction(gezi.frontend.Term.λ(_ => body).deBruijnTerm(Map.empty)) match
-        case Instruction.Thunk(code, holes, fillings) =>
+      Defunctionalization.thunkInstruction[NoFacts.type](gezi.frontend.Term.λ(_ => body).deBruijnTerm(Map.empty))(using NoFacts).layer match
+        case gezi.ir.Thunk(code, holes, fillings) =>
           defect match
             case ThunkDefect.SlotOutOfRange =>
               val slotCount = holes.count(_.isInstanceOf[Hole.Bound]) + fillings.size
-              Some((Instruction.Thunk(Code.Apply(code, Code.Slot(slotCount)), holes, fillings), defect))
+              Some((NoFacts.thunk(Code.Apply(code, Code.Slot(slotCount)), plantedHoles(holes), fillings), defect))
             case ThunkDefect.MissingFilling =>
               val slotCount = holes.count(_.isInstanceOf[Hole.Bound]) + fillings.size
               Option.when(fillings.nonEmpty && holes.contains(Hole.Bound(slotCount - 1)))(
-                (Instruction.Thunk(code, holes, fillings.dropRight(1)), defect)
+                (NoFacts.thunk(code, plantedHoles(holes), fillings.dropRight(1)), defect)
               )
         case other => throw IllegalStateException(s"an abstraction's instruction is no thunk: $other")
     Gen.fromSome(planted)
+
+  /** The holes of a thunk the front end made, which has at least one. */
+  private def plantedHoles(holes: Vector[Hole]): NonEmptyHoles =
+    NonEmptyHoles.of(holes).getOrElse(throw IllegalStateException("an abstraction's thunk has no hole"))

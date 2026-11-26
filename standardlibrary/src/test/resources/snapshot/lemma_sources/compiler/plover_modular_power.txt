@@ -1,8 +1,0 @@
-plover_modular_power_branch: λ base exponent modulus. plover_binary_modulo (plover_power base exponent) modulus = λ base exponent modulus
-            . ( plover_binary_modulo (plover_power base exponent) modulus
-              + plover_typed_modular_power (base ∥ binary_set true) (exponent ∥ binary_set true) (modulus ∥ binary_set false)
-              )
-plover_modular_power_applied: λ modulus first second
-            . (λ base exponent. plover_binary_modulo (plover_power base exponent) modulus) first second = λ modulus first second. plover_binary_modulo (plover_power first second) modulus
-plover_modular_power_let: λ body modulus
-            . (λ function. body function) λ base exponent. plover_binary_modulo (plover_power base exponent) modulus = λ body modulus. body λ base exponent. plover_binary_modulo (plover_power base exponent) modulus

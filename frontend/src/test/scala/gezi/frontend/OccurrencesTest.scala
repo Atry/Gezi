@@ -1,7 +1,9 @@
 package gezi.frontend
 
-import gezi.ir.Instruction
+import gezi.ir.Configured
 import gezi.ir.Layer
+import gezi.ir.NativeSpecializer.*
+import gezi.ir.NoFacts
 import gezi.ir
 
 /** The occurrence tagging of `Occurrences.tagged` (the module comment
@@ -10,27 +12,30 @@ import gezi.ir
   */
 class OccurrencesTest extends gezi.generatedinputs.FailFastSuite:
 
+  given NoFacts.type = NoFacts
+
+  private type NoFactsTerm = Configured[NoFacts.type]
+
   import DeBruijnTerm.*
 
   /** Five distinct closed terms interned, standing for the four markers and
     * one library name.
     */
-  private val instructions =
+  private val pures =
     Vector(
       "λx.x",
       "λx.λy.x",
       "λx.λy.y",
       "λx.x x",
       "λx.λy.x y"
-    ).map(text =>
-      Defunctionalization.thunkInstruction(Lambdalattice.term(text))
-    )
+    ).map(text => Defunctionalization.pure(Lambdalattice.term(text)))
 
-  private val Vector(name, closure, firstTag, nextTag, library) = instructions: @unchecked
+  private val Vector(name, closure, firstTag, nextTag, library): Vector[NoFactsTerm] =
+    pures.map(Configured.fromPure(NoFacts))
 
-  private val markers: OccurrenceMarkers = OccurrenceMarkers(name, closure, firstTag, nextTag)
+  private val markers: OccurrenceMarkers = OccurrenceMarkers(pures(0), pures(1), pures(2), pures(3))
 
-  private def marked(marker: Instruction, tag: Instruction, term: DeBruijnTerm): DeBruijnTerm =
+  private def marked(marker: NoFactsTerm, tag: NoFactsTerm, term: DeBruijnTermOf[NoFactsTerm]): DeBruijnTermOf[NoFactsTerm] =
     Apply(Apply(Constant(marker), Constant(tag)), term)
 
   test("eachNameAndEachChainIsTaggedInPreorder") {
@@ -39,8 +44,8 @@ class OccurrencesTest extends gezi.generatedinputs.FailFastSuite:
       Apply(Constant(library), Lambda(Lambda(Apply(Variable(1), Constant(library))))),
       markers
     )
-    val secondTag = Instruction(ir.Apply(nextTag, firstTag))
-    val thirdTag = Instruction(ir.Apply(nextTag, secondTag))
+    val secondTag = NoFacts.application(nextTag, firstTag)
+    val thirdTag = NoFacts.application(nextTag, secondTag)
     assertEquals(
       tagged,
       Apply(

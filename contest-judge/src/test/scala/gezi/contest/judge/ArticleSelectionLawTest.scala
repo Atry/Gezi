@@ -22,7 +22,7 @@ class ArticleSelectionLawTest extends GeneratedProperties:
   private val program: DeBruijnTerm = DeBruijnTerm.Lambda(DeBruijnTerm.Variable(0))
 
   /** The program's instruction, which a point holds. */
-  private val programInstruction: gezi.ir.Instruction = gezi.frontend.Defunctionalization.thunkInstruction(program)
+  private val programInstruction: Configured[NoFacts.type] = gezi.frontend.Defunctionalization.thunkInstruction(program)(using gezi.ir.NoFacts)
 
   private val evaluationOutcomes: Vector[Outcome] =
     Vector(Outcome.Success, Outcome.False, Outcome.Incomplete, Outcome.NoAnswer, Outcome.Stopped)
@@ -39,7 +39,7 @@ class ArticleSelectionLawTest extends GeneratedProperties:
       outcome <- Gen.element1(outcomes.head, outcomes.tail*)
     yield
       val question = if evaluation then Question.Evaluation(Set(program)) else Question.Judgment(programInstruction, true)
-      (Point(s"$family-$number", "test", family, BigDecimal(1), programInstruction, question), outcome)
+      (Point(s"$family-$number", "test", family, BigDecimal(1), gezi.frontend.ExchangeText.line(programInstruction), question), outcome)
 
   private val familiesRead: Gen[Vector[(String, Vector[(Point, Outcome)])]] =
     Gen.int(Range.linear(1, 4)).flatMap(familyCount =>

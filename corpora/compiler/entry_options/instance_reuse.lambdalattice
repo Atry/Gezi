@@ -1,0 +1,11 @@
+# The published list of whether the answers of the JIT's instance table outlive a version of the contents the URI nodes expand to (InstanceReuseOption): within_version, every answer dropped under a new version; verified_across_versions, the answers kept with what they read and verified before they are used.
+# A Scott sum whose constructors are the tuple's fields, in the order of the
+# enum's cases; an entry.lambdalattice imports this file and writes a
+# constructor, and EntryData reads which alternative it takes by structure
+# (gezi.contest.entry.EntryData, THE OPTIONS AS SCOTT CONSTRUCTORS).
+λ export
+. (λtuple. tuple λwithin_version verified_across_versions. within_version)
+λ within_version
+. (λtuple. tuple λwithin_version verified_across_versions. verified_across_versions)
+λ verified_across_versions
+. export within_version verified_across_versions

@@ -16,7 +16,7 @@ object Hidden37Edits:
   /** `(\same. \size. Ed Source Target Budget (\r. difference Budget r)) Same Size`
     * (`edits_term/4`).
     */
-  def editsTerm(attractors: Attractors, source: Vector[Int], target: Vector[Int], budget: Int): Term =
+  def editsTerm(attractors: Attractors, source: Vector[Int], target: Vector[Int], budget: Int): ProblemTerm =
     val equal = attractors.functionSurface("merge_symbols_equal", Spelling.Direct)
     val length = attractors.functionSurface("length", Spelling.Direct)
     val difference = attractors.functionSurface("natural_difference", Spelling.Direct)
@@ -29,7 +29,7 @@ object Hidden37Edits:
     )(λ(left => λ(right => equal(left)(right))))(λ(list => length(list)))
 
   /** The search over the scripts of edits (`ed_function/3`). */
-  private def edFunction(attractors: Attractors, same: Term, size: Term): Term =
+  private def edFunction(attractors: Attractors, same: ProblemTerm, size: ProblemTerm): ProblemTerm =
     attractors.fixpoint(
       λ(self =>
         λ(source =>
@@ -66,7 +66,7 @@ object Hidden37Edits:
     )
 
   /** `at_least budget cost (k (difference budget cost)) []` (`fits/4`). */
-  private def fits(attractors: Attractors, budget: Term, cost: Term, continuation: Term): Term =
+  private def fits(attractors: Attractors, budget: ProblemTerm, cost: ProblemTerm, continuation: ProblemTerm): ProblemTerm =
     val atLeast = attractors.functionSurface("natural_at_least", Spelling.Direct)
     val difference = attractors.functionSurface("natural_difference", Spelling.Direct)
     atLeast(budget)(cost)(continuation(difference(budget)(cost)))(top)

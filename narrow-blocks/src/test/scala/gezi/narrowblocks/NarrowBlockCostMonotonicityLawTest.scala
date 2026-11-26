@@ -3,13 +3,17 @@ package gezi.narrowblocks
 import gezi.saturation.StopSignal
 import gezi.ir.Code
 import gezi.ir.Hole
-import gezi.ir.Instruction
+import gezi.ir.Configured
+import gezi.ir.NoFacts
+import gezi.ir.Pure
 import gezi.jit.NativeName
 import gezi.jit.NativesProvider
 import gezi.standardlibrary.NativeBound
 import gezi.strategies.CostMonotonicityLaws
 import gezi.strategies.ModuleCostModel
 import gezi.ir.{Apply, Choice, Parallel}
+
+private given narrowBlockCostMonotonicityLawTestNoFacts: NoFacts.type = NoFacts
 
 /** The laws of the extraction's contract (`CostMonotonicityLaws`:
   * monotone within a reading, a child read by its cost and its reading
@@ -40,8 +44,8 @@ class NarrowBlockCostMonotonicityLawTest extends CostMonotonicityLaws:
     * combinator): λx y. y x and λx y z. z y x.
     */
   private val bindableInstructions = Vector(
-    Instruction.Thunk(Code.Apply(Code.Slot(1), Code.Slot(0)), Vector(Hole.Bound(0), Hole.Bound(1)), Vector.empty),
-    Instruction.Thunk(
+    NoFacts.thunkOrInstance(Code.Apply(Code.Slot(1), Code.Slot(0)), Vector(Hole.Bound(0), Hole.Bound(1)), Vector.empty),
+    NoFacts.thunkOrInstance(
       Code.Apply(Code.Apply(Code.Slot(2), Code.Slot(1)), Code.Slot(0)),
       Vector(Hole.Bound(0), Hole.Bound(1), Hole.Bound(2)),
       Vector.empty
@@ -59,7 +63,7 @@ class NarrowBlockCostMonotonicityLawTest extends CostMonotonicityLaws:
       }.toVector.sorted.headOption
     )
     if names.isEmpty then throw IllegalStateException("the loaded natives have no function of one or two parameters")
-    names.zip(bindableInstructions).map((name, instruction) => NativeBound(instruction, name))
+    names.zip(bindableInstructions).map((name, instruction) => NativeBound(Pure.required(instruction), name))
 
   stoppableProperty("theLemmaCompilationsCombinationIsMonotoneInItsChildren") { stopped =>
     monotone(ModuleCostModel(modules, reading, StopSignal.completedWith(stopped)))
@@ -111,12 +115,12 @@ class NarrowBlockCostMonotonicityLawTest extends CostMonotonicityLaws:
 
   /** A criterion function of a native specialization: λx. x x x. */
   private val criterionFunction =
-    Instruction.Thunk(Code.Apply(Code.Apply(Code.Slot(0), Code.Slot(0)), Code.Slot(0)), Vector(Hole.Bound(0)), Vector.empty)
+    NoFacts.thunkOrInstance(Code.Apply(Code.Apply(Code.Slot(0), Code.Slot(0)), Code.Slot(0)), Vector(Hole.Bound(0)), Vector.empty)
 
-  override protected def criterionFunctions: Vector[Instruction] = Vector(criterionFunction)
+  override protected def criterionFunctions: Vector[Configured[NoFacts.type]] = Vector(criterionFunction)
 
   /** The truth λt _. t, a thunk of two holes (`NarrowBlocks.thunkKind`). */
-  private val truth = Instruction.Thunk(Code.Slot(0), Vector(Hole.Bound(0), Hole.Ignored), Vector.empty)
+  private val truth = NoFacts.thunkOrInstance(Code.Slot(0), Vector(Hole.Bound(0), Hole.Ignored), Vector.empty)
 
   /** A filter `x ∥ c t`, x a closed term of no narrow kind and `c t` a
     * criterion, is narrow (`NarrowBlocks.parallelKind`) although its
@@ -128,13 +132,13 @@ class NarrowBlockCostMonotonicityLawTest extends CostMonotonicityLaws:
     */
   stoppableProperty("aFilterOverAnUnpricedCriterionIsNarrow") { stopped =>
     val operands = Vector(
-      Instruction.Thunk(Code.Apply(Code.Slot(0), Code.Slot(0)), Vector(Hole.Bound(0)), Vector.empty),
-      Instruction.Thunk(Code.Apply(Code.Slot(0), Code.Apply(Code.Slot(0), Code.Slot(0))), Vector(Hole.Bound(0)), Vector.empty)
+      NoFacts.thunkOrInstance(Code.Apply(Code.Slot(0), Code.Slot(0)), Vector(Hole.Bound(0)), Vector.empty),
+      NoFacts.thunkOrInstance(Code.Apply(Code.Slot(0), Code.Apply(Code.Slot(0), Code.Slot(0))), Vector(Hole.Bound(0)), Vector.empty)
     )
     for operand <- hedgehog.Gen.element(operands.head, operands.tail.toList).forAll
     yield
       val model = ModuleCostModel(modules, reading, StopSignal.completedWith(stopped))
-      val named = (instruction: Instruction) => model.cost(gezi.extraction.Shape.Name(instruction), Vector.empty)
+      val named = (instruction: Configured[NoFacts.type]) => model.cost(gezi.extraction.Shape.Name(instruction), Vector.empty)
       val criterion = model.cost(
         gezi.extraction.Shape.Node(0, Apply(1, 2)),
         Vector(named(criterionFunction), named(truth))
@@ -160,7 +164,7 @@ class NarrowBlockCostMonotonicityLawTest extends CostMonotonicityLaws:
     * gave (0 | 75), and CountedExtraction.settled threw).
     */
   stoppableProperty("aNativeCallIsMonotoneInItsClosedOperand") { stopped =>
-    val wrapper = Instruction.Thunk(Code.Apply(Code.Slot(0), Code.Slot(0)), Vector(Hole.Bound(0)), Vector.empty)
+    val wrapper = NoFacts.thunkOrInstance(Code.Apply(Code.Slot(0), Code.Slot(0)), Vector(Hole.Bound(0)), Vector.empty)
     val byPlaces = (places: Int) => nativeBindings.find(bound =>
       natives.natives.get(NativeName.Function(bound.native)).exists(_.parameterCount == places)
     )
@@ -171,7 +175,7 @@ class NarrowBlockCostMonotonicityLawTest extends CostMonotonicityLaws:
           chainLength <- hedgehog.Gen.int(hedgehog.Range.linear(0, 12)).forAll
         yield
           val model = ModuleCostModel(modules, reading, StopSignal.completedWith(stopped))
-          val named = (instruction: Instruction) => model.cost(gezi.extraction.Shape.Name(instruction), Vector.empty)
+          val named = (instruction: Configured[NoFacts.type]) => model.cost(gezi.extraction.Shape.Name(instruction), Vector.empty)
           val applied = (function: gezi.strategies.ModuleCost, argument: gezi.strategies.ModuleCost) =>
             model.cost(gezi.extraction.Shape.Node(0, Apply(1, 2)), Vector(function, argument))
           val narrowCall = applied(named(onePlace.instruction), named(wrapper))
@@ -202,7 +206,7 @@ class NarrowBlockCostMonotonicityLawTest extends CostMonotonicityLaws:
     * it had one.
     */
   stoppableProperty("aChoiceRanksWhatItsCompiledMemberLeavesOutside") { stopped =>
-    val wrapper = Instruction.Thunk(Code.Apply(Code.Slot(0), Code.Slot(0)), Vector(Hole.Bound(0)), Vector.empty)
+    val wrapper = NoFacts.thunkOrInstance(Code.Apply(Code.Slot(0), Code.Slot(0)), Vector(Hole.Bound(0)), Vector.empty)
     for
       untypedLength <- hedgehog.Gen.int(hedgehog.Range.linear(0, 12)).forAll
       otherLength <- hedgehog.Gen.int(hedgehog.Range.linear(0, 12)).forAll
@@ -210,7 +214,7 @@ class NarrowBlockCostMonotonicityLawTest extends CostMonotonicityLaws:
       untypedFirst <- hedgehog.Gen.boolean.forAll
     yield
       val model = ModuleCostModel(modules, reading, StopSignal.completedWith(stopped))
-      val named = (instruction: Instruction) => model.cost(gezi.extraction.Shape.Name(instruction), Vector.empty)
+      val named = (instruction: Configured[NoFacts.type]) => model.cost(gezi.extraction.Shape.Name(instruction), Vector.empty)
       val applied = (function: gezi.strategies.ModuleCost, argument: gezi.strategies.ModuleCost) =>
         model.cost(gezi.extraction.Shape.Node(0, Apply(1, 2)), Vector(function, argument))
       val chain = (length: Int) => (1 to length).foldLeft(named(wrapper))((inner, _) => applied(named(wrapper), inner))

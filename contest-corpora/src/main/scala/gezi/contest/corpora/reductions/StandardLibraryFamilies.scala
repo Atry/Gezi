@@ -20,14 +20,14 @@ abstract class StandardLibraryFamily[Drawn](val spelling: Spelling) extends Repe
   final override def drawStem: String = family
 
   /** The repeated program of the draws, built from the library's terms. */
-  protected def program(terms: StandardLibraryTerms, drawn: Drawn): Term
+  protected def program(terms: StandardLibraryTerms, drawn: Drawn): ProblemTerm
 
   /** The single-input programs of the draws, built from the library's terms. */
-  protected def singlePrograms(terms: StandardLibraryTerms, drawn: Drawn): Vector[Term]
+  protected def singlePrograms(terms: StandardLibraryTerms, drawn: Drawn): Vector[ProblemTerm]
 
-  protected final def repeated(group: ReductionGroup, drawn: Drawn): Term = program(group.standardLibrary, drawn)
+  protected final def repeated(group: ReductionGroup, drawn: Drawn): ProblemTerm = program(group.standardLibrary, drawn)
 
-  protected final def singles(group: ReductionGroup, drawn: Drawn): Vector[Term] =
+  protected final def singles(group: ReductionGroup, drawn: Drawn): Vector[ProblemTerm] =
     singlePrograms(group.standardLibrary, drawn)
 
 /** Whether n * 2^m + k is even, at R distinct triples (n, m, k):
@@ -65,13 +65,13 @@ final class LibraryDoublingParities(spelling: Spelling, val nominal: NominalRang
     val (addend, afterAddend) = Repetition.drawnNumber(afterDoublings, nominal, "addend")
     (Triple(number, doublings, addend), afterAddend)
 
-  private def arguments(terms: StandardLibraryTerms, triple: Triple): Vector[Term] =
+  private def arguments(terms: StandardLibraryTerms, triple: Triple): Vector[ProblemTerm] =
     Vector(terms.numeral(triple.number), terms.numeral(triple.doublings), terms.numeral(triple.addend))
 
-  protected def program(terms: StandardLibraryTerms, drawn: LibraryDoublingParities.Drawn): Term =
+  protected def program(terms: StandardLibraryTerms, drawn: LibraryDoublingParities.Drawn): ProblemTerm =
     terms.sites(LibraryDoublingParities.function(terms, spelling), drawn.triples.map(arguments(terms, _)))
 
-  protected def singlePrograms(terms: StandardLibraryTerms, drawn: LibraryDoublingParities.Drawn): Vector[Term] =
+  protected def singlePrograms(terms: StandardLibraryTerms, drawn: LibraryDoublingParities.Drawn): Vector[ProblemTerm] =
     val function = LibraryDoublingParities.function(terms, spelling)
     drawn.triples.map(triple => applied(function, arguments(terms, triple)))
 
@@ -89,7 +89,7 @@ object LibraryDoublingParities:
     drawn.triples.map(triple => NativeValue.Truth(((BigInt(triple.number) << triple.doublings) + triple.addend) % 2 == 0))
 
   /** The function of n, m and k in the spelling. */
-  def function(terms: StandardLibraryTerms, spelling: Spelling): Term =
+  def function(terms: StandardLibraryTerms, spelling: Spelling): ProblemTerm =
     import terms.*
     spelling match
       case Spelling.Direct =>
@@ -155,13 +155,13 @@ final class LibraryBinaryParities(spelling: Spelling, val nominal: NominalRanges
       (before :+ digit, afterDigit)
     )
 
-  private def site(terms: StandardLibraryTerms, digits: Vector[Int]): Term =
+  private def site(terms: StandardLibraryTerms, digits: Vector[Int]): ProblemTerm =
     LibraryBinaryParities.site(terms, spelling, digits)
 
-  protected def program(terms: StandardLibraryTerms, drawn: LibraryBinaryParities.Drawn): Term =
+  protected def program(terms: StandardLibraryTerms, drawn: LibraryBinaryParities.Drawn): ProblemTerm =
     terms.list(drawn.lists.map(site(terms, _)))
 
-  protected def singlePrograms(terms: StandardLibraryTerms, drawn: LibraryBinaryParities.Drawn): Vector[Term] =
+  protected def singlePrograms(terms: StandardLibraryTerms, drawn: LibraryBinaryParities.Drawn): Vector[ProblemTerm] =
     drawn.lists.map(site(terms, _))
 
 /** The draws of `LibraryBinaryParities`. */
@@ -175,7 +175,7 @@ object LibraryBinaryParities:
     drawn.lists.map(digits => NativeValue.Truth(digits.headOption.forall(_ == 0)))
 
   /** The site over the digits in the spelling. */
-  def site(terms: StandardLibraryTerms, spelling: Spelling, digits: Vector[Int]): Term =
+  def site(terms: StandardLibraryTerms, spelling: Spelling, digits: Vector[Int]): ProblemTerm =
     import terms.*
     val list = terms.list(digits.map(numeral))
     spelling match
@@ -229,13 +229,13 @@ final class LibraryUnsharedDoublings(spelling: Spelling, val nominal: NominalRan
     )
     LibraryDoublingParities.Drawn(triples)
 
-  private def arguments(terms: StandardLibraryTerms, triple: Triple): Vector[Term] =
+  private def arguments(terms: StandardLibraryTerms, triple: Triple): Vector[ProblemTerm] =
     Vector(terms.numeral(triple.number), terms.numeral(triple.doublings), terms.numeral(triple.addend))
 
-  protected def program(terms: StandardLibraryTerms, drawn: LibraryDoublingParities.Drawn): Term =
+  protected def program(terms: StandardLibraryTerms, drawn: LibraryDoublingParities.Drawn): ProblemTerm =
     terms.sites(LibraryDoublingParities.function(terms, spelling), drawn.triples.map(arguments(terms, _)))
 
-  protected def singlePrograms(terms: StandardLibraryTerms, drawn: LibraryDoublingParities.Drawn): Vector[Term] =
+  protected def singlePrograms(terms: StandardLibraryTerms, drawn: LibraryDoublingParities.Drawn): Vector[ProblemTerm] =
     val function = LibraryDoublingParities.function(terms, spelling)
     drawn.triples.map(triple => applied(function, arguments(terms, triple)))
 
@@ -355,13 +355,13 @@ final class LibraryUnsharedBinary(
       (before :+ digit, afterDigit)
     )
 
-  private def site(terms: StandardLibraryTerms, digits: Vector[Int]): Term =
+  private def site(terms: StandardLibraryTerms, digits: Vector[Int]): ProblemTerm =
     LibraryBinaryParities.site(terms, spelling, digits)
 
-  protected def program(terms: StandardLibraryTerms, drawn: LibraryBinaryParities.Drawn): Term =
+  protected def program(terms: StandardLibraryTerms, drawn: LibraryBinaryParities.Drawn): ProblemTerm =
     terms.list(drawn.lists.map(site(terms, _)))
 
-  protected def singlePrograms(terms: StandardLibraryTerms, drawn: LibraryBinaryParities.Drawn): Vector[Term] =
+  protected def singlePrograms(terms: StandardLibraryTerms, drawn: LibraryBinaryParities.Drawn): Vector[ProblemTerm] =
     drawn.lists.map(site(terms, _))
 
 /** The nominal ranges and variants of `LibraryUnsharedBinary`. */
@@ -481,13 +481,13 @@ final class LibraryUnsharedWordPowers(spelling: Spelling, val nominal: NominalRa
       (if bit == 1 then before.setBit(position) else before, afterBit)
     )
 
-  private def arguments(terms: StandardLibraryTerms, power: Power): Vector[Term] =
+  private def arguments(terms: StandardLibraryTerms, power: Power): Vector[ProblemTerm] =
     Vector(terms.word(width, power.base), terms.numeral(power.exponent))
 
-  protected def program(terms: StandardLibraryTerms, drawn: LibraryUnsharedWordPowers.Drawn): Term =
+  protected def program(terms: StandardLibraryTerms, drawn: LibraryUnsharedWordPowers.Drawn): ProblemTerm =
     terms.sites(LibraryUnsharedWordPowers.function(terms, spelling, width), drawn.powers.map(arguments(terms, _)))
 
-  protected def singlePrograms(terms: StandardLibraryTerms, drawn: LibraryUnsharedWordPowers.Drawn): Vector[Term] =
+  protected def singlePrograms(terms: StandardLibraryTerms, drawn: LibraryUnsharedWordPowers.Drawn): Vector[ProblemTerm] =
     val function = LibraryUnsharedWordPowers.function(terms, spelling, width)
     drawn.powers.map(power => applied(function, arguments(terms, power)))
 
@@ -503,7 +503,7 @@ object LibraryUnsharedWordPowers:
   final case class Drawn(powers: Vector[Power])
 
   /** The function of x and k at the width in the spelling. */
-  def function(terms: StandardLibraryTerms, spelling: Spelling, width: Int): Term =
+  def function(terms: StandardLibraryTerms, spelling: Spelling, width: Int): ProblemTerm =
     import terms.*
     val multiply = wordMultiply(numeral(width))
     spelling match

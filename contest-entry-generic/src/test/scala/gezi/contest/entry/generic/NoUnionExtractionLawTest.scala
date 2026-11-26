@@ -12,7 +12,8 @@ import gezi.contest.entry.ExtractorModules
 import gezi.frontend.DeBruijnTerm
 import gezi.frontend.Defunctionalization
 import gezi.generatedinputs.GeneratedProperties
-import gezi.ir.Instruction
+import gezi.ir.Configured
+import gezi.ir.NativeSpecializer
 import gezi.jit.NativesProvider
 import gezi.narrowblocks.LemmaRoute
 import gezi.narrowblocks.PreparedLemmaCompilation
@@ -35,9 +36,9 @@ class NoUnionExtractionLawTest extends GeneratedProperties:
   private val buildRoot = Paths.get(sys.props("gezi.buildRoot"))
 
   /** The fixture entry's rounds, each with the settings the entry's data
-    * gives it and no lemma, prepared for the entry's library's index.
+    * gives it and no lemma, prepared for the entry's library's index, in the entry's configuration.
     */
-  private lazy val rounds: Vector[PreparedLemmaCompilation] =
+  private lazy val rounds: Rounds[?] =
     val entryDirectory = buildRoot.resolve("contest-entries-fixture")
     val (data, afterEntry) = EntryData.read(entryDirectory, Defaults.entryDataState)
     val entry = GenericEntryProvider.initialized(
@@ -49,11 +50,7 @@ class NoUnionExtractionLawTest extends GeneratedProperties:
       afterEntry,
       Defaults.caches()
     )
-    data.rounds.map(round =>
-      Defaults
-        .lemmaCompilation(Vector.empty, round.settings, GenericEntry.roundCap, entry.natives, ExtractorModules.registeredFor(entryDirectory))
-        .prepared(entry.index)
-    )
+    Rounds.of(entry, data, ExtractorModules.registeredFor(entryDirectory))
 
   override def sharedFixtures: Vector[scala.concurrent.Future[Unit] => Any] = Vector(_ => rounds)
 
@@ -88,15 +85,44 @@ class NoUnionExtractionLawTest extends GeneratedProperties:
         else leaf
       }
 
-  private val program: Gen[Instruction] =
-    Gen.int(Range.linear(1, 30)).flatMap(term(_, 0)).map(Defunctionalization.thunkInstruction)
+  private val program: Gen[DeBruijnTerm] = Gen.int(Range.linear(1, 30)).flatMap(term(_, 0))
 
   stoppableProperty("the last round extracts a graph with no union to the program") { stopped =>
     for root <- program.forAll
-    yield
-      val stop = StopSignal.completedWith(stopped)
-      val (run, _, _) = LemmaRoute.saturatedRounds(rounds, root, false, stop)
-      if run.graph.unionCount == 0 then
-        Result.diff(rounds.last.extracted(root, run, stop), root)(_ == _).log("the extraction and the program")
-      else Result.success.log(s"${run.graph.unionCount} unions, not checked")
+    yield rounds.extractedAlike(root, StopSignal.completedWith(stopped))
   }
+
+  /** The rounds, prepared in the entry's configuration `C`. */
+  private final case class Rounds[C <: NativeSpecializer & Singleton](prepared: Vector[PreparedLemmaCompilation[C]])(using C):
+
+    /** The law on one program, translated in `C`, whose parallels the entry's specializer converts as its rounds do. */
+    def extractedAlike(written: DeBruijnTerm, stop: StopSignal): Result =
+      val root = Defunctionalization.thunkInstruction[C](written)
+      val (run, _, _) = LemmaRoute.saturatedRounds(prepared, root, false, stop)
+      if run.graph.unionCount == 0 then
+        Result.assert(Configured.same(prepared.last.extracted(root, run, stop), root)).log("the extraction and the program")
+      else Result.success.log(s"${run.graph.unionCount} unions, not checked")
+
+  private object Rounds:
+
+    /** The entry's rounds with no lemma, written back through the entry's construction as its own rounds are
+      * (`GenericEntryProvider.initialized`).
+      */
+    def of[C <: NativeSpecializer & Singleton](entry: GenericEntry[C], data: EntryData, modules: ExtractorModules): Rounds[C] =
+      given C = entry.specializer
+      val construction = gezi.jit.ConvertedTermConstruction[C](entry.encoding)(entry.jit.configuration.storageAccess)
+      Rounds(
+        data.rounds.map(round =>
+          Defaults
+            .lemmaCompilation[C](
+              Vector.empty,
+              round.settings,
+              GenericEntry.roundCap,
+              entry.natives,
+              modules,
+              construction,
+              entry.jit.readingConfiguration
+            )
+            .prepared(entry.index)
+        )
+      )

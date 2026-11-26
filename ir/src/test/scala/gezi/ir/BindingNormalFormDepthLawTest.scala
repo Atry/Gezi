@@ -10,7 +10,7 @@ import gezi.generatedinputs.GeneratedProperties
   * that each entry point gives back what it was given: `spelled` the term,
   * `respelled` nothing, `of` of the η-shaped pattern `λx. F x`, F a
   * higher-order metavariable bound to a thunk, that thunk, and
-  * `placeholdersMapped` rebuilding each layer the filling it folds. Three
+  * `fillingMapped` rebuilding each layer of the filling it folds (the shape (a) as a code over the slots). Three
   * shapes of depth, each level's operator drawn: (a) an instruction nested
   * through applications (on either side), choices, parallels and thunks
   * `λx. x M` over placeholders; (b) a thunk `λx. x ∘ (x ∘ (… (x ∘ c)))`
@@ -27,6 +27,8 @@ import gezi.generatedinputs.GeneratedProperties
   */
 class BindingNormalFormDepthLawTest extends GeneratedProperties:
 
+  given gezi.ir.NoFacts.type = gezi.ir.NoFacts
+
   private def depths: Gen[Int] = Gen.int(Range.linear(5000, 10000))
 
   /** The operator of a level: 0 to 2 nest through an application's
@@ -42,18 +44,35 @@ class BindingNormalFormDepthLawTest extends GeneratedProperties:
   private val codeLevels: Gen[List[Int]] =
     depths.flatMap(depth => Gen.int(Range.constant(0, 2)).list(Range.singleton(depth)))
 
-  private val leaves: Vector[Instruction] = BindingNormalForm.placeholders(3)
+  private val leaves: Vector[Configured[NoFacts.type]] =
+    Vector.tabulate(3)(position => NoFacts.opaque(s"placeholder $position"))
+
+  private val oneHole: NonEmptyHoles = NonEmptyHoles(Hole.Bound(0), Vector.empty)
 
   /** Shape (a), over the placeholders `leaves`. */
-  private def nestedInstruction(levels: List[Int]): Instruction =
+  private def nestedInstruction(levels: List[Int]): Configured[NoFacts.type] =
     levels.zipWithIndex.foldLeft(leaves(0)) { case (inner, (level, index)) =>
       val leaf = leaves(1 + index % 2)
       level match
-        case 0 => Instruction.Apply(inner, leaf)
-        case 1 => Instruction.Apply(leaf, inner)
-        case 2 => Instruction.Choice(leaf, inner)
-        case 3 => Instruction.Parallel(inner, leaf)
-        case _ => Instruction.Thunk(Code.Apply(Code.Slot(0), Code.Slot(1)), Vector(Hole.Bound(0)), Vector(inner))
+        case 0 => NoFacts.application(inner, leaf)
+        case 1 => NoFacts.application(leaf, inner)
+        case 2 => NoFacts.choice(leaf, inner)
+        case 3 => NoFacts.parallel(inner, leaf)
+        case _ => NoFacts.thunk(Code.Apply(Code.Slot(0), Code.Slot(1)), oneHole, Vector(inner))
+    }
+
+  /** Shape (a) as a filling, a code over the slots 0 to 2 that the placeholders stand for, its operators drawn as
+    * `nestedInstruction`'s are.
+    */
+  private def nestedFilling(levels: List[Int]): Code =
+    levels.zipWithIndex.foldLeft(Code.Slot(0)) { case (inner, (level, index)) =>
+      val leaf = Code.Slot(1 + index % 2)
+      level match
+        case 0 => Code.Apply(inner, leaf)
+        case 1 => Code.Apply(leaf, inner)
+        case 2 => Code.Choice(leaf, inner)
+        case 3 => Code.Parallel(inner, leaf)
+        case _ => Code.Thunk(Code.Apply(Code.Slot(0), Code.Slot(1)), Vector(Hole.Bound(0)), Vector(inner))
     }
 
   private def operated(level: Int, left: Code, right: Code): Code = level match
@@ -79,27 +98,31 @@ class BindingNormalFormDepthLawTest extends GeneratedProperties:
       )
     )
 
-  private val filling: Instruction = Instruction.opaque("a filling")
+  private val filling: Configured[NoFacts.type] = NoFacts.opaque("a filling")
 
   /** `λx. F x`: slot 0 the filling F, metavariable 0; slot 1 the binder. */
-  private val etaShaped: Pattern.Thunk =
-    Pattern.Thunk(Code.Apply(Code.Slot(0), Code.Slot(1)), Vector(Hole.Bound(1)), Vector(Pattern.Metavariable(0)))
+  private val etaShaped: Pattern.Thunk[NoFacts.type] =
+    Pattern.Thunk(Code.Apply(Code.Slot(0), Code.Slot(1)), Vector(Hole.Bound(1)), Vector(Pattern.Metavariable[NoFacts.type](0)))
 
-  /** The filling with each layer rebuilt, its placeholders standing for
-    * themselves.
-    */
-  private def rebuilt(term: Instruction): Instruction =
-    BindingNormalForm.placeholdersMapped(term, leaves)(layer => Instruction(layer))
+  /** The filling with each layer rebuilt, its slots standing for themselves. */
+  private def rebuilt(filling: Code): Code =
+    BindingNormalForm.fillingMapped(filling, Vector.tabulate(3)(position => Code.Slot(position))) {
+      case Apply(function, argument)    => Code(Apply(function, argument))
+      case Parallel(left, right)        => Code(Parallel(left, right))
+      case Choice(left, right)          => Code(Choice(left, right))
+      case Thunk(code, holes, fillings) => Code(Thunk(code, holes, fillings))
+      case other                        => throw IllegalStateException(s"a filling's fold made a layer that is no code's: $other")
+    }
 
   /** The laws of a thunk of the code with one hole and one filling. */
   private def thunkLaws(code: Code): Result =
-    val thunk = Instruction.Thunk(code, Vector(Hole.Bound(0)), Vector(filling))
+    val thunk = NoFacts.thunk(code, oneHole, Vector(filling))
     Result.all(
       List(
-        Result.diff(BindingNormalForm.spelled(thunk), thunk)(_ == _).log("spelled"),
+        Result.diff(BindingNormalForm.spelled(thunk), thunk)(Configured.same(_, _)).log("spelled"),
         Result.diff(BindingNormalForm.respelled(code, Vector(Hole.Bound(0)), 1), None)(_ == _).log("respelled"),
         Result
-          .diff(BindingNormalForm.of(etaShaped, Map(0 -> thunk), Set(0)), thunk)(_ == _)
+          .diff(BindingNormalForm.of(etaShaped, Map(0 -> thunk), Set(0)), thunk)(Configured.same(_, _))
           .log("of the eta-shaped pattern")
       )
     )
@@ -108,10 +131,11 @@ class BindingNormalFormDepthLawTest extends GeneratedProperties:
     for levels <- instructionLevels.forAll
     yield
       val term = nestedInstruction(levels)
+      val folded = nestedFilling(levels)
       Result.all(
         List(
-          Result.diff(BindingNormalForm.spelled(term), term)(_ == _).log("spelled"),
-          Result.diff(rebuilt(term), term)(_ == _).log("placeholders mapped")
+          Result.diff(BindingNormalForm.spelled(term), term)(Configured.same(_, _)).log("spelled"),
+          Result.diff(rebuilt(folded), folded)(_ eq _).log("filling mapped")
         )
       )
   }

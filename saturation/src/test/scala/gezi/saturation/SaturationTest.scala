@@ -16,9 +16,9 @@ import gezi.ematching.SeedKind
 import gezi.ir.BuiltInRule
 import gezi.ir.Code
 import gezi.ir.Direction
-import gezi.ir.Instruction
+import gezi.ir.Configured
 import gezi.ir.Hole
-import gezi.ir.Layer
+import gezi.ir.NoFacts
 import gezi.ir.LemmaIdentifier
 import gezi.ir.Store
 import gezi.ir.Parallel
@@ -27,21 +27,21 @@ import gezi.ir.Parallel
   * parallel of two classes: with `Merge`, idempotence `X ∥ X = X`; with
   * `Add`, `X ∥ Y = X ∥ name`.
   */
-private final class ParallelProgram(kind: SeedKind, name: Instruction)
-    extends CompiledProgram:
+private final class ParallelProgram(kind: SeedKind, name: Configured[NoFacts.type])
+    extends CompiledProgram[NoFacts.type]:
 
   def matches(
       matchedKind: SeedKind,
-      key: SeedKey,
-      graph: GraphView,
+      key: SeedKey[NoFacts.type],
+      graph: GraphView[NoFacts.type],
       delta: Int
   ): Matching = (matchedKind, key, graph.layer(delta)) match
-    case (`kind`, SeedKey.Parallel, Parallel(left, right))
+    case (`kind`, SeedKey.Parallel(), Parallel(left, right))
         if kind == SeedKind.Add || graph.root(left) == graph.root(right) =>
       Matching(Vector(Match(0, graph.root(delta), Vector(Some(graph.root(left))))), 0)
     case _ => Matching.none
 
-  def added[Graph <: GraphBuilding[Graph]](
+  def added[Graph <: GraphBuilding[NoFacts.type, Graph]](
       orientation: Int,
       graph: Graph,
       bindings: Vector[Option[Int]]
@@ -52,7 +52,7 @@ private final class ParallelProgram(kind: SeedKind, name: Instruction)
       withName.layerAdded(Parallel(node, nameNode))
     case other => throw IllegalArgumentException(s"no added side for $other")
 
-  def shared[Graph <: GraphBuilding[Graph]](
+  def shared[Graph <: GraphBuilding[NoFacts.type, Graph]](
       orientation: Int,
       part: Int,
       graph: Graph,
@@ -60,7 +60,7 @@ private final class ParallelProgram(kind: SeedKind, name: Instruction)
   ): (Graph, Int) =
     throw IllegalArgumentException("the orientation has no shared subterm")
 
-  def body[Graph <: GraphBuilding[Graph]](
+  def body[Graph <: GraphBuilding[NoFacts.type, Graph]](
       code: Code,
       graph: Graph,
       slotValues: Vector[Int]
@@ -69,20 +69,22 @@ private final class ParallelProgram(kind: SeedKind, name: Instruction)
 
 class SaturationTest extends gezi.generatedinputs.FailFastSuite:
 
-  private val leaf = Instruction.opaque("leaf")
-  private val name = Instruction.opaque("name")
-  private val pair = Instruction(Parallel(leaf, leaf))
+  private given NoFacts.type = NoFacts
 
-  private val store = Store(noinline = Set(leaf, name))
+  private val leaf = NoFacts.opaque("leaf")
+  private val name = NoFacts.opaque("name")
+  private val pair = NoFacts.parallel(leaf, leaf)
+
+  private val store = Store(noinline = Set(leaf, name), gezi.ir.TermConstruction(NoFacts))
 
   /** The plan saturation reads; the stub builds the added side itself. */
-  private val program = Program(
+  private val program = Program[NoFacts.type](
     Map.empty,
     Vector(
-      OrientationPlan(
+      OrientationPlan[NoFacts.type](
         LemmaIdentifier(0),
         Direction.Forward,
-        Building.Value(0),
+        Building.Value[NoFacts.type](0),
         Vector(0),
         Vector.empty
       )
@@ -94,7 +96,7 @@ class SaturationTest extends gezi.generatedinputs.FailFastSuite:
     val result = Saturation.run(
       program,
       ParallelProgram(SeedKind.Merge, name),
-      BuiltInRule.all,
+      BuiltInRule.beforeOptIn,
       store,
       Map.empty,
       Vector.empty,
@@ -125,7 +127,7 @@ class SaturationTest extends gezi.generatedinputs.FailFastSuite:
     val result = Saturation.run(
       program,
       ParallelProgram(SeedKind.Add, name),
-      BuiltInRule.all,
+      BuiltInRule.beforeOptIn,
       store,
       Map.empty,
       Vector.empty,
@@ -148,7 +150,7 @@ class SaturationTest extends gezi.generatedinputs.FailFastSuite:
     val result = Saturation.run(
       program,
       ParallelProgram(SeedKind.Add, name),
-      BuiltInRule.all,
+      BuiltInRule.beforeOptIn,
       store,
       Map.empty,
       Vector.empty,

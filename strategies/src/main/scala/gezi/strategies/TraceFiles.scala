@@ -3,11 +3,11 @@ package gezi.strategies
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.Path
-import gezi.ir.Instruction
 import gezi.rewritetrace.Trace
 import gezi.rewritetrace.TracePageText
 import gezi.rewritetrace.TraceStart
 import gezi.rewritetrace.TraceText
+import gezi.ir.{Configured, NativeSpecializer}
 
 /** The files of a trace written beside an article:
   * the
@@ -47,7 +47,7 @@ object TraceFiles:
     * text (`TraceStart.written`, with no source) to `startFile` of it and
     * the page to `pageFile` of it.
     */
-  def written(article: Path, start: Instruction, trace: Trace): Unit =
+  def written[C <: NativeSpecializer & Singleton](article: Path, start: Configured[C], trace: Trace[C])(using C, gezi.ir.StorageAccess): Unit =
     textWrittenAt(traceFile(article), TraceStart.written(start, None), TraceText.written(trace))
 
   /** Writes the text of a trace (`TraceText.written`) to the file, whose

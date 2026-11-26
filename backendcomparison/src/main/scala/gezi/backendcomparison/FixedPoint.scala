@@ -6,12 +6,12 @@ import gezi.saturation.End
 import gezi.saturation.Saturation
 import gezi.saturation.StopSignal
 import gezi.ir.Code
-import gezi.ir.Instruction
 import gezi.ir.Hole
-import gezi.ir.Layer
+import gezi.ir.LayerWith
 import scala.annotation.tailrec
 import scala.util.hashing.MurmurHash3
 import gezi.ir.{Apply, Choice, NoinlineLeaf, Parallel, Slot, Thunk}
+import gezi.ir.{Configured, NativeSpecializer}
 
 /** A live node's layer with its children named by canonical class numbers:
   * the layer's kind, its constants (a leaf's instruction and a thunk's code by
@@ -49,7 +49,7 @@ object CanonicalNode:
   * points are written, or the hash
   * codes, which are the same in every process.
   */
-final case class ConstantNumbers(instruction: Instruction => Int, code: Code => Int)
+final case class ConstantNumbers[C <: NativeSpecializer & Singleton](instruction: Configured[C] => Int, code: Code => Int)
 
 object ConstantNumbers:
   /** Each instruction and code by its hash code.
@@ -61,7 +61,7 @@ object ConstantNumbers:
     * Candidate fixes: number the constants by first occurrence in a
     * deterministic walk of the projection, or by a content digest.
     */
-  val hashes: ConstantNumbers = ConstantNumbers(_.hashCode, _.hashCode)
+  def hashes[C <: NativeSpecializer & Singleton]: ConstantNumbers[C] = ConstantNumbers[C](_.hashCode, _.hashCode)
 
   /** Each instruction and code by its position in the exporter's numbering,
     * and after them each code of the projection's thunks that the numbering
@@ -72,7 +72,7 @@ object ConstantNumbers:
     * when the form reads it: a leaf is a noinline instruction, which the
     * saturation never makes.
     */
-  def numbered(instructions: Vector[Instruction], codes: Vector[Code], projection: Projection): ConstantNumbers =
+  def numbered[C <: NativeSpecializer & Singleton](instructions: Vector[Configured[C]], codes: Vector[Code], projection: Projection[C])(using C): ConstantNumbers[C] =
     val exported = codes.toSet
     val made = projection.layers
       .collect { case Thunk(code, _, _) if !exported.contains(code) => code }
@@ -133,11 +133,11 @@ final case class FixedPointForm(classes: Int, liveNodes: Int, digest: String)
   * numbered densely in the graph's order: each live node's layer over the
   * indexes of its children's classes, and the index of its class.
   */
-final case class Projection(layers: Vector[Layer[Int]], classes: Vector[Int]):
+final case class Projection[C <: NativeSpecializer & Singleton](layers: Vector[LayerWith[Int, Configured[C]]], classes: Vector[Int]):
   def classCount: Int = if classes.isEmpty then 0 else classes.max + 1
 
 object Projection:
-  def of(graph: EGraph): Projection =
+  def of[C <: NativeSpecializer & Singleton](graph: EGraph[C]): Projection[C] =
     val liveNodes = graph.nodes.indices.filter(graph.live).toVector
     val roots = liveNodes.map(graph.root).distinct
     val classIndex = roots.zipWithIndex.toMap
@@ -183,8 +183,9 @@ object FixedPoint:
     * exceeded a heap of 256 MB on the largest fixture, 215,140 nodes,
     * measured 2026-10-30).
     */
-  def saturatedProjection(item: Compiled): (Projection, End) =
+  def saturatedProjection[C <: NativeSpecializer & Singleton](item: Compiled[C]): (Projection[C], End) =
     val input = item.input
+    given C = input.store.construction.specializer
     val initial = Saturation.initialGraph(
       input.store,
       item.headArityBounds,
@@ -193,21 +194,21 @@ object FixedPoint:
     )
     val (withInputs, _) = Saturation.inputsAdded(initial, input.inputs)
     val (graph, end) =
-      Saturation.saturated(item.program, item.compiled, BuiltInRule.all, withInputs, input.budget, StopSignal.NeverStopped)
+      Saturation.saturated(item.program, item.compiled, BuiltInRule.beforeOptIn, withInputs, input.budget, StopSignal.NeverStopped)
     (Projection.of(graph), end)
 
   /** The form of a graph's fixed point, its constants by their hash codes. */
-  def form(graph: EGraph): FixedPointForm = form(Projection.of(graph), ConstantNumbers.hashes)
+  def form[C <: NativeSpecializer & Singleton](graph: EGraph[C]): FixedPointForm = form(Projection.of(graph), ConstantNumbers.hashes[C])
 
   /** The form of a graph's fixed point, from its projection, its constants
     * by their hash codes.
     */
-  def form(projection: Projection): FixedPointForm = form(projection, ConstantNumbers.hashes)
+  def form[C <: NativeSpecializer & Singleton](projection: Projection[C]): FixedPointForm = form(projection, ConstantNumbers.hashes[C])
 
   /** The form of a graph's fixed point, from its projection, its constants
     * by the numbers.
     */
-  def form(projection: Projection, constants: ConstantNumbers): FixedPointForm =
+  def form[C <: NativeSpecializer & Singleton](projection: Projection[C], constants: ConstantNumbers[C]): FixedPointForm =
     val nodeCount = projection.layers.size
     val classCount = projection.classCount
     val childClasses = projection.layers.map(_.children.distinct)
@@ -256,12 +257,12 @@ object FixedPoint:
     * whose last unnumbered child was among them are ready at the next.
     */
   @tailrec
-  private def numbered(
+  private def numbered[C <: NativeSpecializer & Singleton](
       numbering: Numbering,
       ready: Vector[Int],
-      projection: Projection,
+      projection: Projection[C],
       usersByClass: Vector[Vector[Int]],
-      constants: ConstantNumbers
+      constants: ConstantNumbers[C]
   ): Numbering =
     val candidates = ready.filter(node => numbering.numbers(projection.classes(node)) < 0)
     if candidates.isEmpty then numbering
@@ -305,7 +306,7 @@ object FixedPoint:
         constants
       )
 
-  private def canonicalNode(layer: Layer[Int], numbers: Vector[Int], constants: ConstantNumbers): CanonicalNode =
+  private def canonicalNode[C <: NativeSpecializer & Singleton](layer: LayerWith[Int, Configured[C]], numbers: Vector[Int], constants: ConstantNumbers[C]): CanonicalNode =
     layer match
       case Apply(function, argument) =>
         CanonicalNode(0, Vector.empty, Vector(numbers(function), numbers(argument)))
@@ -324,6 +325,7 @@ object FixedPoint:
         )
       case NoinlineLeaf(instruction) =>
         CanonicalNode(4, Vector(constants.instruction(instruction)), Vector.empty)
+      case view: gezi.ir.StorageView[?] => throw IllegalStateException(s"a node's layer is never a storage's view: $view")
 
   /** Two 32-bit hashes of the sorted canonical nodes under different seeds,
     * as sixteen hexadecimal digits.

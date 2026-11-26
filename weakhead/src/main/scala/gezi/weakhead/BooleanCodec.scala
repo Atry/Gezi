@@ -1,6 +1,6 @@
 package gezi.weakhead
 
-import gezi.ir.Instruction
+import gezi.ir.{Configured, NativeSpecializer, Value}
 
 /** A case a boolean is applied to in a decoding: the decoding and the truth
   * value of the case, the first case `true`; a neutral value no closed
@@ -44,17 +44,18 @@ enum BooleanReading:
 object BooleanCodec:
 
   /** The two cases a value of the decoding is applied to. */
-  def decodingCases(decoding: Decoding): (Value, Value) =
+  def decodingCases[C <: NativeSpecializer & Singleton](decoding: Decoding)(using C): (Value[C], Value[C]) =
     (
-      Value.Neutral(BooleanCase(decoding, true), Vector.empty),
-      Value.Neutral(BooleanCase(decoding, false), Vector.empty)
+      NeutralValue(BooleanCase(decoding, true), Vector.empty),
+      NeutralValue(BooleanCase(decoding, false), Vector.empty)
     )
 
   /** What a head of a value applied to the decoding's cases reads. */
-  def caseReading(head: Head, decoding: Decoding): BooleanReading = head match
-    case Head.Neutral(BooleanCase(`decoding`, truth), arguments) if arguments.isEmpty =>
-      BooleanReading.Truth(truth)
-    case _ => BooleanReading.NoCase
+  def caseReading[C <: NativeSpecializer & Singleton](head: Head[C], decoding: Decoding)(using C): BooleanReading =
+    head match
+      case Head.Neutral(BooleanCase(`decoding`, truth), arguments) if arguments.isEmpty =>
+        BooleanReading.Truth(truth)
+      case _ => BooleanReading.NoCase
 
   /** The position of the truth value's constructor among the cases, by the
     * assumed shape, and so in the `data_family` of a type the codec holds:
@@ -76,11 +77,14 @@ object BooleanCodec:
     * `Shape.LimitReached` when a reading runs past its budget. Each reading
     * within `Codecs.shapeStepLimit` steps.
     */
-  def constructorsShape(trueDefine: Instruction, falseDefine: Instruction): Shape[BooleanReading] =
-    val (trueCase, falseCase) = decodingCases(Decoding.Shape)
-    def readings(define: Instruction) =
+  def constructorsShape[C <: NativeSpecializer & Singleton](trueDefine: Configured[C], falseDefine: Configured[C])(using
+      C,
+      gezi.ir.StorageAccess
+  ): Shape[BooleanReading] =
+    val (trueCase, falseCase) = decodingCases[C](Decoding.Shape)
+    def readings(define: Configured[C]) =
       Codecs.readingsWithin(
-        Value.Apply(Value.Apply(define, trueCase), falseCase),
+        Value.Apply(Value.Apply(Value.of(define), trueCase), falseCase),
         BooleanReading.NoCase
       )(caseReading(_, Decoding.Shape))
     val trueReadings = readings(trueDefine)

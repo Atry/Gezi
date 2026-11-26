@@ -71,14 +71,14 @@ object CsesSecondBatchDefinitions:
     )
     walks.last
 
-  /** The least cost of a trip from city 1 to each city, the total cost of
-    * the flights plus one where none reaches it, as the problem's program
-    * answers.
+  /** The sum over the cities of the least cost of a trip from city 1, the
+    * total cost of the flights plus one for a city none reaches, as the
+    * problem's program answers.
     */
   def shortestRoutesSingleSource(site: ShortestRoutesSingleSource.Site): NativeValue =
     val least = leastCosts(site.cities, site.flights, 1)
     val total = site.flights.map(_._3).sum
-    NativeValue.Elements((1 to site.cities).toVector.map(city => NativeValue.natural(least.getOrElse(city, total + 1))))
+    NativeValue.natural((1 to site.cities).map(city => BigInt(least.getOrElse(city, total + 1))).sum)
 
   /** For each query, the least cost of a trip over the two-way roads, or
     * none.
@@ -89,9 +89,9 @@ object CsesSecondBatchDefinitions:
       NativeValue.Optional(leastCosts(site.cities, edges, source).get(destination).map(NativeValue.natural(_)))
     ))
 
-  /** The numbers from 1 to x that divide x, for each x. */
+  /** The numbers from 1 to x that divide x, summed over the numbers x. */
   def countingDivisors(site: CountingDivisors.Site): NativeValue =
-    NativeValue.Elements(site.numbers.map(number => NativeValue.natural((1 to number).count(number % _ == 0))))
+    NativeValue.natural(site.numbers.map(number => BigInt((1 to number).count(number % _ == 0))).sum)
 
   /** The subsets of b of a elements, for each query, modulo 10^9 + 7:
     * those without the last element and those with it.

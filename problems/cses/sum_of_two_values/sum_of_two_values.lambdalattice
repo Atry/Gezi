@@ -1,0 +1,61 @@
+# sum_of_two_values:
+# CSES 1640, Sum of Two Values (https://cses.fi/problemset/task/1640), in our own
+# words: a list of numbers and a target x; the pairs of two different places whose
+# numbers sum to x. NARROWED from CSES's task, which prints the places of one such
+# pair or says IMPOSSIBLE: we ask for the number of pairs of places i < j with the sum
+# x, which is 0 exactly when CSES says IMPOSSIBLE and which, unlike a pair of places,
+# the problem's definition fixes. The input is the binary natural x
+# (corpora/library/binary/natural) and a Scott list (corpora/library/prelude/list) of
+# binary naturals; the answer is a binary natural. Part of the CSES port's fourth
+# batch.
+#
+# THE PROGRAM, written by the definition: for each place, the later numbers are
+# walked, counting those that sum with its number to x, and the counts of all places
+# are added. Its reading compares about n squared / 2 pairs; the replacement the
+# family asks for is to sort the numbers and move two pointers in from both ends,
+# counting the runs of equal numbers where they meet the target, in about n log n
+# steps, on fixed-width integers.
+#
+# DEFINITION 14: the program P, the point's term, is built of λ and application only:
+# its text holds no top, no choice, no parallel and no literal. It β-reduces to V, the
+# canonical binary numeral of the answer: every recursion consumes the finite list of
+# numbers or of the numbers after one place; the branches that a Scott boolean
+# discards are never read. The program calls no subtraction. So ⊢_β P = V, and P ≃_O V
+# by the soundness of the derivable equations for the contextual preorder of
+# Definition 14 (Lean
+# `ContextualPreorder.contextualEquivalenceOfDerivableLatticeEta`): V is an answer, P
+# ⊑_O V. No other closed βη normal form W has P ⊑_O W: then V ⊑_O W, while Böhm's
+# theorem gives a pure context that takes V to λx y. x and W to λx y. y, and applying
+# both to λa. a and Ω makes the first solvable and the second not.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "fixpoint")
+λ fixpoint
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "natural")
+λ binary_zero _ _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "arithmetic")
+λ merge_binary_increment merge_binary_plus _ merge_binary_equality
+. ( λ tuple
+    . tuple
+    λ target head
+    . fixpoint
+      ( λ self items found
+        . items found
+          λ other rest
+          . self rest (merge_binary_equality (merge_binary_plus head other) target (merge_binary_increment found) found)
+      )
+  )
+λ pairs_with
+. ( λ tuple
+    . tuple
+    λ target
+    . fixpoint
+      ( λ self items found
+        . items found λ head tail. self tail (pairs_with target head tail found)
+      )
+  )
+λ pairs_from
+. (λtuple. tuple λtarget values. pairs_from target values binary_zero)
+λ sum_of_two_values
+. export sum_of_two_values

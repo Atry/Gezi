@@ -12,8 +12,10 @@ import gezi.strategies.StrategyTesting
 import gezi.frontend.Term
 import gezi.generatedinputs.HoasGenerators
 import gezi.hotspot.baselines.BaselineCaches
-import gezi.ir.Instruction
+import gezi.frontend.TermOf
+import gezi.ir.NoFacts
 import gezi.generatedinputs.GeneratedProperties
+import gezi.ir.{Configured, NativeSpecializer}
 
 /** The law of `CompilationStrategy.refinement`: the dispatch refines a
   * test's output by the strategy's refinement, so that a refinement that
@@ -30,19 +32,25 @@ import gezi.generatedinputs.GeneratedProperties
   */
 class RefinementReplacementLawTest extends GeneratedProperties:
 
+  given gezi.ir.StorageAccess = gezi.ir.StorageAccess.granted()
+
   // Measured 2026-11-16 on 2 CPUs (contest-lean.slice, CPUs 10,11, nice 10), the 1-minute load 9 to 22 over the run, every deadline raised to 600 s: the slowest test of RefinementReplacementLawTest, "the dispatch refines by the strategy's refinement", takes 14.979 s; the bound is 1.5 times that rounded up to 5 s.
   // FIXME: this suite exceeds the 3 s default with no reason yet; its slow tests are to be made fast. https://github.com/Atry/private-overlay/issues/1925
   override val munitTimeout: scala.concurrent.duration.Duration = scala.concurrent.duration.Duration(25, "s")
 
   /** The natives-on library, its facts, the schedule and the generators' leaves, forced before the first test and not charged to it (FailFastSuite). */
   override def sharedFixtures: Vector[scala.concurrent.Future[Unit] => Any] =
-    Vector(_ => library, _ => facts, _ => schedule, _ => JitTesting.nativeRouteLeaves)
+    Vector(_ => library, _ => facts, _ => schedule, _ => JitTesting.nativeRouteLeaves[NoFacts.type](using NoFacts))
 
   private lazy val library = NativesTesting.nativesOn
 
   private lazy val facts = BackendFacts.of(library)
 
-  private lazy val schedule = BaselineRounds.nativeRouteSchedule(
+  private lazy val encoding: StorageEncoding = facts.storageEncoding
+
+  private given encoding.type = encoding
+
+  private lazy val schedule = BaselineRounds.nativeRouteSchedule[encoding.type](
     library,
     StrategyTesting.round("prolog_backend_type_check"),
     300
@@ -50,29 +58,31 @@ class RefinementReplacementLawTest extends GeneratedProperties:
 
   /** A refinement that keeps the output as it is. */
   private object Kept extends OutputRefinement:
-    def refined(facts: BackendFacts, output: Instruction): Instruction = output
+    def refined[C <: NativeSpecializer & Singleton](specializer: StorageEncoding & C, output: Configured[C])(using gezi.ir.StorageAccess): Configured[C] = output
 
-  private def closedProgram: Gen[Term] =
+  /** A generated closed program over the native route's library terms, closed terms of no facts. */
+  private def closedProgram: Gen[TermOf[Configured[NoFacts.type]]] =
     for
       nodes <- Gen.int(Range.linear(1, 12))
-      open <- HoasGenerators.openTermOver(0, nodes, JitTesting.nativeRouteLeaves)
+      open <- HoasGenerators.openTermOver(0, nodes, JitTesting.nativeRouteLeaves[NoFacts.type](using NoFacts))
     yield open(Vector.empty)
 
   stoppableProperty("the dispatch refines by the strategy's refinement", _.copy(testLimit = SuccessCount(10))) { stopped =>
     for program <- closedProgram.forAll
     yield
-      val input = StrategyTesting.programInput(library, program)
-      val Vector(output) = Schedule.run(library.index, Vector(input), schedule, StopSignal.completedWith(stopped)).outputs: @unchecked
-      val kept = CompilationStrategy(DispatchStrategies.fallback, schedule, Kept)
+      val inputWithoutFacts = StrategyTesting.programInput(library, program)
+      val input = encoding.crossedAllFromNoFacts(Vector(inputWithoutFacts))(inputWithoutFacts)
+      val Vector(output) = Schedule.run(encoding.operations.index, Vector(input), schedule, StopSignal.completedWith(stopped)).outputs: @unchecked
+      val kept = CompilationStrategy[encoding.type](DispatchStrategies.fallback, schedule, Kept)
       val cache = BaselineCaches.provider()
-      val first = StrategyDispatch.dispatched(kept, input, facts, cache, StopSignal.completedWith(stopped))
-      val standard = CompilationStrategy(DispatchStrategies.fallback, schedule)
-      val second = StrategyDispatch.dispatched(standard, input, facts, cache, StopSignal.completedWith(stopped))
-      val standardRefined = Refinement(facts).refined(output)
+      val first = StrategyDispatch.dispatched[encoding.type](kept, input, encoding, cache, StopSignal.completedWith(stopped))
+      val standard = CompilationStrategy[encoding.type](DispatchStrategies.fallback, schedule)
+      val second = StrategyDispatch.dispatched[encoding.type](standard, input, encoding, cache, StopSignal.completedWith(stopped))
+      val standardRefined = Refinement(encoding).refined(output)
       Result.all(
         List(
-          Result.diff(first.refined, output)(_ == _),
-          Result.diff(second.refined, standardRefined)(_ == _),
+          Result.assert(Configured.same(first.refined, output)),
+          Result.assert(Configured.same(second.refined, standardRefined)),
           Result.diff((first.scheduleRan, second.scheduleRan), (true, true))(_ == _)
         )
       )

@@ -17,6 +17,9 @@ import gezi.generatedinputs.GeneratedProperties
   */
 class LaidOutPiecesLawTest extends GeneratedProperties:
 
+  given gezi.ir.NoFacts.type = gezi.ir.NoFacts
+  given gezi.ir.StorageAccess = gezi.ir.StorageAccess.granted()
+
   property("the laid out pieces spell the laid out text and keep the printed structure") {
     (for
       instruction <- SharingInstructions.instructions

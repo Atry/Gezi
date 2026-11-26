@@ -65,6 +65,8 @@ class WeightedPathsRecurringReferenceTest
   */
 class WeightedPathsPointsReferenceTest extends gezi.generatedinputs.FailFastSuite with snapshot4s.munit.SnapshotAssertions:
 
+  given gezi.ir.NoFacts.type = gezi.ir.NoFacts
+
   override val munitTimeout: scala.concurrent.duration.Duration = WeightedPathsPointsReferenceTest.timeout
 
   private val group = ReductionTesting.group
@@ -95,11 +97,14 @@ class WeightedPathsPointsReferenceTest extends gezi.generatedinputs.FailFastSuit
         .normalForms(gezi.weakhead.Mode.TablingWeakHead, Reduction.programRoot(point.drawn.program))
         .result(
           gezi.weakhead.ReadingState
-            .knowingTop(WeightedPathsPointsReferenceTest.stepLimit)
+            .knowingTop(WeightedPathsPointsReferenceTest.stepLimit, gezi.weakhead.ReadingConfiguration.withoutFacts)
             .copy(tableLimit = WeightedPathsPointsReferenceTest.tableLimit)
         ) match
         case gezi.weakhead.Computed.Done(forms, _) =>
-          assertEquals(forms.map(gezi.frontend.Defunctionalization.instructionTerm).toSet, Set(row.result.normalForm), row.point)
+          assert(
+            forms.map(form => gezi.frontend.Defunctionalization.instructionTerm[gezi.ir.NoFacts.type](form)).toSet == Set(row.result.normalForm),
+            row.point
+          )
         case gezi.weakhead.Computed.Stopped(after) =>
           fail(s"${row.point}: the reading stopped: ${after.exhausted}, ${after.budget.spent} steps, ${after.tables.held} tables")
     )
@@ -163,6 +168,9 @@ object WeightedPathsPointsReferenceTest:
   */
 class WeightedPathsLawTest extends GeneratedProperties:
 
+  given gezi.ir.NoFacts.type = gezi.ir.NoFacts
+  given gezi.ir.StorageAccess = gezi.ir.StorageAccess.granted()
+
   private def seeds: Gen[Long] = Gen.long(hedgehog.Range.constant(0L, (1L << 31) - 1))
 
   private def nodes: Gen[Int] = Gen.int(hedgehog.Range.linear(1, 2000))
@@ -197,7 +205,7 @@ class WeightedPathsLawTest extends GeneratedProperties:
       val root = WeightedPaths.arguments(site) match
         case Vector(_, Term.Closed(instruction)) => instruction
         case other                               => throw IllegalStateException(s"no closed root among ${other.size} arguments")
-      val written = ExchangeText.line(root).length
+      val written = ExchangeText.line[gezi.ir.NoFacts.type](root).length
       Result
         .assert(written <= WeightedPathsLawTest.charactersPerElement * (count + site.edges))
         .log(s"$written characters for $count nodes and ${site.edges} edges")

@@ -6,7 +6,7 @@ import hedgehog.Result
 import gezi.frontend.DeBruijnTerm
 import gezi.generatedinputs.GeneratedProperties
 import gezi.jit.JitTesting.instructionOf
-import gezi.jit.JitTesting.noFacts
+import gezi.jit.JitTesting.noFactsEncoding
 import gezi.jit.JitTesting.randomLatticeApplication
 import gezi.standardlibrary.SplitMix
 import gezi.weakhead.Answers
@@ -14,7 +14,7 @@ import gezi.weakhead.Computed
 import gezi.weakhead.Mode
 import gezi.weakhead.ParallelSet
 import gezi.weakhead.ReadingState
-import gezi.weakhead.Value
+import gezi.ir.Value
 import gezi.weakhead.Values
 import gezi.weakhead.WeakHead
 
@@ -39,8 +39,12 @@ class InstanceTableAnswersLawTest extends GeneratedProperties:
 
   private val limit: Long = 20000
 
+  private val encoding = noFactsEncoding
+
+  private given encoding.type = encoding
+
   private def configuration(tabled: Boolean) =
-    JitConfiguration(noFacts, 10000, PredicatePerCode, ClosureBackend, DispatchMode.NoDispatch, instanceTable = tabled)
+    JitConfiguration[encoding.type](encoding, 10000, PredicatePerCode, ClosureBackend, DispatchMode.NoDispatch, instanceTable = tabled, storageAccess = gezi.ir.StorageAccess.granted())
 
   private val omega: DeBruijnTerm =
     val selfApplication = DeBruijnTerm.Lambda(DeBruijnTerm.Apply(DeBruijnTerm.Variable(0), DeBruijnTerm.Variable(0)))
@@ -51,19 +55,19 @@ class InstanceTableAnswersLawTest extends GeneratedProperties:
     */
   @scala.annotation.tailrec
   private def pulled(
-      heads: Answers[ReadingState, ParallelSet],
-      state: ReadingState,
-      found: Vector[ParallelSet]
-  ): (Vector[ParallelSet], Boolean) =
+      heads: Answers[ReadingState[encoding.type], ParallelSet[encoding.type]],
+      state: ReadingState[encoding.type],
+      found: Vector[ParallelSet[encoding.type]]
+  ): (Vector[ParallelSet[encoding.type]], Boolean) =
     heads.pull.result(state) match
       case Computed.Done(Some((head, more)), after) => pulled(more, after, found :+ head)
       case Computed.Done(None, _)                   => (found, true)
       case Computed.Stopped(_)                      => (found, false)
 
-  private def headsBeforeTheStop(tabled: Boolean, value: Value, budget: Long): (Vector[ParallelSet], Boolean) =
-    val mode = Mode.Jit(Jit(configuration(tabled)))
-    val (heads, ended) = pulled(WeakHead.heads(mode, value), ReadingState.fresh(budget), Vector.empty)
-    (WeakHead.headsExpanded(mode, heads), ended)
+  private def headsBeforeTheStop(tabled: Boolean, value: Value[encoding.type], budget: Long): (Vector[ParallelSet[encoding.type]], Boolean) =
+    val jit = Jit(configuration(tabled))
+    val (heads, ended) = pulled(WeakHead.heads(Mode.Jit, value), ReadingState.fresh(budget, jit.readingConfiguration), Vector.empty)
+    (heads, ended)
 
   private val readTerms =
     for

@@ -15,7 +15,7 @@
 . export
   ( λ _ _ properties _
     . properties
-    λ _ associative _ _ _ _ _ _
+    λ _ associative _ _ _ _ _ _ _
     . associative
     # compose is associative, justified by the lemma above: strategies read a
     # composition chain modulo associativity.

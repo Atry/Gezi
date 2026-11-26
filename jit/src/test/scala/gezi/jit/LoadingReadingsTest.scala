@@ -5,11 +5,13 @@ import gezi.jit.NativesTesting.*
 import gezi.strategies.BaselineRounds
 import gezi.weakhead.Bounded
 import gezi.weakhead.Mode
-import gezi.weakhead.Value
+import gezi.ir.Value
 import gezi.standardlibrary.LibraryFiles
 import gezi.strategies.DispatchStrategies
 import gezi.strategies.StrategyTesting
 import gezi.frontend.Term
+import gezi.frontend.TermOf
+import gezi.ir.{Configured, NativeSpecializer}
 import gezi.hotspot.baselines.BaselineCaches
 
 /** The readings of `gezi/tests/loading.plt`'s test
@@ -33,13 +35,15 @@ import gezi.hotspot.baselines.BaselineCaches
   */
 class LoadingReadingsTest extends gezi.generatedinputs.FailFastSuite:
 
+  given gezi.ir.StorageAccess = gezi.ir.StorageAccess.granted()
+
   // Measured 2026-11-16 on 2 CPUs (contest-lean.slice, CPUs 10,11, nice 10), the 1-minute load 9 to 22 over the run, every deadline raised to 600 s: the slowest test of LoadingReadingsTest, "compilingAndRunningTheNativeRouteAutoloadsNothing", takes 24.828 s; the bound is 1.5 times that rounded up to 5 s.
   // FIXME: this suite exceeds the 3 s default with no reason yet; its slow tests are to be made fast. https://github.com/Atry/private-overlay/issues/1925
   override val munitTimeout: scala.concurrent.duration.Duration = scala.concurrent.duration.Duration(40, "s")
 
-  private def term(key: String): Term = JitTesting.libraryTerm(key)
+  private def term[C <: NativeSpecializer & Singleton](key: String)(using C): TermOf[Configured[C]] = JitTesting.libraryTerm[C](key)
 
-  private val program: Term = term("even")(term("double")(term("successor")(term("zero"))))
+  private def program[C <: NativeSpecializer & Singleton](using C): TermOf[Configured[C]] = term[C]("even")(term[C]("double")(term[C]("successor")(term[C]("zero"))))
 
   /** The reference's reading of the program as written, the JIT's partway
     * and the JIT's whole of the program compiled and refined, on a library
@@ -48,20 +52,21 @@ class LoadingReadingsTest extends gezi.generatedinputs.FailFastSuite:
     */
   private def readings(stop: StopSignal): (Bounded[?], Bounded[?], Bounded[?], Long) =
     val library = LibraryFiles.compiled(presetsFile, Vector(BackendChecks))
-    val reference = normalFormsSpent(Mode.TablingWeakHead, JitTesting.termValue(program), normalFormLimit)
-    val facts = BackendFacts.of(library)
-    val schedule = BaselineRounds.nativeRouteSchedule(library, StrategyTesting.round("prolog_backend_type_check"), 500)
-    val input = StrategyTesting.programInput(library, program)
-    val Dispatched(refined, _, _) = StrategyDispatch.dispatched(
+    val encoding = BackendFacts.of(library).storageEncoding
+    given encoding.type = encoding
+    val reference = normalFormsSpent(Mode.TablingWeakHead, JitTesting.plainConfiguration(encoding), JitTesting.termValue(program[encoding.type]), normalFormLimit)
+    val schedule = BaselineRounds.nativeRouteSchedule[encoding.type](library, StrategyTesting.round("prolog_backend_type_check"), 500)
+    val input = StrategyTesting.programInputIn[encoding.type](library, program[encoding.type])
+    val Dispatched(refined, _, _) = StrategyDispatch.dispatched[encoding.type](
       CompilationStrategy(DispatchStrategies.fallback, schedule),
       input,
-      facts,
+      encoding,
       BaselineCaches.provider(),
       stop
     )
-    val jit = Jit(JitConfiguration.of(facts, instanceTable = false))
-    val whole = normalFormsSpent(Mode.Jit(jit), refined, normalFormLimit)
-    val partway = normalFormsSpent(Mode.Jit(jit), refined, whole.steps / 2)
+    val jit = Jit(JitConfiguration.of[encoding.type](encoding, instanceTable = false, gezi.ir.StorageAccess.granted()))
+    val whole = normalFormsSpent(jit, refined, normalFormLimit)
+    val partway = normalFormsSpent(jit, refined, whole.steps / 2)
     (reference.outcome, partway.outcome, whole.outcome, whole.steps)
 
   stoppableTest("compilingAndRunningTheNativeRouteAutoloadsNothing") { stopped =>
@@ -70,9 +75,11 @@ class LoadingReadingsTest extends gezi.generatedinputs.FailFastSuite:
     assertEquals(first._2, Bounded.Exceeded)
     assertEquals(first._3, first._1)
     LibraryFiles.compiled("tests/library_fixtures/prelude_guard_laws.lambdalattice", Vector(BackendChecks))
+    val encoding = nativesOnEncoding
+    given encoding.type = encoding
     normalFormsSpent(
-      Mode.Jit(Jit(configurationOf(nativesOn))),
-      JitTesting.termValue(term("successor")(term("zero")) ∥ term("nat_type")),
+      Jit(configurationOf(encoding)),
+      JitTesting.termValue(term[encoding.type]("successor")(term[encoding.type]("zero")) ∥ term[encoding.type]("nat_type")),
       normalFormLimit
     )
     assertEquals(readings(StopSignal.completedWith(stopped)), first)

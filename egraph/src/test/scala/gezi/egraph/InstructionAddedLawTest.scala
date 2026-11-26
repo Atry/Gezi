@@ -2,10 +2,10 @@ package gezi.egraph
 
 import hedgehog.Result
 import gezi.ir.BindingNormalForm
-import gezi.ir.Instruction
-import gezi.ir.Layer
+import gezi.ir.LayerWith
 import gezi.ir.Store
-import gezi.ir.{Apply, Choice, NoinlineLeaf, Parallel, Thunk}
+import gezi.ir.Thunk
+import gezi.generatedinputs.StandInStorages
 import gezi.generatedinputs.GeneratedProperties
 import gezi.generatedinputs.StoreGenerators
 
@@ -25,31 +25,33 @@ import gezi.generatedinputs.StoreGenerators
   */
 class InstructionAddedLawTest extends GeneratedProperties:
 
-  /** The instruction's layer in the front end's spelling. */
-  private def spelledLayer(store: Store, instruction: Instruction): Layer[Instruction] = store.expanded(instruction) match
-    case thunk @ Thunk(code, holes, fillings) if holes.nonEmpty =>
-      BindingNormalForm.respelled(code, holes, fillings.size) match
-        case Some((spelledCode, spelledHoles, spelledFillings)) =>
-          Thunk(spelledCode, spelledHoles, spelledFillings.map(BindingNormalForm.placeholdersMapped(_, fillings)(instructionOf)))
-        case None => thunk
-    case other => other
+  private type Term = StandInStorages.Term
 
-  /** The instruction of a layer of a respelled filling, which is never a
-    * noinline leaf.
+  /** The instruction's layer in the front end's spelling: the terms it is over, and the layer over the nodes those
+    * terms are given. A respelled thunk's fillings are the instances of the respelling's codes over the instruction's
+    * fillings (`NativeSpecializer.instance`).
     */
-  private def instructionOf(layer: Layer[Instruction]): Instruction = layer match
-    case application @ Apply(_, _) => Instruction(application)
-    case parallel @ Parallel(_, _) => Instruction(parallel)
-    case choice @ Choice(_, _)     => Instruction(choice)
-    case thunk @ Thunk(_, _, _)    => Instruction(thunk)
-    case leaf @ NoinlineLeaf(_)    => throw IllegalStateException(s"a respelled filling's layer is the leaf $leaf")
+  private final case class SpelledLayer(children: Vector[Term], over: (Term => Int) => LayerWith[Int, Term])
+
+  private def spelledLayer(store: Store[StandInStorages.type], instruction: Term): SpelledLayer =
+    def unrespelled: SpelledLayer =
+      val layer = store.expanded(instruction)
+      SpelledLayer(layer.children, nodeOf => layer.map(nodeOf))
+    store.expanded(instruction) match
+      case Thunk(code, holes, fillings) if holes.nonEmpty =>
+        BindingNormalForm.respelled(code, holes, fillings.size) match
+          case Some((spelledCode, spelledHoles, spelledFillings)) =>
+            val children = spelledFillings.map(StandInStorages.instance(_, fillings))
+            SpelledLayer(children, nodeOf => Thunk(spelledCode, spelledHoles, children.map(nodeOf)))
+          case None => unrespelled
+      case _ => unrespelled
 
   property("each instruction's node holds its layer in the front end's spelling over its children's nodes, one node per layer") {
     for generated <- StoreGenerators.store.forAll
     yield
       val store = generated.store
       val instructions = generated.instructions
-      val (graph, nodes) = instructions.foldLeft((EGraph.empty(store, Map.empty, explained = false), Map.empty[Instruction, Int])) {
+      val (graph, nodes) = instructions.foldLeft((EGraph.empty(store, Map.empty, explained = false), Map.empty[Term, Int])) {
         case ((current, found), instruction) =>
           val (next, node) = current.instructionAdded(instruction)
           (next, found.updated(instruction, node))
@@ -60,10 +62,10 @@ class InstructionAddedLawTest extends GeneratedProperties:
       )
       val nodeOf = childNodes.map((child, node, _) => child -> node).toMap
       val found = Result.assert(childNodes.forall(_._3)).log(s"a child made a node: ${childNodes.filterNot(_._3)}")
-      val layersOverNodes = instructions.map(instruction => spelledLayer(store, instruction).map(nodeOf))
+      val layersOverNodes = instructions.map(instruction => gezi.ir.Interned.canonicalLayer(spelledLayer(store, instruction).over(nodeOf)))
       val layerHeld = Result.all(
         instructions.toList.map(instruction =>
-          Result.diff(graph.layer(nodes(instruction)), spelledLayer(store, instruction).map(nodeOf))(_ == _)
+          Result.diff(graph.layer(nodes(instruction)), gezi.ir.Interned.canonicalLayer(spelledLayer(store, instruction).over(nodeOf)))(_ eq _)
         )
       )
       val sharing = Result.diff(nodes.values.toSet.size, layersOverNodes.distinct.size)(_ == _)

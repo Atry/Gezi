@@ -1,1 +1,0 @@
-closure_applied: λx_0 x_1 x_2. $closure x_0 (λx_3. x_1 x_3) x_2 = λx_0 x_1 x_2. x_1 x_2

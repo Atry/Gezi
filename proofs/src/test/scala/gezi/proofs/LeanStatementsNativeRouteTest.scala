@@ -22,8 +22,9 @@ import gezi.standardlibrary.LibraryFiles
   * against, the reading of 2026-10-29. Lean prints nothing but the kinds and
   * the axioms: anything else fails the test. The elaboration of
   * NativeRouteLibraryStatements, which declares the soundness of the 89
-  * lemmas, took 83 seconds and a peak resident memory of about 2.6 GB
-  * (measured 2026-10-30 for the Prolog test).
+  * lemmas it then held, took 83 seconds and a peak resident memory of about
+  * 2.6 GB (measured 2026-10-30 for the Prolog test); it holds 111 since
+  * 2026-11-23.
   */
 class LeanStatementsNativeRouteTest extends gezi.generatedinputs.FailFastSuite:
   // Measured 2026-11-21 on 4 CPUs (nice 10), cold (an empty Lake cache and build directory), under a machine load
@@ -49,24 +50,28 @@ class LeanStatementsNativeRouteTest extends gezi.generatedinputs.FailFastSuite:
 
   /** What declares the soundness of each lemma of the native route's
     * library, in the order of the index: the decision of absorbed members
-    * for every lemma but four. unions_absorption is an instance of the
+    * for every lemma but eight. unions_absorption is an instance of the
     * numbered equation (6) (measured 2026-10-29). The two lemmas of
-    * occurrence_erasure and closure_applied are declared by the decision of
-    * the normal form within 1,000 contractions (measured 2026-11-21, the
-    * markers spelled as tags): their two sides differ only by the markers
-    * `$name` and `$closure`, identities by the β rule alone, and in that
-    * spelling a marker's literal
+    * occurrence_erasure, closure_applied and repelled_erased are declared by
+    * the decision of the normal form within 1,000 contractions (measured
+    * 2026-11-21 and 2026-11-23, the markers spelled as tags): their two sides
+    * differ only by the markers `$name`, `$closure` and `$repelled`,
+    * identities by the β rule alone, and in that spelling a marker's literal
     * takes 344 to 516 contractions, more than the normaliser's fuel of 100.
-    * The decision of absorbed members accepts the candidacies, the other
-    * markers' lemmas, the typed versions and the contracts of
-    * prolog_backend_shapes.
+    * The three repeller lemmas of prolog_backend_shapes, `L = $repelled L`,
+    * are declared by the decision of one side reached from the other by
+    * contraction: L holds fixpoints, so neither side has a normal form, and
+    * the right side's contractions reach the left after 565 (measured
+    * 2026-11-23). The decision of absorbed members accepts the candidacies,
+    * the refutations, the other markers' lemmas, the typed versions and the
+    * contracts of prolog_backend_shapes.
     */
   private val expectedKinds: Vector[(String, String)] =
     val modules = Vector(
       "native_types" -> Vector(
         "zero_scheme", "successor_scheme", "true_scheme", "false_scheme", "boolean_not_scheme", "nil_scheme",
         "cons_scheme", "identity_scheme", "konstant_scheme", "compose_scheme", "fixpoint_scheme",
-        "nat_fold_scheme", "list_fold_scheme"
+        "nat_fold_scheme", "list_fold_scheme", "repelled_erased"
       ),
       "native_arithmetic" -> Vector("double_scheme", "even_scheme"),
       "hindley_milner_unions" -> Vector(
@@ -93,14 +98,22 @@ class LeanStatementsNativeRouteTest extends gezi.generatedinputs.FailFastSuite:
         "shapes_natural_candidate", "shapes_natural_item_candidate", "shapes_boolean_candidate",
         "shapes_boolean_item_candidate", "shapes_natural_field_candidate", "shapes_list_candidate",
         "shapes_list_cell_candidate", "shapes_list_item_candidate", "shapes_list_tail_item_candidate",
-        "shapes_nested_list_candidate", "shapes_list_fields_candidate", "shapes_unify_candidate_left",
+        "shapes_nested_list_candidate", "shapes_list_fields_candidate", "shapes_list_head_refuted",
+        "shapes_list_tail_refuted", "shapes_natural_field_refuted", "shapes_function_refuted",
+        "shapes_list_refuted_first_field", "shapes_list_refuted_alternatives", "shapes_list_refuted_fields",
+        "shapes_list_refuted_one_field", "shapes_list_refuted_no_field", "shapes_boolean_refuted_first_field",
+        "shapes_boolean_refuted_alternatives", "shapes_boolean_refuted_field", "shapes_natural_refuted_first_field",
+        "shapes_natural_refuted_alternatives", "shapes_natural_refuted_fields", "shapes_natural_refuted_no_field",
+        "shapes_unify_refuted_left", "shapes_unify_refuted_right", "shapes_unify_candidate_left",
         "shapes_unify_candidate_right", "shapes_unify_item_candidate_left", "shapes_unify_item_candidate_right",
         "shapes_domain_candidate", "shapes_function_candidate", "shapes_typed_version_domain",
-        "shapes_typed_version_function", "shapes_contract", "shapes_curried_contract", "shapes_contract_at_range",
+        "shapes_typed_version_function", "shapes_list_tail_domain_repelled", "shapes_range_repelled",
+        "shapes_filter_repelled", "shapes_contract", "shapes_curried_contract", "shapes_contract_at_range",
         "shapes_contract_at_curried"
       )
     )
-    val normalisedLong = Set("occurrence_name_erased", "occurrence_closure_erased", "closure_applied")
+    val normalisedLong = Set("occurrence_name_erased", "occurrence_closure_erased", "closure_applied", "repelled_erased")
+    val reached = Set("shapes_list_tail_domain_repelled", "shapes_range_repelled", "shapes_filter_repelled")
     for
       (_, names) <- modules
       name <- names
@@ -108,6 +121,7 @@ class LeanStatementsNativeRouteTest extends gezi.generatedinputs.FailFastSuite:
       name,
       if name == "unions_absorption" then "numbered_instance"
       else if normalisedLong(name) then "long_normal_form"
+      else if reached(name) then "reached_by_contraction"
       else "absorbed_members"
     )
 

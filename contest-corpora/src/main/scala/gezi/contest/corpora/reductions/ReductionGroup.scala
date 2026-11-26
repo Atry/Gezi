@@ -73,5 +73,5 @@ object ReductionGroup:
     * their complete tables in the cache service the owner carries
     * (`ProblemFamilies`).
     */
-  def apply(root: Path, expansions: Expansions, cache: Cache): ReductionGroup =
+  def apply(root: Path, expansions: Expansions[gezi.ir.NoFacts.type], cache: Cache): ReductionGroup =
     ReductionGroup(root, ProblemFamilies(root, expansions, cache))

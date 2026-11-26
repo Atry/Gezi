@@ -7,7 +7,6 @@ import gezi.contest.entry.ArticleDestination
 import gezi.contest.entry.EntryData
 import gezi.jit.NativesProvider
 import gezi.proofs.CertificateChecks
-import gezi.proofs.LeanStatements
 import gezi.proofs.RoundCertificates
 import scala.concurrent.Future
 
@@ -44,12 +43,7 @@ object EntryArticleVerification:
     val (data, afterEntry) = EntryData.read(entryDirectory, Defaults.entryDataState)
     val (library, entry) =
       GenericEntryProvider.initializedWithLibrary(data, gezi.contest.entry.ExecutorModules.registeredFor(entryDirectory), gezi.contest.entry.ExtractorModules.registeredFor(entryDirectory), NativesProvider.loaded, ArticleDestination.Discarded, afterEntry, gezi.contest.entry.Defaults.caches())
-    val statements = LeanStatements.selectedText(
-      library,
-      entry.lemmaEncodings,
-      repository,
-      articles.flatMap(RoundCertificates.lemmaNames).distinct
-    )
+    val statements = entry.leanStatementsText(library, repository, articles.flatMap(RoundCertificates.lemmaNames).distinct)
     val statementsDirectory = CertificateChecks.statementsPackage(leanDirectory, statements)
     val (status, report) = CertificateChecks.verified(statementsDirectory, CertificateChecks.packageStatements, articles, Future.never)
     System.out.println(report)

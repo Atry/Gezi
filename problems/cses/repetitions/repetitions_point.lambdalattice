@@ -1,0 +1,60 @@
+# The base problems of the CSES families repeated_cses_repetitions_*: a list of letters (A = 0, C = 1, G = 2, T = 3), the answer the length of the longest run of one letter.
+#
+# THE ANSWER of each row is the problem's definition computed exhaustively by a
+# brute-force script (2026-11-22), which enumerates every candidate the problem's
+# statement describes. PROOF: the program of the problem's file follows the
+# definition, and its header argues under Definition 14 that its one normal form
+# is that answer; the data are finite and within the family's bottom rungs, which
+# the reference reading answers. The inputs are the author's own, no CSES test
+# data.
+#
+#   repetitions_point(?Point, ?Letters, ?Result)
+#
+# Letters is a Scott list (corpora/library/prelude/list) of integers from 0 to 3;
+# Result is an integer.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λvalue. value)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λvalue. value)
+λ integer
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "pair")
+λ pair _ _
+. export
+λ
+. cons
+  ( λ _repetitions_point
+    . _repetitions_point (text "cses_repetitions_sample") (cons (integer 0) λ. cons (integer 3) λ. cons (integer 3) λ. cons (integer 1) λ. cons (integer 2) λ. cons (integer 2) λ. cons (integer 2) λ. cons (integer 0) λ. nil) λ. (integer 3)
+  )
+λ
+. cons
+  ( λ _repetitions_point
+    . _repetitions_point (text "cses_repetitions_single_letter") (cons (integer 2) λ. nil) λ. (integer 1)
+  )
+λ
+. cons
+  ( λ _repetitions_point
+    . _repetitions_point (text "cses_repetitions_one_run") (cons (integer 1) λ. cons (integer 1) λ. cons (integer 1) λ. cons (integer 1) λ. nil) λ. (integer 4)
+  )
+λ
+. cons
+  ( λ _repetitions_point
+    . _repetitions_point (text "cses_repetitions_alternating") (cons (integer 0) λ. cons (integer 1) λ. cons (integer 0) λ. cons (integer 1) λ. nil) λ. (integer 1)
+  )
+λ
+. cons
+  ( λ _repetitions_point
+    . _repetitions_point (text "cses_repetitions_longest_in_the_middle") (cons (integer 2) λ. cons (integer 2) λ. cons (integer 0) λ. cons (integer 0) λ. cons (integer 0) λ. cons (integer 3) λ. cons (integer 1) λ. nil) λ. (integer 3)
+  )
+λ
+. cons
+  ( λ _repetitions_point
+    . _repetitions_point (text "cses_repetitions_two_equal_runs") (cons (integer 3) λ. cons (integer 3) λ. cons (integer 1) λ. cons (integer 1) λ. cons (integer 0) λ. cons (integer 2) λ. nil) λ. (integer 2)
+  ) nil

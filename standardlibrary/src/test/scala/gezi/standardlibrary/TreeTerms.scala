@@ -1,10 +1,11 @@
 package gezi.standardlibrary
 
 import gezi.directorysugar.DirectoryTree
-import gezi.ir.Instruction
+import gezi.ir.NoFacts
 import gezi.knowledgereading.KnowledgeReading
 import gezi.weakhead.ReadingState
-import gezi.weakhead.Value
+import gezi.ir.Value
+import gezi.ir.{Configured, NativeSpecializer}
 
 /** The terms of library files as the tree read gives them, for the tests
   * that need a library term in hand: each file's fields, the members of the
@@ -19,9 +20,10 @@ object TreeTerms:
     * `corpora/library/prelude/natural`, each file's fields in their
     * positions, the reads threaded through one compilation's reading state.
     */
-  def fields(paths: Vector[String]): Vector[Vector[Instruction]] =
+  def fields(paths: Vector[String]): Vector[Vector[Configured[NoFacts.type]]] =
+    given NoFacts.type = NoFacts
     paths
-      .foldLeft((Vector.empty[Vector[Instruction]], KnowledgeReading.compilationState)) { case ((read, state), path) =>
+      .foldLeft((Vector.empty[Vector[Configured[NoFacts.type]]], KnowledgeReading.compilationState)) { case ((read, state), path) =>
         val (fileRead, after) = fileFields(path, state)
         (read :+ fileRead, after)
       }
@@ -40,7 +42,7 @@ object TreeTerms:
     * fields taken by `KnowledgeReading.alternative`, under the state given,
     * within `StandardLibrary.memberReadingLimit`.
     */
-  private def fileFields(path: String, state: ReadingState): (Vector[Instruction], ReadingState) =
+  private def fileFields(path: String, state: ReadingState[NoFacts.type])(using NoFacts.type): (Vector[Configured[NoFacts.type]], ReadingState[NoFacts.type]) =
     val root = LibraryFiles.buildRoot
     val reading = StandardLibrary.entryTerm(root, root.resolve(path + DirectoryTree.fileExtension), state)
     val (found, after) = KnowledgeReading.run(

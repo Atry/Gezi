@@ -1,1 +1,0 @@
-shapes_word_candidate: λx_0. word_structure x_0 = λx_0. candidate (word_type x_0) λ. word_structure x_0

@@ -46,12 +46,13 @@
     . rewriting
     λ _ lemmas _
     . lemmas
-      # The list's constructors restored where a program writes the prelude's,
+      # The list's constructors restored where a program applies the prelude's,
       # which are the backend's without the marker $constructor, so that the
-      # narrow blocks' literals read the list, as binary_restoration does for
-      # the numerals. Each holds by δ and β. The end of a list is restored only
-      # with the cell before it: nil is the term of true, and a lemma on nil
-      # alone would give every boolean of a program the marked spelling.
+      # narrow blocks' literals read the list. A list given as data, each cell
+      # in normal form, needs no lemma: the literals read it directly. Each
+      # holds by δ and β. The end of a list is restored only with the cell
+      # before it: nil is the term of true, and a lemma on nil alone would give
+      # every boolean of a program the marked spelling.
       ( λ lemma
         . lemma (λkey. key "plover_list_last_restored") (λ head. native_cons head native_nil) (λ head. cons head nil)
         λ _ metadata _
@@ -60,22 +61,6 @@
         . lemma (λkey. key "plover_list_cons_restored") (λ head tail. native_cons head tail) (λ head tail. cons head tail)
         λ _ metadata _
         . metadata λkey. key "[plover_list_restored](docs/design/gezi-plover-ordered-compositions-proofs.md)"
-      # The same for a list given as data, each cell already the abstraction
-      # λ nil_case cons_case. cons_case head tail that cons makes.
-      + λ lemma
-        . lemma
-          (λkey. key "plover_list_last_unfolded")
-          (λ head. native_cons head native_nil)
-          (λ head nil_case cons_case. cons_case head nil)
-        λ _ metadata _
-        . metadata λkey. key "[plover_list_last_unfolded](docs/design/gezi-plover-ordered-compositions-proofs.md)"
-      + λ lemma
-        . lemma
-          (λkey. key "plover_list_cons_unfolded")
-          (λ head tail. native_cons head tail)
-          (λ head tail nil_case cons_case. cons_case head tail)
-        λ _ metadata _
-        . metadata λkey. key "[plover_list_cons_unfolded](docs/design/gezi-plover-ordered-compositions-proofs.md)"
       # The fold of a program's recursion over items into the attractor. The
       # left side has two binders and the right side one, so items is the
       # lemma's one metavariable and target the binder of an object lambda

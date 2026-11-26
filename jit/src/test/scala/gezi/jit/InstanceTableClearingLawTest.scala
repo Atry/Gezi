@@ -5,11 +5,12 @@ import hedgehog.Range
 import hedgehog.Result
 import gezi.generatedinputs.GeneratedProperties
 import gezi.jit.JitTesting.instructionOf
-import gezi.jit.JitTesting.noFacts
+import gezi.jit.JitTesting.noFactsEncoding
+import gezi.jit.JitTesting.sameTerms
 import gezi.jit.JitTesting.randomLatticeApplication
 import gezi.hotspot.Retention
 import gezi.hotspot.baselines.BaselineCaches
-import gezi.ir.Instruction
+import gezi.ir.Configured
 import gezi.standardlibrary.SplitMix
 import gezi.weakhead.Bounded
 import gezi.weakhead.Computed
@@ -21,7 +22,7 @@ import gezi.weakhead.NoJitState
 import gezi.weakhead.NormalForms
 import gezi.weakhead.ReadingState
 import gezi.weakhead.TableSharing
-import gezi.weakhead.Value
+import gezi.ir.Value
 import gezi.weakhead.Values
 
 /** The clearing law of the instance table (`JitRunState.instanceTables`, CONTRIBUTING.md, "Tables"): emptying the table changes only cost. A term
@@ -48,7 +49,11 @@ class InstanceTableClearingLawTest extends GeneratedProperties:
 
   private val limit: Long = 20000
 
-  private val terms =
+  private val encoding = noFactsEncoding
+
+  private given encoding.type = encoding
+
+  private val terms: Gen[Value[encoding.type]] =
     for
       size <- Gen.int(Range.linear(2, 30))
       seed <- Gen.long(Range.linear(0L, Long.MaxValue))
@@ -74,23 +79,24 @@ class InstanceTableClearingLawTest extends GeneratedProperties:
   /** The normal forms of the value read within `limit` from the JIT state
     * and with the sharing given, and the state the reading left.
     */
-  private def read(jit: Jit, value: Value, jitState: JitState, sharing: TableSharing): (Bounded[Vector[Instruction]], JitState) =
-    NormalForms.normalForms(Mode.Jit(jit), value).result(ReadingState.fresh(limit).copy(jitState = jitState, sharing = sharing)) match
-      case Computed.Done(normalForms, after) => (Bounded.Finished(normalForms.sortBy(_.toString)), after.jitState)
+  private def read(jit: Jit[encoding.type], value: Value[encoding.type], jitState: JitState[encoding.type], sharing: TableSharing): (Bounded[Vector[Configured[encoding.type]]], JitState[encoding.type]) =
+    NormalForms.normalForms(Mode.Jit, value).result(ReadingState.fresh(limit, jit.readingConfiguration).copy(jitState = jitState, sharing = sharing)) match
+      case Computed.Done(normalForms, after) => (Bounded.Finished(normalForms.sorted(gezi.ir.ContentComparison.ordering)), after.jitState)
       case Computed.Stopped(after)           => (EvaluatorTesting.stopped(after), after.jitState)
 
   for
     (retentionName, retention) <- retentions
     (sharingName, sharing) <- sharings
   do
-    val configuration = JitConfiguration(
-      noFacts,
+    val configuration = JitConfiguration[encoding.type](
+      encoding,
       10000,
       PredicatePerCode,
       ClosureBackend,
       DispatchMode.NoDispatch,
       instanceTable = true,
-      instanceRetention = retention
+      instanceRetention = retention,
+      storageAccess = gezi.ir.StorageAccess.granted()
     )
     property(s"a term read from a filled instance table reads what it reads from an empty one, under $retentionName, $sharingName") {
       for
@@ -101,8 +107,8 @@ class InstanceTableClearingLawTest extends GeneratedProperties:
         val jit = Jit(configuration)
         val shared = sharing()
         val earlier = others.take(position) ++ (last :: others.drop(position))
-        val filled = earlier.foldLeft(NoJitState: JitState)((jitState, value) => read(jit, value, jitState, shared)._2)
+        val filled = earlier.foldLeft(NoJitState: JitState[encoding.type])((jitState, value) => read(jit, value, jitState, shared)._2)
         (read(jit, last, filled, shared)._1, read(jit, last, NoJitState, TableSharing.Local)._1) match
-          case (Bounded.Finished(fromFilled), Bounded.Finished(fromEmpty)) => Result.diff(fromFilled, fromEmpty)(_ == _)
+          case (Bounded.Finished(fromFilled), Bounded.Finished(fromEmpty)) => Result.assert(sameTerms(fromFilled, fromEmpty))
           case _                                                           => Result.success
     }

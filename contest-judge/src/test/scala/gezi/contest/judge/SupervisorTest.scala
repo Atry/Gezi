@@ -102,7 +102,7 @@ class SupervisorTest extends gezi.generatedinputs.FailFastSuite with snapshot4s.
     else if row.point.endsWith("_member") then Outcome.Proved.written
     else fail(s"a row of no known kind: $row")
 
-  private def line(term: DeBruijnTerm): String = ExchangeText.line(gezi.frontend.Defunctionalization.thunkInstruction(term))
+  private def line(term: DeBruijnTerm): String = ExchangeText.line(gezi.frontend.Defunctionalization.thunkInstruction(term)(using gezi.ir.NoFacts))
 
   /** The HOAS term of a closed pure de Bruijn term. */
   private def term(text: String): Term =

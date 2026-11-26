@@ -1,0 +1,52 @@
+# The array lists' backend facts and their conversion lemma, a knowledge module an entry
+# imports when it holds lists of scalars as arrays (the group blocks read only array lists).
+# array_list e is represented natively in the framework's codec array_list (a list of one
+# vector shared by its suffixes, gezi.jit.ArrayListStorage); its constructors are the lists'
+# nil and cons, of the fields the element and the array list itself; the conversion lemma
+# l ∥ list_type e = l ∥ array_list e is a theorem of the β rule
+# (docs/design/gezi-set-equations-proofs.md, section 24), so the e-graph may merge the two
+# spellings and the extraction choose one. It is not folded into a backend's preset, so
+# that an entry choosing that preset reads as before.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "prelude") "list")
+λ prelude_nil prelude_cons _ _ _
+. omega (omega (omega (omega corpora "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λx. x)
+λ integer_literal
+. omega (omega (omega (omega corpora "library") "native_types") "list")
+λ nil cons _ list_type
+. omega (omega (omega (omega corpora "library") "native_types") "array_list")
+λ array_list
+. export
+  ( λ _ _ _ backend
+    . backend
+    λ _ _ _ _ fields _
+    . fields
+      λ s
+      . s array_list cons
+      λ
+      . prelude_cons (λparameter _ _. parameter λ. integer_literal 0) λ. prelude_cons (λ_ recursive _. recursive) prelude_nil
+  + λ _ _ _ backend
+    . backend
+    λ _ _ _ families _ _
+    . families λs. s array_list (integer_literal 1) λ. prelude_cons nil λ. prelude_cons cons prelude_nil
+  + λ _ _ _ backend
+    . backend
+    λ _ _ representations _ _ _
+    . representations λs. s array_list λk. k "array_list"
+  + λ _ rewriting _ _
+    . rewriting
+    λ _ lemmas _
+    . lemmas
+      ( λ s
+        . s
+          (λk. k "array_list_conversion")
+          (λx_0 x_1. (x_0 ∥ list_type x_1))
+          (λx_0 x_1. (x_0 ∥ array_list x_1))
+        λ _ metadata _
+        . metadata λk. k "[array_list](docs/design/gezi-set-equations-proofs.md#array_list)"
+      )
+  )

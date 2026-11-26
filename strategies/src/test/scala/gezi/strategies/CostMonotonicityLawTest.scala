@@ -7,10 +7,14 @@ import hedgehog.Result
 import gezi.extraction.CostModel
 import gezi.extraction.Shape
 import gezi.generatedinputs.GeneratedProperties
+import gezi.generatedinputs.StandInStorages
+import gezi.ir.NotTerm
 import gezi.ir.Code
 import gezi.ir.Fallback
 import gezi.ir.Hole
-import gezi.ir.Instruction
+import gezi.ir.Configured
+import gezi.ir.NoFacts
+import gezi.ir.Pure
 import gezi.ir.Layer
 import gezi.ir.Specialization
 import gezi.ir.SpecializationRange
@@ -51,39 +55,44 @@ import gezi.ir.{Apply, Choice, Parallel, Thunk}
   */
 trait CostMonotonicityLaws extends GeneratedProperties:
 
+  private given NoFacts.type = NoFacts
+
+  // A generated term is no term of the IR: it is the tests' own tree over which layers are built.
+  private given NotTerm[GeneratedTerm] = NotTerm.granted
+
   /** Instructions with a layer, as the names a production of the extraction
     * reads are: `λx. x`, `λx. x x`, `λx. λy. x` and `λx. x ∥ c` with c
     * opaque; the last two with an occurrence role, so that the occurrence
     * tags of `specialization_attraction` are read.
     */
-  private val identity = Instruction.Thunk(Code.Slot(0), Vector(Hole.Bound(0)), Vector.empty)
-  private val selfApplication = Instruction.Thunk(Code.Apply(Code.Slot(0), Code.Slot(0)), Vector(Hole.Bound(0)), Vector.empty)
-  private val named = Instruction.Thunk(
+  private val identity = NoFacts.thunkOrInstance(Code.Slot(0), Vector(Hole.Bound(0)), Vector.empty)
+  private val selfApplication = NoFacts.thunkOrInstance(Code.Apply(Code.Slot(0), Code.Slot(0)), Vector(Hole.Bound(0)), Vector.empty)
+  private val named = NoFacts.thunkOrInstance(
     Code.Thunk(Code.Slot(1), Vector(Hole.Bound(0)), Vector(Code.Slot(0))),
     Vector(Hole.Bound(0)),
     Vector.empty
   )
-  private val nextTag = Instruction.Thunk(
+  private val nextTag = NoFacts.thunkOrInstance(
     Code.Parallel(Code.Slot(0), Code.Slot(1)),
     Vector(Hole.Bound(0)),
-    Vector(Instruction.opaque("cost-monotonicity-criterion"))
+    Vector(NoFacts.opaque("cost-monotonicity-criterion"))
   )
   /** Contracts read as λf. f (`TermReading.identityContract`): `λf y. f y`,
     * and `λf y. f y + (f (y ∥ c)) ∥ c`, the contract of a curried function's
     * last argument, which the refinement runs as `f y` up to its judgments.
     */
-  private val identityContract = Instruction.Thunk(
+  private val identityContract = NoFacts.thunkOrInstance(
     Code.Apply(Code.Slot(0), Code.Slot(1)),
     Vector(Hole.Bound(0), Hole.Bound(1)),
     Vector.empty
   )
-  private val lastArgumentContract = Instruction.Thunk(
+  private val lastArgumentContract = NoFacts.thunkOrInstance(
     Code.Choice(
       Code.Apply(Code.Slot(0), Code.Slot(1)),
       Code.Parallel(Code.Apply(Code.Slot(0), Code.Parallel(Code.Slot(1), Code.Slot(2))), Code.Slot(2))
     ),
     Vector(Hole.Bound(0), Hole.Bound(1)),
-    Vector(Instruction.opaque("cost-monotonicity-criterion"))
+    Vector(NoFacts.opaque("cost-monotonicity-criterion"))
   )
   private val allInstructions = Vector(identity, selfApplication, named, nextTag, identityContract, lastArgumentContract)
 
@@ -95,9 +104,9 @@ trait CostMonotonicityLaws extends GeneratedProperties:
     */
   protected def withOpaqueCriteria: Boolean = true
 
-  private def instructions: Vector[Instruction] =
+  private def instructions: Vector[Configured[NoFacts.type]] =
     (if withOpaqueCriteria then allInstructions else Vector(identity, selfApplication, named, identityContract)) ++
-      nativeBindings.map(_.instruction) ++ criterionFunctions
+      nativeBindings.map(binding => Configured.fromPure(NoFacts)(binding.instruction)) ++ criterionFunctions
 
   /** Instructions the suite's index binds to natives (`native` declarations),
     * added to the instructions the terms are built over, so that a module that
@@ -111,23 +120,24 @@ trait CostMonotonicityLaws extends GeneratedProperties:
     * to the instructions the terms are built over, so that a filter `x ∥ c t`
     * over a truth t reads as a filter; none by default.
     */
-  protected def criterionFunctions: Vector[Instruction] = Vector.empty
+  protected def criterionFunctions: Vector[Configured[NoFacts.type]] = Vector.empty
 
-  protected lazy val reading: TermReading = TermReading(
+  protected lazy val reading: TermReading[NoFacts.type] = TermReading(
     StandardLibraryIndex(
+      NoFacts,
       Vector.empty,
       Vector.empty,
       nativeBindings,
       Vector(
-        CombinatorProperty(named, Property.NameMarker),
-        CombinatorProperty(nextTag, Property.TagNext)
-      ) ++ criterionFunctions.map(CombinatorProperty(_, Property.NativeSpecialization("binary")))
+        CombinatorProperty(Pure.required(named), Property.NameMarker),
+        CombinatorProperty(Pure.required(nextTag), Property.TagNext)
+      ) ++ criterionFunctions.map(function => CombinatorProperty(Pure.required(function), Property.NativeSpecialization("binary")))
     )
   )
 
   /** A term as the extraction builds it: a name, or a layer over terms. */
   private enum GeneratedTerm:
-    case Name(instruction: Instruction)
+    case Name(instruction: Configured[NoFacts.type])
     case Node(layer: Layer[GeneratedTerm])
 
   /** The thunks of one binder, slot 0, whose fillings are the slots from 1,
@@ -218,16 +228,16 @@ trait CostMonotonicityLaws extends GeneratedProperties:
   /** The cost of the parent's production, its children the classes of the
     * parent's children, over the costs of the entries given for them.
     */
-  private def productionCost(model: ModuleCostModel, parent: Parent, entries: Vector[GeneratedTerm]): ModuleCost =
+  private def productionCost(model: ModuleCostModel[NoFacts.type], parent: Parent, entries: Vector[GeneratedTerm]): ModuleCost =
     model.cost(shapeOf(parent), entries.map(cost(model, _)))
 
-  private def shapeOf(parent: Parent): Shape = parent match
+  private def shapeOf(parent: Parent): Shape[NoFacts.type] = parent match
     case Parent.OfLayer(layer)                   => Shape.Node(0, layer.map(classOf))
     case Parent.OfSpecialization(specialization) => Shape.Specialized(0, specialization.map(classOf))
     case Parent.OfJudgment(fallback) =>
       Shape.Judged(0, Fallback(classOf(fallback.value), classOf(fallback.criterion), fallback.valueFirst))
 
-  private def cost(model: ModuleCostModel, generated: GeneratedTerm): ModuleCost = generated match
+  private def cost(model: ModuleCostModel[NoFacts.type], generated: GeneratedTerm): ModuleCost = generated match
     case GeneratedTerm.Name(instruction)    => model.cost(Shape.Name(instruction), Vector.empty)
     case GeneratedTerm.Node(nodeLayer) => productionCost(model, Parent.OfLayer(nodeLayer), nodeLayer.children)
 
@@ -235,7 +245,7 @@ trait CostMonotonicityLaws extends GeneratedProperties:
     * the position is replaced by another of the same reading, as the
     * extraction replaces a child entry by a better one of its class.
     */
-  protected def monotone(model: ModuleCostModel) =
+  protected def monotone(model: ModuleCostModel[NoFacts.type]) =
     for
       parentProduction <- parent(3).forAll
       position <- Gen.int(Range.linear(0, parentProduction.children.size - 1)).forAll
@@ -261,18 +271,42 @@ trait CostMonotonicityLaws extends GeneratedProperties:
             .log(s"parent over the better child ranks ${parentOverBetter.ranks}")
             .log(s"parent over the worse child ranks ${parentOverWorse.ranks}")
 
-  /** The contract's other half (`gezi.extraction.CostModel`, THE
-    * CONTRACT): a parent reads of a child its cost under the ordering and
-    * its reading, nothing more, so two entries of one class that tie and
-    * share a reading give every parent one cost and one reading.
-    * `gezi.extraction.CountedExtraction`'s first pass keeps, of such
-    * entries, the one it entered first, and its last pass the one first by
-    * content; a parent that reads more of a child folds two costs from them,
-    * and the last pass finds no entry at the first pass's cost. Its purpose
-    * is to catch a module, or a combination, whose parent's fold reads a
-    * part of a child's state that neither its rank nor its reading carries.
+  /** A native storage leaf of constant size ranks no worse than any
+    * generated term under the model given: the storage leaf, a name of the
+    * extractor, ranks first or ties. On the native route's combination it
+    * holds because the leaf's ranks are each module's least, (0, Filter, 0)
+    * under `specialization_attraction` and size 1 under `compression`, which
+    * no production goes below, a specialization or a judgment included (a
+    * judgment costs its value's entry, a specialization its typed member's
+    * fold); the generated terms sample that claim. It compares ranks across
+    * readings: it does not make the leaf the best entry of every reading of
+    * its class, so it is not by itself a license to stop the extraction at
+    * such a class. Its purpose is to catch a model that prices a storage leaf
+    * above another spelling, under which a folded storage loses to a written
+    * member.
     */
-  protected def tiesAreIndistinguishable(model: ModuleCostModel) =
+  protected def constantStorageLeast(model: ModuleCostModel[StandInStorages.type]) =
+    for generated <- term(3).forAll
+    yield
+      // The storage is a term of the stand-in configuration, so the generated term is priced there too: its names, all
+      // keys of the facts, entered by `Configured.fromPure`, its layers built over the same classes as `cost` does.
+      def standInCost(term: GeneratedTerm): ModuleCost = term match
+        case GeneratedTerm.Name(instruction) =>
+          model.cost(Shape.Name(Configured.fromPure(StandInStorages)(Pure.required(instruction))), Vector.empty)
+        case GeneratedTerm.Node(nodeLayer) => model.cost(Shape.Node(0, nodeLayer.map(classOf)), nodeLayer.children.map(standInCost))
+      val storage: StandInStorages.Term =
+        StandInStorages.stored(ExtractedStorage(StandInStorages.opaque("cost law storage value"), StandInStorages.opaque("cost law storage criterion")))
+      val storageCost = model.cost(Shape.Name(storage), Vector.empty)
+      val generatedCost = standInCost(generated)
+      Result
+        .assert(model.ordering.compare(storageCost, generatedCost) <= 0)
+        .log(s"$generated ranks ${generatedCost.ranks}, the storage leaf ${storageCost.ranks}")
+
+  /** The suite's reading in the stand-in configuration, the library's index crossed into it. */
+  protected lazy val standInReading: TermReading[StandInStorages.type] =
+    TermReading(StandardLibraryIndex.crossed(reading.index, StandInStorages))
+
+  protected def tiesAreIndistinguishable(model: ModuleCostModel[NoFacts.type]) =
     for
       parentProduction <- parent(3).forAll
       position <- Gen.int(Range.linear(0, parentProduction.children.size - 1)).forAll
@@ -305,7 +339,7 @@ trait CostMonotonicityLaws extends GeneratedProperties:
     * reading. Its purpose is to catch a module that reads an unpriced
     * child's cost, or a model that hands it one.
     */
-  protected def unpricedChildrenAreReadByTheirReading(model: ModuleCostModel) =
+  protected def unpricedChildrenAreReadByTheirReading(model: ModuleCostModel[NoFacts.type]) =
     for
       parentProduction <- parent(3).forAll
       position <- Gen.int(Range.linear(0, parentProduction.children.size - 1)).forAll
@@ -340,7 +374,7 @@ trait CostMonotonicityLaws extends GeneratedProperties:
     * Its purpose is to catch a module, or a combination of modules, that
     * does not count a priced child's cost strictly.
     */
-  protected def strictlyMonotone(model: ModuleCostModel) =
+  protected def strictlyMonotone(model: ModuleCostModel[NoFacts.type]) =
     for
       parentProduction <- parent(3).forAll
       position <- Gen.int(Range.linear(0, parentProduction.children.size - 1)).forAll
@@ -370,8 +404,10 @@ trait CostMonotonicityLaws extends GeneratedProperties:
         case _ => Result.success
 
   /** A code that the extraction folds by parts
-    * (`CodeCandidates.foldsByParts`), over the slots below `slotCount`: no
-    * choice; a parallel's criterion one of `criterionSlots`, the slots that
+    * (`CodeCandidates.foldsByParts`), over the slots below `slotCount`:
+    * choices of two members, read as one choice, as a specialization or as
+    * a judgment, outside inner thunks; a parallel's criterion one of
+    * `criterionSlots`, the slots that
     * hold the thunk's fillings; and inner thunks, most of them lets
     * `(λh. M) N` whose fillings are slots of the code around them, read
     * once or more, as the front end spells a β residual
@@ -389,13 +425,77 @@ trait CostMonotonicityLaws extends GeneratedProperties:
           fillings <- slot.list(Range.singleton(fillingCount))
           inner <- innerCode(1 + fillingCount, depth - 1)
         yield Code.Thunk(inner, Vector(Hole.Bound(0)), fillings.toVector)
+      // A right member is never a choice, whose members would lengthen the
+      // spine, which `CodeCandidates.foldsByParts` does not fold by parts: a
+      // choice there stands as its leftmost member.
+      val member = child.map(leftmostMember)
+      // A choice of two members, which the dispatch patterns may read as a
+      // specialization (its typed member `F (A ∥ D)`, under a range R or a
+      // contract slot C) or a judgment `X + (X ∥ D)`, in either order; a
+      // choice of two other members is read as one choice unless they
+      // happen to make one of those.
+      val specialization =
+        for
+          function <- child
+          argument <- child
+          domain <- criterion
+          range <- criterion
+          // A filling's slot, whose flag λf. f the dispatch reads; a hole's
+          // flag is false, as `CodeCandidates` reads it.
+          contract <- criterion
+          // Of the same likelihood at every size, as a linear range would
+          // keep small samples at the first form; the contract's twice as
+          // likely, since a property of twenty samples covers a contract
+          // filling that is λf. f only through it.
+          form <- Gen.frequency1(1 -> Gen.constant(0), 1 -> Gen.constant(1), 2 -> Gen.constant(2))
+          untypedFirst <- Gen.boolean
+        yield
+          val application = Code.Apply(function, Code.Parallel(argument, domain))
+          val typed = form match
+            case 0 => application
+            case 1 => Code.Parallel(application, range)
+            case _ => Code.Apply(contract, application)
+          val untyped = Code.Apply(function, argument)
+          if untypedFirst then Code.Choice(untyped, typed) else Code.Choice(typed, untyped)
+      val judgment =
+        for
+          value <- child
+          domain <- criterion
+          valueFirst <- Gen.boolean
+          last <- member
+        yield
+          if valueFirst then Code.Choice(value, Code.Parallel(value, domain))
+          else Code.Choice(Code.Parallel(last, domain), last)
       Gen.frequency1(
         2 -> slot,
         3 -> (for function <- child; argument <- child yield Code.Apply(function, argument)),
         2 -> (for left <- child; right <- criterion yield Code.Parallel(left, right)),
         3 -> (for thunk <- innerThunk; argument <- child yield Code.Apply(thunk, argument)),
-        1 -> innerThunk
+        1 -> innerThunk,
+        1 -> (for left <- child; right <- member yield Code.Choice(left, right)),
+        2 -> specialization,
+        1 -> judgment
       )
+
+  /** Whether the code holds, outside its inner thunks, a choice the dispatch
+    * patterns read as a specialization or a judgment under some value of a
+    * contract's flag (`dispatched`), or one they read as one choice under
+    * both (not `dispatched`).
+    */
+  private def holdsChoice(code: Code, dispatched: Boolean): Boolean = code.layer match
+    case gezi.ir.Choice(left, right) =>
+      val read = Vector(true, false).map(flag => CodeCandidates.choiceReading(left, right, _ => flag))
+      val here = if dispatched then read.exists(_ != CodeCandidates.ChoiceReading.Plain) else read.forall(_ == CodeCandidates.ChoiceReading.Plain)
+      here || holdsChoice(left, dispatched) || holdsChoice(right, dispatched)
+    case gezi.ir.Apply(function, argument) => holdsChoice(function, dispatched) || holdsChoice(argument, dispatched)
+    case gezi.ir.Parallel(left, right)     => holdsChoice(left, dispatched) || holdsChoice(right, dispatched)
+    case _                                 => false
+
+  /** The code, or a choice's leftmost member, its left members followed. */
+  @scala.annotation.tailrec
+  private def leftmostMember(code: Code): Code = code.layer match
+    case gezi.ir.Choice(left, _) => leftmostMember(left)
+    case _                       => code
 
   /** An inner thunk's code over its hole, slot 0, and its fillings: no
     * parallel, whose criterion would have to be a filling of the thunk
@@ -425,6 +525,50 @@ trait CostMonotonicityLaws extends GeneratedProperties:
       code <- foldableCode(holeCount + fillingCount, Vector.tabulate(fillingCount)(holeCount + _), 4)
     yield (Vector.tabulate(holeCount)(Hole.Bound(_)), fillingCount, code)
 
+  /** A thunk folded by parts whose code holds every case the laws below are
+    * for, by construction: `(S + (Slot i + Slot j)) (Slot r Slot r)` where
+    * S is a specialization whose typed member is under a contract slot C,
+    * `F (A ∥ D)` applied to C, beside `F A` (a choice the dispatch reads as
+    * a specialization when C's flag is λf. f, `CodeCandidates.choiceReading`),
+    * `Slot i + Slot j` a choice it reads as one choice under either flag,
+    * and r a filling read twice, which is read jointly
+    * (`ThunkCandidates.jointFillings`) and repeated
+    * (`CodeCandidates.repeatedFillings`).
+    */
+  private def everyCaseThunk: Gen[(Vector[Hole], Int, Code)] =
+    for
+      holeCount <- Gen.int(Range.linear(0, 2))
+      fillingCount <- Gen.int(Range.linear(1, 4))
+      slotCount = holeCount + fillingCount
+      fillingSlots = Vector.tabulate(fillingCount)(holeCount + _)
+      child = foldableCode(slotCount, fillingSlots, 2)
+      fillingSlot = Gen.element(fillingSlots.head, fillingSlots.tail.toList)
+      anySlot = Gen.int(Range.constant(0, slotCount - 1))
+      function <- child
+      argument <- child
+      domain <- fillingSlot
+      contract <- fillingSlot
+      repeated <- fillingSlot
+      left <- anySlot
+      right <- anySlot
+      untypedFirst <- Gen.boolean
+    yield
+      val typed = Code.Apply(Code.Slot(contract), Code.Apply(function, Code.Parallel(argument, Code.Slot(domain))))
+      val untyped = Code.Apply(function, argument)
+      val specialization = if untypedFirst then Code.Choice(untyped, typed) else Code.Choice(typed, untyped)
+      val code = Code.Apply(
+        Code.Apply(specialization, Code.Choice(Code.Slot(left), Code.Slot(right))),
+        Code.Apply(Code.Slot(repeated), Code.Slot(repeated))
+      )
+      (Vector.tabulate(holeCount)(Hole.Bound(_)), fillingCount, code)
+
+  /** Whether the code holds every case `everyCaseThunk` constructs. */
+  private def holdsEveryCase(code: Code, holes: Vector[Hole], fillingCount: Int): Boolean =
+    holdsChoice(code, dispatched = true) && holdsChoice(code, dispatched = false) &&
+      CodeCandidates.contractFillings(code, holes, fillingCount).nonEmpty &&
+      CodeCandidates.repeatedFillings(code, holes, fillingCount).nonEmpty &&
+      ThunkCandidates.jointFillings(code, holes, fillingCount).nonEmpty
+
   /** `CodeFolding`'s contract for each module of the model that folds
     * codes: closing a thunk's code folded part by part
     * (`CodeCandidates.closedByParts`) gives the state the module's `folded`
@@ -434,18 +578,32 @@ trait CostMonotonicityLaws extends GeneratedProperties:
     * once per occurrence where the module counts a thunk's children once,
     * or that misses an inner thunk's unread filling.
     */
-  protected def foldedByParts(model: ModuleCostModel) =
+  protected def foldedByParts(model: ModuleCostModel[NoFacts.type]) =
     for
-      (holes, fillingCount, code) <- foldableThunk.forAll
-      fillings <- term(2).list(Range.singleton(fillingCount)).forAll
+      generated <- foldableThunk.forAll
+      constructed <- everyCaseThunk.forAll
+      generatedFillings <- term(2).list(Range.singleton(generated._2)).forAll
+      constructedFillings <- term(2).list(Range.singleton(constructed._2)).forAll
     yield
-      val costs = fillings.toVector.map(cost(model, _))
+      val (holes, fillingCount, code) = constructed
+      Result.all(
+        List(
+          foldedByPartsChecked(model, generated, generatedFillings.toVector),
+          Result.assert(holdsEveryCase(code, holes, fillingCount)).log(s"the constructed code holds not every case: $code"),
+          foldedByPartsChecked(model, constructed, constructedFillings.toVector)
+        )
+      )
+
+  /** `foldedByParts` on one thunk and its fillings. */
+  private def foldedByPartsChecked(model: ModuleCostModel[NoFacts.type], thunk: (Vector[Hole], Int, Code), fillings: Vector[GeneratedTerm]): Result =
+      val (holes, fillingCount, code) = thunk
+      val costs = fillings.map(cost(model, _))
       Result
         .assert(CodeCandidates.foldsByParts(code, holes, fillingCount))
         .log(s"the generated code is not folded by parts: $code")
         .and(Result.all(model.modules.indices.toList.flatMap(position =>
           model.modules(position).codeFolding.toList.map { folding =>
-            val terms = costs.map(each => OrderTerm.Folded(each.states(position), each.identityContract))
+            val terms = costs.map(each => OrderTerm.Folded[NoFacts.type](each.states(position), each.identityContract))
             val byParts = CodeCandidates.closedByParts(folding, reading, code, holes, terms)
             val whole = model.modules(position).folded(OrderTerm.Thunk(code, holes, terms), reading)
             Result.diff(byParts, whole)(_ == _).log(s"${model.modules(position).name}: thunk $code, holes $holes")
@@ -462,16 +620,11 @@ trait CostMonotonicityLaws extends GeneratedProperties:
     * or a filling read twice that two parts choose differently. A filling
     * read more than once counts only when the thunk is closed
     * (`CodeFold.Closing`), which is sound when the parts compared at a node
-    * read the same entry of it; the law requires a twentieth of its samples,
-    * at least, to give such a filling entries of two readings (for
-    * narrow_blocks, two narrow kinds such as Value and Closed), the case that
-    * argument rests on. A filling read more than once is drawn one entry
-    * more than the others, so that it has two entries at least: drawn like
-    * the others, one to three entries, often one at small sizes, no sample
-    * of the lemma route's combination gave a repeated filling two kinds
-    * (2026-11-16, while a fifth of the samples gave some filling two).
+    * read the same entry of it; each iteration also checks a thunk that
+    * holds such a filling with entries of two readings, by construction
+    * (`everyCaseThunk`, `options`), the case that argument rests on.
     */
-  protected def candidatesByParts(model: ModuleCostModel) =
+  protected def candidatesByParts(model: ModuleCostModel[NoFacts.type]) =
     everyReadingsLeast(model) { (shape, code, holes, entries) =>
       Vector("by parts" -> CodeCandidates.candidates(model, model.modules.flatMap(_.codeFolding), shape, code, holes, entries, costFirst = true))
     }
@@ -487,46 +640,85 @@ trait CostMonotonicityLaws extends GeneratedProperties:
     * entry's choice of the bound changes no reading's least cost while the
     * products stay within the enumeration bound, as the drawn ones do.
     */
-  protected def wholeFoldBoundKeepsLeastCosts(model: ModuleCostModel) =
+  protected def wholeFoldBoundKeepsLeastCosts(model: ModuleCostModel[NoFacts.type]) =
     everyReadingsLeast(model) { (shape, code, holes, entries) =>
       Vector(0L, Long.MaxValue).map(bound =>
         val bounded = model.copy(jointReading = JointReading(JointReading.measured.enumerationBound, bound))
-        s"whole fold bound $bound" -> ThunkCandidates.candidates(bounded, shape, new Thunk(code, holes, Vector.tabulate(entries.size)(_ + 1)), entries)
+        s"whole fold bound $bound" -> ThunkCandidates.candidates(bounded, shape, Thunk(code, holes, Vector.tabulate(entries.size)(_ + 1)), entries)
       )
     }
 
   /** The law of `candidatesByParts` on the candidate vectors `found` lists,
     * each named, of a generated thunk folded by parts.
     */
-  private def everyReadingsLeast(model: ModuleCostModel)(
-      found: (Shape, Code, Vector[Hole], Vector[Vector[gezi.extraction.Entry[ModuleCost]]]) => Vector[(String, Vector[gezi.extraction.Entry[ModuleCost]])]
+  private def everyReadingsLeast(model: ModuleCostModel[NoFacts.type])(
+      found: (Shape[NoFacts.type], Code, Vector[Hole], Vector[Vector[gezi.extraction.Entry[NoFacts.type, ModuleCost]]]) => Vector[(String, Vector[gezi.extraction.Entry[NoFacts.type, ModuleCost]])]
   ) =
     for
-      (holes, fillingCount, code) <- foldableThunk.forAll
-      repeated = CodeCandidates.repeatedFillings(code, holes, fillingCount)
-      options <- term(2)
-        .list(Range.linear(1, 3))
-        .list(Range.singleton(fillingCount))
-        .flatMap(drawn =>
-          term(2)
-            .list(Range.singleton(fillingCount))
-            .map(extra => drawn.zip(extra).zipWithIndex.map { case ((terms, more), position) => if repeated.contains(position) then terms :+ more else terms })
-        )
-        .forAll
-        .cover(
-          5,
-          "a filling read more than once has entries of two readings",
-          drawn =>
-            repeated.exists(position =>
-              val costs = drawn(position).map(cost(model, _))
-              costs.exists(left => costs.exists(right => !model.sameReading(left, right)))
-            )
-        )
+      generated <- foldableThunk.forAll
+      generatedOptions <- options(generated, twoReadings = false).forAll
+      constructed <- everyCaseThunk.forAll
+      constructedOptions <- options(constructed, twoReadings = true).forAll
     yield
+      val (holes, fillingCount, code) = constructed
+      val repeatedReadTwoWays = CodeCandidates.repeatedFillings(code, holes, fillingCount).exists(position =>
+        val costs = constructedOptions(position).map(cost(model, _))
+        costs.exists(left => costs.exists(right => !model.sameReading(left, right)))
+      )
+      val contractIdentity =
+        CodeCandidates.contractFillings(code, holes, fillingCount).exists(position => constructedOptions(position).exists(cost(model, _).identityContract))
+      Result.all(
+        List(
+          readingsLeastChecked(model, found, generated, generatedOptions),
+          Result
+            .assert(holdsEveryCase(code, holes, fillingCount) && repeatedReadTwoWays && contractIdentity)
+            .log(s"the constructed case holds not every case: $code, $constructedOptions"),
+          readingsLeastChecked(model, found, constructed, constructedOptions)
+        )
+      )
+
+  /** The entries of each filling of a thunk folded by parts: one to three
+    * terms each, a filling read more than once one more, so that it has two
+    * entries at least, and a filling in a contract slot also λf. f, so that
+    * the dispatch reads the choice both ways; with `twoReadings`, one or two
+    * terms each, and a filling read more than once `λf y. f y` and `λx. x x`
+    * in place of the one more, whose costs differ in their identity
+    * contract, so that its entries have two readings, the case the argument
+    * of `candidatesByParts` rests on.
+    */
+  private def options(thunk: (Vector[Hole], Int, Code), twoReadings: Boolean): Gen[Vector[Vector[GeneratedTerm]]] =
+    val (holes, fillingCount, code) = thunk
+    val repeated = CodeCandidates.repeatedFillings(code, holes, fillingCount)
+    val contracts = CodeCandidates.contractFillings(code, holes, fillingCount)
+    term(2)
+      .list(Range.linear(1, if twoReadings then 2 else 3))
+      .list(Range.singleton(fillingCount))
+      .flatMap(drawn =>
+        term(2)
+          .list(Range.singleton(fillingCount))
+          .map(extra =>
+            drawn.zip(extra).zipWithIndex.toVector.map { case ((terms, more), position) =>
+              val withRepeated =
+                if !repeated.contains(position) then terms.toVector
+                else if twoReadings then terms.toVector ++ Vector(GeneratedTerm.Name(identityContract), GeneratedTerm.Name(selfApplication))
+                else terms.toVector :+ more
+              if contracts.contains(position) then withRepeated :+ GeneratedTerm.Name(identityContract) else withRepeated
+            }
+          )
+      )
+
+  /** The law of `candidatesByParts` on one thunk and its fillings' entries. */
+  private def readingsLeastChecked(
+      model: ModuleCostModel[NoFacts.type],
+      found: (Shape[NoFacts.type], Code, Vector[Hole], Vector[Vector[gezi.extraction.Entry[NoFacts.type, ModuleCost]]]) => Vector[(String, Vector[gezi.extraction.Entry[NoFacts.type, ModuleCost]])],
+      thunk: (Vector[Hole], Int, Code),
+      options: Vector[Vector[GeneratedTerm]]
+  ): Result =
+      val (holes, fillingCount, code) = thunk
       val entries = options.toVector.zipWithIndex.map((terms, position) =>
         terms.toVector.map(generated => gezi.extraction.Entry(cost(model, generated), Shape.Name(instructions(position % instructions.size)), Vector.empty))
       )
-      val thunkLayer = new Thunk(code, holes, Vector.tabulate(fillingCount)(_ + 1))
+      val thunkLayer = Thunk(code, holes, Vector.tabulate(fillingCount)(_ + 1))
       val shape = Shape.Node(0, thunkLayer)
       val everyCombination = CostModel.combinations(entries).map(chosen => model.cost(shape, chosen.map(_.cost)))
       // Of each reading, a cost of it and its least cost under the order.
@@ -568,30 +760,40 @@ trait CostMonotonicityLaws extends GeneratedProperties:
     * split sends to the whole fold where the two paths would extract
     * differently, ties included. A thunk that reads no filling jointly has
     * product 1 whatever its entries and tests nothing the split changes, so
-    * the law requires a tenth of its samples, at least, to read some filling
-    * jointly (a filling read twice, one under an inner thunk, or the headed
-    * one), each such filling given one entry.
+    * each iteration also checks a thunk that reads a filling jointly by
+    * construction (`everyCaseThunk`, a filling read twice), each such
+    * filling given one entry.
     */
-  protected def productOneReadWhole(model: ModuleCostModel) =
+  protected def productOneReadWhole(model: ModuleCostModel[NoFacts.type]) =
     for
-      (holes, fillingCount, code) <- foldableThunk.forAll.cover(
-        10,
-        "the thunk reads some filling jointly",
-        (holes, fillingCount, code) => ThunkCandidates.jointFillings(code, holes, fillingCount).nonEmpty
-      )
-      options <- term(2).list(Range.linear(1, 3)).list(Range.singleton(fillingCount)).forAll
+      generated <- foldableThunk.forAll
+      constructed <- everyCaseThunk.forAll
+      generatedOptions <- term(2).list(Range.linear(1, 3)).list(Range.singleton(generated._2)).forAll
+      constructedOptions <- term(2).list(Range.linear(1, 3)).list(Range.singleton(constructed._2)).forAll
     yield
+      val (holes, fillingCount, code) = constructed
+      Result.all(
+        List(
+          productOneChecked(model, generated, generatedOptions.map(_.toVector).toVector),
+          Result.assert(holdsEveryCase(code, holes, fillingCount)).log(s"the constructed code holds not every case: $code"),
+          productOneChecked(model, constructed, constructedOptions.map(_.toVector).toVector)
+        )
+      )
+
+  /** `productOneReadWhole` on one thunk and its fillings' entries. */
+  private def productOneChecked(model: ModuleCostModel[NoFacts.type], thunk: (Vector[Hole], Int, Code), options: Vector[Vector[GeneratedTerm]]): Result =
+      val (holes, fillingCount, code) = thunk
       val joint = ThunkCandidates.jointFillings(code, holes, fillingCount).toSet
       val entries = options.toVector.zipWithIndex.map((terms, position) =>
         terms.toVector
           .take(if joint.contains(position) then 1 else terms.size)
           .map(generated => gezi.extraction.Entry(cost(model, generated), Shape.Name(instructions(position % instructions.size)), Vector.empty))
       )
-      val thunkLayer = new Thunk(code, holes, Vector.tabulate(fillingCount)(_ + 1))
+      val thunkLayer = Thunk(code, holes, Vector.tabulate(fillingCount)(_ + 1))
       val shape = Shape.Node(0, thunkLayer)
       val foldings = model.modules.flatMap(_.codeFolding)
-      def leastByCost(found: Vector[gezi.extraction.Entry[ModuleCost]]) =
-        found.foldLeft(Vector.empty[gezi.extraction.Entry[ModuleCost]]) { (kept, next) =>
+      def leastByCost(found: Vector[gezi.extraction.Entry[NoFacts.type, ModuleCost]]) =
+        found.foldLeft(Vector.empty[gezi.extraction.Entry[NoFacts.type, ModuleCost]]) { (kept, next) =>
           kept.indexWhere(entry => model.sameReading(entry.cost, next.cost)) match
             case -1 => kept :+ next
             case position =>
@@ -599,7 +801,7 @@ trait CostMonotonicityLaws extends GeneratedProperties:
               if order < 0 || (order == 0 && gezi.extraction.ContentOrder.compare(next, kept(position)) < 0) then kept.updated(position, next)
               else kept
         }
-      def sameEntries(left: Vector[gezi.extraction.Entry[ModuleCost]], right: Vector[gezi.extraction.Entry[ModuleCost]]) =
+      def sameEntries(left: Vector[gezi.extraction.Entry[NoFacts.type, ModuleCost]], right: Vector[gezi.extraction.Entry[NoFacts.type, ModuleCost]]) =
         left.size == right.size && left.forall(right.contains)
       val wholeByCost = leastByCost(ThunkCandidates.candidates(model, shape, thunkLayer, entries))
       val partsByCost = leastByCost(CodeCandidates.candidates(model, foldings, shape, code, holes, entries, costFirst = true))
@@ -612,7 +814,7 @@ trait CostMonotonicityLaws extends GeneratedProperties:
         .and(Result.assert(sameEntries(wholeLeast, partsLeast)).log(s"by size: whole $wholeLeast, by parts $partsLeast"))
         .log(s"thunk $code, holes $holes, fillings $fillingCount, joint $joint")
 
-/** The three laws (`CostMonotonicityLaws`) on each module of the table and on
+/** The laws of `CostMonotonicityLaws` on each module of the table and on
   * the combinations the tree's extractions run: the native route's
   * (`NativeRouteCompilation.extraction`), read from its options. The narrow
   * blocks' combination is checked in narrow-blocks
@@ -624,7 +826,7 @@ class CostMonotonicityLawTest extends CostMonotonicityLaws:
     * table but `filter_attraction`, which is not monotone (see the FIXME at
     * `FilterAttraction`).
     */
-  private val monotoneModules = BaselineModules.table.filterNot(_ == FilterAttraction)
+  private val monotoneModules = BaselineModules.table[gezi.ir.NoFacts.type].filterNot(_.name == FilterAttraction.name)
 
   /** The modules the strictness law is checked on: also not
     * `choice_attraction`, which is monotone but not strictly at priced
@@ -633,7 +835,7 @@ class CostMonotonicityLawTest extends CostMonotonicityLaws:
     */
   private val strictlyMonotoneModules = monotoneModules.filterNot(_.name == "choice_attraction")
 
-  private val nativeRoute = TermOrder.modulesChecked(BaselineModules.table, NativeRouteCompilation.extraction.modules)
+  private val nativeRoute = TermOrder.modulesChecked(BaselineModules.table[gezi.ir.NoFacts.type], NativeRouteCompilation.extraction.modules)
 
   monotoneModules.foreach { module =>
     stoppableProperty(s"theCostOf${module.name}IsMonotoneInItsChildren") { stopped =>
@@ -649,17 +851,29 @@ class CostMonotonicityLawTest extends CostMonotonicityLaws:
   // refuses the others (`TermOrder.extractionModulesChecked`), and
   // `filter_attraction`'s ranks read less of a child's state than its fold
   // does (the FIXME at `FilterAttraction`).
-  BaselineModules.table.filter(_.meetsExtractionContract).foreach { module =>
+  BaselineModules.table[gezi.ir.NoFacts.type].filter(_.meetsExtractionContract).foreach { module =>
     stoppableProperty(s"theCostOf${module.name}ReadsOfAChildItsCostAndItsReadingOnly") { stopped =>
       tiesAreIndistinguishable(ModuleCostModel(Vector(module), reading, StopSignal.completedWith(stopped)))
     }
+  }
+
+  // TODO: the law on the narrow blocks' combination, whose reading of a storage leaf (NarrowKind.Closed) is to change
+  // with a block backend that reads storages (https://github.com/Atry/private-overlay/issues/2176).
+  stoppableProperty("theNativeRouteCombinationPricesAConstantStorageLeafNoHigherThanAnyProduction") { stopped =>
+    constantStorageLeast(
+      ModuleCostModel(
+        TermOrder.modulesChecked(BaselineModules.table[StandInStorages.type], NativeRouteCompilation.extraction.modules),
+        standInReading,
+        StopSignal.completedWith(stopped)
+      )
+    )
   }
 
   stoppableProperty("theNativeRouteCombinationReadsOfAChildItsCostAndItsReadingOnly") { stopped =>
     tiesAreIndistinguishable(ModuleCostModel(nativeRoute, reading, StopSignal.completedWith(stopped)))
   }
 
-  BaselineModules.table.filter(_.meetsExtractionContract).foreach { module =>
+  BaselineModules.table[gezi.ir.NoFacts.type].filter(_.meetsExtractionContract).foreach { module =>
     stoppableProperty(s"theCostOf${module.name}ReadsAnUnpricedChildByItsReading") { stopped =>
       unpricedChildrenAreReadByTheirReading(ModuleCostModel(Vector(module), reading, StopSignal.completedWith(stopped)))
     }
@@ -702,7 +916,7 @@ class CostMonotonicityLawTest extends CostMonotonicityLaws:
     */
   test("theModulesThatMeetTheExtractionsContractAreTheModulesTheLawsCheck") {
     assertEquals(
-      BaselineModules.table.filter(_.meetsExtractionContract).map(_.name),
+      BaselineModules.table[gezi.ir.NoFacts.type].filter(_.meetsExtractionContract).map(_.name),
       strictlyMonotoneModules.map(_.name)
     )
   }

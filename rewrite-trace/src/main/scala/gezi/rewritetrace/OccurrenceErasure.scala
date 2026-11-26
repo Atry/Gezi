@@ -1,12 +1,13 @@
 package gezi.rewritetrace
 
 import gezi.frontend.OccurrenceMarkers
-import gezi.ir.Instruction
+import gezi.ir.StorageAccess
 import gezi.ir.{Apply, Choice, Parallel, Thunk}
 import gezi.ir.TailRecFolds
 import scala.util.control.TailCalls.TailRec
 import scala.util.control.TailCalls.done
 import scala.util.control.TailCalls.tailcall
+import gezi.ir.{Configured, NativeSpecializer}
 
 /** The certificate of the occurrence tagging: a trace of one round that starts from the program the front
   * end tagged (`gezi.frontend.Occurrences.tagged`) and erases every tag,
@@ -34,30 +35,39 @@ object OccurrenceErasure:
     * Throws `IllegalArgumentException` when `lemmas` has no erasure lemma of a
     * marker.
     */
-  def trace(tagged: Instruction, markers: OccurrenceMarkers, lemmas: Vector[TraceLemma]): Trace =
+  def trace[C <: NativeSpecializer & Singleton](tagged: Configured[C], markers: OccurrenceMarkers, lemmas: Vector[TraceLemma[C]])(using
+      specializer: C,
+      access: StorageAccess
+  ): Trace[C] =
     val name = erasure(markers.name, lemmas)
     val closure = erasure(markers.closure, lemmas)
-    val traceLemmas = Vector(name.lemma, closure.lemma).distinct
+    val traceLemmas = Vector(name.lemma, closure.lemma).foldLeft(Vector.empty[TraceLemma[C]])((kept, lemma) =>
+      if kept.exists(_.same(lemma)) then kept else kept :+ lemma
+    )
+    def place(lemma: TraceLemma[C]): Int = traceLemmas.indexWhere(_.same(lemma))
     val erasing = Erasing(
       Map(
-        markers.name -> Step(traceLemmas.indexOf(name.lemma), name.direction),
-        markers.closure -> Step(traceLemmas.indexOf(closure.lemma), closure.direction)
+        Configured.fromPure[C](specializer)(markers.name) -> Step(place(name.lemma), name.direction),
+        Configured.fromPure[C](specializer)(markers.closure) -> Step(place(closure.lemma), closure.direction)
       ),
-      markers
+      Configured.fromPure[C](specializer)(markers.firstTag),
+      Configured.fromPure[C](specializer)(markers.nextTag)
     )
     val (commands, _) = erased(tagged, erasing, 0, markedSubterms(tagged, erasing)).result
     Trace(traceLemmas, Vector.empty, Vector(commands))
 
   /** An erasure lemma and the direction that erases. */
-  private final case class Erasure(lemma: TraceLemma, direction: RewriteDirection)
+  private final case class Erasure[C <: NativeSpecializer & Singleton](lemma: TraceLemma[C], direction: RewriteDirection)
 
-  private def erasure(marker: Instruction, lemmas: Vector[TraceLemma]): Erasure =
-    val erasing = OccurrenceMarkers.erasing(marker)
-    val erased = OccurrenceMarkers.erased
+  private def erasure[C <: NativeSpecializer & Singleton](marker: gezi.ir.Pure, lemmas: Vector[TraceLemma[C]])(using C): Erasure[C] =
+    val erasing = OccurrenceMarkers.erasing[C](marker)
+    val erased = OccurrenceMarkers.erased[C]
     lemmas
       .collectFirst {
-        case lemma if lemma.left == erasing && lemma.right == erased => Erasure(lemma, RewriteDirection.Forward)
-        case lemma if lemma.left == erased && lemma.right == erasing => Erasure(lemma, RewriteDirection.Backward)
+        case lemma if Configured.same(lemma.left, erasing) && Configured.same(lemma.right, erased) =>
+          Erasure(lemma, RewriteDirection.Forward)
+        case lemma if Configured.same(lemma.left, erased) && Configured.same(lemma.right, erasing) =>
+          Erasure(lemma, RewriteDirection.Backward)
       }
       .getOrElse(throw IllegalArgumentException(s"no lemma λt. λx. M t x = λt. λx. x of the marker $marker is given"))
 
@@ -69,18 +79,22 @@ object OccurrenceErasure:
   /** The markers with the step of each, and the tag constructors, under which
     * no tag is ever found.
     */
-  private final case class Erasing(steps: Map[Instruction, Step], markers: OccurrenceMarkers):
+  private final case class Erasing[C <: NativeSpecializer & Singleton](
+      steps: Map[Configured[C], Step],
+      firstTag: Configured[C],
+      nextTag: Configured[C]
+  ):
 
     /** Whether the term is a tag, `next (… (next first))`. */
-    def tag(term: Instruction): Boolean =
-      term == markers.firstTag || (term.layer match
-        case Apply(function, _) => function == markers.nextTag
+    def tag(term: Configured[C])(using C): Boolean =
+      Configured.same(term, firstTag) || (term.layer match
+        case Apply(function, _) => Configured.same(function, nextTag)
         case _                  => false)
 
     /** The step of the marker the term is or is applied to; none for any
       * other term.
       */
-    def headStep(term: Instruction): Option[Step] =
+    def headStep(term: Configured[C])(using C): Option[Step] =
       steps.get(term).orElse(term.layer match
         case Apply(function, _) => steps.get(function)
         case _                  => None)
@@ -88,59 +102,51 @@ object OccurrenceErasure:
   /** The commands that erase every tag in the term, from its root, under
     * `depth` openings, and the term they make of it, `marked` the term's
     * subterms that hold a marker (`markedSubterms`). A trampoline: a program
-    * is as deep as it is written.
+    * is as deep as it is written. A storage is no marker and no tag, and
+    * holds none of them (`markedSubterms` does not read under it).
     */
-  private def erased(
-      term: Instruction,
-      erasing: Erasing,
+  private def erased[C <: NativeSpecializer & Singleton](
+      term: Configured[C],
+      erasing: Erasing[C],
       depth: Int,
-      marked: Set[Instruction]
-  ): TailRec[(Vector[TraceCommand], Instruction)] =
-    def walked(current: Instruction): TailRec[(Vector[TraceCommand], Instruction)] =
+      marked: Set[Configured[C]]
+  )(using specializer: C, access: StorageAccess): TailRec[(Vector[TraceCommand[C]], Configured[C])] =
+    def walked(current: Configured[C]): TailRec[(Vector[TraceCommand[C]], Configured[C])] =
       // A marker on its own is no instance of its lemma, and its definition holds no tag.
       if !marked.contains(current) || erasing.steps.contains(current) then done((Vector.empty, current))
       else
         current.layer match
           case Apply(markerApplied, operand) if isApplication(markerApplied) && erasing.steps.contains(headOf(markerApplied)) =>
             val Step(lemma, direction) = erasing.steps(headOf(markerApplied))
-            val step = TraceCommand.Rewrite(ProvedReason.Lemma(lemma), Vector.empty, direction, Vector.empty)
+            val step = TraceCommand.Rewrite[C](ProvedReason.Lemma(lemma), Vector.empty, direction, Vector.empty)
             tailcall(walked(operand)).map((rest, after) => (step +: rest, after))
-          case Thunk(code, holes, fillings) =>
+          case layer @ Thunk(code, holes, fillings) =>
             tailcall(children(fillings, fillings.indices.map(PositionSegment.Filling(_)).toVector)).flatMap((commands, erasedFillings) =>
-              val thunk = Instruction.Thunk(code, holes, erasedFillings)
-              if holes.isEmpty then done((commands, thunk))
+              val thunk = Positions.built(layer, erasedFillings)
+              val leaves: Vector[Configured[C]] = Conversions.eigenvariables(depth, holes.size)
+              val body = Conversions.opened(thunk, leaves)
+              val markedInBody = markedSubterms(body, erasing)
+              if !markedInBody.contains(body) then done((commands, thunk))
               else
-                val leaves = Conversions.eigenvariables(depth, holes.size)
-                val body = Conversions.opened(thunk, leaves)
-                val markedInBody = markedSubterms(body, erasing)
-                if !markedInBody.contains(body) then done((commands, thunk))
-                else
-                  tailcall(erased(body, erasing, depth + 1, markedInBody)).map((inner, erasedBody) =>
-                    (commands :+ TraceCommand.Abstraction(Vector.empty, holes.size, inner), Conversions.abstraction(erasedBody, leaves))
-                  )
+                tailcall(erased(body, erasing, depth + 1, markedInBody)).map((inner, erasedBody) =>
+                  (commands :+ TraceCommand.Abstraction(Vector.empty, holes.size, inner), Conversions.abstraction(erasedBody, leaves))
+                )
             )
-          case Apply(function, argument) =>
+          case layer @ Apply(function, argument) =>
             tailcall(children(Vector(function, argument), Vector(PositionSegment.Function, PositionSegment.Argument)))
-              .map((commands, after) =>
-                val Vector(erasedFunction, erasedArgument) = after: @unchecked
-                (commands, Instruction.Apply(erasedFunction, erasedArgument))
-              )
-          case Choice(left, right) =>
-            tailcall(children(Vector(left, right), Vector(PositionSegment.Left, PositionSegment.Right))).map((commands, after) =>
-              val Vector(erasedLeft, erasedRight) = after: @unchecked
-              (commands, Instruction.Choice(erasedLeft, erasedRight))
-            )
-          case Parallel(left, right) =>
-            tailcall(children(Vector(left, right), Vector(PositionSegment.Left, PositionSegment.Right))).map((commands, after) =>
-              val Vector(erasedLeft, erasedRight) = after: @unchecked
-              (commands, Instruction.Parallel(erasedLeft, erasedRight))
-            )
+              .map((commands, after) => (commands, Positions.built(layer, after)))
+          case layer @ Choice(left, right) =>
+            tailcall(children(Vector(left, right), Vector(PositionSegment.Left, PositionSegment.Right)))
+              .map((commands, after) => (commands, Positions.built(layer, after)))
+          case layer @ Parallel(left, right) =>
+            tailcall(children(Vector(left, right), Vector(PositionSegment.Left, PositionSegment.Right)))
+              .map((commands, after) => (commands, Positions.built(layer, after)))
           case _ => done((Vector.empty, current))
     def children(
-        terms: Vector[Instruction],
+        terms: Vector[Configured[C]],
         roles: Vector[PositionSegment]
-    ): TailRec[(Vector[TraceCommand], Vector[Instruction])] =
-      TailRecFolds.folded(terms.zip(roles), (Vector.empty[TraceCommand], Vector.empty[Instruction])) {
+    ): TailRec[(Vector[TraceCommand[C]], Vector[Configured[C]])] =
+      TailRecFolds.folded(terms.zip(roles), (Vector.empty[TraceCommand[C]], Vector.empty[Configured[C]])) {
         case ((commands, made), (child, role)) =>
           walked(child).map((childCommands, after) => (commands ++ childCommands.map(placed(role, _)), made :+ after))
       }
@@ -149,16 +155,16 @@ object OccurrenceErasure:
   /** The function of an application of the marker to a tag, `M T`, or the
     * term itself.
     */
-  private def headOf(term: Instruction): Instruction = term.layer match
+  private def headOf[C <: NativeSpecializer & Singleton](term: Configured[C])(using C): Configured[C] = term.layer match
     case Apply(function, _) => function
     case _                  => term
 
-  private def isApplication(term: Instruction): Boolean = term.layer match
+  private def isApplication[C <: NativeSpecializer & Singleton](term: Configured[C])(using C): Boolean = term.layer match
     case Apply(_, _) => true
     case _           => false
 
   /** The command with its position under the segment. */
-  private def placed(segment: PositionSegment, command: TraceCommand): TraceCommand = command match
+  private def placed[C <: NativeSpecializer & Singleton](segment: PositionSegment, command: TraceCommand[C]): TraceCommand[C] = command match
     case TraceCommand.Rewrite(reason, position, direction, bindings) => TraceCommand.Rewrite(reason, segment +: position, direction, bindings)
     case TraceCommand.Convert(conversion, position, direction, bindings) =>
       TraceCommand.Convert(conversion, segment +: position, direction, bindings)
@@ -166,12 +172,13 @@ object OccurrenceErasure:
     case TraceCommand.Abstraction(position, count, commands) => TraceCommand.Abstraction(segment +: position, count, commands)
 
   /** The subterms of the term, each once, that hold a marker: the marker
-    * itself or applied, `M` or `M T`, at or below them, a tag and an opaque
-    * term holding none. One walk of the term's graph, so that a part a
-    * program shares is visited once.
+    * itself or applied, `M` or `M T`, at or below them, a tag, an opaque term
+    * and a storage holding none. One walk of the term's graph, so that a part
+    * a program shares is visited once.
     */
-  private def markedSubterms(term: Instruction, erasing: Erasing): Set[Instruction] =
-    def visited(pending: List[(Instruction, Boolean)], known: Map[Instruction, Boolean]): Map[Instruction, Boolean] = pending match
+  private def markedSubterms[C <: NativeSpecializer & Singleton](term: Configured[C], erasing: Erasing[C])(using C): Set[Configured[C]] =
+    @scala.annotation.tailrec
+    def visited(pending: List[(Configured[C], Boolean)], known: Map[Configured[C], Boolean]): Map[Configured[C], Boolean] = pending match
       case Nil => known
       case (current, true) :: rest =>
         visited(rest, known.updated(current, current.layer.children.exists(known(_))))

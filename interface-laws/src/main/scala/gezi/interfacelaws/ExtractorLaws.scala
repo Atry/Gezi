@@ -4,23 +4,73 @@ import hedgehog.Gen
 import hedgehog.Range
 import hedgehog.Result
 import gezi.egraph.EGraph
+import gezi.egraph.Justification
 import gezi.egraph.MemoRetention
 import gezi.generatedinputs.GeneratedProperties
 import gezi.ir.BuiltInRule
-import gezi.ir.Instruction
-import gezi.ir.Layer
+import gezi.ir.Closed
+import gezi.ir.Configured
+import gezi.ir.LayerWith
 import gezi.ir.LemmaIdentifier
+import gezi.ir.NativeSpecializer
+import gezi.ir.NativeStorage
+import gezi.ir.NoFacts
+import gezi.ir.NoinlineLeaf
+import gezi.ir.ScottReading
+import gezi.ir.StorageAccess
+import gezi.ir.StorageView
+import gezi.ir.TermConstruction
 import gezi.jit.DeBruijnTermAsTerm
 import gezi.jit.JitTesting
 import gezi.saturation.Run
 import gezi.saturation.StopSignal
 import gezi.standardlibrary.SplitMix
+import gezi.standardlibrary.StandardLibraryIndex
 import gezi.strategies.BaselineRounds
 import gezi.strategies.Extractor
 import gezi.strategies.SaturationOptions
+import gezi.strategies.StandardIndexer
 import gezi.strategies.StandardSaturator
 import gezi.strategies.StrategyTesting
-import gezi.ir.NoinlineLeaf
+
+private given extractorLawsNoFacts: NoFacts.type = NoFacts
+
+/** A native storage of the laws kept as a leaf of constant size, holding its
+  * criterion alone as a constant storage does, whose view throws when it is
+  * read: an extractor reads a storage leaf as a leaf. Equal to itself only.
+  */
+final class LawStorage(name: String, val criterion: Configured[LawNativeSpecializer.type]) extends NativeStorage:
+  val closed: Boolean = true
+  val suspensionFree: Boolean = true
+  val handedOverWhole: Boolean = false
+  protected val termChildren: IArray[AnyRef] = IArray(criterion.representation)
+  protected val constructorIndex: Int = 0
+  val leafInEGraph: Boolean = true
+  val constantSize: Boolean = true
+  def precedes(other: NativeStorage): Boolean = false
+  def contentHash: Int = System.identityHashCode(this)
+  def sameContent(other: NativeStorage): Boolean = this eq other
+  override def toString: String = s"LawStorage($name)"
+
+/** The native specializer of the laws' stand-in storages: it converts no parallel, and makes a `LawStorage`'s term, the
+  * only way a storage enters the pool. A storage's view and Scott reading are never read here, and its criterion is the
+  * one it holds.
+  */
+object LawNativeSpecializer extends NativeSpecializer:
+  protected def specialized(left: Closed[this.type], right: Closed[this.type]): Option[Closed[this.type]] = None
+
+  protected def storageCriterion(storage: NativeStorage): Configured[this.type] = storage match
+    case law: LawStorage => law.criterion
+    case other           => throw IllegalStateException(s"a storage that is no law's has no criterion here: $other")
+
+  protected def storageView(storage: NativeStorage)(using StorageAccess): StorageView[Configured[this.type]] =
+    throw IllegalStateException(s"the view of the storage $storage was read")
+
+  protected def storageScottReading(storage: NativeStorage)(using StorageAccess): ScottReading[Configured[this.type]] =
+    throw IllegalStateException(s"the Scott reading of the storage $storage was read")
+
+  def stored(storage: LawStorage): Configured[this.type] = storedTerm(storage)
+
 
 /** The laws of the extraction interface `Extractor`, run on any
   * implementation: a suite that extends this class with the extractor checks
@@ -43,13 +93,30 @@ import gezi.ir.NoinlineLeaf
   * `BudgetExhausted(1)` at budget 0, its graph one class merged). Their
   * purpose is to catch an extractor that answers a term of another class (an
   * unsound rewrite), drops or reorders an output, or changes a term the
-  * saturation left alone.
+  * saturation left alone. (3) Law (1) holds too on a run's graph with two
+  * native storage leaves of constant size, by construction one united with an
+  * input's class and one with the class of a child of a member of an input's
+  * class, the unions then worked so that each leaf's class also holds its
+  * pattern view `Parallel(the class, T)`, as the fold and the conversion leave
+  * a storage in a class: its purpose is to catch an extractor that reads a
+  * storage leaf's view, which throws here, that spells a class through its
+  * own pattern view, or that answers a term of another class where a storage
+  * leaf is a member.
   */
-abstract class ExtractorLaws(extractor: Extractor) extends GeneratedProperties:
+abstract class ExtractorLaws(
+    extractor: Extractor[NoFacts.type],
+    // The extractor of the second law, whose graph holds storages and so is a graph of `LawNativeSpecializer`.
+    storageExtractor: Extractor[LawNativeSpecializer.type]
+) extends GeneratedProperties:
+
+  private given LawNativeSpecializer.type = LawNativeSpecializer
 
   private lazy val library = StrategyTesting.compiled(ExtractorLaws.knowledgeFile)
 
-  private def inputs: Gen[Vector[Instruction]] =
+  private lazy val storageIndex: StandardLibraryIndex[LawNativeSpecializer.type] =
+    StandardLibraryIndex.crossed(library.index, LawNativeSpecializer)
+
+  private def inputs: Gen[Vector[Configured[NoFacts.type]]] =
     Gen
       .long(Range.linear(0L, Long.MaxValue))
       .list(Range.linear(1, 4))
@@ -57,35 +124,36 @@ abstract class ExtractorLaws(extractor: Extractor) extends GeneratedProperties:
         StrategyTesting.programInput(library, DeBruijnTermAsTerm.term(JitTesting.randomLatticeApplication(12, SplitMix(seed))._1))
       ))
 
-  /** The lemmas of the knowledge of the runs, read once: the knowledge of
-    * the runs is the library's own (`ExtractorLaws.knowledgeFile`), so its
-    * lemmas are every lemma the library holds, read off its index in the
-    * order of their numbers, as `StandardLibrary.lemmas` gives a knowledge
-    * term's.
-    */
   private lazy val knowledgeLemmas: Vector[LemmaIdentifier] =
     library.index.lemmaSides.map(_.lemma).distinct.sortBy(_.number)
 
-  private def run(inputs: Vector[Instruction], lemmas: Vector[LemmaIdentifier], budget: Int, stop: StopSignal): Run =
-    StandardSaturator(
+  private def run[C <: NativeSpecializer & Singleton](
+      index: StandardLibraryIndex[C],
+      inputs: Vector[Configured[C]],
+      lemmas: Vector[LemmaIdentifier],
+      budget: Int,
+      stop: StopSignal
+  )(using specializer: C): Run[C] =
+    StandardSaturator[C](
       SaturationOptions(
         lemmas,
-        BuiltInRule.all,
+        BuiltInRule.beforeOptIn,
         budget,
         BaselineRounds.modules.lemmaEncoding,
         BaselineRounds.modules.backend,
-        BaselineRounds.modules.indexer,
+        StandardIndexer.of[C],
         BaselineRounds.modules.orientationCompiler,
-        MemoRetention.Kept
+        MemoRetention.Kept,
+        TermConstruction(specializer)
       )
-    ).saturated(library.index, inputs, explained = false, stop)
+    ).saturated(index, inputs, explained = false, stop)
 
   stoppableProperty("each input has one output, in the input's class") { stopped =>
     for
       written <- inputs.forAll
       budget <- Gen.int(Range.linear(0, ExtractorLaws.largestBudget)).forAll
     yield
-      val saturated = run(written, knowledgeLemmas, budget, StopSignal.completedWith(stopped))
+      val saturated = run(library.index, written, knowledgeLemmas, budget, StopSignal.completedWith(stopped))
       val outputs = extractor.extracted(library.index, saturated.graph, saturated.inputNodes, written, StopSignal.completedWith(stopped))
       Result.all(
         Result.diff(outputs.length, written.length)(_ == _) ::
@@ -96,59 +164,104 @@ abstract class ExtractorLaws(extractor: Extractor) extends GeneratedProperties:
       )
   }
 
+  // Five iterations, each with both placements by construction: each runs a
+  // whole saturation for its graph (twenty took 20.6 s, 2026-11-25).
+  stoppableProperty(
+    "with storage leaves united into classes, each input has one output, in the input's class",
+    _.copy(testLimit = hedgehog.core.SuccessCount(5))
+  ) { stopped =>
+    for
+      written <- inputs.forAll
+      budget <- Gen.int(Range.linear(0, ExtractorLaws.largestBudget)).forAll
+      picks <- Gen.int(Range.linear(0, Int.MaxValue)).list(Range.singleton(3)).forAll
+    yield
+      // The whole graph is of `LawNativeSpecializer`, the configuration of the storages it holds: the generated inputs and
+      // the library cross into it (`NativeSpecializer.crossedAllFromNoFacts`).
+      val crossed = LawNativeSpecializer.crossedAllFromNoFacts(written)
+      val lawInputs = written.map(crossed)
+      val saturated = run(storageIndex, lawInputs, knowledgeLemmas, budget, StopSignal.completedWith(stopped))
+      val start = saturated.graph
+      val inputRoot = start.root(saturated.inputNodes(picks(0) % saturated.inputNodes.size))
+      // A child of a member of the input's class: under a layer, the class an
+      // output is spelled through; the input's own class when no member has a
+      // child.
+      val childRoots = start.liveNodes.filter(_.root == inputRoot).flatMap(_.layer.children).map(start.root).distinct
+      val childRoot = if childRoots.isEmpty then inputRoot else childRoots(picks(1) % childRoots.size)
+      val graph = ExtractorLaws.agendaWorked(Vector(inputRoot, childRoot).zipWithIndex.foldLeft(start) { case (current, (target, index)) =>
+        // The criterion an input, a term the graph already holds: an opaque
+        // instruction outside the store has no layer to add.
+        val criterion = lawInputs((picks(2) + index) % lawInputs.size)
+        val storage = LawNativeSpecializer.stored(LawStorage(s"$index", criterion))
+        val (withStorage, storageNode) = current.instructionAdded(storage)
+        // A test assumption that the storage is the class's value, not a proof.
+        withStorage.unionQueued(target, storageNode, ExtractorLaws.assumed, None)
+      })
+      val outputs = storageExtractor.extracted(storageIndex, graph, saturated.inputNodes, lawInputs, StopSignal.completedWith(stopped))
+      Result.all(
+        Result.diff(outputs.length, lawInputs.length)(_ == _) ::
+          outputs.zip(saturated.inputNodes).toList.map((output, inputNode) =>
+            Result.assert(ExtractorLaws.spelledIn(graph, output, graph.root(inputNode))).log(s"output $output")
+          )
+      )
+  }
+
   stoppableProperty("on a run with no knowledge module each output is its input") { stopped =>
     for written <- inputs.forAll
     yield
-      val saturated = run(written, Vector.empty, ExtractorLaws.largestBudget, StopSignal.completedWith(stopped))
-      Result.diff(extractor.extracted(library.index, saturated.graph, saturated.inputNodes, written, StopSignal.completedWith(stopped)), written)(_ == _)
+      val saturated = run(library.index, written, Vector.empty, ExtractorLaws.largestBudget, StopSignal.completedWith(stopped))
+      val outputs = extractor.extracted(library.index, saturated.graph, saturated.inputNodes, written, StopSignal.completedWith(stopped))
+      Result.all(
+        Result.diff(outputs.length, written.length)(_ == _) ::
+          outputs.zip(written).toList.map((output, input) => Result.assert(Configured.same(output, input)).log(s"output $output, input $input"))
+      )
   }
 
 object ExtractorLaws:
 
-  /** The file of the knowledge of the runs, relative to Gezi's root:
-    * the native route's library, the choice of the Prolog backend's preset
-    * (its backend and the native typing of the types it represents) with
-    * closure_application and occurrence_erasure, the one field of the file's
-    * tuple. Native typing is enabled through the preset only.
-    */
   val knowledgeFile: String = "tests/library_fixtures/presets.lambdalattice"
 
-  /** The largest budget of a run, in instances. */
+  val assumed: Justification = Justification.Lemma(LemmaIdentifier(0), Vector.empty)
+
+  @scala.annotation.tailrec
+  def agendaWorked[C <: NativeSpecializer & Singleton](graph: EGraph[C]): EGraph[C] = graph.unionTaken match
+    case Some((pending, rest)) => agendaWorked(rest.unionWorked(pending.first, pending.second, pending.justification, pending.made))
+    case None                  => graph
+
   val largestBudget: Int = 200
 
-  /** Whether the graph proves the term equal to the class, read without
-    * changing the graph: the term's instruction has a node in the class, or some
-    * live node whose root is the class (as `Extraction.productions` reads
-    * the graph) has one of the term's layers, each child of the node in the
-    * class its counterpart in the term is spelled in. A noinline term has
-    * two layers: the leaf the graph makes for it and, when it is not opaque,
-    * its own.
-    *
-    * Adding the term to the graph and comparing roots is not this test when
-    * the run ended on its budget, for two reasons, each MEASURED 2026-11-03
-    * at seed 30267446634265:
-    * - The unions, merges and deltas still pending leave the signatures
-    *   stale, so a spelled layer the class holds is not found and the term
-    *   is added as new nodes in a class of its own: at budget 3 and again 39
-    *   the output read off the input's class 31 was added as node 118 over a
-    *   new node 117.
-    * - A spelled thunk can be, by hash consing, a noinline library name,
-    *   which the graph adds as its leaf, in the leaf's class: at 3,000 inputs
-    *   and budget 3, the extractor spelled the class 39 by its node
-    *   `Thunk(code, Vector(Ignored), Vector(24))`, an instruction equal to a
-    *   noinline name whose leaf is node 13, of class 13, a class the run had
-    *   not yet united with 39.
+  /** Whether the term is spelled in the class: it is a term of the class, or its layer is the shape of a member's with
+    * each child spelled in the member's child's class. A layer is compared by its kind, a thunk's code, holes and number
+    * of fillings, and a leaf by identity.
     */
-  def spelledIn(graph: EGraph, term: Instruction, classRoot: Int): Boolean =
+  def spelledIn[C <: NativeSpecializer & Singleton](graph: EGraph[C], term: Configured[C], classRoot: Int)(using C): Boolean =
     val nodesByRoot = graph.liveNodes.groupBy(_.root)
-    def layers(term: Instruction): Vector[Layer[Instruction]] =
-      val leaf = if graph.store.noinline.contains(term) then Vector(NoinlineLeaf(term)) else Vector.empty
-      if term.opaque then leaf else leaf :+ term.layered
-    def spelled(term: Instruction, classRoot: Int): Boolean =
+    def layers(term: Configured[C]): Vector[LayerWith[Configured[C], Configured[C]]] =
+      // A storage kept as a leaf is read as its leaf, its view not read.
+      if term.heldAsLeaf && !graph.store.noinline.contains(term) then Vector(NoinlineLeaf(term))
+      else
+        val leaf = if graph.store.noinline.contains(term) then Vector(NoinlineLeaf(term)) else Vector.empty
+        if term.opaque then leaf
+        else
+          leaf :+ (term.layer match
+            case application @ gezi.ir.Apply(_, _) => application
+            case parallel @ gezi.ir.Parallel(_, _) => parallel
+            case choice @ gezi.ir.Choice(_, _)     => choice
+            case thunk @ gezi.ir.Thunk(_, _, _)    => thunk
+            case other                             => throw IllegalStateException(s"the term $term has the layer $other, which is no layer of the e-graph")
+          )
+    def sameShape(left: LayerWith[Any, Configured[C]], right: LayerWith[Any, Configured[C]]): Boolean = (left, right) match
+      case (gezi.ir.Apply(_, _), gezi.ir.Apply(_, _))                       => true
+      case (gezi.ir.Parallel(_, _), gezi.ir.Parallel(_, _))                 => true
+      case (gezi.ir.Choice(_, _), gezi.ir.Choice(_, _))                     => true
+      case (gezi.ir.Thunk(leftCode, leftHoles, leftFillings), gezi.ir.Thunk(rightCode, rightHoles, rightFillings)) =>
+        leftCode == rightCode && leftHoles == rightHoles && leftFillings.size == rightFillings.size
+      case (NoinlineLeaf(leftLeaf), NoinlineLeaf(rightLeaf))                => Configured.same(leftLeaf, rightLeaf)
+      case _                                                                => false
+    def spelled(term: Configured[C], classRoot: Int): Boolean =
       graph.instructionNode(term).exists(node => graph.root(node) == classRoot) ||
         layers(term).exists(layer =>
           nodesByRoot.getOrElse(classRoot, Vector.empty).exists(live =>
-            live.layer.map(_ => ()) == layer.map(_ => ()) &&
+            sameShape(live.layer, layer) &&
             live.layer.children.lazyZip(layer.children).forall((child, childTerm) => spelled(childTerm, child))
           )
         )

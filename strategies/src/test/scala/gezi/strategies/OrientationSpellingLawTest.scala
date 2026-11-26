@@ -14,7 +14,8 @@ import gezi.generatedinputs.GeneratedProperties
 import gezi.generatedinputs.HoasGenerators
 import gezi.ir.BindingNormalForm
 import gezi.ir.BuiltInRule
-import gezi.ir.Instruction
+import gezi.ir.Configured
+import gezi.ir.NoFacts
 import gezi.ir.LemmaIdentifier
 import gezi.ir.Pattern
 import gezi.ir.Store
@@ -39,7 +40,11 @@ import gezi.standardlibrary.StandardLibraryIndex
   */
 class OrientationSpellingLawTest extends GeneratedProperties:
 
-  private val lemmas: Gen[LemmaSides] =
+  given gezi.ir.StorageAccess = gezi.ir.StorageAccess.granted()
+
+  given gezi.ir.NoFacts.type = gezi.ir.NoFacts
+
+  private val lemmas: Gen[LemmaSides[NoFacts.type]] =
     for
       count <- Gen.int(Range.linear(1, 3))
       left <- Gen.sized(size => HoasGenerators.openTerm(count, size.value / 2))
@@ -48,15 +53,15 @@ class OrientationSpellingLawTest extends GeneratedProperties:
       def closed(body: HoasGenerators.Open) =
         def lambdas(outer: Vector[Term]): Term =
           if outer.size == count then body(outer) else Term.λ(bound => lambdas(outer :+ bound))
-        Defunctionalization.thunkInstruction(lambdas(Vector.empty).deBruijnTerm(Map.empty))
+        Defunctionalization.thunkInstruction[gezi.ir.NoFacts.type](lambdas(Vector.empty).deBruijnTerm(Map.empty))(using gezi.ir.NoFacts)
       LemmaSides(LemmaIdentifier(0), closed(left), closed(right))
 
-  private def normalizedSides(sides: LemmaSides): Vector[(Pattern, Pattern)] =
+  private def normalizedSides(sides: LemmaSides[NoFacts.type]): Vector[(Pattern[NoFacts.type], Pattern[NoFacts.type])] =
     val encoded =
-      BaselineLemmaEncoding.encoded(StandardLibraryIndex(Vector.empty, Vector(sides), Vector.empty, Vector.empty), sides)
-    Vector(encoded.left, encoded.right).map(side => (side, OrientationCompilation.normalized(side, Store(Set.empty))))
+      BaselineLemmaEncoding.encoded(StandardLibraryIndex(NoFacts, Vector.empty, Vector(sides), Vector.empty, Vector.empty), sides)
+    Vector(encoded.left, encoded.right).map(side => (side, OrientationCompilation.normalized(side, Store(Set.empty, gezi.ir.TermConstruction(gezi.ir.NoFacts)))))
 
-  private def thunks(pattern: Pattern): Vector[Pattern.Thunk] =
+  private def thunks(pattern: Pattern[NoFacts.type]): Vector[Pattern.Thunk[NoFacts.type]] =
     val own = pattern match
       case thunk @ Pattern.Thunk(_, holes, _) if holes.nonEmpty => Vector(thunk)
       case _                                                    => Vector.empty
@@ -79,21 +84,21 @@ class OrientationSpellingLawTest extends GeneratedProperties:
   /** The leaf a metavariable stands for in an instance: an opaque term of its
     * own for each index, which the front end's spelling keeps as a leaf.
     */
-  private def leaf(index: Int): Instruction = Instruction.opaque(s"the leaf of metavariable $index")
+  private def leaf(index: Int): Configured[NoFacts.type] = NoFacts.opaque(s"the leaf of metavariable $index")
 
   /** The instance of a pattern, metavariable i the leaf i; none for a
     * pattern with a closure, whose instance is no one term.
     */
-  private def instance(pattern: Pattern): Option[Instruction] = pattern match
+  private def instance(pattern: Pattern[NoFacts.type]): Option[Configured[NoFacts.type]] = pattern match
     case Pattern.Metavariable(index)          => Some(leaf(index))
     case Pattern.InstructionReference(instruction) => Some(instruction)
     case Pattern.Closure(_)                   => None
-    case Pattern.Apply(function, argument)    => instance(function).zip(instance(argument)).map(Instruction.Apply(_, _))
-    case Pattern.Parallel(left, right)        => instance(left).zip(instance(right)).map(Instruction.Parallel(_, _))
-    case Pattern.Choice(left, right)          => instance(left).zip(instance(right)).map(Instruction.Choice(_, _))
+    case Pattern.Apply(function, argument)    => instance(function).zip(instance(argument)).map(NoFacts.application(_, _))
+    case Pattern.Parallel(left, right)        => instance(left).zip(instance(right)).map(NoFacts.parallel(_, _))
+    case Pattern.Choice(left, right)          => instance(left).zip(instance(right)).map(NoFacts.choice(_, _))
     case Pattern.Thunk(code, holes, fillings) =>
       val made = fillings.flatMap(instance)
-      Option.when(made.size == fillings.size)(Instruction.Thunk(code, holes, made))
+      Option.when(made.size == fillings.size)(NoFacts.thunkOrInstance(code, holes, made))
 
   /** Purpose: catch a respelling that changes what the side stands for, or
     * spells it otherwise than the front end: the instance of the normalized
@@ -131,9 +136,9 @@ class OrientationSpellingLawTest extends GeneratedProperties:
     * class of its own. Four leaves are more than the metavariables of any
     * generated lemma or pattern.
     */
-  private val leafStore: Store = Store(Set.tabulate(4)(leaf))
+  private val leafStore: Store[NoFacts.type] = Store(Set.tabulate(4)(leaf), gezi.ir.TermConstruction(gezi.ir.NoFacts))
 
-  private def oneNode(stated: Instruction, normalized: Instruction): Result =
+  private def oneNode(stated: Configured[NoFacts.type], normalized: Configured[NoFacts.type]): Result =
     val (graph, statedNode) = EGraph.empty(leafStore, Map.empty, explained = false).instructionAdded(stated)
     val (_, normalizedNode) = graph.instructionAdded(normalized)
     Result.diff(normalizedNode, statedNode)(_ == _).log(s"$stated and $normalized")
@@ -143,7 +148,7 @@ class OrientationSpellingLawTest extends GeneratedProperties:
     * thunk of a generated lambda of two or three binders with its first hole
     * dropped, as the β rule leaves it, each filling a metavariable 0 or 1.
     */
-  private val nonlinearThunks: Gen[Pattern] =
+  private val nonlinearThunks: Gen[Pattern[NoFacts.type]] =
     for
       count <- Gen.int(Range.linear(2, 3))
       body <- Gen.sized(size => HoasGenerators.openTerm(count, size.value / 2))
@@ -151,8 +156,8 @@ class OrientationSpellingLawTest extends GeneratedProperties:
     yield
       def lambdas(outer: Vector[Term]): Term =
         if outer.size == count then body(outer) else Term.λ(bound => lambdas(outer :+ bound))
-      Defunctionalization.thunkInstruction(lambdas(Vector.empty).deBruijnTerm(Map.empty)) match
-        case Instruction.Thunk(code, _ +: holes, _) =>
+      Defunctionalization.thunkInstruction[gezi.ir.NoFacts.type](lambdas(Vector.empty).deBruijnTerm(Map.empty))(using gezi.ir.NoFacts).layer match
+        case gezi.ir.Thunk(code, _ +: holes, _) =>
           val arity = Statements.thunkArity(code, holes)
           Pattern.Thunk(code, holes, metavariables.take(arity).toVector.map(Pattern.Metavariable(_)))
         case other => throw IllegalStateException(s"a lambda of $count binders is no thunk: $other")
@@ -166,7 +171,7 @@ class OrientationSpellingLawTest extends GeneratedProperties:
     for thunk <- nonlinearThunks.forAll
     yield
       val stated = instance(thunk)
-      val normalized = instance(OrientationCompilation.normalized(thunk, Store(Set.empty)))
+      val normalized = instance(OrientationCompilation.normalized(thunk, Store(Set.empty, gezi.ir.TermConstruction(gezi.ir.NoFacts))))
       Result.all(stated.zip(normalized).toList.map((left, right) => oneNode(left, right)))
   }
 
@@ -174,15 +179,15 @@ class OrientationSpellingLawTest extends GeneratedProperties:
     * the lemmas, with the built-in rules, within 8 instances.
     */
   private def lemmaUnions(
-      lemmas: Vector[LemmaSides],
+      lemmas: Vector[LemmaSides[NoFacts.type]],
       counted: LemmaIdentifier,
       rules: Set[BuiltInRule],
-      program: Instruction,
+      program: Configured[NoFacts.type],
       stop: StopSignal
   ): Int =
-    val index = StandardLibraryIndex(Vector.empty, lemmas, Vector.empty, Vector.empty)
+    val index = StandardLibraryIndex(NoFacts, Vector.empty, lemmas, Vector.empty, Vector.empty)
     val saturator = StandardSaturator(
-      SaturationOptions(lemmas.map(_.lemma), rules, 8, BaselineLemmaEncoding, ClosureCompilation, StandardIndexer, StandardOrientationCompiler, MemoRetention.Kept)
+      SaturationOptions(lemmas.map(_.lemma), rules, 8, BaselineLemmaEncoding, ClosureCompilation, StandardIndexer.of[gezi.ir.NoFacts.type], StandardOrientationCompiler, MemoRetention.Kept, gezi.ir.TermConstruction(gezi.ir.NoFacts))
     )
     saturator
       .saturated(index, Vector(program), true, stop)
@@ -192,14 +197,14 @@ class OrientationSpellingLawTest extends GeneratedProperties:
         case Justification.Lemma(lemma, _) => lemma == counted
         case _                             => false)
 
-  private def side(text: String): Instruction = Defunctionalization.thunkInstruction(Lambdalattice.term(text))
+  private def side(text: String): Configured[NoFacts.type] = Defunctionalization.thunkInstruction[gezi.ir.NoFacts.type](Lambdalattice.term(text))(using gezi.ir.NoFacts)
 
   /** Three lemmas whose sides hold a thunk in another spelling than the
     * front end's, each with a program it fires on: a side holding `λz. k a`, which the
     * encoding splits into the fillings k and a, against `λz. K A` with K and
     * A closed, which the front end spells with the one filling `K A`.
     */
-  private val witnesses: Vector[(LemmaSides, (Term, Term) => Term)] = Vector(
+  private val witnesses: Vector[(LemmaSides[NoFacts.type], (Term, Term) => Term)] = Vector(
     (
       LemmaSides(LemmaIdentifier(0), side("λk. λa. ((λz. k a) + (λz. k a))"), side("λk. λa. λz. k a")),
       (function, argument) => Term.choice(Term.λ(_ => function(argument)), Term.λ(_ => function(argument)))
@@ -224,8 +229,8 @@ class OrientationSpellingLawTest extends GeneratedProperties:
       function <- HoasGenerators.closedTerm.forAll
       argument <- HoasGenerators.closedTerm.forAll
     yield Result.all(witnesses.toList.map((lemma, program) =>
-      val input = Defunctionalization.thunkInstruction(program(function, argument).deBruijnTerm(Map.empty))
-      val unions = lemmaUnions(Vector(lemma), lemma.lemma, BuiltInRule.all, input, StopSignal.completedWith(stopped))
+      val input = Defunctionalization.thunkInstruction[gezi.ir.NoFacts.type](program(function, argument).deBruijnTerm(Map.empty))(using gezi.ir.NoFacts)
+      val unions = lemmaUnions(Vector(lemma), lemma.lemma, BuiltInRule.beforeOptIn, input, StopSignal.completedWith(stopped))
       Result.assert(unions > 0).log(s"the lemma $lemma made $unions unions on $input")
     ))
   }
@@ -234,7 +239,7 @@ class OrientationSpellingLawTest extends GeneratedProperties:
     * [ignored], [k, a])`, a node in no front end's spelling, and a lemma
     * whose matched side is that thunk as stated.
     */
-  private val chained: Vector[LemmaSides] = Vector(
+  private val chained: Vector[LemmaSides[NoFacts.type]] = Vector(
     LemmaSides(LemmaIdentifier(0), side("λk. λa. (λx. x) (k a)"), side("λk. λa. λz. k a")),
     LemmaSides(LemmaIdentifier(1), side("λk. λa. λz. k a"), side("λk. λa. ((λz. k a) + (λz. k a))"))
   )
@@ -250,9 +255,9 @@ class OrientationSpellingLawTest extends GeneratedProperties:
       function <- HoasGenerators.closedTerm.forAll
       argument <- HoasGenerators.closedTerm.forAll
     yield
-      val input = Defunctionalization.thunkInstruction(
+      val input = Defunctionalization.thunkInstruction[gezi.ir.NoFacts.type](
         Term.λ(bound => bound)(function(argument)).deBruijnTerm(Map.empty)
-      )
+      )(using gezi.ir.NoFacts)
       val unions = lemmaUnions(chained, LemmaIdentifier(1), Set.empty, input, StopSignal.completedWith(stopped))
       Result.assert(unions > 0).log(s"the second lemma made $unions unions on $input")
   }
@@ -272,14 +277,14 @@ class OrientationSpellingLawTest extends GeneratedProperties:
       witness <- Gen.element1(witnesses.head, witnesses.tail*).forAll
     yield
       val (lemma, program) = witness
-      val index = StandardLibraryIndex(Vector.empty, Vector(lemma), Vector.empty, Vector.empty)
+      val index = StandardLibraryIndex(NoFacts, Vector.empty, Vector(lemma), Vector.empty, Vector.empty)
       val saturator = HigherOrderSaturator(
-        SaturationOptions(Vector(lemma.lemma), BuiltInRule.all, 8, BaselineLemmaEncoding, ClosureCompilation, StandardIndexer, StandardOrientationCompiler, MemoRetention.Kept),
+        SaturationOptions(Vector(lemma.lemma), BuiltInRule.beforeOptIn, 8, BaselineLemmaEncoding, ClosureCompilation, StandardIndexer.of[gezi.ir.NoFacts.type], StandardOrientationCompiler, MemoRetention.Kept, gezi.ir.TermConstruction(gezi.ir.NoFacts)),
         None,
         None,
         gezi.saturation.OpeningCriterionChoice.CallsAHead
       )
-      val input = Defunctionalization.thunkInstruction(program(function, argument).deBruijnTerm(Map.empty))
+      val input = Defunctionalization.thunkInstruction[gezi.ir.NoFacts.type](program(function, argument).deBruijnTerm(Map.empty))(using gezi.ir.NoFacts)
       val run = saturator.saturated(index, Vector(input), true, StopSignal.completedWith(stopped))
       val unions = run.graph.unions.count(_.justification match
         case Justification.Lemma(_, _) => true
@@ -287,14 +292,14 @@ class OrientationSpellingLawTest extends GeneratedProperties:
       val output = gezi.rewritetrace.Statements.instance(
         gezi.rewritetrace.Statements.lemma(lemma.left, lemma.right).right,
         Map(
-          "metavariable0" -> Defunctionalization.thunkInstruction(function.deBruijnTerm(Map.empty)),
-          "metavariable1" -> Defunctionalization.thunkInstruction(argument.deBruijnTerm(Map.empty))
+          "metavariable0" -> Defunctionalization.thunkInstruction[gezi.ir.NoFacts.type](function.deBruijnTerm(Map.empty))(using gezi.ir.NoFacts),
+          "metavariable1" -> Defunctionalization.thunkInstruction[gezi.ir.NoFacts.type](argument.deBruijnTerm(Map.empty))(using gezi.ir.NoFacts)
         )
       )
       val proof = GraphProof.proof(run.graph, Vector((input, output)), saturator.lemmas(index))
       val derivation = gezi.proofs.OpentheoryArticle.derivation(index, input, output, proof)
       val respellings = gezi.proofs.RewriteTrace.of(derivation).count(_.reason match
-        case gezi.proofs.RewriteReason.Respell(_) => true
+        case gezi.proofs.RewriteReason.Respell(_, _, _) => true
         case _                                         => false
       )
       val article = java.nio.file.Files.createTempFile("respelled_orientation", ".art")

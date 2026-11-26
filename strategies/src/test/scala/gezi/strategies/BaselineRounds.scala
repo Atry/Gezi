@@ -3,12 +3,16 @@ package gezi.strategies
 import gezi.egraph.MemoRetention
 import gezi.ematching.closures.ClosureCompilation
 import gezi.ir.BuiltInRule
-import gezi.ir.Instruction
+import gezi.ir.NativeSpecializer
+import gezi.ir.NoFacts
+import gezi.ir.TermConstruction
 import gezi.ir.LemmaIdentifier
 import gezi.knowledgereading.KnowledgeReading
 import gezi.lemmaencoding.baseline.BaselineLemmaEncoding
 import gezi.orientation.StandardOrientationCompiler
 import gezi.standardlibrary.StandardLibrary
+import gezi.standardlibrary.StandardLibraryIndex
+import gezi.ir.Configured
 
 /** The baseline's implementations a test's schedule builds its rounds from,
   * named here once for the tests of the modules below `contest-entry`, which
@@ -19,13 +23,17 @@ import gezi.standardlibrary.StandardLibrary
   */
 object BaselineRounds:
 
-  val modules: RoundModules = RoundModules(
-    StandardSaturator(_),
-    CountedExtractor(NativeRouteCompilation.extraction, BaselineModules.table),
+  val modules: RoundModules[NoFacts.type] = modulesOf(NoFacts)
+
+  /** The same implementations in the configuration of the specializer, its terms built by its construction. */
+  def modulesOf[C <: NativeSpecializer & Singleton](specializer: C): RoundModules[C] = RoundModules[C](
+    StandardSaturator[C](_),
+    CountedExtractor(NativeRouteCompilation.extraction, BaselineModules.table[C]),
     BaselineLemmaEncoding,
-    StandardIndexer,
+    StandardIndexer.of[C],
     ClosureCompilation,
-    StandardOrientationCompiler
+    StandardOrientationCompiler,
+    TermConstruction(specializer)
   )
 
   /** The saturation options of the lemmas the round's knowledge term writes
@@ -35,26 +43,28 @@ object BaselineRounds:
     */
   def saturationOptions(
       library: StandardLibrary,
-      round: Instruction,
+      round: Configured[NoFacts.type],
       builtInRules: Set[BuiltInRule],
       budget: Int
-  ): SaturationOptions =
-    SaturationOptions(lemmas(library, round), builtInRules, budget, modules.lemmaEncoding, modules.backend, modules.indexer, modules.orientationCompiler, MemoRetention.Kept)
+  ): SaturationOptions[NoFacts.type] =
+    SaturationOptions(lemmas(library, round), builtInRules, budget, modules.lemmaEncoding, modules.backend, modules.indexer, modules.orientationCompiler, MemoRetention.Kept, modules.construction)
 
   /** `NativeRouteCompilation.nativeRouteSchedule` of the library with the
     * round modules `modules`: the type check enabling the lemmas the round
     * `typeCheck` writes, the erasure those of the tests' round
     * `occurrence_erasure`.
     */
-  def nativeRouteSchedule(library: StandardLibrary, typeCheck: Instruction, budget: Int): Vector[Round] =
+  def nativeRouteSchedule[C <: NativeSpecializer & Singleton](library: StandardLibrary, typeCheck: Configured[NoFacts.type], budget: Int)(using
+      specializer: C
+  ): Vector[Round[C]] =
     NativeRouteCompilation.nativeRouteSchedule(
-      library.index,
+      StandardLibraryIndex.crossed(library.index, specializer),
       lemmas(library, typeCheck),
       lemmas(library, StrategyTesting.round("occurrence_erasure")),
       budget,
-      modules
+      modulesOf(specializer)
     )
 
   /** The lemmas the round's knowledge term writes, read under a fresh state. */
-  def lemmas(library: StandardLibrary, round: Instruction): Vector[LemmaIdentifier] =
+  def lemmas(library: StandardLibrary, round: Configured[NoFacts.type]): Vector[LemmaIdentifier] =
     library.lemmas(round, KnowledgeReading.startingState)._1

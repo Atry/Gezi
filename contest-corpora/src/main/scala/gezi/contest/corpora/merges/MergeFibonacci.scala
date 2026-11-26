@@ -27,11 +27,11 @@ final class MergeFibonacci(problems: ProblemFamilies, dynamic: MergeDynamic):
   /** `\self. \n. n 0 (\p. p 1 (\q. plus (self self p) (self self q)))`
     * applied to itself (`fibonacci_function/4`).
     */
-  def fibonacciFunction(plus: Term, zero: Term, one: Term): Term =
+  def fibonacciFunction(plus: ProblemTerm, zero: ProblemTerm, one: ProblemTerm): ProblemTerm =
     file.program("fibonacci_body", plus, zero, one)(file.program("fibonacci_body", plus, zero, one))
 
   /** The Church Boolean of `fib(n) == claimed` (`fibonacci_term/3`). */
-  def fibonacciTerm(n: Int, claimed: BigInt): Term =
+  def fibonacciTerm(n: Int, claimed: BigInt): ProblemTerm =
     dynamic.withArithmetic(names =>
       λ(zero =>
         λ(one =>
@@ -60,7 +60,7 @@ final class MergeFibonacci(problems: ProblemFamilies, dynamic: MergeDynamic):
       .getOrElse(throw IllegalArgumentException(s"$name is no point of contest_merge_fibonacci"))
 
   /** The point's program. */
-  def program(name: String): Term =
+  def program(name: String): ProblemTerm =
     val (n, claimed) = point(name)
     fibonacciTerm(n, claimed)
 

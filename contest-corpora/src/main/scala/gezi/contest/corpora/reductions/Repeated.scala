@@ -103,7 +103,7 @@ trait RepeatedVariant:
   def nominal: NominalRanges
 
   /** The repeated program of R distinct inputs drawn from the seed. */
-  def program(group: ReductionGroup, seed: Long, repetitions: Int): Term
+  def program(group: ReductionGroup, seed: Long, repetitions: Int): ProblemTerm
 
   /** The point of the repeated program: by default its reference is
     * tabling(weak_head)'s reading (`Reference.Read`); a family that computes its
@@ -113,7 +113,7 @@ trait RepeatedVariant:
     DrawnPoint(program(group, seed, repetitions), Reference.Read)
 
   /** The family's single-input programs of the same inputs, in order. */
-  def singlePrograms(group: ReductionGroup, seed: Long, repetitions: Int): Vector[Term]
+  def singlePrograms(group: ReductionGroup, seed: Long, repetitions: Int): Vector[ProblemTerm]
 
   /** What the seed draws, the function's parameters and the inputs, as text. */
   def drawnText(group: ReductionGroup, seed: Long, repetitions: Int): String
@@ -127,10 +127,10 @@ abstract class RepeatedFamily[Drawn] extends RepeatedVariant:
   protected def drawn(group: ReductionGroup, draws: Draws, repetitions: Int): Drawn
 
   /** The repeated program of the draws. */
-  protected def repeated(group: ReductionGroup, drawn: Drawn): Term
+  protected def repeated(group: ReductionGroup, drawn: Drawn): ProblemTerm
 
   /** The single-input programs of the draws. */
-  protected def singles(group: ReductionGroup, drawn: Drawn): Vector[Term]
+  protected def singles(group: ReductionGroup, drawn: Drawn): Vector[ProblemTerm]
 
   /** The stem the draws start from, mixed with the seed. It is the variant's
     * `stem` unless the family overrides it: the direct and the respelled twin
@@ -146,10 +146,10 @@ abstract class RepeatedFamily[Drawn] extends RepeatedVariant:
     require(nominal.repetitions.contains(repetitions), s"$repetitions repetitions are outside ${nominal.repetitions}")
     drawn(group, Draws.fromSeedAndStem(seed, drawStem), repetitions)
 
-  final def program(group: ReductionGroup, seed: Long, repetitions: Int): Term =
+  final def program(group: ReductionGroup, seed: Long, repetitions: Int): ProblemTerm =
     repeated(group, drawnOf(group, seed, repetitions))
 
-  final def singlePrograms(group: ReductionGroup, seed: Long, repetitions: Int): Vector[Term] =
+  final def singlePrograms(group: ReductionGroup, seed: Long, repetitions: Int): Vector[ProblemTerm] =
     val programs = singles(group, drawnOf(group, seed, repetitions))
     assert(programs.size == repetitions, s"${programs.size} single programs for $repetitions repetitions")
     programs
@@ -175,7 +175,7 @@ object Repetition:
     * bound once and applied at each site to that site's arguments, the
     * results collected in a Scott list.
     */
-  def sites(attractors: Attractors, function: Term, arguments: Vector[Vector[Term]]): Term =
+  def sites(attractors: Attractors, function: ProblemTerm, arguments: Vector[Vector[ProblemTerm]]): ProblemTerm =
     λ(bound => SetFree.scottList(attractors, arguments.map(applied(bound, _))))(function)
 
   /** The parameter's value, drawn from its nominal range. */
@@ -230,7 +230,7 @@ object ReductionMeaningsRepeated
   protected def drawn(group: ReductionGroup, draws: Draws, repetitions: Int): Drawn =
     Drawn(draws.distinct(repetitions)(Repetition.drawnNumber(_, nominal, "number"))._1)
 
-  protected def repeated(group: ReductionGroup, drawn: Drawn): Term =
+  protected def repeated(group: ReductionGroup, drawn: Drawn): ProblemTerm =
     ReductionMeanings.withDefinitions(definitions =>
       Repetition.sites(
         group.attractors,
@@ -239,7 +239,7 @@ object ReductionMeaningsRepeated
       )
     )
 
-  protected def singles(group: ReductionGroup, drawn: Drawn): Vector[Term] =
+  protected def singles(group: ReductionGroup, drawn: Drawn): Vector[ProblemTerm] =
     drawn.numbers.map(ReductionMeanings.countSurface)
 
 /** `eval [] Expression` of `ReductionInterpreter` at R distinct expressions
@@ -321,7 +321,7 @@ object ReductionInterpreterRepeated
         val ((bound, body), after) = pair(scope, scope + 1)
         (Expression.Let(bound, body), after)
 
-  protected def repeated(group: ReductionGroup, drawn: Drawn): Term =
+  protected def repeated(group: ReductionGroup, drawn: Drawn): ProblemTerm =
     ReductionInterpreter.withEvaluator(group)(evaluate =>
       Repetition.sites(
         group.attractors,
@@ -330,7 +330,7 @@ object ReductionInterpreterRepeated
       )
     )
 
-  protected def singles(group: ReductionGroup, drawn: Drawn): Vector[Term] =
+  protected def singles(group: ReductionGroup, drawn: Drawn): Vector[ProblemTerm] =
     drawn.expressions.map(ReductionInterpreter.programSurface(group, _))
 
 /** `Repeat Times Function` of `SetFreePremises`, its function (the rebuild,
@@ -378,14 +378,14 @@ object SetFreePremisesRepeated
     val (times, afterTimes) = Repetition.drawnNumber(afterSpelling, nominal, "times")
     Drawn(function, spelling, times, afterTimes.distinct(repetitions)(Repetition.drawnNumber(_, nominal, "number"))._1)
 
-  protected def repeated(group: ReductionGroup, drawn: Drawn): Term =
+  protected def repeated(group: ReductionGroup, drawn: Drawn): ProblemTerm =
     Repetition.sites(
       group.attractors,
       SetFreePremises.repeatedFunction(group, drawn.function, drawn.spelling, drawn.times),
       drawn.numbers.map(number => Vector(binary(number)))
     )
 
-  protected def singles(group: ReductionGroup, drawn: Drawn): Vector[Term] =
+  protected def singles(group: ReductionGroup, drawn: Drawn): Vector[ProblemTerm] =
     drawn.numbers.map(number =>
       SetFreePremises.pointSurface(
         group,
@@ -427,14 +427,14 @@ class SetFreeScopeRepeatedVariant(val nominal: NominalRanges)
       afterSpelling.distinct(repetitions)(Repetition.drawnNumber(_, nominal, "steps"))._1
     )
 
-  protected def repeated(group: ReductionGroup, drawn: SetFreeScopeRepeatedVariant.Drawn): Term =
+  protected def repeated(group: ReductionGroup, drawn: SetFreeScopeRepeatedVariant.Drawn): ProblemTerm =
     Repetition.sites(
       group.attractors,
       λ(steps => SetFreeScope.loopApplied(group, drawn.loop, drawn.spelling, steps)),
       drawn.steps.map(count => Vector(unary(count)))
     )
 
-  protected def singles(group: ReductionGroup, drawn: SetFreeScopeRepeatedVariant.Drawn): Vector[Term] =
+  protected def singles(group: ReductionGroup, drawn: SetFreeScopeRepeatedVariant.Drawn): Vector[ProblemTerm] =
     drawn.steps.map(count =>
       SetFreeScope.pointSurface(group, SetFreeScope.ScopePoint("repeated", drawn.loop, drawn.spelling, count))
     )
@@ -492,14 +492,14 @@ class SetFreeListLawsRepeatedVariant(val nominal: NominalRanges)
       afterSpelling.distinct(repetitions)(Repetition.drawnNumber(_, nominal, "doublings"))._1
     )
 
-  protected def repeated(group: ReductionGroup, drawn: SetFreeListLawsRepeatedVariant.Drawn): Term =
+  protected def repeated(group: ReductionGroup, drawn: SetFreeListLawsRepeatedVariant.Drawn): ProblemTerm =
     Repetition.sites(
       group.attractors,
       λ(doublings => SetFreeListLaws.lawApplied(group.attractors, drawn.transformer, drawn.spelling, doublings)),
       drawn.doublings.map(count => Vector(unary(count)))
     )
 
-  protected def singles(group: ReductionGroup, drawn: SetFreeListLawsRepeatedVariant.Drawn): Vector[Term] =
+  protected def singles(group: ReductionGroup, drawn: SetFreeListLawsRepeatedVariant.Drawn): Vector[ProblemTerm] =
     drawn.doublings.map(count =>
       SetFreeListLaws.pointSurface(
         group.attractors,
@@ -544,12 +544,12 @@ object ReductionProblemsRepeated:
     protected def drawn(group: ReductionGroup, draws: Draws, repetitions: Int): Vector[Int] =
       draws.distinct(repetitions)(Repetition.drawnNumber(_, nominal, "number"))._1
 
-    protected def repeated(group: ReductionGroup, drawn: Vector[Int]): Term =
+    protected def repeated(group: ReductionGroup, drawn: Vector[Int]): ProblemTerm =
       ReductionProblems.withFibonacci(group)(function =>
         Repetition.sites(group.attractors, λ(number => function(number)), drawn.map(number => Vector(unary(number))))
       )
 
-    protected def singles(group: ReductionGroup, drawn: Vector[Int]): Vector[Term] =
+    protected def singles(group: ReductionGroup, drawn: Vector[Int]): Vector[ProblemTerm] =
       drawn.map(ReductionProblems.fibonacciProgram(group, _))
 
   /** The product of R distinct pairs. The native solver: the integer
@@ -581,7 +581,7 @@ object ReductionProblemsRepeated:
     protected def drawn(group: ReductionGroup, draws: Draws, repetitions: Int): Vector[(Int, Int)] =
       draws.distinct(repetitions)(wideOperands(nominal))._1
 
-    protected def repeated(group: ReductionGroup, drawn: Vector[(Int, Int)]): Term =
+    protected def repeated(group: ReductionGroup, drawn: Vector[(Int, Int)]): ProblemTerm =
       ReductionProblems.withTimes(group)(times =>
         Repetition.sites(
           group.attractors,
@@ -590,7 +590,7 @@ object ReductionProblemsRepeated:
         )
       )
 
-    protected def singles(group: ReductionGroup, drawn: Vector[(Int, Int)]): Vector[Term] =
+    protected def singles(group: ReductionGroup, drawn: Vector[(Int, Int)]): Vector[ProblemTerm] =
       drawn.map((left, right) => ReductionProblems.productProgram(group, left, right))
 
   /** The lattice paths of R distinct square grids, their sides drawn from
@@ -611,7 +611,7 @@ object ReductionProblemsRepeated:
     protected def drawn(group: ReductionGroup, draws: Draws, repetitions: Int): Vector[Int] =
       draws.distinct(repetitions)(Repetition.drawnNumber(_, nominal, "side"))._1
 
-    protected def repeated(group: ReductionGroup, drawn: Vector[Int]): Term =
+    protected def repeated(group: ReductionGroup, drawn: Vector[Int]): ProblemTerm =
       ReductionProblems.withGrid(group)(grid =>
         Repetition.sites(
           group.attractors,
@@ -620,7 +620,7 @@ object ReductionProblemsRepeated:
         )
       )
 
-    protected def singles(group: ReductionGroup, drawn: Vector[Int]): Vector[Term] =
+    protected def singles(group: ReductionGroup, drawn: Vector[Int]): Vector[ProblemTerm] =
       drawn.map(ReductionProblems.gridProgram(group, _))
 
   /** The points' variant of the grids: sides from 0 to 9, R at most 10. */
@@ -645,7 +645,7 @@ object ReductionProblemsRepeated:
     protected def drawn(group: ReductionGroup, draws: Draws, repetitions: Int): Vector[(Int, Int)] =
       draws.distinct(repetitions)(operands(nominal))._1
 
-    protected def repeated(group: ReductionGroup, drawn: Vector[(Int, Int)]): Term =
+    protected def repeated(group: ReductionGroup, drawn: Vector[(Int, Int)]): ProblemTerm =
       ReductionProblems.withPlus(group)(plus =>
         Repetition.sites(
           group.attractors,
@@ -654,7 +654,7 @@ object ReductionProblemsRepeated:
         )
       )
 
-    protected def singles(group: ReductionGroup, drawn: Vector[(Int, Int)]): Vector[Term] =
+    protected def singles(group: ReductionGroup, drawn: Vector[(Int, Int)]): Vector[ProblemTerm] =
       drawn.map((left, right) => ReductionProblems.sumBothOrdersProgram(group, left, right))
 
   /** Two operands, each drawn from the range `operand`. */
@@ -733,7 +733,7 @@ object ReductionMixinBinaryRepeated
       case other   => throw IllegalArgumentException(s"no operation $other")
     (Equation(left, right, if holds then value else value + offset), afterOffset)
 
-  protected def repeated(group: ReductionGroup, drawn: Drawn): Term =
+  protected def repeated(group: ReductionGroup, drawn: Drawn): ProblemTerm =
     val mixins = group.mixins
     ReductionMixinBinary.withBinaryLibrary(mixins)(names =>
       Repetition.sites(
@@ -755,7 +755,7 @@ object ReductionMixinBinaryRepeated
       )
     )
 
-  protected def singles(group: ReductionGroup, drawn: Drawn): Vector[Term] =
+  protected def singles(group: ReductionGroup, drawn: Drawn): Vector[ProblemTerm] =
     drawn.equations.map(equation =>
       ReductionMixinBinary.binaryPointSurface(group.mixins, drawn.operation, equation.left, equation.right, equation.result)
     )
@@ -812,14 +812,14 @@ object SetFreeArithmeticRepeated
   private[reductions] def pair(ranges: NominalRanges)(draws: Draws): ((Int, Int), Draws) =
     ReductionProblemsRepeated.wideOperands(ranges)(draws)
 
-  protected def repeated(group: ReductionGroup, drawn: Drawn): Term =
+  protected def repeated(group: ReductionGroup, drawn: Drawn): ProblemTerm =
     Repetition.sites(
       group.attractors,
       SetFreeArithmetic.operationFunction(group, drawn.operation, drawn.spelling),
       drawn.pairs.map((left, right) => Vector(binary(left), binary(right)))
     )
 
-  protected def singles(group: ReductionGroup, drawn: Drawn): Vector[Term] =
+  protected def singles(group: ReductionGroup, drawn: Drawn): Vector[ProblemTerm] =
     drawn.pairs.map((left, right) =>
       SetFreeArithmetic.pointSurface(
         group,

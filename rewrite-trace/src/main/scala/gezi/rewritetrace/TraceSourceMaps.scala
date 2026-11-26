@@ -4,7 +4,7 @@ import gezi.frontend.Defunctionalization
 import gezi.frontend.TermMap
 import gezi.ir.Code
 import gezi.ir.Hole
-import gezi.ir.Instruction
+import gezi.ir.StorageAccess
 import gezi.ir.{Apply, Choice, Parallel, Slot, Thunk}
 import gezi.locations.BinderOrigin
 import gezi.locations.MadeBy
@@ -13,6 +13,7 @@ import gezi.ir.TailRecFolds
 import scala.util.control.TailCalls.TailRec
 import scala.util.control.TailCalls.done
 import scala.util.control.TailCalls.tailcall
+import gezi.ir.{Configured, NativeSpecializer}
 
 /** Where the places of each term of a trace come from, carried from the
   * start's source map (`TraceStart.readLocated`) through the steps, and what a person reads
@@ -44,14 +45,17 @@ import scala.util.control.TailCalls.tailcall
 object TraceSourceMaps:
 
   /** The source map of the start and of the term after each step, in order. */
-  def carried(startMap: SourceMap, steps: Vector[ReplayedStep]): Vector[SourceMap] =
+  def carried[C <: NativeSpecializer & Singleton](startMap: SourceMap, steps: Vector[ReplayedStep[C]])(using C, StorageAccess): Vector[SourceMap] =
     carriedLazily(startMap, steps).toVector
 
   /** `carried`, each map made the first time it is read, after the maps
     * before it, and kept: a player reads the maps of the steps it shows
     * only.
     */
-  def carriedLazily(startMap: SourceMap, steps: Vector[ReplayedStep]): LazyList[SourceMap] =
+  def carriedLazily[C <: NativeSpecializer & Singleton](startMap: SourceMap, steps: Vector[ReplayedStep[C]])(using
+      C,
+      StorageAccess
+  ): LazyList[SourceMap] =
     startMap #:: steps.headOption.fold(LazyList.empty[SourceMap])(first =>
       val met = indexed(first.before, startMap, Map.empty, Set.empty).result
       steps.to(LazyList).scanLeft((startMap, met)) { case ((map, known), step) => stepped(map, known, step) }.drop(1).map(_._1)
@@ -67,17 +71,21 @@ object TraceSourceMaps:
   private final case class CodeOrigins(codeMap: SourceMap, holesFromLast: Vector[Hole], fromLast: Vector[Set[BinderOrigin]])
 
   /** The maps of the start and of each step, each with the codes met up to it. */
-  private def carriedFrom(
+  private def carriedFrom[C <: NativeSpecializer & Singleton](
       startMap: SourceMap,
       met: Map[Code, Vector[CodeOrigins]],
-      steps: Vector[ReplayedStep]
-  ): Vector[(SourceMap, Map[Code, Vector[CodeOrigins]])] =
+      steps: Vector[ReplayedStep[C]]
+  )(using C, StorageAccess): Vector[(SourceMap, Map[Code, Vector[CodeOrigins]])] =
     steps.scanLeft((startMap, met)) { case ((map, known), step) => stepped(map, known, step) }
 
   /** The map of the term after the step, from the map of the term before it,
     * and the codes met once the step is made.
     */
-  private def stepped(map: SourceMap, known: Map[Code, Vector[CodeOrigins]], step: ReplayedStep): (SourceMap, Map[Code, Vector[CodeOrigins]]) =
+  private def stepped[C <: NativeSpecializer & Singleton](
+      map: SourceMap,
+      known: Map[Code, Vector[CodeOrigins]],
+      step: ReplayedStep[C]
+  )(using C, StorageAccess): (SourceMap, Map[Code, Vector[CodeOrigins]]) =
     val replacedMap = at(map, step.before, step.command.at)
     val copies = step.provenance.flatMap(found =>
       found.before.headOption.toVector.flatMap(from =>
@@ -99,7 +107,7 @@ object TraceSourceMaps:
         ).toMap
         val statedMap = statedSideMap(stated.side, stated.bound, variableMaps, known, by).result
         val instance = stated.instance
-        if instance eq step.replacement then statedMap
+        if Configured.same(instance, step.replacement) then statedMap
         else
           // TODO (https://github.com/Atry/private-overlay/issues/1689, D2, and
           // #1504 step 8): the places of the replay's spelling keep only
@@ -134,7 +142,7 @@ object TraceSourceMaps:
     val moved = step.provenance.flatMap(found =>
       found.before.headOption.toVector.flatMap(from =>
         found.after.filter(to =>
-          (Positions.subterm(step.replacement, to) eq Positions.subterm(step.replaced, from)) &&
+          Configured.same(Positions.subterm(step.replacement, to), Positions.subterm(step.replaced, from)) &&
             (at(replacementMap, step.replacement, to) eq at(replacedMap, step.replaced, from))
         )
       )
@@ -151,7 +159,12 @@ object TraceSourceMaps:
     * opened, or `Made` by the abstraction rule where it has none. A step
     * with no steps in the body writes back the thunk it opened.
     */
-  private def abstractionMap(step: ReplayedStep, replacedMap: SourceMap, count: Int, known: Map[Code, Vector[CodeOrigins]]): SourceMap =
+  private def abstractionMap[C <: NativeSpecializer & Singleton](
+      step: ReplayedStep[C],
+      replacedMap: SourceMap,
+      count: Int,
+      known: Map[Code, Vector[CodeOrigins]]
+  )(using C, StorageAccess): SourceMap =
     step.inner.headOption match
       case None => withoutLocations(Defunctionalization.relocatedMap(step.replaced, replacedMap, step.replacement)).result
       case Some(first) =>
@@ -171,8 +184,8 @@ object TraceSourceMaps:
     * maps with an unlocated place for each bound hole's leaf, or with no hole
     * left the code read at the fillings.
     */
-  private def openedMap(thunk: Instruction, map: SourceMap, count: Int): SourceMap = thunk match
-    case Instruction.Thunk(code, holes, fillings) =>
+  private def openedMap[C <: NativeSpecializer & Singleton](thunk: Configured[C], map: SourceMap, count: Int)(using C): SourceMap = thunk.layer match
+    case Thunk(code, holes, fillings) =>
       val (rest, filledMaps) = holes.take(count).foldLeft((holes, map.children.padTo(fillings.size, SourceMap.unlocated))) {
         case ((remaining, current), _) =>
           remaining match
@@ -207,13 +220,13 @@ object TraceSourceMaps:
     * stored term as the step made it; a thunk the map of its code as met
     * (`thunkMap`); another layer a place over its parts' maps.
     */
-  private def statedSideMap(
-      side: StatementTerm,
-      bound: Map[String, Instruction],
+  private def statedSideMap[C <: NativeSpecializer & Singleton](
+      side: StatementTerm[Configured[C]],
+      bound: Map[String, Configured[C]],
       variableMaps: Map[String, SourceMap],
       known: Map[Code, Vector[CodeOrigins]],
       by: MadeBy
-  ): TailRec[SourceMap] =
+  )(using C, StorageAccess): TailRec[SourceMap] =
     side match
       case StatementTerm.Variable(name) =>
         variableMaps.get(name) match
@@ -285,12 +298,12 @@ object TraceSourceMaps:
     * the caller has walked each, with its map, before, and walking a term
     * with its map again adds no code, since the codes met only grow.
     */
-  private def indexed(
-      term: Instruction,
+  private def indexed[C <: NativeSpecializer & Singleton](
+      term: Configured[C],
       map: SourceMap,
       known: Map[Code, Vector[CodeOrigins]],
       indexedBefore: Set[Vector[Int]]
-  ): TailRec[Map[Code, Vector[CodeOrigins]]] =
+  )(using C, StorageAccess): TailRec[Map[Code, Vector[CodeOrigins]]] =
     def entered(code: Code, holes: Vector[Hole], thunkMap: SourceMap, found: Map[Code, Vector[CodeOrigins]]): Map[Code, Vector[CodeOrigins]] =
       // A `Made` origin says which step made that binder, so it is not
       // handed to another thunk of the code; nor are the maps of this
@@ -315,15 +328,15 @@ object TraceSourceMaps:
         case Parallel(left, right)         => Vector((left, child(codeMap, 0)), (right, child(codeMap, 1)))
         case Slot(_)                       => Vector.empty
       TailRecFolds.folded(below, inner)((current, part) => codeIndexed(part._1, part._2, current))
-    def walked(subterm: Instruction, subtermMap: SourceMap, place: Vector[Int], found: Map[Code, Vector[CodeOrigins]]): TailRec[Map[Code, Vector[CodeOrigins]]] =
+    def walked(subterm: Configured[C], subtermMap: SourceMap, place: Vector[Int], found: Map[Code, Vector[CodeOrigins]]): TailRec[Map[Code, Vector[CodeOrigins]]] =
       if subterm.opaque || indexedBefore.contains(place) then done(found)
       else
-        val withCode = subterm match
-          case Instruction.Thunk(code, holes, _) =>
+        val withCode = subterm.layer match
+          case Thunk(code, holes, _) =>
             val entry = entered(code, holes, subtermMap, found)
             tailcall(codeIndexed(code, subtermMap.code.getOrElse(SourceMap.unlocated), entry))
           case _ => done(found)
-        subterm.layered.children.zipWithIndex.foldLeft(withCode)((before, part) =>
+        Positions.layerOf(subterm).children.zipWithIndex.foldLeft(withCode)((before, part) =>
           before.flatMap(current => tailcall(walked(part._1, child(subtermMap, part._2), place :+ part._2, current)))
         )
     walked(term, map, Vector.empty, known)
@@ -335,17 +348,17 @@ object TraceSourceMaps:
     * the maps the copies replace, which are as large as the subtrees a step
     * moves.
     */
-  private def withoutLocationsCopied(
+  private def withoutLocationsCopied[C <: NativeSpecializer & Singleton](
       map: SourceMap,
-      term: Instruction,
+      term: Configured[C],
       position: Vector[PositionSegment],
       copies: Map[Vector[PositionSegment], SourceMap]
-  ): TailRec[SourceMap] =
+  )(using C, StorageAccess): TailRec[SourceMap] =
     copies.get(position) match
       case Some(copied) => done(copied)
       case None if !copies.keys.exists(_.startsWith(position)) => tailcall(withoutLocations(map))
       case None =>
-        val layer = term.layered
+        val layer = Positions.layerOf(term)
         for
           code <- map.code.fold(done(Option.empty[SourceMap]))(codeMap => tailcall(withoutLocations(codeMap)).map(Some(_)))
           children <- Statements.traversed(layer.children.zip(Positions.roles(layer)).zipWithIndex)((part, index) =>
@@ -363,7 +376,7 @@ object TraceSourceMaps:
   /** The map at the position of the term, unlocated where the map does not
     * reach.
     */
-  def at(map: SourceMap, term: Instruction, position: Vector[PositionSegment]): SourceMap =
+  def at[C <: NativeSpecializer & Singleton](map: SourceMap, term: Configured[C], position: Vector[PositionSegment])(using C, StorageAccess): SourceMap =
     position
       .foldLeft((map, term)) { case ((current, subterm), segment) =>
         val index = childIndex(subterm, segment)
@@ -374,7 +387,7 @@ object TraceSourceMaps:
   /** The indices of `Layer.children` the position goes through in the term:
     * the path the player keys its nodes by.
     */
-  def path(term: Instruction, position: Vector[PositionSegment]): Vector[Int] =
+  def path[C <: NativeSpecializer & Singleton](term: Configured[C], position: Vector[PositionSegment])(using C, StorageAccess): Vector[Int] =
     position
       .foldLeft((Vector.empty[Int], term)) { case ((indices, subterm), segment) =>
         (indices :+ childIndex(subterm, segment), Positions.subterm(subterm, Vector(segment)))
@@ -387,7 +400,7 @@ object TraceSourceMaps:
     * several): what the player's transition flies from one place to the
     * other. A step with no provenance moves nothing.
     */
-  def moves(step: ReplayedStep): Vector[(Vector[Int], Vector[Int])] =
+  def moves[C <: NativeSpecializer & Singleton](step: ReplayedStep[C])(using C, StorageAccess): Vector[(Vector[Int], Vector[Int])] =
     step.provenance.flatMap(found =>
       found.before.headOption.toVector.flatMap(from =>
         found.after.map(to => (path(step.before, step.command.at ++ from), path(step.after, step.command.at ++ to)))
@@ -400,12 +413,12 @@ object TraceSourceMaps:
     * backends and for finding its proof in Lean, and is not shown
     * in a step's label, which writes no `uri#char=…` either.
     */
-  def label(command: TraceCommand): String = labelWith(command, index => s"lemma ${index + 1}")
+  def label[C <: NativeSpecializer & Singleton](command: TraceCommand[C]): String = labelWith(command, index => s"lemma ${index + 1}")
 
   /** `label`, each lemma shown by `lemmaShown` of its index in the trace,
     * such as its number with its two sides printed (the player's page).
     */
-  def labelWith(command: TraceCommand, lemmaShown: Int => String): String =
+  def labelWith[C <: NativeSpecializer & Singleton](command: TraceCommand[C], lemmaShown: Int => String): String =
     def where(position: Vector[PositionSegment]): String =
       if position.isEmpty then "at the root" else s"at ${position.map(segmentName).mkString(".")}"
     def direction(of: RewriteDirection): String = of match
@@ -436,8 +449,8 @@ object TraceSourceMaps:
     case PositionSegment.Right          => "right"
     case PositionSegment.Filling(index) => s"filling $index"
 
-  private def childIndex(term: Instruction, segment: PositionSegment): Int =
-    val index = Positions.roles(term.layered).indexOf(segment)
+  private def childIndex[C <: NativeSpecializer & Singleton](term: Configured[C], segment: PositionSegment)(using C, StorageAccess): Int =
+    val index = if term.opaque then -1 else Positions.roles(Positions.layerOf(term)).indexOf(segment)
     require(index >= 0, s"the term $term has no subterm at $segment")
     index
 
@@ -446,25 +459,25 @@ object TraceSourceMaps:
     * of the terms under it, a thunk's binders named as `thunkMap` names them.
     * A trampoline: a replacement is as deep as a term.
     */
-  private def built(
-      term: Instruction,
+  private def built[C <: NativeSpecializer & Singleton](
+      term: Configured[C],
       position: Vector[PositionSegment],
       copies: Map[Vector[PositionSegment], SourceMap],
       known: Map[Code, Vector[CodeOrigins]],
       by: MadeBy
-  ): TailRec[SourceMap] =
+  )(using C, StorageAccess): TailRec[SourceMap] =
     copies.get(position) match
       case Some(copied) => done(copied)
       case None if term.opaque => done(SourceMap.unlocated)
       case None =>
-        val layer = term.layered
+        val layer = Positions.layerOf(term)
         TailRecFolds.folded(layer.children.zip(Positions.roles(layer)).toVector, Vector.empty[SourceMap]) { case (maps, (child, role)) =>
           built(child, position :+ role, copies, known, by).map(maps :+ _)
         }
           .map(children =>
-            term match
-              case Instruction.Thunk(code, holes, _) => thunkMap(code, holes, children, known, by)
-              case _                                 => SourceMap(Set.empty, None, children, Vector.empty)
+            layer match
+              case Thunk(code, holes, _) => thunkMap(code, holes, children, known, by)
+              case _                     => SourceMap(Set.empty, None, children, Vector.empty)
           )
 
   /** The map with the map at the position of the term replaced. A thunk
@@ -479,7 +492,12 @@ object TraceSourceMaps:
     * `Native` step made with three binders, over one the start wrote twice
     * with two.
     */
-  private def replacedAt(map: SourceMap, term: Instruction, position: Vector[PositionSegment], replacement: SourceMap): SourceMap =
+  private def replacedAt[C <: NativeSpecializer & Singleton](
+      map: SourceMap,
+      term: Configured[C],
+      position: Vector[PositionSegment],
+      replacement: SourceMap
+  )(using C, StorageAccess): SourceMap =
     val ancestors = position
       .scanLeft((map, term)) { case ((current, subterm), segment) =>
         val index = childIndex(subterm, segment)
@@ -488,13 +506,13 @@ object TraceSourceMaps:
     position.indices.foldRight(replacement) { (place, inner) =>
       val (ancestor, subterm) = ancestors(place)
       val index = childIndex(subterm, position(place))
-      val count = subterm.layered.children.size
+      val count = Positions.layerOf(subterm).children.size
       val children = Vector.tabulate(count)(child =>
         if child == index then inner else ancestor.children.lift(child).getOrElse(SourceMap.unlocated)
       )
       val replacedBelow = ancestor.copy(children = children)
-      subterm match
-        case Instruction.Thunk(code, holes, _) =>
+      subterm.layer match
+        case Thunk(code, holes, _) =>
           replacedBelow.copy(code = replacedBelow.code.map(codeMap => occurrencesDropped(code, codeMap, Set(filledSlot(holes, index))).result))
         case _ => replacedBelow
     }

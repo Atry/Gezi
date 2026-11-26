@@ -1,7 +1,0 @@
-list_fold_filtered_contract: λ x_0 x_1 x_2 x_3
-        . compose (filter_by x_1) λ. compose (list_fold_filtered x_1 x_2 x_3) λ. filter_by λ. list_type x_0 = λx_0 x_1 x_2 x_3. compose (list_fold_filtered x_1 x_2 x_3) λ. filter_by λ. list_type x_0
-list_fold_filtered_contract_chained: λ x_0 x_1 x_2 x_3 x_4
-        . compose (filter_by x_1) λ. compose (list_fold_filtered x_1 x_2 x_3) λ. compose (filter_by λ. list_type x_0) x_4 = λ x_0 x_1 x_2 x_3 x_4
-        . compose (list_fold_filtered x_1 x_2 x_3) λ. compose (filter_by λ. list_type x_0) x_4
-list_fold_filtered_branch_nat_type: λx_0 x_1. list_fold x_0 x_1 = λx_0 x_1. (list_fold_filtered nat_type x_0 x_1 + list_fold x_0 x_1)
-list_fold_filtered_branch_nat_type_in_context: λx_0 x_1 x_2. x_0 λ. list_fold x_1 x_2 = λx_0 x_1 x_2. (x_0 λ. list_fold_filtered nat_type x_1 x_2 + x_0 λ. list_fold x_1 x_2)

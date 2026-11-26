@@ -1,0 +1,13 @@
+# The published list of how long a round's write-backs keep the spellings they find (WriteBackSpellingsOption): kept_within_a_pass, from one body to the next within a pass; not_kept, dropped after every body; kept_across_passes, from one pass to the next as well, the entries of the classes the graph changed since, and of those that read them, dropped.
+# A Scott sum whose constructors are the tuple's fields, in the order of the
+# enum's cases; an entry.lambdalattice imports this file and writes a
+# constructor, and EntryData reads which alternative it takes by structure
+# (gezi.contest.entry.EntryData, THE OPTIONS AS SCOTT CONSTRUCTORS).
+λ export
+. (λtuple. tuple λkept_within_a_pass not_kept kept_across_passes. kept_within_a_pass)
+λ kept_within_a_pass
+. (λtuple. tuple λkept_within_a_pass not_kept kept_across_passes. not_kept)
+λ not_kept
+. (λtuple. tuple λkept_within_a_pass not_kept kept_across_passes. kept_across_passes)
+λ kept_across_passes
+. export kept_within_a_pass not_kept kept_across_passes

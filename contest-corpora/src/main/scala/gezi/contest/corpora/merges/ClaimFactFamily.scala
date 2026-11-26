@@ -9,9 +9,9 @@ import gezi.frontend.Term
   * merge and mixin families and of the empty-set reachability, read by the
   * claims group's `HardAnswers` and `HardClaims`.
   */
-final class ClaimFactFamily(facts: Vector[ClaimFact], program: String => Term) extends claims.HardFamily:
+final class ClaimFactFamily(facts: Vector[ClaimFact], program: String => ProblemTerm) extends claims.HardFamily:
 
-  def points: Map[String, () => Term] =
+  def points: Map[String, () => ProblemTerm] =
     facts.map(fact => fact.point).distinct.map(point => point -> (() => program(point))).toMap
 
   def intended: Vector[(String, claims.Intended)] =

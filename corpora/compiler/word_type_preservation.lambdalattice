@@ -1,0 +1,34 @@
+# The type-preservation lemmas of the words: each writes the criterion of a
+# constructor's result into the term, `word_type` at the result's width, so
+# that the JIT reads a word constructor's result place from the filter at its
+# node and does not derive the width in the host from the operands' values
+# (WordFamily.builtParameter). A lemma rewrites x to x ∥ T, so its filter
+# survives the extraction, which drops an absorbed choice x + (x ∥ T); it is
+# sound because T ⊑ x, which needs the fields filtered. Theorems of
+# λ-lattice-unit-η, proved in docs/design/gezi-type-preservation-proofs.md.
+# No preset enables this file yet: the JIT does not read the filters it writes.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "fixed_width") "word_representation")
+λ word_end word_cell _ _ word_type _
+. omega (omega (omega (omega corpora "library") "native_types") "natural")
+λ zero successor _ _
+. omega (omega (omega (omega corpora "library") "native_types") "boolean")
+λ _ _ boolean_type _
+. export
+λ _ rewriting _ _
+. rewriting
+λ _ lemmas _
+. lemmas
+  ( λ s
+    . s
+      (λk. k "word_end_typed")
+      word_end
+      (word_end ∥ word_type zero) λ_ md _. md λk. k "[word_end_typed](docs/design/gezi-type-preservation-proofs.md#word_end_typed)"
+  + λ s
+    . s
+      (λk. k "word_cell_typed")
+      (λx_0 x_1 x_2. word_cell (x_0 ∥ boolean_type) (x_1 ∥ word_type x_2))
+      (λx_0 x_1 x_2. (word_cell (x_0 ∥ boolean_type) (x_1 ∥ word_type x_2) ∥ word_type λ. successor x_2)) λ_ md _. md λk. k "[word_cell_typed](docs/design/gezi-type-preservation-proofs.md#word_cell_typed)"
+  )

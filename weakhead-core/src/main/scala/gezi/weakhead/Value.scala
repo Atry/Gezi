@@ -2,13 +2,14 @@ package gezi.weakhead
 
 import gezi.ir.Code
 import gezi.ir.ConstructorIdentity
+import gezi.ir.InternedConstructor
 import gezi.ir.Hole
-import gezi.ir.Instruction
 import gezi.ir.Interned
 import gezi.ir.Interned.Interned
 import gezi.ir.IrLayer
 import gezi.ir.Opaque
 import gezi.ir.UriNode
+import gezi.ir.{Closed, Configured, NativeSpecializer, Value, ValueExtension, ValueLayer}
 
 /** The variable of a neutral value: a value that the reader who makes the
   * neutral value chooses (a normal-form reader names its bound variables by
@@ -30,102 +31,74 @@ trait NeutralVariable:
     */
   def closedLeaf: Boolean = false
 
-/** The free variable applied to the arguments, a head nothing reduces: the
-  * one constructor of the weak-head evaluator's own, beside the IR's. A
-  * neutral value lives only in the evaluator and its readers: it is no layer
-  * of the IR, of the e-graph or of the index (`CONTRIBUTING.md`, "Types live
-  * only in the term").
+/** The free variable applied to the arguments, a head nothing reduces: an extension of the readers' values beside the
+  * IR's layers (`gezi.ir.ValueExtension`), not closed. A neutral value lives only in the evaluator and its readers: it
+  * is no layer of the IR, of the e-graph or of the index (`CONTRIBUTING.md`, "Types live only in the term").
   */
-final case class Neutral[+Child](variable: NeutralVariable, arguments: Vector[Child]):
-  override val hashCode: Int = ConstructorIdentity.hash(this)
-  override def equals(other: Any): Boolean = ConstructorIdentity.equal(this, other)
+final case class Neutral[+Child] private (variable: NeutralVariable, arguments: Vector[Child])
+    extends InternedConstructor
+    with ValueExtension[Child]:
   override def toString: String = ConstructorIdentity.shown(this)
 
-/** The operations of a head (`Head`), as extensions in the companion of
-  * [[Neutral]], a constructor of the union, which puts them in its implicit
-  * scope.
-  */
+  /** False: a neutral value is a free variable. */
+  def closed: Boolean = false
+
 object Neutral:
 
-  extension (head: Head)
-    /** The head as a value: the interned term whose layer it is. */
-    def value: Value = Interned[WeakHeadLayer](head)
+  /** The canonical Neutral layer. */
+  def apply[Child](variable: NeutralVariable, arguments: Vector[Child]): Neutral[Child] =
+    Interned.canonicalLayer(new Neutral(variable, arguments))
 
-/** One layer of a run-time value of the weak-head evaluator: a layer of the
-  * IR (an application, a parallel, a choice, a thunk, a URI node, an opaque
-  * term) or a neutral value.
+  extension [C <: NativeSpecializer & Singleton](head: Head[C])(using C)
+    /** The head as a value: the interned value whose layer it is. */
+    def value: Value[C] = head match
+      case gezi.weakhead.Neutral(variable, arguments) => NeutralValue(variable, arguments)
+      case thunk @ gezi.ir.Thunk(_, _, _)             => Head.lambdaValue(thunk)
+
+/** A suspension: a code all of whose holes are filled, its instance delayed until a reader reads it (today's reading is
+  * a call of the code). An extension of the readers' values, no term of the IR: a thunk with no holes built as a term
+  * would pass a computation for a term. Closed when its fillings are.
   */
-type WeakHeadLayer[+Child] = IrLayer[Child] | Neutral[Child]
+final case class Suspension[+Child] private (code: Code, fillings: Vector[Child])
+    extends InternedConstructor
+    with ValueExtension[Child]:
+  override def toString: String = ConstructorIdentity.shown(this)
 
-/** A run-time value of the weak-head evaluator: an interned term
-  * ([[gezi.ir.Interned]]) over the IR's constructors and the neutral
-  * value, every term interned, none supported uninterned. An instruction is a value as it is, with no
-  * conversion: the IR's layers are among a value's. Two values are one term
-  * exactly when they are one object. A thunk's code is a code: a body over
-  * slots.
-  */
-type Value = Interned[WeakHeadLayer]
+  /** Whether its fillings hold no neutral value, computed when it is made. */
+  val closed: Boolean = fillings.forall(ConstructorIdentity.closed)
 
-/** The constructions and the parts of values, each made through the pool. */
-object Value:
+object Suspension:
 
-  /** The canonical value of the layer. */
-  def apply(layer: WeakHeadLayer[Value]): Value = Interned[WeakHeadLayer](layer)
+  /** The canonical Suspension layer. */
+  def apply[Child](code: Code, fillings: Vector[Child]): Suspension[Child] =
+    Interned.canonicalLayer(new Suspension(code, fillings))
 
-  /** The canonical application, and its parts. */
-  object Apply:
-    def apply(function: Value, argument: Value): Value = Value(gezi.ir.Apply(function, argument))
+/** A neutral value as a value of a configuration, and its parts. */
+object NeutralValue:
+  def apply[C <: NativeSpecializer & Singleton](variable: NeutralVariable, arguments: Vector[Value[C]])(using C): Value[C] =
+    Value.extension(Neutral(variable, arguments))
 
-    def unapply(value: Value): Option[(Value, Value)] = value.layer match
-      case gezi.ir.Apply(function, argument) => Some((function, argument))
-      case _                                     => None
+  def unapply[C <: NativeSpecializer & Singleton](value: Value[C])(using C): Option[(NeutralVariable, Vector[Value[C]])] =
+    value.layer match
+      case Neutral(variable, arguments) => Some((variable, arguments))
+      case _                            => None
 
-  /** The canonical parallel of two sides, and its sides. */
-  object Parallel:
-    def apply(left: Value, right: Value): Value = Value(gezi.ir.Parallel(left, right))
+/** A suspension as a value of a configuration, and its parts. */
+object SuspensionValue:
+  def apply[C <: NativeSpecializer & Singleton](code: Code, fillings: Vector[Value[C]])(using C): Value[C] =
+    Value.extension(Suspension(code, fillings))
 
-    def unapply(value: Value): Option[(Value, Value)] = value.layer match
-      case gezi.ir.Parallel(left, right) => Some((left, right))
-      case _                                 => None
+  def unapply[C <: NativeSpecializer & Singleton](value: Value[C])(using C): Option[(Code, Vector[Value[C]])] =
+    value.layer match
+      case Suspension(code, fillings) => Some((code, fillings))
+      case _                          => None
 
-  /** The canonical binary choice, as the IR's, and its two sides. */
-  object Choice:
-    def apply(left: Value, right: Value): Value = Value(gezi.ir.Choice(left, right))
-
-    def unapply(value: Value): Option[(Value, Value)] = value.layer match
-      case gezi.ir.Choice(left, right) => Some((left, right))
-      case _                               => None
-
-  /** A lambda chain: its code; the hole of each binder still to be applied,
-    * in lambda order; and the values of the code's other slots, in slot
-    * order. With no hole it is the instance of its code under its fillings.
-    */
-  object Thunk:
-    def apply(code: Code, holes: Vector[Hole], fillings: Vector[Value]): Value =
-      Value(gezi.ir.Thunk(code, holes, fillings))
-
-    def unapply(value: Value): Option[(Code, Vector[Hole], Vector[Value])] = value.layer match
-      case gezi.ir.Thunk(code, holes, fillings) => Some((code, holes, fillings))
-      case _                                        => None
-
-  /** The free variable applied to the arguments. */
-  object Neutral:
-    def apply(variable: NeutralVariable, arguments: Vector[Value]): Value =
-      Value(gezi.weakhead.Neutral(variable, arguments))
-
-    def unapply(value: Value): Option[(NeutralVariable, Vector[Value])] = value.layer match
-      case gezi.weakhead.Neutral(variable, arguments) => Some((variable, arguments))
-      case _                                               => None
-
-  /** The instruction a value whose layer is a URI node or an opaque term
-    * is: such a layer has no part, so the interned object is an
-    * instruction's (the cast is sound: one pool interns both, and a value
-    * with no neutral value anywhere in it is an instruction); none for any
-    * other value.
-    */
-  def opaqueInstruction(value: Value): Option[Instruction] = value.layer match
-    case UriNode(_) | Opaque(_) => Some(value.asInstanceOf[Instruction])
-    case _                      => None
+// TODO: deleted: `WeakHeadLayer`, the type `Value` as `Interned[WeakHeadLayer]` with no configuration, the extractors
+// and untyped constructions of `object Value`, and `opaqueInstruction`. Wrong because a value of no configuration
+// could take the children of any; the value is `gezi.ir.Value[C]` with its typed constructions, the IR's extractors on
+// it, and `NeutralValue` and `SuspensionValue` here; issue https://github.com/Atry/private-overlay/issues/2261, design
+// v38, sections 1 and 6. Read it back with
+// `git show 7669694cc:gezi/weakhead-core/src/main/scala/gezi/weakhead/Value.scala`.
 
 /** A head of a closed term (weak_head.pl, HEADS): an abstraction, a thunk
   * with a hole; or a neutral value. Never a parallel or a choice: the
@@ -137,42 +110,52 @@ object Value:
   * FIXME (2026-11-11): the evaluator's answers are by design a set of sets https://github.com/Atry/private-overlay/issues/1949
   * of abstractions, and a neutral value is no abstraction. It is here because
   * the readers that open a binder put a free variable in its place
-  * (`NormalForms`, the codecs of the module `weakhead`, the knowledge
-  * reading); a closed program has none. Whether those readers keep a free
-  * variable or read another way is not settled.
+  * (`NormalForms.BoundVariable`, the codecs of the module `weakhead`, the
+  * knowledge reading, the JIT's readers of Scott data); a closed program has
+  * none. Each of those uses was reviewed and kept, with its argument at its
+  * declaration: each stands for a bound variable of the value read, which an
+  * open body cannot be read without. A use of a neutral value is an exception
+  * the user assents to, and the user has not replied to these.
   */
-type Head = gezi.ir.Thunk[Value] | Neutral[Value]
+type Head[C <: NativeSpecializer & Singleton] = gezi.ir.Thunk[Value[C]] | Neutral[Value[C]]
 
 /** The constructions and the parts of heads. */
 object Head:
 
   /** A head that is a thunk with at least one hole, as a type. */
-  type Lambda = gezi.ir.Thunk[Value]
+  type Lambda[C <: NativeSpecializer & Singleton] = gezi.ir.Thunk[Value[C]]
 
   /** A head that is a neutral value, as a type. */
-  type Neutral = gezi.weakhead.Neutral[Value]
+  type Neutral[C <: NativeSpecializer & Singleton] = gezi.weakhead.Neutral[Value[C]]
 
-  /** A thunk with at least one hole, the layer of its canonical value. */
+  /** The value of a head that is a thunk: the same object. */
+  def lambdaValue[C <: NativeSpecializer & Singleton](thunk: gezi.ir.Thunk[Value[C]])(using C): Value[C] = Value.ofHeadLayer(thunk)
+
+  /** A thunk with at least one hole, the layer of its canonical value, built through the specializer. */
   object Lambda:
-    def apply(code: Code, holes: Vector[Hole], fillings: Vector[Value]): Head =
-      Value.Thunk(code, holes, fillings).layer match
-        case thunk @ gezi.ir.Thunk(_, _, _) => thunk
-        case other => throw IllegalStateException(s"the pool gave $other for a thunk")
+    def apply[C <: NativeSpecializer & Singleton](code: Code, holes: Vector[Hole], fillings: Vector[Value[C]])(using
+        specializer: C
+    ): Head[C] =
+      Value.thunkLayer(specializer)(
+        code,
+        gezi.ir.NonEmptyHoles.of(holes).getOrElse(throw IllegalArgumentException(s"a head of no hole, a suspension: $code")),
+        fillings
+      )
 
-    def unapply(head: Head): Option[(Code, Vector[Hole], Vector[Value])] = head match
-      case gezi.ir.Thunk(code, holes, fillings) => Some((code, holes, fillings))
-      case _                                        => None
+    def unapply[C <: NativeSpecializer & Singleton](head: Head[C])(using C): Option[(Code, Vector[Hole], Vector[Value[C]])] =
+      head match
+        case gezi.ir.Thunk(code, holes, fillings) => Some((code, holes, fillings))
+        case _                                    => None
 
   /** A neutral value, the layer of its canonical value. */
   object Neutral:
-    def apply(variable: NeutralVariable, arguments: Vector[Value]): Head =
-      Value.Neutral(variable, arguments).layer match
-        case neutral @ gezi.weakhead.Neutral(_, _) => neutral
-        case other => throw IllegalStateException(s"the pool gave $other for a neutral value")
+    def apply[C <: NativeSpecializer & Singleton](variable: NeutralVariable, arguments: Vector[Value[C]])(using C): Head[C] =
+      gezi.weakhead.Neutral(variable, arguments)
 
-    def unapply(head: Head): Option[(NeutralVariable, Vector[Value])] = head match
-      case gezi.weakhead.Neutral(variable, arguments) => Some((variable, arguments))
-      case _                                               => None
+    def unapply[C <: NativeSpecializer & Singleton](head: Head[C])(using C): Option[(NeutralVariable, Vector[Value[C]])] =
+      head match
+        case gezi.weakhead.Neutral(variable, arguments) => Some((variable, arguments))
+        case _                                          => None
 
 /** The parallel of a set of heads: one answer of the evaluator. The value of
   * a closed term under the weak head is a set of these, the choice of its
@@ -205,18 +188,18 @@ object Head:
   *   the heads, each once, in the order first found: a function of the
   *   computation, never of hash codes
   */
-final class ParallelSet private (val heads: Vector[Head]):
+final class ParallelSet[C <: NativeSpecializer & Singleton] private (val heads: Vector[Head[C]]):
 
   /** The heads as a hashed set, made when a set larger than `scannedSize`
     * is first searched.
     */
-  private lazy val members: Set[Head] = heads.toSet
+  private lazy val members: Set[Head[C]] = heads.toSet
 
   /** Whether the set is empty: the least term, below every term. */
   def isBottom: Boolean = heads.isEmpty
 
   /** Whether the head is one of the set's. */
-  def holds(head: Head): Boolean =
+  def holds(head: Head[C]): Boolean =
     if heads.size <= ParallelSet.scannedSize then scannedFrom(0, head) else members.contains(head)
 
   /** Whether the head is one of the heads from the index on, scanned by
@@ -225,44 +208,53 @@ final class ParallelSet private (val heads: Vector[Head]):
     * iterators were 11.6% of the bytes the knowledge reading allocates).
     */
   @scala.annotation.tailrec
-  private def scannedFrom(index: Int, head: Head): Boolean =
+  private def scannedFrom(index: Int, head: Head[C]): Boolean =
     index < heads.size && (heads(index) == head || scannedFrom(index + 1, head))
 
   /** Whether every head of the other set is one of this set's, scanned by
     * index as `holds` scans.
     */
-  def holdsAll(other: ParallelSet): Boolean =
+  def holdsAll(other: ParallelSet[C]): Boolean =
     @scala.annotation.tailrec
     def from(index: Int): Boolean = index >= other.heads.size || (holds(other.heads(index)) && from(index + 1))
     from(0)
 
   /** The parallel of this set and the other: the heads of both. */
-  def parallel(other: ParallelSet): ParallelSet =
+  def parallel(other: ParallelSet[C]): ParallelSet[C] =
     if heads.isEmpty then other
     else
       val added = other.heads.filterNot(holds)
       if added.isEmpty then this else ParallelSet(heads ++ added)
 
-  /** How an observer that reads the sides of a parallel sees the set. */
-  def view: ParallelView = heads match
-    case Vector()       => ParallelView.Bottom
-    case Vector(single) => ParallelView.Single(single)
-    case first +: (middle :+ last) => ParallelView.Several(first.value, ParallelSet.sidesValue(middle, last))
-    case others =>
-      throw IllegalStateException(
-        s"a vector of two or more heads has a first and a last head, but ${others.size} heads matched none"
-      )
+  /** How an observer that reads the sides of a parallel sees the set, the parallel of the others built through the
+    * reading's specializer.
+    */
+  def view(specializer: C): ParallelView[C] =
+    given C = specializer
+    heads match
+      case Vector()       => ParallelView.Bottom()
+      case Vector(single) => ParallelView.Single(single)
+      case first +: (middle :+ last) => ParallelView.Several(first.value, ParallelSet.sidesValue(specializer)(middle, last))
+      case others =>
+        throw IllegalStateException(
+          s"a vector of two or more heads has a first and a last head, but ${others.size} heads matched none"
+        )
 
   /** The set as a value: its head's value, or the parallel of its heads'
     * values nested to the right; nothing for the empty set, which no value
     * spells.
     */
-  def value: Option[Value] = heads match
-    case earlier :+ last => Some(ParallelSet.sidesValue(earlier, last))
+  def value(specializer: C): Option[Value[C]] = heads match
+    case earlier :+ last => Some(ParallelSet.sidesValue(specializer)(earlier, last))
     case _               => None
 
   override def equals(other: Any): Boolean = other match
-    case that: ParallelSet => heads.size == that.heads.size && holdsAll(that)
+    // The other set's configuration is not known here; its heads are compared as objects, a set holding a head of
+    // another configuration holding a different object.
+    case that: ParallelSet[?] =>
+      heads.size == that.heads.size && that.heads.forall(head =>
+        if heads.size <= ParallelSet.scannedSize then heads.contains(head) else members.asInstanceOf[Set[Any]].contains(head)
+      )
     case _                 => false
 
   /** The hash of the heads whatever their order, computed once: a parallel
@@ -285,36 +277,38 @@ object ParallelSet:
   private val hashSeed: Int = "ParallelSet".hashCode
 
   /** The empty set, the least term. */
-  val bottom: ParallelSet = ParallelSet(Vector.empty)
+  def bottom[C <: NativeSpecializer & Singleton](using C): ParallelSet[C] = ParallelSet(Vector.empty)
 
   /** The set of one head. */
-  def single(head: Head): ParallelSet = ParallelSet(Vector(head))
+  def single[C <: NativeSpecializer & Singleton](head: Head[C])(using C): ParallelSet[C] = ParallelSet(Vector(head))
 
   /** The set of the heads, each kept once, in the order given. */
-  def of(heads: Vector[Head]): ParallelSet =
-    heads.foldLeft(bottom)((set, head) => if set.holds(head) then set else ParallelSet(set.heads :+ head))
+  def of[C <: NativeSpecializer & Singleton](heads: Vector[Head[C]])(using C): ParallelSet[C] =
+    heads.foldLeft(bottom[C])((set, head) => if set.holds(head) then set else ParallelSet(set.heads :+ head))
 
-  /** The parallel of the values of the earlier heads and of the last one,
-    * nested to the right.
+  /** The parallel of the earlier heads' values and the last one's, nested to the right, built through the reading's
+    * specializer: a parallel of closed values is specialized there as any other.
     */
-  private def sidesValue(earlier: Vector[Head], last: Head): Value =
-    earlier.foldRight(last.value)((head, right) => Value.Parallel(head.value, right))
+  private def sidesValue[C <: NativeSpecializer & Singleton](specializer: C)(earlier: Vector[Head[C]], last: Head[C]): Value[C] =
+    given C = specializer
+    earlier.foldRight(last.value)((head, right) => Value.parallel(specializer)(head.value, right))
+
 
 /** A parallel set as an observer that reads a parallel side by side sees it
   * (`ParallelSet.view`).
   */
-enum ParallelView:
+enum ParallelView[C <: NativeSpecializer & Singleton]:
 
   /** The empty set: the least term, of which every answer is an answer. */
-  case Bottom
+  case Bottom()
 
   /** One head. */
-  case Single(head: Head)
+  case Single(head: Head[C])
 
   /** Two heads or more: the first head as a value, and the parallel of the
     * others as a value, whose heads the evaluator gives again when asked.
     */
-  case Several(left: Value, right: Value)
+  case Several(left: Value[C], right: Value[C])
 
 /** A value the evaluator cannot evaluate or a reader cannot read, the Prolog
   * evaluator's `lambda_error(Reason)`. The message names the reason's kind
@@ -346,7 +340,7 @@ enum EvaluationErrorReason:
   case NotAnOpenNormalFormFilling
 
   /** A witness that is no neutral value without arguments. */
-  case NotAWitness(witness: Value)
+  case NotAWitness(witness: Interned[ValueLayer])
 
   /** A budget in seconds that is not positive. */
   case NotABudget(seconds: Double)
@@ -354,4 +348,4 @@ enum EvaluationErrorReason:
   /** A codec's constructor is bound to no define, or to more than one: the
     * constructor and the defines bound.
     */
-  case CodecConstructor(constructor: String, instructions: Vector[Instruction])
+  case CodecConstructor(constructor: String, instructions: Vector[gezi.ir.Pure])

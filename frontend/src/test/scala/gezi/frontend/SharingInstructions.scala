@@ -3,7 +3,8 @@ package gezi.frontend
 import hedgehog.Gen
 import hedgehog.Range
 import gezi.generatedinputs.HoasGenerators
-import gezi.ir.Instruction
+import gezi.ir.Configured
+import gezi.ir.NoFacts
 
 /** Generated closed instructions of every construct, some holding a closed
   * part several times (towers of diamonds, whose tree is exponential in
@@ -72,9 +73,9 @@ object SharingInstructions:
   /** Instructions of the shapes, a third of them inside a program's own
     * binding.
     */
-  val instructions: Gen[Instruction] =
+  val instructions: Gen[Configured[NoFacts.type]] =
     for
       value <- shaped
       body <- shaped
       inside <- Gen.frequency1(2 -> Gen.constant(false), 1 -> Gen.constant(true))
-    yield Defunctionalization.thunkInstruction(if inside then imported(value, body) else value)
+    yield Defunctionalization.thunkInstruction[NoFacts.type](if inside then imported(value, body) else value)(using NoFacts)

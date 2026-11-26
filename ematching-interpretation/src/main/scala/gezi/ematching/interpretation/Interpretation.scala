@@ -14,7 +14,10 @@ import gezi.ematching.SeedKey
 import gezi.ematching.SeedKind
 import gezi.ematching.Step
 import gezi.ir.Code
+import gezi.ir.Configured
 import gezi.ir.Layer
+import gezi.ir.LayerWith
+import gezi.ir.NativeSpecializer
 import scala.annotation.tailrec
 import gezi.ir.{Apply, Choice, Parallel, Thunk}
 
@@ -36,7 +39,7 @@ import gezi.ir.{Apply, Choice, Parallel, Thunk}
   */
 object Interpretation extends Backend:
 
-  def compiled(program: Program): CompiledProgram = InterpretedProgram(program)
+  def compiled[C <: NativeSpecializer & Singleton](program: Program[C]): CompiledProgram[C] = InterpretedProgram(program)
 
 /** The registers of one run of a seed. */
 private type Registers = IArray[Int]
@@ -58,12 +61,12 @@ private final case class Searched(bySeed: Vector[Vector[Match]], entriesRead: In
   def found(seed: Int, matched: Match): Searched =
     copy(bySeed = bySeed.updated(seed, bySeed(seed) :+ matched))
 
-private final class InterpretedProgram(program: Program) extends CompiledProgram:
+private final class InterpretedProgram[C <: NativeSpecializer & Singleton](program: Program[C]) extends CompiledProgram[C]:
 
   def matches(
       kind: SeedKind,
-      key: SeedKey,
-      graph: GraphView,
+      key: SeedKey[C],
+      graph: GraphView[C],
       delta: Int
   ): Matching =
     program.trees.get((kind, key)) match
@@ -73,14 +76,14 @@ private final class InterpretedProgram(program: Program) extends CompiledProgram
         Matching(searched.bySeed.flatten, searched.entriesRead)
       case None => Matching.none
 
-  def added[Graph <: GraphBuilding[Graph]](
+  def added[Graph <: GraphBuilding[C, Graph]](
       orientation: Int,
       graph: Graph,
       bindings: Vector[Option[Int]]
   ): (Graph, Int) =
     built(program.orientations(orientation).added, graph, bindings.map(_.getOrElse(-1)))
 
-  def shared[Graph <: GraphBuilding[Graph]](
+  def shared[Graph <: GraphBuilding[C, Graph]](
       orientation: Int,
       part: Int,
       graph: Graph,
@@ -92,14 +95,14 @@ private final class InterpretedProgram(program: Program) extends CompiledProgram
       bindings.map(_.getOrElse(-1))
     )
 
-  def body[Graph <: GraphBuilding[Graph]](
+  def body[Graph <: GraphBuilding[C, Graph]](
       code: Code,
       graph: Graph,
       slotValues: Vector[Int]
   ): (Graph, Int) =
     built(codeBuilding(code), graph, slotValues)
 
-  private def codeBuilding(code: Code): Building =
+  private def codeBuilding(code: Code): Building[C] =
     program.codes.getOrElse(
       code,
       throw IllegalArgumentException(s"the program has no $code")
@@ -122,8 +125,8 @@ private final class InterpretedProgram(program: Program) extends CompiledProgram
   // ---- seeds ----
 
   private def runTree(
-      tree: SeedTree,
-      graph: GraphView,
+      tree: SeedTree[C],
+      graph: GraphView[C],
       registers: Registers,
       searched: Searched
   ): Searched =
@@ -135,9 +138,9 @@ private final class InterpretedProgram(program: Program) extends CompiledProgram
     * `Each` step reads every entry of its collection.
     */
   private def run(
-      tree: SeedTree,
+      tree: SeedTree[C],
       index: Int,
-      graph: GraphView,
+      graph: GraphView[C],
       registers: Registers,
       searched: Searched
   ): Searched =
@@ -215,9 +218,9 @@ private final class InterpretedProgram(program: Program) extends CompiledProgram
     * entries up to the first that leads to a success.
     */
   private def first(
-      steps: Vector[Step],
+      steps: Vector[Step[C]],
       index: Int,
-      graph: GraphView,
+      graph: GraphView[C],
       registers: Registers
   ): Witnessed =
     if index >= steps.size then Witnessed(Some(registers), 0)
@@ -276,9 +279,9 @@ private final class InterpretedProgram(program: Program) extends CompiledProgram
       position: Int,
       readSoFar: Int,
       target: Int,
-      steps: Vector[Step],
+      steps: Vector[Step[C]],
       index: Int,
-      graph: GraphView,
+      graph: GraphView[C],
       registers: Registers
   ): Witnessed =
     if position >= entries.size then Witnessed(None, readSoFar)
@@ -298,9 +301,9 @@ private final class InterpretedProgram(program: Program) extends CompiledProgram
       readSoFar: Int,
       position: Int,
       target: Int,
-      steps: Vector[Step],
+      steps: Vector[Step[C]],
       index: Int,
-      graph: GraphView,
+      graph: GraphView[C],
       registers: Registers
   ): Witnessed =
     if entryIndex >= entries.size then Witnessed(None, readSoFar)
@@ -343,7 +346,7 @@ private final class InterpretedProgram(program: Program) extends CompiledProgram
       template: LayerTemplate,
       children: Vector[Int],
       registers: Registers
-  ): Layer[Int] =
+  ): LayerWith[Int, Configured[C]] =
     val nodes = children.map(read(registers, _))
     template match
       case LayerTemplate.Apply =>
@@ -376,8 +379,8 @@ private final class InterpretedProgram(program: Program) extends CompiledProgram
     * an instance's bindings (-1 for an unbound metavariable) or a β step's
     * slot values.
     */
-  private def built[Graph <: GraphBuilding[Graph]](
-      building: Building,
+  private def built[Graph <: GraphBuilding[C, Graph]](
+      building: Building[C],
       graph: Graph,
       values: Vector[Int]
   ): (Graph, Int) = building match
@@ -406,8 +409,8 @@ private final class InterpretedProgram(program: Program) extends CompiledProgram
       val (withFillings, fillingNodes) = childrenBuilt(fillings, graph, values)
       withFillings.layerAdded(Thunk(code, holes, fillingNodes))
 
-  private def childrenBuilt[Graph <: GraphBuilding[Graph]](
-      buildings: Vector[Building],
+  private def childrenBuilt[Graph <: GraphBuilding[C, Graph]](
+      buildings: Vector[Building[C]],
       graph: Graph,
       values: Vector[Int]
   ): (Graph, Vector[Int]) =

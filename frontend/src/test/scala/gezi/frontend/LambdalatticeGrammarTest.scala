@@ -1,19 +1,25 @@
 package gezi.frontend
 
-import gezi.ir.Instruction
+import gezi.ir.Configured
+import gezi.ir.NativeSpecializer.*
+import gezi.ir.NoFacts
 
 /** The port of `gezi/tests/lambdalattice.plt`, unit
   * `lambdalattice_grammar`: the text syntax of a lambdalattice file.
   */
 class LambdalatticeGrammarTest extends gezi.generatedinputs.FailFastSuite:
 
+  given NoFacts.type = NoFacts
+
+  private type NoFactsTerm = Configured[NoFacts.type]
+
   import DeBruijnTerm.*
 
   /** An instruction for each name a test refers to; the Prolog test interned a
     * fresh layer for each, and a de Bruijn constant only holds the instruction.
     */
-  private val testNames: Map[String, Instruction] =
-    Map("fixpoint" -> Instruction.opaque("fixpoint"), "true" -> Instruction.opaque("true"))
+  private val testNames: Map[String, NoFactsTerm] =
+    Map("fixpoint" -> NoFacts.opaque("fixpoint"), "true" -> NoFacts.opaque("true"))
 
   /** The term of a text that binds every name it uses. */
   private def term(text: String): DeBruijnTerm =
@@ -168,9 +174,11 @@ class LambdalatticeGrammarTest extends gezi.generatedinputs.FailFastSuite:
   test("defineReference") {
     val parsed = Lambdalattice.term("λx.true x", FreeNames.Allowed)
     assertEquals(parsed, Lambda(Apply(Free("true"), Variable(0))))
-    assertEquals(
-      Defunctionalization.thunkInstruction(parsed, testNames),
-      Defunctionalization.thunkInstruction(Lambda(Apply(Constant(testNames("true")), Variable(0))))
+    assert(
+      Configured.same(
+        Defunctionalization.thunkInstruction[NoFacts.type](parsed, testNames),
+        Defunctionalization.thunkInstruction[NoFacts.type](Lambda(Apply(Constant(testNames("true")), Variable(0))))
+      )
     )
   }
 

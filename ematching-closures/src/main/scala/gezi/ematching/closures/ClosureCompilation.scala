@@ -15,7 +15,7 @@ import gezi.ematching.SeedKind
 import gezi.ematching.SeedTree
 import gezi.ematching.Step
 import gezi.ir.Code
-import gezi.ir.Layer
+import gezi.ir.{Configured, LayerWith, NativeSpecializer}
 import scala.annotation.tailrec
 import gezi.ir.{Apply, Choice, Parallel, Thunk}
 
@@ -34,7 +34,7 @@ import gezi.ir.{Apply, Choice, Parallel, Thunk}
   */
 object ClosureCompilation extends Backend:
 
-  def compiled(program: Program): CompiledProgram = CompiledClosures(program)
+  def compiled[C <: NativeSpecializer & Singleton](program: Program[C]): CompiledProgram[C] = CompiledClosures(program)
 
 /** The registers of one run of a seed. */
 private type Registers = Vector[Int]
@@ -53,7 +53,7 @@ private final case class Searched(bySeed: Vector[Vector[Match]], entriesRead: In
   * succeeded: the matching so far, with the matches they find and the
   * entries they read added.
   */
-private type Continuation = (GraphView, Registers, Searched) => Searched
+private type Continuation[C <: NativeSpecializer & Singleton] = (GraphView[C], Registers, Searched) => Searched
 
 /** A witness's run: the registers of its first success, if it has one, and
   * the entries its steps read up to that success.
@@ -63,7 +63,7 @@ private final case class Witnessed(registers: Option[Registers], entriesRead: In
 /** The steps after a point inside a witness: their first success and the
   * entries read on the way.
   */
-private type FirstContinuation = (GraphView, Registers) => Witnessed
+private type FirstContinuation[C <: NativeSpecializer & Singleton] = (GraphView[C], Registers) => Witnessed
 
 private val noWitness: Witnessed = Witnessed(None, 0)
 
@@ -71,15 +71,15 @@ private val noWitness: Witnessed = Witnessed(None, 0)
   * The values are an instance's bindings (-1 for an unbound metavariable)
   * or a β step's slot values.
   */
-private type BuildingClosure =
-  [Graph <: GraphBuilding[Graph]] => (Graph, Vector[Int]) => (Graph, Int)
+private type BuildingClosure[C <: NativeSpecializer & Singleton] =
+  [Graph <: GraphBuilding[C, Graph]] => (Graph, Vector[Int]) => (Graph, Int)
 
-private final class CompiledClosures(program: Program) extends CompiledProgram:
+private final class CompiledClosures[C <: NativeSpecializer & Singleton](program: Program[C]) extends CompiledProgram[C]:
 
   /** The compiled tree of each kind by key, so that a lookup hashes the key
     * alone.
     */
-  private val treeRuns: Map[SeedKind, Map[SeedKey, (GraphView, Int) => Matching]] =
+  private val treeRuns: Map[SeedKind, Map[SeedKey[C], (GraphView[C], Int) => Matching]] =
     SeedKind.values.toVector
       .map(kind =>
         kind -> program.trees.collect {
@@ -93,33 +93,33 @@ private final class CompiledClosures(program: Program) extends CompiledProgram:
     * time it is built, so that each code is compiled once and a body's
     * shared subcodes are not copied.
     */
-  private lazy val codeClosures: Map[Code, BuildingClosure] =
+  private lazy val codeClosures: Map[Code, BuildingClosure[C]] =
     program.codes.map((code, building) => code -> buildingClosure(building))
 
-  private val addedClosures: Vector[BuildingClosure] =
+  private val addedClosures: Vector[BuildingClosure[C]] =
     program.orientations.map(plan => buildingClosure(plan.added))
 
-  private val sharedClosures: Vector[Vector[BuildingClosure]] =
+  private val sharedClosures: Vector[Vector[BuildingClosure[C]]] =
     program.orientations.map(plan => plan.shared.map(buildingClosure))
 
   def matches(
       kind: SeedKind,
-      key: SeedKey,
-      graph: GraphView,
+      key: SeedKey[C],
+      graph: GraphView[C],
       delta: Int
   ): Matching =
     treeRuns(kind).get(key) match
       case Some(run) => run(graph, delta)
       case None      => Matching.none
 
-  def added[Graph <: GraphBuilding[Graph]](
+  def added[Graph <: GraphBuilding[C, Graph]](
       orientation: Int,
       graph: Graph,
       bindings: Vector[Option[Int]]
   ): (Graph, Int) =
     addedClosures(orientation)[Graph](graph, bindingValues(bindings))
 
-  def shared[Graph <: GraphBuilding[Graph]](
+  def shared[Graph <: GraphBuilding[C, Graph]](
       orientation: Int,
       part: Int,
       graph: Graph,
@@ -127,14 +127,14 @@ private final class CompiledClosures(program: Program) extends CompiledProgram:
   ): (Graph, Int) =
     sharedClosures(orientation)(part)[Graph](graph, bindingValues(bindings))
 
-  def body[Graph <: GraphBuilding[Graph]](
+  def body[Graph <: GraphBuilding[C, Graph]](
       code: Code,
       graph: Graph,
       slotValues: Vector[Int]
   ): (Graph, Int) =
     codeClosure(code)[Graph](graph, slotValues)
 
-  private def codeClosure(code: Code): BuildingClosure =
+  private def codeClosure(code: Code): BuildingClosure[C] =
     codeClosures.getOrElse(
       code,
       throw IllegalArgumentException(s"the program has no $code")
@@ -149,9 +149,9 @@ private final class CompiledClosures(program: Program) extends CompiledProgram:
     * grouped by seed, in the seeds' order.
     */
   private def treeRun(
-      tree: SeedTree,
+      tree: SeedTree[C],
       seedCount: Int
-  ): (GraphView, Int) => Matching =
+  ): (GraphView[C], Int) => Matching =
     val steps = treeClosure(tree)
     val initial: Registers = Vector.fill(SeedTree.registerCount(tree))(-1)
     val none = Searched(Vector.fill(seedCount)(Vector.empty), 0)
@@ -162,9 +162,9 @@ private final class CompiledClosures(program: Program) extends CompiledProgram:
   /** The tree's steps followed, on every way they succeed, by the matches of
     * the seeds that end there and then by each branch.
     */
-  private def treeClosure(tree: SeedTree): Continuation =
+  private def treeClosure(tree: SeedTree[C]): Continuation[C] =
     val branches = tree.branches.map(treeClosure)
-    val after: Continuation = (graph, registers, searched) =>
+    val after: Continuation[C] = (graph, registers, searched) =>
       val ended = tree.ends.foldLeft(searched)((current, end) =>
         current.found(
           end.seed,
@@ -181,7 +181,7 @@ private final class CompiledClosures(program: Program) extends CompiledProgram:
   /** The step followed by the steps after it, for every way it succeeds. An
     * `Each` step reads every entry of its collection.
     */
-  private def stepClosure(step: Step, next: Continuation): Continuation =
+  private def stepClosure(step: Step[C], next: Continuation[C]): Continuation[C] =
     step match
       case Step.Layer(node, LayerTemplate.Apply, Vector(function, argument)) =>
         (graph, registers, searched) =>
@@ -279,8 +279,8 @@ private final class CompiledClosures(program: Program) extends CompiledProgram:
   private def eachNode(
       entries: Vector[Int],
       target: Int,
-      next: Continuation
-  )(graph: GraphView, registers: Registers, searched: Searched): Searched =
+      next: Continuation[C]
+  )(graph: GraphView[C], registers: Registers, searched: Searched): Searched =
     entries.foldLeft(searched.read(entries.size))((current, node) =>
       if graph.live(node) then next(graph, registers.updated(target, node), current)
       else current
@@ -289,7 +289,7 @@ private final class CompiledClosures(program: Program) extends CompiledProgram:
   /** The end of a witness's steps: their first success. A method, since the
     * seeds are compiled while the class is constructed.
     */
-  private def firstFound: FirstContinuation = (_, registers) =>
+  private def firstFound: FirstContinuation[C] = (_, registers) =>
     Witnessed(Some(registers), 0)
 
   /** The step followed by the steps after it, inside a witness: the first
@@ -297,9 +297,9 @@ private final class CompiledClosures(program: Program) extends CompiledProgram:
     * its entries up to the first that leads to a success.
     */
   private def firstStepClosure(
-      step: Step,
-      next: FirstContinuation
-  ): FirstContinuation = step match
+      step: Step[C],
+      next: FirstContinuation[C]
+  ): FirstContinuation[C] = step match
     case Step.Layer(node, template, children) =>
       val reading = layerReading(template, children)
       (graph, registers) =>
@@ -371,8 +371,8 @@ private final class CompiledClosures(program: Program) extends CompiledProgram:
       index: Int,
       read: Int,
       target: Int,
-      next: FirstContinuation,
-      graph: GraphView,
+      next: FirstContinuation[C],
+      graph: GraphView[C],
       registers: Registers
   ): Witnessed =
     if index >= entries.size then Witnessed(None, read)
@@ -392,8 +392,8 @@ private final class CompiledClosures(program: Program) extends CompiledProgram:
       read: Int,
       position: Int,
       target: Int,
-      next: FirstContinuation,
-      graph: GraphView,
+      next: FirstContinuation[C],
+      graph: GraphView[C],
       registers: Registers
   ): Witnessed =
     if index >= entries.size then Witnessed(None, read)
@@ -416,7 +416,7 @@ private final class CompiledClosures(program: Program) extends CompiledProgram:
   private def layerReading(
       template: LayerTemplate,
       children: Vector[Int]
-  ): (Layer[Int], Registers) => Option[Registers] = template match
+  ): (LayerWith[Int, Configured[C]], Registers) => Option[Registers] = template match
     case LayerTemplate.Apply =>
       (layer, registers) =>
         layer match
@@ -450,7 +450,7 @@ private final class CompiledClosures(program: Program) extends CompiledProgram:
   private def lookedUpLayer(
       template: LayerTemplate,
       children: Vector[Int]
-  ): Registers => Layer[Int] = template match
+  ): Registers => LayerWith[Int, Configured[C]] = template match
     case LayerTemplate.Apply =>
       require(children.size == 2, s"an application looked up over $children")
       registers => Apply(registers(children(0)), registers(children(1)))
@@ -478,25 +478,25 @@ private final class CompiledClosures(program: Program) extends CompiledProgram:
 
   // ---- buildings ----
 
-  private def buildingClosure(building: Building): BuildingClosure =
+  private def buildingClosure(building: Building[C]): BuildingClosure[C] =
     building match
       case Building.Value(index) =>
-        [Graph <: GraphBuilding[Graph]] =>
+        [Graph <: GraphBuilding[C, Graph]] =>
           (graph: Graph, values: Vector[Int]) =>
             val node = values(index)
             require(node >= 0, s"the value at $index is unbound")
             (graph, node)
       case Building.InstructionNode(instruction) =>
-        [Graph <: GraphBuilding[Graph]] =>
+        [Graph <: GraphBuilding[C, Graph]] =>
           (graph: Graph, _: Vector[Int]) => graph.instructionAdded(instruction)
       case Building.CodeBody(code) =>
-        [Graph <: GraphBuilding[Graph]] =>
+        [Graph <: GraphBuilding[C, Graph]] =>
           (graph: Graph, values: Vector[Int]) =>
             codeClosure(code)[Graph](graph, values)
       case Building.Apply(function, argument, read) =>
         val functionClosure = buildingClosure(function)
         val argumentClosure = buildingClosure(argument)
-        [Graph <: GraphBuilding[Graph]] =>
+        [Graph <: GraphBuilding[C, Graph]] =>
           (graph: Graph, values: Vector[Int]) =>
             val (withFunction, functionNode) =
               functionClosure[Graph](graph, values)
@@ -509,7 +509,7 @@ private final class CompiledClosures(program: Program) extends CompiledProgram:
       case Building.Parallel(left, right) =>
         val leftClosure = buildingClosure(left)
         val rightClosure = buildingClosure(right)
-        [Graph <: GraphBuilding[Graph]] =>
+        [Graph <: GraphBuilding[C, Graph]] =>
           (graph: Graph, values: Vector[Int]) =>
             val (withLeft, leftNode) = leftClosure[Graph](graph, values)
             val (withRight, rightNode) = rightClosure[Graph](withLeft, values)
@@ -517,21 +517,21 @@ private final class CompiledClosures(program: Program) extends CompiledProgram:
       case Building.Choice(left, right) =>
         val leftClosure = buildingClosure(left)
         val rightClosure = buildingClosure(right)
-        [Graph <: GraphBuilding[Graph]] =>
+        [Graph <: GraphBuilding[C, Graph]] =>
           (graph: Graph, values: Vector[Int]) =>
             val (withLeft, leftNode) = leftClosure[Graph](graph, values)
             val (withRight, rightNode) = rightClosure[Graph](withLeft, values)
             withRight.layerAdded(Choice(leftNode, rightNode))
       case Building.Thunk(code, holes, fillings) =>
         val fillingClosures = fillings.map(buildingClosure)
-        [Graph <: GraphBuilding[Graph]] =>
+        [Graph <: GraphBuilding[C, Graph]] =>
           (graph: Graph, values: Vector[Int]) =>
             val (withFillings, fillingNodes) =
               childrenBuilt[Graph](fillingClosures, graph, values)
             withFillings.layerAdded(Thunk(code, holes, fillingNodes))
 
-  private def childrenBuilt[Graph <: GraphBuilding[Graph]](
-      closures: Vector[BuildingClosure],
+  private def childrenBuilt[Graph <: GraphBuilding[C, Graph]](
+      closures: Vector[BuildingClosure[C]],
       graph: Graph,
       values: Vector[Int]
   ): (Graph, Vector[Int]) =

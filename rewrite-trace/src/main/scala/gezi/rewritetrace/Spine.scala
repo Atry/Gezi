@@ -1,77 +1,73 @@
 package gezi.rewritetrace
 
-import gezi.ir.Instruction
 import gezi.ir.Layer
+import gezi.ir.NotTerm
+import gezi.ir.StorageAccess
 import gezi.ir.Thunk
 import scala.annotation.tailrec
 import gezi.ir.TailRecFolds
 import scala.util.control.TailCalls.TailRec
 import scala.util.control.TailCalls.done
 import scala.util.control.TailCalls.tailcall
+import gezi.ir.{Configured, NativeSpecializer}
 
 /** A term being rewritten step by step (`gezi.proofs.RewriteTrace`'s
   * plan, `Trace.replayedCommands`): a node off the
-  * steps' paths settled, an interned instruction, and a node on them rebuilt
-  * over the nodes below it and not interned, so that a step costs the depth
-  * of its position and the logarithm of the widths on its path, not those
-  * widths: a settled node turns into a rebuilt one, at the cost of its width,
-  * only the first time a step's path crosses it.
+  * steps' paths settled, a term of the trace's configuration, and a node on
+  * them rebuilt over the nodes below it and not built, so that a step costs
+  * the depth of its position and the logarithm of the widths on its path, not
+  * those widths: a settled node turns into a rebuilt one, at the cost of its
+  * width, only the first time a step's path crosses it. A settled storage is
+  * read through its view (`Positions.layerOf`).
   */
-enum Spine:
-  case Settled(instruction: Instruction)
-  case Rebuilt(layer: Layer[Spine])
+enum Spine[C <: NativeSpecializer & Singleton]:
+  case Settled(term: Configured[C])
+  case Rebuilt(layer: Layer[Spine[C]])
 
 object Spine:
 
-  /** The index among a layer's children (`Layer.children`) of the subterm at
-    * the segment: function and left first, argument and right second, a
-    * thunk's fillings in order.
-    */
-  private def childIndex(segment: PositionSegment): Int = segment match
-    case PositionSegment.Function | PositionSegment.Left       => 0
-    case PositionSegment.Argument | PositionSegment.Right      => 1
-    case PositionSegment.Filling(index)                        => index
+  /** A node of a spine is no IR term: a layer over nodes is a layer of the spine's. */
+  given [C <: NativeSpecializer & Singleton]: NotTerm[Spine[C]] = NotTerm.granted
 
   /** The node one segment below. Throws `IllegalArgumentException` when the
     * node has no subterm there.
     */
-  private def child(spine: Spine, segment: PositionSegment): Spine =
-    val index = childIndex(segment)
+  private def child[C <: NativeSpecializer & Singleton](spine: Spine[C], segment: PositionSegment)(using C, StorageAccess): Spine[C] =
     spine match
-      case Settled(instruction) =>
-        Settled(
-          instruction.layered.children
-            .lift(index)
-            .getOrElse(throw IllegalArgumentException(s"$instruction has no subterm at $segment"))
-        )
+      case Settled(term) => Settled(Positions.childAt(term, segment))
       case Rebuilt(layer) =>
-        layer.children.lift(index).getOrElse(throw IllegalArgumentException(s"a rebuilt node has no subterm at $segment"))
+        layer.children
+          .lift(Positions.childIndex(segment))
+          .getOrElse(throw IllegalArgumentException(s"a rebuilt node has no subterm at $segment"))
 
   /** The node at the position. */
-  def subterm(spine: Spine, position: Vector[PositionSegment]): Spine = position.foldLeft(spine)(child)
+  def subterm[C <: NativeSpecializer & Singleton](spine: Spine[C], position: Vector[PositionSegment])(using C, StorageAccess): Spine[C] =
+    position.foldLeft(spine)(child)
 
   /** The term with the subterm at the position replaced, the nodes on the
-    * path rebuilt, none interned.
+    * path rebuilt, none built.
     */
-  def replaced(spine: Spine, position: Vector[PositionSegment], replacement: Instruction): Spine =
+  def replaced[C <: NativeSpecializer & Singleton](spine: Spine[C], position: Vector[PositionSegment], replacement: Configured[C])(using C, StorageAccess): Spine[C] =
     val ancestors = position.scanLeft(spine)(child)
-    position.indices.foldRight(Settled(replacement): Spine)((place, inner) =>
-      val layer = ancestors(place) match
-        case Settled(instruction) => instruction.layered.map(Settled(_): Spine)
-        case Rebuilt(rebuilt)      => rebuilt
-      Rebuilt(layer.over(layer.children.updated(childIndex(position(place)), inner)))
+    position.indices.foldRight(Settled(replacement): Spine[C])((place, inner) =>
+      val layer: Layer[Spine[C]] = ancestors(place) match
+        case Settled(term)    => Positions.layerOf(term).map(Settled(_): Spine[C])
+        case Rebuilt(rebuilt) => rebuilt
+      Rebuilt(layer.over(layer.children.updated(Positions.childIndex(position(place)), inner)))
     )
 
-  /** The interned term of the node, its rebuilt nodes interned bottom up. A
-    * trampoline: a rebuilt region is as deep as the positions of the steps.
+  /** The term of the node, its rebuilt nodes built bottom up through the
+    * configuration (`Positions.built`). A trampoline: a rebuilt region is as
+    * deep as the positions of the steps.
     */
-  def materialized(spine: Spine): Instruction = materializedStep(spine).result
+  def materialized[C <: NativeSpecializer & Singleton](spine: Spine[C])(using C): Configured[C] = materializedStep(spine).result
 
-  private def materializedStep(spine: Spine): TailRec[Instruction] = spine match
-    case Settled(instruction) => done(instruction)
+  private def materializedStep[C <: NativeSpecializer & Singleton](spine: Spine[C])(using C): TailRec[Configured[C]] = spine match
+    case Settled(term) => done(term)
     case Rebuilt(layer) =>
-      TailRecFolds.folded(layer.children.toVector, Vector.empty[Instruction])((found, node) => materializedStep(node).map(found :+ _))
-        .map(children => Instruction(layer.over(children)))
+      TailRecFolds
+        .folded(layer.children.toVector, Vector.empty[Configured[C]])((found, node) => materializedStep(node).map(found :+ _))
+        .map(children => Positions.built(layer, children))
 
   /** The positions in the term's replay spelling of the subterm at the
     * position (`ReplaySpelling.positions`), read along the path: a thunk on
@@ -85,17 +81,17 @@ object Spine:
     * every step under it they made the flattening quadratic. A step costs its
     * position's depth, apart from the first time a kind of thunk is met.
     */
-  def spelledPositions(
-      spine: Spine,
+  def spelledPositions[C <: NativeSpecializer & Singleton](
+      spine: Spine[C],
       position: Vector[PositionSegment],
-      known: Spellings
-  ): (Vector[Vector[PositionSegment]], Spellings) =
+      known: Spellings[C]
+  )(using C, StorageAccess): (Vector[Vector[PositionSegment]], Spellings[C]) =
     @tailrec
     def walked(
-        pending: List[(Spine, Vector[PositionSegment], Vector[PositionSegment])],
+        pending: List[(Spine[C], Vector[PositionSegment], Vector[PositionSegment])],
         found: Vector[Vector[PositionSegment]],
-        known: Spellings
-    ): (Vector[Vector[PositionSegment]], Spellings) =
+        known: Spellings[C]
+    ): (Vector[Vector[PositionSegment]], Spellings[C]) =
       pending match
         case Nil => (found, known)
         case (at, rest, prefix) :: others =>
@@ -103,8 +99,8 @@ object Spine:
             case None => walked(others, found :+ prefix, known)
             case Some(segment) =>
               val kind = at match
-                case Settled(instruction) =>
-                  instruction.layered match
+                case Settled(term) =>
+                  term.layer match
                     case Thunk(code, holes, fillings) => Some((code, holes, fillings.size))
                     case _                            => None
                 case Rebuilt(Thunk(code, holes, fillings)) => Some((code, holes, fillings.size))

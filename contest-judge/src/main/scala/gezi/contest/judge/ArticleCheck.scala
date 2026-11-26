@@ -3,9 +3,9 @@ package gezi.contest.judge
 import java.nio.file.Files
 import java.nio.file.LinkOption
 import java.nio.file.Path
-import gezi.ir.Instruction
 import gezi.frontend.ExchangeText
 import scala.annotation.tailrec
+import gezi.ir.{Configured, NoFacts}
 
 /** How the re-read of a point ended, the article check's first step: the family's budget, times the article allowance,
   * ran out before the point's answer; the JVM ended or wrote a line that is
@@ -14,7 +14,7 @@ import scala.annotation.tailrec
 enum Reread:
   case Exhausted
   case Stopped
-  case Answered(answer: Option[Set[Instruction]])
+  case Answered(answer: Option[Set[Configured[NoFacts.type]]])
 
 /** The result of the article check of a point, as `articles.tsv` writes it
   * ([[ArticleCheck]]'s steps 1 and 2). Every result but
@@ -55,7 +55,7 @@ object ArticleCheck:
   /** The verdict of the point's articles in the directory, the re-read's
     * ending and the answer of the scored pass (steps 1 and 2).
     */
-  def checked(directory: Path, scored: Option[Set[Instruction]], reread: Reread): ArticleVerdict = reread match
+  def checked(directory: Path, scored: Option[Set[Configured[NoFacts.type]]], reread: Reread): ArticleVerdict = reread match
     case Reread.Exhausted => ArticleVerdict(ArticleOutcome.NotReproducedBudget, "the family's budget times the allowance ran out")
     case Reread.Stopped   => ArticleVerdict(ArticleOutcome.NotReproducedStopped, "the JVM ended or wrote a line that is not the point's answer")
     case Reread.Answered(answer) if answer != scored =>
@@ -79,7 +79,7 @@ object ArticleCheck:
 
   private def oneLine(text: String): String = text.map(character => if character == '\t' || character == '\n' then ' ' else character)
 
-  private def answerText(answer: Option[Set[Instruction]]): String = answer match
+  private def answerText(answer: Option[Set[Configured[NoFacts.type]]]): String = answer match
     case None        => "no answer"
     case Some(found) => s"${found.size} normal forms ${found.toVector.map(ExchangeText.line).sorted.mkString(" ; ").take(200)}"
 

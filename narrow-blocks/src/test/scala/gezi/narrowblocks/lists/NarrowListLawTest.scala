@@ -8,8 +8,11 @@ import java.math.BigInteger
 import gezi.generatedinputs.GeneratedProperties
 import gezi.ir.Code
 import gezi.ir.Hole
-import gezi.ir.Instruction
+import gezi.ir.Configured
+import gezi.ir.NoFacts
 import gezi.saturation.StopSignal
+
+private given narrowListLawTestNoFacts: NoFacts.type = NoFacts
 
 /** The laws of the narrow lists' representation:
   * a list of canonical naturals filtered by `list_type (binary_set p)` at its
@@ -53,7 +56,7 @@ class NarrowListLawTest extends GeneratedProperties:
         Result
           .all(
             List(
-              Result.diff(compilation.listDecoded(Instruction.Parallel(tailsFiltered(written, filters), listCriterion(admitsZero))), expected)(
+              Result.diff(compilation.listDecoded(NoFacts.parallel(tailsFiltered(written, filters), listCriterion(admitsZero))), expected)(
                 _ == _
               ),
               Result.diff(compilation.listDecoded(tailsFiltered(written, filters)), None)(_ == _).log("with no filter at its root")
@@ -64,22 +67,22 @@ class NarrowListLawTest extends GeneratedProperties:
 
   /** λl. plus l zero, a function whose parameter is plus's operand. */
   private val plusZero =
-    Instruction.Thunk(Code.Apply(Code.Apply(Code.Slot(1), Code.Slot(0)), Code.Slot(2)), Vector(Hole.Bound(0)), Vector(plus, zero))
+    NoFacts.thunkOrInstance(Code.Apply(Code.Apply(Code.Slot(1), Code.Slot(0)), Code.Slot(2)), Vector(Hole.Bound(0)), Vector(plus, zero))
 
   stoppableProperty("a list read as a natural gives no value; a natural in its place gives the sum") { stopped =>
     for
       written <- elements(1).forAll
       number <- value.forAll
     yield
-      val filteredList = Instruction.Parallel(list(written), listCriterion(true))
+      val filteredList = NoFacts.parallel(list(written), listCriterion(true))
       val stop = StopSignal.completedWith(stopped)
-      def computed(program: Instruction) =
+      def computed(program: Configured[NoFacts.type]) =
         compilation.compiled(compilation.blocks(program), DebugAttributes.Omitted, stop).map(_.map(_.run(stop)))
       val programs = Vector(
-        (Instruction.Apply(Instruction.Apply(plus, filteredList), numeral(number)), None),
-        (Instruction.Apply(plusZero, filteredList), None),
-        (Instruction.Apply(Instruction.Apply(plus, numeral(number)), numeral(number)), Some(BigInteger.valueOf(2L * number))),
-        (Instruction.Apply(plusZero, numeral(number)), Some(BigInteger.valueOf(number.toLong)))
+        (NoFacts.application(NoFacts.application(plus, filteredList), numeral(number)), None),
+        (NoFacts.application(plusZero, filteredList), None),
+        (NoFacts.application(NoFacts.application(plus, numeral(number)), numeral(number)), Some(BigInteger.valueOf(2L * number))),
+        (NoFacts.application(plusZero, numeral(number)), Some(BigInteger.valueOf(number.toLong)))
       )
       Result
         .all(

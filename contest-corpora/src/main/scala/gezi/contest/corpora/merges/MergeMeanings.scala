@@ -24,13 +24,13 @@ final class MergeMeanings(problems: ProblemFamilies):
   private val meanings = problems("reduction_meanings")
 
   /** `double` applied `times` times to `one` (`doubled_on/4`). */
-  private def doubledOn(times: Int, double: Term, one: Term): Term =
+  private def doubledOn(times: Int, double: ProblemTerm, one: ProblemTerm): ProblemTerm =
     (1 to times).foldLeft(one)((inner, _) => double(inner))
 
   /** 2^exponent + extra built from `trueValue` at run time: `extra`
     * successors over the doubling of one (`claimed_on/5`).
     */
-  private def claimedOn(exponent: Int, extra: Int, double: Term, trueValue: Term): Term =
+  private def claimedOn(exponent: Int, extra: Int, double: ProblemTerm, trueValue: ProblemTerm): ProblemTerm =
     (1 to extra).foldLeft(doubledOn(exponent, double, λ(_ => λ(successor => successor(trueValue)))))(
       (inner, _) => λ(_ => λ(successor => successor(inner)))
     )
@@ -39,7 +39,7 @@ final class MergeMeanings(problems: ProblemFamilies):
     * 2^(exponent - 1) + extra` under the lets of true, false, not, is_even,
     * count, upto, double and equal (`count_test_surface/3`).
     */
-  def countTestSurface(exponent: Int, extra: Int): Term =
+  def countTestSurface(exponent: Int, extra: Int): ProblemTerm =
     require(exponent >= 1, s"the exponent is at least 1: $exponent")
     λ(trueValue =>
       λ(falseValue =>
@@ -74,7 +74,7 @@ final class MergeMeanings(problems: ProblemFamilies):
     )
 
   /** The point's program. */
-  def program(name: String): Term =
+  def program(name: String): ProblemTerm =
     points
       .find(_._1 == name)
       .map((_, exponent, extra) => countTestSurface(exponent, extra))

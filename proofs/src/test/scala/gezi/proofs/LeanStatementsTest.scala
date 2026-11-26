@@ -1,6 +1,7 @@
 package gezi.proofs
 
 import java.nio.file.Files
+import gezi.ir.NoFacts
 import gezi.lemmaencoding.EncodedLemma
 import gezi.lemmaencoding.baseline.BaselineLemmaEncoding
 import gezi.standardlibrary.LemmaProof
@@ -15,15 +16,17 @@ object LeanStatementsChecks:
   /** Every lemma of direction `equation` of the library, as the baseline
     * encodes it, from which the export builds the statements.
     */
-  def baselineEncodings(library: StandardLibrary): Vector[EncodedLemma] =
+  def baselineEncodings(library: StandardLibrary): Vector[EncodedLemma[NoFacts.type]] =
     library.index.equations.map(BaselineLemmaEncoding.encoded(library.index, _))
 
   /** The text of the export of the library, from the standard library's
     * directory.
     */
   def exportedText(library: StandardLibrary): String =
+    given gezi.ir.StorageAccess = gezi.ir.StorageAccess.granted()
     LeanStatements.text(
       library,
+      library.index,
       baselineEncodings(library),
       ProofTestFiles.repository
     )
@@ -50,7 +53,7 @@ object LeanStatementsChecks:
     Vector(
       "open Lean in",
       "/-- What declares the soundness `name` of a lemma: its hand-written proof, the soundness theorem",
-      "of one of the six decisions, or an axiom. -/",
+      "of one of the seven decisions, or an axiom. -/",
       "def soundnessKind (name : Name) : CoreM String := do",
       "  match (← getEnv).find? name with",
       "  | some (.axiomInfo _) => pure \"axiom\"",
@@ -69,6 +72,8 @@ object LeanStatementsChecks:
       "            pure \"opened_constants\"",
       "          else if proof == ``LambdaJit.StatementNormalisation.statementSoundOfNormalisedLong then",
       "            pure \"long_normal_form\"",
+      "          else if proof == ``LambdaJit.StatementNormalisation.statementSoundOfReached then",
+      "            pure \"reached_by_contraction\"",
       "          else if proof == ``LambdaJit.EndToEnd.equationSoundOfDerivable then",
       "            match theoremInfo.value.getAppArgs.back? with",
       "            | some (.const derivation _) =>",
@@ -151,6 +156,8 @@ object LeanStatementsChecks:
   */
 class LeanStatementsTest extends gezi.generatedinputs.FailFastSuite:
 
+  private given gezi.ir.StorageAccess = gezi.ir.StorageAccess.granted()
+
   // Measured 2026-11-16 on 2 CPUs (contest-lean.slice, CPUs 10,11, nice 10), the 1-minute load 9 to 22 over the run, every deadline raised to 600 s: the slowest test of LeanStatementsTest, "leanAcceptsTheModuleAndMatchesTheArticlesImports", takes 111.434 s; the bound is 1.5 times that rounded up to 5 s.
   // Reason: it runs the Lean toolchain over the exported module.
   override val munitTimeout: scala.concurrent.duration.Duration = scala.concurrent.duration.Duration(170, "s")
@@ -180,6 +187,7 @@ class LeanStatementsTest extends gezi.generatedinputs.FailFastSuite:
       try
         LeanStatements.written(
           library,
+          library.index,
           LeanStatementsChecks.baselineEncodings(library),
           ProofTestFiles.repository,
           file

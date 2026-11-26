@@ -1,6 +1,7 @@
 package gezi.lemmaencoding
 
 import gezi.ir.LemmaIdentifier
+import gezi.ir.NativeSpecializer
 import gezi.ir.Pattern
 import gezi.standardlibrary.LemmaSides
 import gezi.standardlibrary.StandardLibraryIndex
@@ -12,11 +13,11 @@ import gezi.standardlibrary.StandardLibraryIndex
   * which an encoding may read, such as its defines.
   */
 trait LemmaEncoding:
-  def encoded(index: StandardLibraryIndex, sides: LemmaSides): EncodedLemma
+  def encoded[C <: NativeSpecializer & Singleton](index: StandardLibraryIndex[C], sides: LemmaSides[C]): EncodedLemma[C]
 
 /** A lemma as an encoding gives it: its identifier, the number of its
   * metavariables, numbered from 0, and the framework's patterns of its two
   * sides, what the orientation compiler takes and what an article states
   * and matches the lemma by.
   */
-final case class EncodedLemma(lemma: LemmaIdentifier, metavariables: Int, left: Pattern, right: Pattern)
+final case class EncodedLemma[C <: NativeSpecializer & Singleton](lemma: LemmaIdentifier, metavariables: Int, left: Pattern[C], right: Pattern[C])

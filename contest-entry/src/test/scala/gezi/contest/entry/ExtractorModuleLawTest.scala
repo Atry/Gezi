@@ -7,7 +7,9 @@ import hedgehog.Result
 import gezi.frontend.Lambdalattice
 import gezi.frontend.Literals
 import gezi.generatedinputs.GeneratedProperties
+import gezi.ir.NoFacts
 import gezi.jit.NativeBackend
+import gezi.weakhead.ReadingConfiguration
 import gezi.narrowblocks.LemmaRoute
 import gezi.narrowblocks.NarrowBlockRoute
 import gezi.strategies.Extractor
@@ -62,7 +64,7 @@ class ExtractorModuleLawTest extends GeneratedProperties:
       LemmaEncodingImplementation.Baseline,
       EmatchingImplementation.Closures,
       MemoRetentionOption.Kept,
-      MemoRetentionOption.Kept,
+      WriteBackSpellingsOption.KeptWithinAPass,
       OpeningCriterionOption.CallsAHead
     )
 
@@ -91,11 +93,13 @@ class ExtractorModuleLawTest extends GeneratedProperties:
               budget = 0,
               checkpoints = CheckpointOption.Profitable,
               nativeBlocks = NativeBlocksOption.None,
-              lookahead = LookaheadOption.Lazily
+              lookahead = LookaheadOption.Lazily,
+              instanceReuse = InstanceReuseOption.WithinVersion
             ),
             ReadingOptions(ApplicationOption.ByLayer, TableSharingOption.Local, TableRetentionOption.NoneKept, ContinuationOption.Substituted, ParallelOption.BothSides),
             EntryText.jitExecutor,
-            CompilationPlaceOption.Upfront
+            CompilationPlaceOption.Upfront(UnitSelectionOption.WholeProgram),
+            OccurrenceTaggingOption.Untagged
           )
         )
       )
@@ -104,7 +108,7 @@ class ExtractorModuleLawTest extends GeneratedProperties:
   /** The classes of an extraction and a route chosen, what a failure
     * reports: their fields hold the natives, too long to print.
     */
-  private def classesOf(extractor: Extractor, route: NarrowBlockRoute): String =
+  private def classesOf(extractor: Extractor[NoFacts.type], route: NarrowBlockRoute): String =
     s"${extractor.getClass.getName} and ${route.getClass.getName}"
 
   /** The one round's extractor of the entry the text writes. */
@@ -116,15 +120,14 @@ class ExtractorModuleLawTest extends GeneratedProperties:
     for parameter <- Gen.long(Range.linearFrom(0L, Long.MinValue, Long.MaxValue)).map(BigInt(_)).forAll
     yield
       val chosen = extractorRead(entryText(EntryText.moduleExtractor(testSelector, s"λs. s ${number(parameter)}")))
-      val compilation = Defaults.lemmaCompilation(Vector.empty, settings(chosen), 0, natives, modules)
-      val inputs = ExtractorModuleInputs(natives)
+      val compilation = Defaults.lemmaCompilation(Vector.empty, settings(chosen), 0, natives, modules, gezi.ir.TermConstruction(gezi.ir.NoFacts), ReadingConfiguration.withoutFacts)
+      val inputs = ExtractorModuleInputs(natives, ReadingConfiguration.withoutFacts)
       (compilation.extractor, compilation.route) match
-        case (ParameterCarryingExtractor(extracted, extractorInputs, _), ParameterCarryingRoute(routed, routeInputs, framework)) =>
+        case (ParameterCarryingExtractor(extracted, extractorInputs, _), ParameterCarryingRoute(routed, framework)) =>
           Result
             .diff(extracted, parameter)(_ == _)
             .and(Result.diff(routed, parameter)(_ == _))
             .and(Result.diff(extractorInputs, inputs)(_ == _))
-            .and(Result.diff(routeInputs, inputs)(_ == _))
             .and(Result.assert(framework eq LemmaRoute))
         case (extractor, route) => Result.failure.log(s"the extraction and route chosen are ${classesOf(extractor, route)}")
   }
@@ -143,9 +146,9 @@ class ExtractorModuleLawTest extends GeneratedProperties:
       Defaults.entryDataState
     )
     val Vector(round) = (data.rounds: @unchecked)
-    val inputs = ExtractorModuleInputs(natives)
-    (Defaults.extractor(round.settings.extractor, natives, modules), Defaults.route(round.settings.extractor, natives, modules)) match
-      case (ParameterCarryingExtractor(extracted, _, _), ParameterCarryingRoute(routed, _, _)) =>
+    val inputs = ExtractorModuleInputs(natives, ReadingConfiguration.withoutFacts)
+    (Defaults.extractor(round.settings.extractor, natives, modules, ReadingConfiguration.withoutFacts), Defaults.route(round.settings.extractor, modules)) match
+      case (ParameterCarryingExtractor(extracted, _, _), ParameterCarryingRoute(routed, _)) =>
         assertEquals((extracted, routed), (BigInt(7), BigInt(7)))
       case (extractor, route) => fail(s"the extraction and route chosen are ${classesOf(extractor, route)}")
   }
@@ -161,8 +164,8 @@ class ExtractorModuleLawTest extends GeneratedProperties:
           case _                 => false
         }
       Result
-        .assert(refused(Defaults.extractor(chosen, natives, modules)))
-        .and(Result.assert(refused(Defaults.route(chosen, natives, modules))))
+        .assert(refused(Defaults.extractor(chosen, natives, modules, ReadingConfiguration.withoutFacts)))
+        .and(Result.assert(refused(Defaults.route(chosen, modules))))
   }
 
   /** Its purpose is to catch a table that keeps one of two modules whose

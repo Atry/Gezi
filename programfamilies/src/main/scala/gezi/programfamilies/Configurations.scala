@@ -1,12 +1,16 @@
 package gezi.programfamilies
 
-import gezi.frontend.Term
+import gezi.frontend.TermOf
+import gezi.ir.{Configured, NoFacts}
+
+/** A program of the families: a HOAS term whose constants are the library's terms, read with no facts. */
+type ProgramTerm = TermOf[Configured[NoFacts.type]]
 
 /** One item of a configuration: a program of a family at a size, or a
   * coverage program named in place of a size. Its name, `family-size`, is
   * the name of its fixture and of its line in a file of fixed points.
   */
-final case class Item(family: String, size: String, program: Term):
+final case class Item(family: String, size: String, program: ProgramTerm):
 
   /** `family-size`, as the Prolog exporter named the item's fixture. */
   def name: String = s"$family-$size"
@@ -41,7 +45,7 @@ object Configurations:
     */
   val sizes: Vector[Int] = (0 to 10).map(exponent => 1 << exponent).toVector
 
-  private def sizeFamily(family: String, program: Int => Term): Vector[Item] =
+  private def sizeFamily(family: String, program: Int => ProgramTerm): Vector[Item] =
     sizes.map(size => Item(family, size.toString, program(size)))
 
   /** The library and the knowledge of `gezi/tests/hindley_milner_baseline.plt`,

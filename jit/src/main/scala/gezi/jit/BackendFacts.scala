@@ -10,14 +10,14 @@ import gezi.weakhead.ListConstructor
 import gezi.weakhead.Mode
 import gezi.weakhead.ParallelView
 import gezi.weakhead.ReadingState
-import gezi.weakhead.Value
+import gezi.ir.Value
 import gezi.weakhead.WeakHead
 import gezi.standardlibrary.Property
 import gezi.standardlibrary.StandardLibrary
 import gezi.standardlibrary.StandardLibraryIndex
 import gezi.ir.Code
-import gezi.ir.Instruction
 import gezi.ir.Hole
+import gezi.ir.{Configured, NativeSpecializer, NoFacts, Pure}
 
 /** The backend's facts of a compiled library, read from its index (jit.pl,
   * THE BACKEND'S REPRESENTATIONS) under a set of natives and families: which
@@ -36,7 +36,7 @@ import gezi.ir.Hole
   *   the natives and the data families the JIT runs; the JIT reads them through these facts only
   */
 final case class BackendFacts(
-    index: StandardLibraryIndex,
+    index: StandardLibraryIndex[NoFacts.type],
     nativeBackend: NativeBackend = NativeBackend.standard
 ):
 
@@ -46,7 +46,7 @@ final case class BackendFacts(
   /** The natives of the set bound to each define, in the order of the
     * bindings (prolog_native/3).
     */
-  val natives: Map[Instruction, Vector[BoundNative]] =
+  val natives: Map[Pure, Vector[BoundNative]] =
     bindings
       .filter(bound => nativeBackend.natives.contains(bound.native))
       .groupBy(_.instruction)
@@ -61,10 +61,10 @@ final case class BackendFacts(
     * Prolog JIT's if-then-else committed to (`FamilyIdentity.Codec`),
     * whether or not the backend has a codec for it.
     */
-  val criterionFamily: Map[Instruction, FamilyIdentity] =
+  val criterionFamily: Map[Pure, FamilyIdentity] =
     val specialized = index.combinatorProperties
       .collect { case found @ gezi.standardlibrary.CombinatorProperty(_, Property.NativeSpecialization(name)) => found.instruction -> name }
-      .foldLeft(Map.empty[Instruction, FamilyIdentity]) { case (found, (instruction, name)) =>
+      .foldLeft(Map.empty[Pure, FamilyIdentity]) { case (found, (instruction, name)) =>
         if found.contains(instruction) then found else found.updated(instruction, FamilyIdentity.Codec(name))
       }
     specialized ++ nativeBackend.families.collect { case declared: DeclaredFamily => declared.criterion -> declared.identity }
@@ -82,11 +82,11 @@ final case class BackendFacts(
     * each application by the first native. Candidate: choose by the
     * representation the reading asks for, as the native values do.
     */
-  def nativeOfParameters(instruction: Instruction): Option[BoundNative] =
+  def nativeOfParameters(instruction: Pure): Option[BoundNative] =
     natives.getOrElse(instruction, Vector.empty).find(_.parameterCount > 0)
 
   /** Whether some native of the set is bound to the define. */
-  def bound(instruction: Instruction): Boolean = natives.contains(instruction)
+  def bound(instruction: Pure): Boolean = natives.contains(instruction)
 
   /** Whether the enabled library declares the family: a native
     * specialization of a codec the set or the framework has, which the
@@ -110,17 +110,18 @@ final case class BackendFacts(
     * refinement keeps as written: noinline is what keeps a term unexpanded
     * when the library is files reached by paths.
     */
-  val leaves: Set[Instruction] = index.noinline
+  val leaves: Set[Pure] = index.withProperty(Property.Noinline).toSet
 
   /** The instruction of the first define with `native_specialization(list)`, the
     * function of a list's decoding criterion (list_criterion/2).
     */
-  lazy val listType: Instruction =
+  lazy val listType: Pure =
     index.withProperty(Property.NativeSpecialization(Representation.listFamily.name)).headOption.getOrElse(
       throw IllegalStateException("no define of the library has native_specialization(list)")
     )
 
-  private lazy val definesBound: Map[NativeName, Vector[Instruction]] =
+  /** The library terms bound to each native, a constructor's among them. */
+  lazy val definesBound: Map[NativeName, Vector[Pure]] =
     bindings.groupBy(_.native).map((native, bound) => native -> bound.map(_.instruction).distinct)
 
   /** The term bound to the native, when exactly one is: the decoding of a
@@ -128,15 +129,15 @@ final case class BackendFacts(
     * constructor's term this way and finds no parameter where the library
     * binds none.
     */
-  def boundDefine(native: NativeName): Option[Instruction] =
+  def boundDefine(native: NativeName): Option[Pure] =
     definesBound.get(native) match
       case Some(Vector(instruction)) => Some(instruction)
       case _                    => None
 
-  private lazy val nativeBoundDefines: Set[Instruction] = definesBound.values.flatten.toSet
+  private lazy val nativeBoundDefines: Set[Pure] = definesBound.values.flatten.toSet
 
-  /** Whether the instruction's term is bound to a native. */
-  def isBoundToNative(instruction: Instruction): Boolean = nativeBoundDefines.contains(instruction)
+  /** Whether the term is bound to a native. */
+  def isBoundToNative(instruction: Pure): Boolean = nativeBoundDefines.contains(instruction)
 
   /** The term bound to the native, which a codec encodes a constructor
     * with: for a codec's constructor, the term at its position in the
@@ -146,22 +147,26 @@ final case class BackendFacts(
     * position of a codec's constructors (`BackendChecks`) and a
     * `data_family` on every type specialized to a codec's family.
     */
-  def constructorDefine(native: NativeName): Instruction =
+  def constructorDefine(native: NativeName): Pure =
     definesBound.get(native) match
       case Some(Vector(instruction)) => instruction
       case found => throw EvaluationError(EvaluationErrorReason.CodecConstructor(native.toString, found.getOrElse(Vector.empty)))
 
+  /** The terms the storages of these facts encode their values with. */
+  lazy val storageEncoding: StorageEncoding = StorageEncoding(this)
+
   /** The term of nil, the list's constructor 0. */
-  lazy val nil: Instruction =
+  lazy val nil: Pure =
     constructorDefine(NativeName.Constructor(Representation.listFamily, ListCodec.position(ListConstructor.Nil)))
 
   /** The term of cons, the list's constructor 1. */
-  lazy val cons: Instruction =
+  lazy val cons: Pure =
     constructorDefine(NativeName.Constructor(Representation.listFamily, ListCodec.position(ListConstructor.Cons)))
 
-  /** The backend's constants (native_constants/3): for each define bound to
+  /** The heads of the backend's constants (native_constants/3): for each define bound to
     * a native of no parameter, the head of the define, a thunk with no
-    * filling, with the native's value and its result's place. The head of
+    * filling, with the native and its result's place; each configuration computes the
+    * native's value in its own `C` (`StorageEncodingOperations.constants`). The head of
     * `\z. \s. z`, zero's define, is also the head of true's, so one head
     * stands for 0 in big_integer and for true in boolean. The head is read
     * by the reference evaluator from the define's layer, within
@@ -169,8 +174,8 @@ final case class BackendFacts(
     * which on a define bound to a native of no parameter are the
     * reference's (its head is its define's own). A native whose result's
     * place is at the call's parameter (`NativePlace.Parameter`) has its
-    * constant at the parameter of its result (`Native.resultParameter` of
-    * no operand): `word_end`'s is at width 0. Computed once for the
+    * constant at its constant's parameter (`Native.constantParameter`):
+    * `word_end`'s is at width 0. Computed once for the
     * library, a table of the backend's facts and nothing about a program.
     * The constructors of the families declared by facts give no constant
     * (only the codecs of the set and the framework and the `native`
@@ -179,22 +184,23 @@ final case class BackendFacts(
     * another family's, so its family is read only from a filter
     * (`DeclaredFamilies`).
     */
-  lazy val constants: Vector[BackendConstant] =
+  lazy val constantHeads: Vector[ConstantHead] =
+    // A constant's define is a pure key, read under no facts, its own spelling there.
+    given NoFacts.type = NoFacts
     bindings.filterNot(declaredFamilyConstructor).flatMap(bound =>
       nativeBackend.natives.get(bound.native).filter(_.parameterCount == 0).flatMap(native =>
-        val result = native.implementation(Vector.empty)
         val place = native.result match
           case NativePlace.Parameter(family) =>
-            val parameter = native.resultParameter(Vector.empty)
-              .getOrElse(throw IllegalStateException(s"${bound.native}, of no operand, gives no result's parameter"))
+            val parameter = native.constantParameter
+              .getOrElse(throw IllegalStateException(s"${bound.native}, of no operand, gives no constant's parameter"))
             NativePlace.Fixed(Representation.Data(family, parameter))
           case other => other
-        WeakHead.heads(Mode.TablingWeakHead, bound.instruction).pull
-          .result(ReadingState.fresh(BackendFacts.constantStepLimit)) match
+        WeakHead.heads(Mode.TablingWeakHead, Value.of(Configured.fromPure(NoFacts)(bound.instruction))).pull
+          .result(ReadingState.fresh(BackendFacts.constantStepLimit, gezi.weakhead.ReadingConfiguration.withoutFacts)) match
           case Computed.Done(Some((set, _)), _) =>
-            set.view match
+            set.view(NoFacts) match
               case ParallelView.Single(Head.Lambda(code, holes, fillings)) if fillings.isEmpty =>
-                Some(BackendConstant(code, holes, result, place))
+                Some(ConstantHead(code, holes, native, place))
               case _ => None
           case _ => None
       )
@@ -216,13 +222,15 @@ final case class BackendFacts(
   * family, or of a family declared by facts, the constructor named by the
   * family's identity and the position.
   */
-final case class NativeBinding(instruction: Instruction, native: NativeName)
+final case class NativeBinding(instruction: Pure, native: NativeName)
 
-/** A backend constant: the head of a define bound to a native of no
-  * parameter, `\z. \s. z` as its code and holes, the native's value, and
-  * the place of the native's result.
+/** The head of a backend constant, read from the facts: the head of a define bound to a native of no parameter,
+  * `\z. \s. z` as its code and holes, the native, and the place of the native's result.
   */
-final case class BackendConstant(code: Code, holes: Vector[Hole], value: NativeValue, place: NativePlace)
+final case class ConstantHead(code: Code, holes: Vector[Hole], native: Native, place: NativePlace)
+
+/** A backend constant in a configuration: its head, the native's value there, and the place of the native's result. */
+final case class BackendConstant[+Term](code: Code, holes: Vector[Hole], value: NativeValue[Term], place: NativePlace)
 
 /** The facts of a compiled library. */
 object BackendFacts:
@@ -249,8 +257,8 @@ object BackendFacts:
     * and the position (`NativeName.Constructor`): never by a string of its
     * own, and never by its term alone ([[FamilyIdentity]]).
     */
-  def bindings(index: StandardLibraryIndex, nativeBackend: NativeBackend): Vector[NativeBinding] =
-    def constructorBindings(family: FamilyIdentity, terms: Vector[Instruction]): Vector[NativeBinding] =
+  def bindings(index: StandardLibraryIndex[?], nativeBackend: NativeBackend): Vector[NativeBinding] =
+    def constructorBindings(family: FamilyIdentity, terms: Vector[Pure]): Vector[NativeBinding] =
       terms.zipWithIndex.map((term, position) => NativeBinding(term, NativeName.Constructor(family, position)))
     val codecs = Codecs.declaredConstructors(index).map((name, terms) => (FamilyIdentity.Codec(name), terms)).collect {
       case (family, terms) if family == Representation.listFamily || nativeBackend.family(family).isDefined => constructorBindings(family, terms)

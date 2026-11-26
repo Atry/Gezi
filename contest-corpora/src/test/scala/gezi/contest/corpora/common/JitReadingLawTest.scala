@@ -22,7 +22,10 @@ import gezi.weakhead.NoJitState
 import gezi.weakhead.ParallelSet
 import gezi.weakhead.Reading
 import gezi.weakhead.ReadingState
-import gezi.weakhead.Value
+import gezi.ir.NoFacts
+import gezi.ir.Value
+import gezi.weakhead.NeutralValue
+import gezi.weakhead.ReadingConfiguration
 import gezi.weakhead.WeakHead
 import gezi.weakhead.WitnessOutcome
 import gezi.weakhead.oldcorpora.ConstructorTree
@@ -38,10 +41,13 @@ import gezi.contest.corpora.reductions.RepeatedVariant
 import gezi.contest.corpora.reductions.RepeatedVariants
 import gezi.contest.corpora.reductions.Scott
 import gezi.frontend.Defunctionalization
+import gezi.frontend.ReadableText
 import gezi.frontend.Term
 import gezi.generatedinputs.GeneratedProperties
 import gezi.generatedinputs.HoasGenerators
 import gezi.generatedinputs.SeededSamples
+import gezi.ir.{Configured, NativeSpecializer}
+import gezi.jit.StorageEncoding
 
 /** The law of the JIT (`gezi.jit.Jit`) against the reference
   * evaluator, tabling(weak_head), on generated programs: what the JIT reads of a
@@ -94,6 +100,20 @@ import gezi.generatedinputs.SeededSamples
   */
 class JitReadingLawTest extends GeneratedProperties with HardCorpusSuite:
 
+  /** The encoding of no facts, whose singleton type is the configuration the law reads under: the reference reading
+    * and the JIT's both read terms of it.
+    */
+  private val encoding: StorageEncoding = JitTesting.noFactsEncoding
+
+  private type C = encoding.type
+
+  private given encoding.type = encoding
+
+  private given gezi.ir.StorageAccess = gezi.ir.StorageAccess.granted()
+
+  /** The reading configuration of the reference reading, the JIT's own (`Jit.readingConfiguration`) being the other. */
+  private val referenceConfiguration: ReadingConfiguration[C] = ReadingConfiguration[C](encoding, gezi.ir.StorageAccess.granted())
+
   // Measured 2026-11-16 on 2 CPUs (contest-lean.slice, CPUs 10,11, nice 10), the 1-minute load 9 to 22 over the run, every deadline raised to 600 s: the slowest test of JitReadingLawTest, "the JIT writes no file", takes 39.449 s; the bound is 1.5 times that rounded up to 5 s.
   // FIXME: this suite exceeds the 3 s default with no reason yet; its slow tests are to be made fast. https://github.com/Atry/private-overlay/issues/1925
   override val munitTimeout: scala.concurrent.duration.Duration = scala.concurrent.duration.Duration(60, "s")
@@ -108,14 +128,14 @@ class JitReadingLawTest extends GeneratedProperties with HardCorpusSuite:
     Vector(("large", 10000, false), ("none", 0, false), ("small", 3, true))
 
   /** A reading of a root under a mode within a limit, from a JIT state. */
-  private type Reader[Answer] = (Mode, Value, Long, JitState) => Read[Answer]
+  private type Reader[Answer] = (Mode, ReadingConfiguration[C], Value[C], Long, JitState[C]) => Read[C, Answer]
 
   /** The roots of one input whose tabling(weak_head) answer the
     * protocol can compare, tabling(weak_head)'s reading of each within the limit, and
     * the count of the roots left out.
     */
   private final case class Prepared[Answer](
-      roots: Vector[Value],
+      roots: Vector[Value[C]],
       references: Vector[Bounded[Answer]],
       leftOut: Int
   ):
@@ -125,12 +145,12 @@ class JitReadingLawTest extends GeneratedProperties with HardCorpusSuite:
     * not `comparable` left out.
     */
   private def prepared[Answer](
-      roots: Vector[Value],
+      roots: Vector[Value[C]],
       reader: Reader[Answer],
       limit: Long,
       comparable: Answer => Boolean = (_: Answer) => true
   ): Prepared[Answer] =
-    val read = roots.map(root => root -> reader(Mode.TablingWeakHead, root, limit, NoJitState).outcome)
+    val read = roots.map(root => root -> reader(Mode.TablingWeakHead, referenceConfiguration, root, limit, NoJitState).outcome)
     val kept = read.filter {
       case (_, Bounded.Finished(answer)) => comparable(answer)
       case _                             => true
@@ -151,9 +171,9 @@ class JitReadingLawTest extends GeneratedProperties with HardCorpusSuite:
     * on Ω, `(λx. x x) (λx. x x)`, which tabling(weak_head) reads to no head
     * by its cycle.
     */
-  private def tabledConfiguration(budget: Int): JitConfiguration =
-    val plain = JitTesting.configured(JitTesting.noFacts, budget)
-    JitConfiguration(plain.facts, plain.budget, plain.strategy, plain.backend, plain.dispatch, instanceTable = true)
+  private def tabledConfiguration(budget: Int): JitConfiguration[C] =
+    val plain = JitTesting.configured(encoding, budget)
+    JitConfiguration[C](plain.specializer, plain.budget, plain.strategy, plain.backend, plain.dispatch, instanceTable = true, storageAccess = gezi.ir.StorageAccess.granted())
 
   private def agreed[Answer](
       input: Prepared[Answer],
@@ -164,12 +184,12 @@ class JitReadingLawTest extends GeneratedProperties with HardCorpusSuite:
     val results = budgets.map((name, budget, dropped) =>
       val evaluator = Jit(tabledConfiguration(budget))
       val questions = input.roots.zip(input.references).map((root, alreadyRead) =>
-        new JitTesting.Question[Answer]:
+        new JitTesting.Question[C, Answer]:
           def reference(asked: Long) =
-            if asked == limit then alreadyRead else reader(Mode.TablingWeakHead, root, asked, NoJitState).outcome
-          def jit(asked: Long, jitState: JitState) = reader(Mode.Jit(evaluator), root, asked, jitState)
+            if asked == limit then alreadyRead else reader(Mode.TablingWeakHead, referenceConfiguration, root, asked, NoJitState).outcome
+          def jit(asked: Long, jitState: JitState[C]) = reader(Mode.Jit, evaluator.readingConfiguration, root, asked, jitState)
       )
-      val (comparisons, _) = questions.foldLeft((Vector.empty[JitTesting.Comparison[Answer]], NoJitState: JitState)) {
+      val (comparisons, _) = questions.foldLeft((Vector.empty[JitTesting.Comparison[C, Answer]], NoJitState: JitState[C])) {
         case ((found, jitState), question) =>
           val comparison = JitTesting.comparison(question, limit, jitState, dropped)
           (found :+ comparison, comparison.jitState)
@@ -199,12 +219,12 @@ class JitReadingLawTest extends GeneratedProperties with HardCorpusSuite:
     * trees have more than `JitReadingLaw.comparedNodes` nodes, that bound
     * (`Left`), since the protocol compares and sorts answers as trees.
     */
-  private val headsReader: Reader[Either[Long, Vector[ParallelSet]]] = (mode, root, limit, jitState) =>
-    JitTesting.headsRead(mode, root, limit, jitState) match
+  private val headsReader: Reader[Either[Long, Vector[ParallelSet[C]]]] = (mode, configuration, root, limit, jitState) =>
+    JitTesting.headsRead(mode, configuration, root, limit, jitState) match
       case Read(Bounded.Finished(sets), after) =>
         val answer =
           if JitReadingLaw.treeNodesWithin(sets.flatMap(_.heads), JitReadingLaw.comparedNodes) then
-            Right(sets.distinct.sortBy(_.heads.map(_.toString).sorted.mkString(" ∥ ")))
+            Right(sets.distinct.sortWith((first, second) => gezi.ir.ContentComparison.compare(first.heads.sorted(gezi.ir.ContentComparison.ordering), second.heads.sorted(gezi.ir.ContentComparison.ordering)) < 0))
           else Left(JitReadingLaw.comparedNodes)
         Read(Bounded.Finished(answer), after)
       case Read(Bounded.Exceeded, after)            => Read(Bounded.Exceeded, after)
@@ -227,6 +247,10 @@ class JitReadingLawTest extends GeneratedProperties with HardCorpusSuite:
   // 1.93e10 as a tree (measured 2026-11-01). The program returns to the law when the
   // comparison needs no text (the heads compared as interned terms), or the
   // text of a graph names its shared nodes.
+  //
+  // Each input also holds terms whose heads tabling(weak_head) reads within the limit by construction
+  // (`JitReadingLaw.normalFormsBesideTop`, `x + top`, x a closed β normal form), so that the law compares finished
+  // readings in every input; whether a repeated family's program finishes is not derived.
   property("the JIT reads the heads of the repeated families' programs as tabling(weak_head) does", configured) {
     for
       input <- JitReadingLaw.repeatedPrograms
@@ -234,15 +258,23 @@ class JitReadingLawTest extends GeneratedProperties with HardCorpusSuite:
         .map(drawn =>
           prepared(JitReadingLaw.internedAll(drawn.programs), headsReader, JitReadingLaw.headsLimit, _.isRight)
         )
-        .cover(10, "tabling(weak_head) reads every program within the limit", _.allFinished)
-    yield agreed(input, headsReader, JitReadingLaw.headsLimit, referenceOnlyFails = false)
+      constructed <- JitReadingLaw.normalFormsBesideTop
+        .forAll
+        .map(terms => prepared(JitReadingLaw.internedAll(terms), headsReader, JitReadingLaw.headsLimit, _.isRight))
+    yield Result.all(
+      List(
+        agreed(input, headsReader, JitReadingLaw.headsLimit, referenceOnlyFails = false),
+        Result.assert(constructed.allFinished).log("tabling(weak_head) did not read a constructed term's heads within the limit"),
+        agreed(constructed, headsReader, JitReadingLaw.headsLimit, referenceOnlyFails = false)
+      )
+    )
   }
 
   // ---- the normal forms of lattice terms that read top ----
 
   /** The distinct normal forms of the root, sorted by their text. */
-  private val normalFormsReader: Reader[Vector[gezi.ir.Instruction]] = (mode, root, limit, jitState) =>
-    JitTesting.normalFormsRead(mode, root, limit, jitState)
+  private val normalFormsReader: Reader[Vector[Configured[C]]] = (mode, configuration, root, limit, jitState) =>
+    JitTesting.normalFormsRead(mode, configuration, root, limit, jitState)
 
   // Its purpose: to catch the JIT's reading of normal forms departing from
   // tabling(weak_head)'s on a term in which top (`Term.top`, the miss of every curried
@@ -257,13 +289,27 @@ class JitReadingLawTest extends GeneratedProperties with HardCorpusSuite:
   // a disagreement does, the JIT's contract being the reference's answers (the
   // framework owner's ruling, 2026-11-13); the other properties keep
   // jit.plt's protocol.
+  //
+  // Each input also holds terms tabling(weak_head) reads within the limit by
+  // construction (`JitReadingLaw.normalFormsBesideTop`): `x + top`, x a
+  // closed β normal form, whose reading reads x's normal form and drops top.
   property("the JIT reads the normal forms of lattice terms with top as tabling(weak_head) does", configured) {
+    def text(terms: Vector[Term]): String =
+      terms.map(term => ReadableText.printedNameless(Defunctionalization.thunkInstruction[C](term.deBruijnTerm(Map.empty))).text).mkString(", ")
     for
       input <- JitReadingLaw.latticeTermsWithTop
-        .forAllWithLog(_.map(_.locallyNamelessTerm).mkString(", "))
+        .forAllWithLog(text)
         .map(terms => prepared(JitReadingLaw.internedAll(terms), normalFormsReader, JitReadingLaw.normalFormsLimit))
-        .cover(50, "tabling(weak_head) reads every term within the limit", _.allFinished)
-    yield agreed(input, normalFormsReader, JitReadingLaw.normalFormsLimit, referenceOnlyFails = true)
+      constructed <- JitReadingLaw.normalFormsBesideTop
+        .forAllWithLog(text)
+        .map(terms => prepared(JitReadingLaw.internedAll(terms), normalFormsReader, JitReadingLaw.normalFormsLimit))
+    yield Result.all(
+      List(
+        agreed(input, normalFormsReader, JitReadingLaw.normalFormsLimit, referenceOnlyFails = true),
+        Result.assert(constructed.allFinished).log("tabling(weak_head) did not read a constructed term within the limit"),
+        agreed(constructed, normalFormsReader, JitReadingLaw.normalFormsLimit, referenceOnlyFails = true)
+      )
+    )
   }
 
   // ---- the arithmetic reduction problems, decoded ----
@@ -271,10 +317,10 @@ class JitReadingLawTest extends GeneratedProperties with HardCorpusSuite:
   /** The constructor trees the root decodes to as a Scott binary natural,
     * distinct and sorted.
     */
-  private val binaryTreesReader: Reader[Vector[ConstructorTree]] = (mode, root, limit, jitState) =>
+  private val binaryTreesReader: Reader[Vector[ConstructorTree]] = (mode, configuration, root, limit, jitState) =>
     ScottDecoding.decoded(mode, root, Scott.dataType("binary")).collected
-      .result(ReadingState.fresh(limit).copy(jitState = jitState)) match
-      case Computed.Done(trees, after) => Read(Bounded.Finished(trees.distinct.sortBy(_.toString)), after.jitState)
+      .result(ReadingState.fresh(limit, configuration).copy(jitState = jitState)) match
+      case Computed.Done(trees, after) => Read(Bounded.Finished(trees.distinct.sorted(gezi.ir.ContentComparison.ordering)), after.jitState)
       case Computed.Stopped(after)     => Read(EvaluatorTesting.stopped(after), after.jitState)
 
   // Replaces theJitDecodesTheReductionProblemsAsTheReference, which decoded
@@ -295,8 +341,27 @@ class JitReadingLawTest extends GeneratedProperties with HardCorpusSuite:
       input <- JitReadingLaw.arithmeticPrograms
         .forAllWithLog(_.map(_.described).mkString(", "))
         .map(drawn => prepared(JitReadingLaw.internedAll(drawn.map(_.program)), binaryTreesReader, JitReadingLaw.decodingLimit))
-        .cover(50, "tabling(weak_head) decodes every program within the limit", _.allFinished)
     yield agreed(input, binaryTreesReader, JitReadingLaw.decodingLimit, referenceOnlyFails = false)
+  }
+
+  /** The same law on each family's program at argument 0, which
+    * tabling(weak_head) decodes within the limit by construction: each
+    * family's recursion takes its base case at once (fib 0 = 0, 0 · 0 = 0,
+    * the grid of side 0 has one path, 0 + 0 = 0), so the reading decodes a
+    * constant numeral. Its purpose is that the decoding law compares at
+    * least these programs whatever the draws.
+    */
+  test("the JIT decodes each arithmetic family's base case as tabling(weak_head) does") {
+    val baseCases = Vector(
+      ReductionProblems.fibonacciProgram(JitReadingLaw.group, 0),
+      ReductionProblems.productProgram(JitReadingLaw.group, BigInt(0), BigInt(0)),
+      ReductionProblems.gridProgram(JitReadingLaw.group, 0),
+      ReductionProblems.sumBothOrdersProgram(JitReadingLaw.group, BigInt(0), BigInt(0))
+    )
+    val input = prepared(JitReadingLaw.internedAll(baseCases), binaryTreesReader, JitReadingLaw.decodingLimit)
+    assert(input.allFinished, "tabling(weak_head) did not decode a base case within the limit")
+    val verdict = agreed(input, binaryTreesReader, JitReadingLaw.decodingLimit, referenceOnlyFails = false)
+    assert(verdict.success, verdict.logs.mkString("; "))
   }
 
   // ---- claims judged by witness ----
@@ -305,8 +370,9 @@ class JitReadingLawTest extends GeneratedProperties with HardCorpusSuite:
     * (`ContestClaims.witness`); a reading the limit stops reads as not
     * finished.
     */
-  private val endingReader: Reader[Ending] = (mode, root, limit, jitState) =>
-    val (readings, after) = Reading.witnessReadingsFrom(mode, Vector(root), ContestClaims.witness, limit, jitState)
+  private val endingReader: Reader[Ending] = (mode, configuration, root, limit, jitState) =>
+    val witness = NeutralValue[C](ContestClaims.ClaimWitness, Vector.empty)
+    val (readings, after) = Reading.witnessReadingsFrom(mode, Vector(root), witness, limit, jitState, configuration)
     readings match
       case Vector(reading) =>
         reading.outcome match
@@ -320,15 +386,21 @@ class JitReadingLawTest extends GeneratedProperties with HardCorpusSuite:
   // fixed hard claims: here one to three claims, each that a term is the
   // Scott unary numeral of a count (the hard corpus's natural template,
   // `HardClaims.numeralTest`), the term a numeral, a numeral in a choice
-  // with a generated closed term, or a generated closed term.
+  // with a generated closed term, or a generated closed term, after two
+  // claims of a numeral, one true and one false by construction
+  // (`JitReadingLaw.decidedClaims`), which tabling(weak_head) is asserted to
+  // judge so, so that the law compares judgments of both endings.
   property("the JIT judges claims by witness as tabling(weak_head) does", configured) {
     for
+      decided <- JitReadingLaw.decidedClaims.forAllWithLog(_.map(_.described).mkString(", "))
       input <- JitReadingLaw.numeralClaims
         .forAllWithLog(_.map(_.described).mkString(", "))
-        .map(drawn => prepared(JitReadingLaw.claimRoots(drawn), endingReader, JitReadingLaw.claimLimit))
-        .cover(10, "some claim is judged true by tabling(weak_head)", _.references.contains(Bounded.Finished(Ending.Succeeded)))
-        .cover(20, "some claim is judged false by tabling(weak_head)", _.references.contains(Bounded.Finished(Ending.Failed)))
-    yield agreed(input, endingReader, JitReadingLaw.claimLimit, referenceOnlyFails = false)
+        .map(drawn => prepared(JitReadingLaw.claimRoots[C](decided ++ drawn), endingReader, JitReadingLaw.claimLimit))
+    yield agreed(input, endingReader, JitReadingLaw.claimLimit, referenceOnlyFails = false).and(
+      Result
+        .diff(input.references.take(2), Vector(Bounded.Finished(Ending.Succeeded), Bounded.Finished(Ending.Failed)))(_ == _)
+        .log("tabling(weak_head)'s judgments of the two decided claims")
+    )
   }
 
   // ---- no file ----
@@ -411,22 +483,55 @@ object JitReadingLaw:
   val latticeTermsWithTop: Gen[Vector[Term]] =
     HoasGenerators.closedTermOver(Vector(Term.top)).resize(hedgehog.Size(24)).list(Range.constant(1, 3)).map(_.toVector)
 
+  /** One to three terms `x + top`, x a closed β normal form: an
+    * abstraction of one or two binders whose body is a bound variable
+    * applied to zero to two such forms, at most three levels deep, the
+    * shapes drawn before any binder is opened.
+    */
+  val normalFormsBesideTop: Gen[Vector[Term]] =
+    normalShape(3).map(shape => Term.choice(normalForm(shape.copy(binders = shape.binders max 1), Vector.empty), Term.top))
+      .list(Range.constant(1, 3)).map(_.toVector)
+
+  /** The shape of a β normal form: its binders, the position of its head
+    * variable among those in scope (taken modulo their count), and its
+    * arguments' shapes.
+    */
+  final case class NormalShape(binders: Int, head: Int, arguments: Vector[NormalShape])
+
+  private def normalShape(depth: Int): Gen[NormalShape] =
+    for
+      binders <- Gen.int(Range.constant(0, 2))
+      head <- Gen.int(Range.constant(0, 5))
+      count <- Gen.int(Range.constant(0, if depth <= 0 then 0 else 2))
+      arguments <- if count == 0 then Gen.constant(List.empty[NormalShape]) else normalShape(depth - 1).list(Range.singleton(count))
+    yield NormalShape(binders, head, arguments.toVector)
+
+  /** The β normal form of the shape under the variables in scope; the
+    * scope is never empty, the outermost shape having a binder.
+    */
+  private def normalForm(shape: NormalShape, scope: Vector[Term]): Term =
+    def under(remaining: Int, inScope: Vector[Term]): Term =
+      if remaining == 0 then
+        shape.arguments.foldLeft(inScope(shape.head % inScope.size))((applied, argument) => applied(normalForm(argument, inScope)))
+      else Term.λ(bound => under(remaining - 1, inScope :+ bound))
+    under(shape.binders, scope)
+
   /** Whether the heads, written out as trees (a subvalue counted once per
     * occurrence), have at most `bound` nodes; walks at most `bound + 1` of
     * them.
     */
-  def treeNodesWithin(heads: Vector[Head], bound: Long): Boolean =
-    def subvalues(node: Head | Value): Vector[Value] = node match
+  def treeNodesWithin[C <: NativeSpecializer & Singleton](heads: Vector[Head[C]], bound: Long)(using C): Boolean =
+    def subvalues(node: Head[C] | Value[C]): Vector[Value[C]] = node match
       case Head.Lambda(_, _, fillings)     => fillings
       case Head.Neutral(_, arguments)      => arguments
       case Value.Apply(function, argument) => Vector(function, argument)
       case Value.Parallel(left, right)     => Vector(left, right)
       case Value.Choice(left, right)       => Vector(left, right)
       case Value.Thunk(_, _, fillings)     => fillings
-      case Value.Neutral(_, arguments)     => arguments
+      case NeutralValue(_, arguments)     => arguments
       case _                               => Vector.empty
     @scala.annotation.tailrec
-    def counted(pending: List[Head | Value], count: Long): Boolean =
+    def counted(pending: List[Head[C] | Value[C]], count: Long): Boolean =
       if count > bound then false
       else
         pending match
@@ -583,23 +688,31 @@ object JitReadingLaw:
   /** One to three claims. */
   val numeralClaims: Gen[Vector[NumeralClaim]] = numeralClaim.list(Range.constant(1, 3)).map(_.toVector)
 
+  /** Two claims of the numeral of n up to 5, the first true by construction
+    * (its count n), the second false (its count n + 1).
+    */
+  val decidedClaims: Gen[Vector[NumeralClaim]] =
+    for number <- Gen.int(Range.constant(0, 5))
+    yield Vector(
+      NumeralClaim(s"numeral $number is $number", Encodings.unary(number), number),
+      NumeralClaim(s"numeral $number is ${number + 1}", Encodings.unary(number), number + 1)
+    )
+
   /** The claims' tests rooted (`ContestClaims.testRoot`), each the natural
     * template's body over the term (`HardClaims.claimTest`).
     */
-  def claimRoots(claims: Vector[NumeralClaim]): Vector[Value] =
+  def claimRoots[C <: NativeSpecializer & Singleton](claims: Vector[NumeralClaim])(using specializer: C): Vector[Value[C]] =
     val hardClaims = HardCorpusFixture.corpus.claimsGroup.claims
     claims.map { claim =>
       val test = OpenTest(1, free => Term.λ(argument => hardClaims.numeralTest(claim.count, claim.term, argument, free(0))))
-      ContestClaims.testRoot(test)
+      ContestClaims.testRootIn(specializer)(test)
     }
 
   /** The closed programs interned whole, as the corpora intern their
     * programs (`interned_root/2`, `program_root/2`).
     */
-  def internedAll(programs: Vector[Term]): Vector[Value] =
-    programs.map(program =>
-      Defunctionalization.thunkInstruction(program.deBruijnTerm(Map.empty))
-    )
+  def internedAll[C <: NativeSpecializer & Singleton](programs: Vector[Term])(using C): Vector[Value[C]] =
+    programs.map(program => Value.of(Defunctionalization.thunkInstruction[C](program.deBruijnTerm(Map.empty))))
 
   /** The count of the codes the JIT compiled while reading the heads of the
     * programs of `count` inputs drawn from the seed, every program interned
@@ -611,11 +724,13 @@ object JitReadingLaw:
     */
   def compiledCount(seed: Long, count: Int): (Int, Int) =
     val programs = SeededSamples.samples(repeatedPrograms, seed, count).flatMap(_.programs)
-    val roots = internedAll(programs)
-    val evaluator = Jit(JitTesting.configured(JitTesting.noFacts, 10000))
-    val after = roots.foldLeft(NoJitState: JitState)((jitState, root) =>
-      WeakHead.heads(Mode.Jit(evaluator), root).collected
-        .result(ReadingState.fresh(headsLimit).copy(jitState = jitState)) match
+    val encoding = JitTesting.noFactsEncoding
+    given encoding.type = encoding
+    val evaluator = Jit(JitTesting.configured(encoding, 10000))
+    val roots = internedAll[encoding.type](programs)
+    val after = roots.foldLeft(NoJitState: JitState[encoding.type])((jitState, root) =>
+      WeakHead.heads(Mode.Jit, root).collected
+        .result(ReadingState.fresh(headsLimit, evaluator.readingConfiguration).copy(jitState = jitState)) match
         case Computed.Done(_, read)  => read.jitState
         case Computed.Stopped(read)  => read.jitState
     )

@@ -14,4 +14,8 @@ package gezi
   * and `PageClock` (the hash and the animation frames, through
   * LatestEvent.scala), `TracePage` (the script's entry).
   */
-package object traceplayer
+package object traceplayer:
+  /** The capability the player's replays and printers are given: a trace's terms are read under no facts, which hold no
+    * storage, so the capability reads none; the player is the one place that sets it up.
+    */
+  private[traceplayer] given playerStorageAccess: gezi.ir.StorageAccess = gezi.ir.StorageAccess.granted()

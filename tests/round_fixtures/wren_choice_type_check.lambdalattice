@@ -1,0 +1,10 @@
+# The round wren_choice_type_check the strategies' tests saturate with
+# (gezi.strategies.StrategyTesting.round): the type-check round of
+# corpora/compiler/wren_choice_preset.lambdalattice, the second field of its
+# tuple (ChoiceTypingTest).
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega gezi "corpora") "compiler") "wren_choice_preset")
+λ _ wren_choice_type_check
+. export wren_choice_type_check

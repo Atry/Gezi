@@ -8,7 +8,6 @@ import gezi.hotspot.Cache
 import gezi.hotspot.CacheNamespace
 import gezi.ir.Code
 import gezi.ir.DispatchPattern
-import gezi.ir.Instruction
 import gezi.ir.Specialization
 import gezi.ir.SpecializationRange
 import gezi.ir.Hole
@@ -18,6 +17,7 @@ import scala.util.control.TailCalls.TailRec
 import scala.util.control.TailCalls.done
 import scala.util.control.TailCalls.tailcall
 import gezi.ir.{Apply, Choice, NoinlineLeaf, Parallel, Thunk}
+import gezi.ir.{Configured, IrLayer, LayerWith, NativeSpecializer, NativeStorage, Opaque, UriNode, Value}
 
 /** A strategy chosen when a program is compiled (jit_strategies.pl's
   * `strategy(Kind, Configuration)`): a dispatch strategy, a schedule, the
@@ -25,9 +25,9 @@ import gezi.ir.{Apply, Choice, NoinlineLeaf, Parallel, Thunk}
   * read, and the refinement of the schedule's output, the baseline's
   * `StandardRefinement` unless an entry gives its own.
   */
-final case class CompilationStrategy(
+final case class CompilationStrategy[C <: NativeSpecializer & Singleton](
     dispatch: DispatchStrategy,
-    schedule: Vector[Round],
+    schedule: Vector[Round[C]],
     refinement: OutputRefinement = StandardRefinement
 ):
 
@@ -39,19 +39,25 @@ final case class CompilationStrategy(
   * (`CONTRIBUTING.md`, "Types live only in the term").
   */
 trait OutputRefinement:
-  def refined(facts: BackendFacts, output: Instruction): Instruction
+
+  /** The refined term of the output, under the facts of the specializer, whose configuration `C` the terms are of. */
+  def refined[C <: NativeSpecializer & Singleton](specializer: StorageEncoding & C, output: Configured[C])(using
+      gezi.ir.StorageAccess
+  ): Configured[C]
 
 /** The baseline's refinement, `Refinement`. */
 object StandardRefinement extends OutputRefinement:
-  def refined(facts: BackendFacts, output: Instruction): Instruction =
-    Refinement(facts).refined(output)
+  def refined[C <: NativeSpecializer & Singleton](specializer: StorageEncoding & C, output: Configured[C])(using
+      gezi.ir.StorageAccess
+  ): Configured[C] =
+    Refinement(specializer).refined(output)
 
 /** The key of a refined term in `DispatchCache`: the test, the schedule
   * with its budgets, the refinement and the backend facts, whose index is
   * the library the schedule runs under, every input of the dispatch. A cache
   * handed to dispatches under two libraries keeps their refinements apart.
   */
-final case class DispatchKey(test: Instruction, schedule: Vector[Round], refinement: OutputRefinement, facts: BackendFacts)
+final case class DispatchKey[C <: NativeSpecializer & Singleton](test: Configured[C], schedule: Vector[Round[C]], refinement: OutputRefinement, facts: BackendFacts)
 
 /** The namespace of `jit` in the cache service: the
   * refined term of each test met, by test, schedule, refinement and library. Terms
@@ -59,16 +65,19 @@ final case class DispatchKey(test: Instruction, schedule: Vector[Round], refinem
   * under the λ-lattice laws, its assertions in the term, the memo of a
   * rewriting by lemma instances (`CONTRIBUTING.md`, "Tables", kind
   * 2). Its key holds the library (`DispatchKey.facts`), so a cache handed to
-  * dispatches of two libraries keeps them apart.
+  * dispatches of two libraries keeps them apart, and the namespace holds the
+  * native specializer whose spelling its terms are in, by identity, so that a
+  * term of one configuration is never found by another.
   */
-object DispatchCache extends CacheNamespace[DispatchKey, Instruction]("jit.dispatch")
+final case class DispatchCache[C <: NativeSpecializer & Singleton](specializer: C)
+    extends CacheNamespace[DispatchKey[C], Configured[C]]("jit.dispatch")
 
 /** What a code's slot holds at a refinement: a hole of the thunk, or the
   * instruction of a filling.
   */
-enum SlotHolds:
+enum SlotHolds[+Term]:
   case HoleOf(slot: Int)
-  case Filling(instruction: Instruction)
+  case Filling(instruction: Term)
 
 /** The term the JIT runs of a test under a strategy, the port of
   * `gezi/prolog/gezi/jit_strategies.pl`, whose module comment
@@ -121,25 +130,28 @@ object StrategyDispatch:
     * it keeps, `CONTRIBUTING.md`, "Tables"). Throws what
     * `Schedule.run` throws.
     */
-  def dispatched(
-      strategy: CompilationStrategy,
-      test: Instruction,
-      facts: BackendFacts,
+  def dispatched[C <: NativeSpecializer & Singleton](
+      strategy: CompilationStrategy[C],
+      test: Configured[C],
+      specializer: StorageEncoding & C,
       cache: Cache,
       stop: StopSignal
-  ): Dispatched =
+  )(using gezi.ir.StorageAccess): Dispatched[C] =
+    given C = specializer
+    val facts = specializer.facts
     val key = DispatchKey(test, strategy.schedule, strategy.refinement, facts)
-    cache.locked(DispatchCache)(_.tryGet(key)) match
+    val namespace = DispatchCache[C](specializer)
+    cache.locked(namespace)(_.tryGet(key)) match
       case Some(found) => Dispatched(found, strategy, scheduleRan = false)
       case None =>
-        val scheduled = Schedule.run(facts.index, Vector(test), strategy.schedule, stop)
+        val scheduled = Schedule.run(specializer.operations.index, Vector(test), strategy.schedule, stop)
         val output = scheduled.outputs match
           case Vector(found) => found
           case other         => throw IllegalStateException(s"the schedule of one test gave ${other.size} outputs")
-        val refinement = strategy.refinement.refined(facts, output)
+        val refinement = strategy.refinement.refined(specializer, output)
         val refined =
           if stop.stopRequested then refinement
-          else cache.locked(DispatchCache)(_.getOrElseUpdate(key, refinement))
+          else cache.locked(namespace)(_.getOrElseUpdate(key, refinement))
         Dispatched(refined, strategy.copy(schedule = scheduled.scheduleAfter), scheduleRan = true)
 
 /** What a dispatch gives: the instruction of the refined term the JIT runs, the
@@ -147,9 +159,9 @@ object StrategyDispatch:
   * (strategy_typing_count/1 counts these runs), false when the cache
   * answered.
   */
-final case class Dispatched(
-    refined: Instruction,
-    strategyAfter: CompilationStrategy,
+final case class Dispatched[C <: NativeSpecializer & Singleton](
+    refined: Configured[C],
+    strategyAfter: CompilationStrategy[C],
     scheduleRan: Boolean
 )
 
@@ -163,44 +175,80 @@ enum RefinementPosition:
 /** The refinement under a library's backend facts (jit_strategies.pl, THE
   * REFINEMENT).
   */
-final case class Refinement(facts: BackendFacts):
+final case class Refinement[C <: NativeSpecializer & Singleton](specializer: StorageEncoding & C)(using
+    storageAccess: gezi.ir.StorageAccess
+):
 
-  private val rules = JitRules(JitConfiguration.of(facts, instanceTable = false))
+  // The terms of the refinement are terms of `C`, built through its native specializer.
+  private type Term = Configured[C]
+  private given C = specializer
+
+  private val rules = JitRules[C](JitConfiguration.of[C](specializer, instanceTable = false, storageAccess))
+
+  /** The facts' part in this configuration. */
+  private val operations: StorageEncodingOperations[C] = specializer.operations
 
   /** The state a refinement threads: each layer refined at a position
     * (refined_term/5's Seen), so that the refined term shares what the output shares.
     */
-  private final case class Refining(seen: Map[(Instruction, RefinementPosition), Instruction])
+  private final case class Refining(seen: Map[(Term, RefinementPosition), Term])
 
   private type Step[Result] = Refining => TailRec[(Refining, Result)]
 
   /** The instruction of the refined term of the output (refined/2). Each layer is refined once for each position it is met
     * at and interned over its refined parts' instructions.
     */
-  def refined(output: Instruction): Instruction =
+  def refined(output: Term): Term =
     val (_, refinedInstruction) = refinedTerm(output, RefinementPosition.Root)(Refining(Map.empty)).result
     refinedInstruction
 
-  /** Whether the instruction is a leaf, kept as written (`BackendFacts.leaves`). */
-  private def leaf(instruction: Instruction): Boolean = facts.leaves.contains(instruction)
+  /** Whether the instruction is a leaf, kept as written: a leaf of the facts
+    * (`BackendFacts.leaves`), or a native storage the e-graph keeps as a leaf
+    * (`heldAsLeaf`), a constant whose view is not read. Any other storage is a leaf of its layer too (`layered`):
+    * the refinement does not take a storage apart.
+    */
+  private def leaf(instruction: Term): Boolean =
+    operations.leaves.contains(instruction) || instruction.heldAsLeaf
 
-  private def interned(layer: Layer[Instruction]): Step[Instruction] = refining =>
-    done((refining, Instruction(layer)))
+  /** The application, built by the configuration's native specializer. */
+  private def applicationInterned(function: Term, argument: Term): Step[Term] = refining =>
+    done((refining, (specializer: C).application(function, argument)))
 
-  /** The layer of a term, a leaf having none (layer_read/2). */
-  private def layerRead(instruction: Instruction): Option[Layer[Instruction]] =
-    if leaf(instruction) then None else Some(instruction.layered)
+  /** The choice, built by the configuration's native specializer. */
+  private def choiceInterned(left: Term, right: Term): Step[Term] = refining =>
+    done((refining, (specializer: C).choice(left, right)))
 
-  private def refinedTerm(instruction: Instruction, position: RefinementPosition): Step[Instruction] = refining =>
+  /** The thunk, or the instance of its code when it has no hole, built by the configuration's native specializer. */
+  private def thunkInterned(code: Code, holes: Vector[Hole], fillings: Vector[Term]): Step[Term] = refining =>
+    done((refining, (specializer: C).thunkOrInstance(code, holes, fillings)))
+
+  /** The parallel of the two, built by the facts' native specializer. */
+  private def parallelInterned(left: Term, right: Term): Step[Term] = refining =>
+    done((refining, specializer.parallel(left, right)))
+
+  /** The layer of a term, a leaf having none (layer_read/2); a storage that is no leaf reads as its one-layer view. */
+  private def layerRead(instruction: Term): Option[Layer[Term]] =
+    if leaf(instruction) then None
+    else
+      instruction.layer match
+        case application @ Apply(_, _)   => Some(application)
+        case parallel @ Parallel(_, _)   => Some(parallel)
+        case choice @ Choice(_, _)       => Some(choice)
+        case thunk @ Thunk(_, _, _)      => Some(thunk)
+        case storage: NativeStorage       => Some(specializer.viewOf(storage))
+        case _: UriNode | _: Opaque       => None
+
+  private def refinedTerm(instruction: Term, position: RefinementPosition): Step[Term] = refining =>
     refining.seen.get((instruction, position)) match
       case Some(found) => done((refining, found))
       case None if leaf(instruction) => done((refining.copy(seen = refining.seen.updated((instruction, position), instruction)), instruction))
       case None =>
-        tailcall(refinedLayer(instruction, instruction.layered, position)(refining)).map((after, refinedInstruction) =>
+        // A storage is a leaf of its layer, refined as itself.
+        tailcall(refinedLayer(instruction, instruction.layer, position)(refining)).map((after, refinedInstruction) =>
           (after.copy(seen = after.seen.updated((instruction, position), refinedInstruction)), refinedInstruction)
         )
 
-  private def refinedLayer(instruction: Instruction, layer: Layer[Instruction], position: RefinementPosition): Step[Instruction] = refining =>
+  private def refinedLayer(instruction: Term, layer: IrLayer[Term], position: RefinementPosition): Step[Term] = refining =>
     layer match
       case Apply(function, argument) =>
         contractParts(function) match
@@ -210,23 +258,23 @@ final case class Refinement(facts: BackendFacts):
             for
               (afterFunction, refinedFunction) <- tailcall(refinedHead(function)(refining))
               (afterArgument, refinedArgument) <- tailcall(refinedTerm(argument, RefinementPosition.Inner)(afterFunction))
-              result <- interned(Apply(refinedFunction, refinedArgument))(afterArgument)
+              result <- applicationInterned(refinedFunction, refinedArgument)(afterArgument)
             yield result
       case Thunk(code, holes, fillings) =>
         tailcall(allRefined(fillings, RefinementPosition.Inner)(refining)).flatMap((afterFillings, refinedFillings) =>
           val environment = environmentOf(holes, refinedFillings)
           val refinedCode = codeRefined(code, environment)
+          def rebuilt = thunkInterned(refinedCode, holes, refinedFillings)(afterFillings)
           refinedCode match
-            case Code.Apply(Code.Slot(functionSlot), Code.Slot(holeSlot))
-                if holes == Vector(Hole.Bound(holeSlot)) && environment(functionSlot).isInstanceOf[SlotHolds.Filling] =>
-              val SlotHolds.Filling(function) = environment(functionSlot): @unchecked
-              done((afterFillings, function))
-            case _ =>
-              interned(Thunk(refinedCode, holes, refinedFillings))(afterFillings)
+            case Code.Apply(Code.Slot(functionSlot), Code.Slot(holeSlot)) if holes == Vector(Hole.Bound(holeSlot)) =>
+              environment(functionSlot) match
+                case SlotHolds.Filling(function) => done((afterFillings, function))
+                case SlotHolds.HoleOf(_)         => rebuilt
+            case _ => rebuilt
         )
       case Parallel(value, criterion) =>
         tailcall(refinedTerm(value, RefinementPosition.Inner)(refining)).flatMap((after, refinedValue) =>
-          interned(Parallel(refinedValue, criterion))(after)
+          parallelInterned(refinedValue, criterion)(after)
         )
       case Choice(left, right) =>
         DispatchPattern.specializations(left, right, instructionLayers, DispatchPattern.noContract).headOption match
@@ -244,12 +292,12 @@ final case class Refinement(facts: BackendFacts):
               case None =>
                 tailcall(allRefined(Vector(left, right), position)(refining)).flatMap((after, refinedMembers) =>
                   val Vector(refinedLeft, refinedRight) = refinedMembers: @unchecked
-                  interned(Choice(refinedLeft, refinedRight))(after)
+                  choiceInterned(refinedLeft, refinedRight)(after)
                 )
-      case NoinlineLeaf(_) => done((refining, instruction))
+      case _: NativeStorage | _: UriNode | _: Opaque => done((refining, instruction))
 
-  private def allRefined(instructions: Vector[Instruction], position: RefinementPosition): Step[Vector[Instruction]] = refining =>
-    def from(index: Int, current: Refining, found: Vector[Instruction]): TailRec[(Refining, Vector[Instruction])] =
+  private def allRefined(instructions: Vector[Term], position: RefinementPosition): Step[Vector[Term]] = refining =>
+    def from(index: Int, current: Refining, found: Vector[Term]): TailRec[(Refining, Vector[Term])] =
       if index >= instructions.size then done((current, found))
       else tailcall(refinedTerm(instructions(index), position)(current)).flatMap((after, next) => from(index + 1, after, found :+ next))
     from(0, refining, Vector.empty)
@@ -257,20 +305,25 @@ final case class Refinement(facts: BackendFacts):
   /** What each slot of a thunk's code holds: the thunk's holes and its
     * fillings (slot_values/4).
     */
-  private def environmentOf(holes: Vector[Hole], fillings: Vector[Instruction]): Vector[SlotHolds] =
-    val holeValues = holes.map {
+  private def environmentOf(holes: Vector[Hole], fillings: Vector[Term]): Vector[SlotHolds[Term]] =
+    val holeValues: Vector[SlotHolds[Term]] = holes.map {
       case Hole.Bound(slot) => SlotHolds.HoleOf(slot)
       case Hole.Ignored     => SlotHolds.HoleOf(-1)
     }
-    Defunctionalization.slotValues(holes, holeValues, fillings.map(SlotHolds.Filling(_)))
+    Defunctionalization.slotValues(holes, holeValues, fillings.map(SlotHolds.Filling(_): SlotHolds[Term]))
 
-  /** The layers of an instruction as the dispatch patterns read it: its layer, a
-    * leaf having none.
+  /** The layers of an instruction as the dispatch patterns read it: its layer, a leaf having none, and a storage's
+    * one-layer view `x ∥ T` read as that parallel, since the specialized spelling writes a typed member `f (a ∥ T) ∥ T`
+    * and a fallback point's `a ∥ T` as storages wherever they are the unique spelling of one.
     */
-  private def instructionLayers(instruction: Instruction): Vector[Layer[Instruction]] = layerRead(instruction).toVector
+  private def instructionLayers(instruction: Term): Vector[Layer[Term]] =
+    instruction.layer match
+      // The view depends on the configuration's families, which the specializer reads.
+      case storage: NativeStorage => Vector(specializer.viewOf(storage))
+      case _                      => layerRead(instruction).toVector
 
   /** The instruction's spelling is λf. f by its syntax (identity_contract/1). */
-  private def instructionIdentity(instruction: Instruction): Boolean =
+  private def instructionIdentity(instruction: Term): Boolean =
     DispatchPattern.identityContract(instruction, instructionLayers)
 
   /** A specialization choice refined (refined_specialization/8): the refined
@@ -279,23 +332,23 @@ final case class Refinement(facts: BackendFacts):
     * a contract, the refined contract applied to that.
     */
   private def refinedSpecialization(
-      function: Instruction,
-      argument: Instruction,
-      domain: Option[Instruction],
-      range: SpecializationRange[Instruction],
+      function: Term,
+      argument: Term,
+      domain: Option[Term],
+      range: SpecializationRange[Term],
       position: RefinementPosition
-  ): Step[Instruction] = refining =>
+  ): Step[Term] = refining =>
     for
       (afterFunction, refinedFunction) <- tailcall(refinedHead(function)(refining))
       (afterArgument, refinedArgument) <- tailcall(refinedTerm(argument, RefinementPosition.Inner)(afterFunction))
       (afterFiltered, filteredArgument) <- fallbackFiltered(refinedArgument, domain)(afterArgument)
-      (afterApplication, application) <- interned(Apply(refinedFunction, filteredArgument))(afterFiltered)
+      (afterApplication, application) <- applicationInterned(refinedFunction, filteredArgument)(afterFiltered)
       result <- range match
         case SpecializationRange.Filtered(found) if position == RefinementPosition.Inner =>
           fallbackFiltered(application, Some(found))(afterApplication)
         case SpecializationRange.Contracted(contract) =>
           tailcall(refinedTerm(contract, RefinementPosition.Inner)(afterApplication)).flatMap((after, refinedContract) =>
-            interned(Apply(refinedContract, application))(after)
+            applicationInterned(refinedContract, application)(after)
           )
         case _ => done((afterApplication, application))
     yield result
@@ -303,7 +356,7 @@ final case class Refinement(facts: BackendFacts):
   /** A function at the head of an application refined (refined_head/4): a
     * contract over a filling is the filling, refined in turn.
     */
-  private def refinedHead(function: Instruction): Step[Instruction] = refining =>
+  private def refinedHead(function: Term): Step[Term] = refining =>
     layerRead(function) match
       case Some(Thunk(code, holes, fillings)) =>
         contractFunction(code, holes, environmentOf(holes, fillings)) match
@@ -314,7 +367,7 @@ final case class Refinement(facts: BackendFacts):
   /** The code of a thunk of one hole is a specialization choice of the
     * application of a filling to the hole: the filling (contract_function/4).
     */
-  private def contractFunction(code: Code, holes: Vector[Hole], environment: Vector[SlotHolds]): Option[Instruction] =
+  private def contractFunction(code: Code, holes: Vector[Hole], environment: Vector[SlotHolds[Term]]): Option[Term] =
     holes match
       case Vector(Hole.Bound(hole)) =>
         codeSpecialization(code, environment).flatMap(specialization =>
@@ -324,21 +377,21 @@ final case class Refinement(facts: BackendFacts):
         )
       case _ => None
 
-  private def fillingAt(environment: Vector[SlotHolds], slot: Int): Option[Instruction] =
+  private def fillingAt(environment: Vector[SlotHolds[Term]], slot: Int): Option[Term] =
     environment.lift(slot).collect { case SlotHolds.Filling(instruction) => instruction }
 
   /** The specialization choice the code is read as by the dispatch patterns
     * (code_typed_parts/6, code_curried_parts/6), a slot read as nothing but
     * a contract's spelling read off the filling it holds.
     */
-  private def codeSpecialization(code: Code, environment: Vector[SlotHolds]): Option[Specialization[Code]] =
+  private def codeSpecialization(code: Code, environment: Vector[SlotHolds[Term]]): Option[Specialization[Code]] =
     code match
       case Code.Choice(first, second) =>
         DispatchPattern.specializations(first, second, DispatchPattern.codeLayers, codeIdentity(environment)).headOption
       case _ => None
 
   /** The code is a slot holding a term whose spelling is λf. f. */
-  private def codeIdentity(environment: Vector[SlotHolds])(code: Code): Boolean = code match
+  private def codeIdentity(environment: Vector[SlotHolds[Term]])(code: Code): Boolean = code match
     case Code.Slot(slot) => fillingAt(environment, slot).exists(instructionIdentity)
     case _               => false
 
@@ -346,14 +399,14 @@ final case class Refinement(facts: BackendFacts):
     * filling f applied to the hole (contract_parts/2): f, the domain and the
     * range or the contract, the criteria the values of fillings.
     */
-  private def contractParts(function: Instruction): Option[(Instruction, Option[Instruction], SpecializationRange[Instruction])] =
+  private def contractParts(function: Term): Option[(Term, Option[Term], SpecializationRange[Term])] =
     layerRead(function) match
       case Some(Thunk(code, Vector(Hole.Bound(hole)), fillings)) =>
         val environment = environmentOf(Vector(Hole.Bound(hole)), fillings)
         codeSpecialization(code, environment).flatMap(specialization =>
           (specialization.function, specialization.argument, specialization.domain, specialization.range) match
             case (Code.Slot(functionSlot), Code.Slot(`hole`), Code.Slot(domainSlot), range) =>
-              val outer: Option[SpecializationRange[Instruction]] = range match
+              val outer: Option[SpecializationRange[Term]] = range match
                 case SpecializationRange.Absent => Some(SpecializationRange.Absent)
                 case SpecializationRange.Filtered(Code.Slot(rangeSlot)) =>
                   Some(fillingAt(environment, rangeSlot).fold(SpecializationRange.Absent)(SpecializationRange.Filtered(_)))
@@ -372,7 +425,7 @@ final case class Refinement(facts: BackendFacts):
     * points by the criteria the environment's fillings hold, and every
     * other node kept (code_refined/3).
     */
-  private def codeRefined(code: Code, environment: Vector[SlotHolds]): Code =
+  private def codeRefined(code: Code, environment: Vector[SlotHolds[Term]]): Code =
     codeSpecialization(code, environment) match
       case Some(specialization) =>
         val application = Code.Apply(
@@ -391,31 +444,35 @@ final case class Refinement(facts: BackendFacts):
           case Code.Parallel(value, criterion) => Code.Parallel(codeRefined(value, environment), criterion)
           case other => other
 
+  /** Whether the instruction is a decoding criterion, read by its syntax (`JitRules.decodingCriterion`). */
+  private def decodingCriterion(instruction: Term): Boolean =
+    rules.decodingCriterion(Value.of[C](instruction)).isDefined
+
   /** The code under a fallback point of the criterion when the criterion is
     * a slot holding a decoding criterion (code_fallback/4).
     */
-  private def codeFallback(value: Code, criterion: Code, environment: Vector[SlotHolds]): Code =
+  private def codeFallback(value: Code, criterion: Code, environment: Vector[SlotHolds[Term]]): Code =
     criterion match
-      case Code.Slot(slot) if fillingAt(environment, slot).exists(instruction => rules.decodingCriterion(instruction).isDefined) =>
+      case Code.Slot(slot) if fillingAt(environment, slot).exists(decodingCriterion) =>
         Code.Choice(value, Code.Parallel(value, criterion))
       case _ => value
 
   /** The value under a fallback point of the criterion, unless it is one
     * already or the criterion is no decoding criterion (fallback_filtered/3).
     */
-  private def fallbackFiltered(value: Instruction, criterion: Option[Instruction]): Step[Instruction] = refining =>
+  private def fallbackFiltered(value: Term, criterion: Option[Term]): Step[Term] = refining =>
     criterion match
       case None => done((refining, value))
       case Some(found) =>
         val already = layerRead(value) match
           case Some(Choice(inner, point)) =>
             DispatchPattern.fallbacks(inner, point, instructionLayers).exists(judgment =>
-              judgment.valueFirst && judgment.criterion == found
+              judgment.valueFirst && Configured.same(judgment.criterion, found)
             )
           case _ => false
         if already then done((refining, value))
-        else if rules.decodingCriterion(found).isDefined then
-          tailcall(interned(Parallel(value, found))(refining)).flatMap((after, filtered) =>
-            interned(Choice(value, filtered))(after)
+        else if decodingCriterion(found) then
+          tailcall(parallelInterned(value, found)(refining)).flatMap((after, filtered) =>
+            choiceInterned(value, filtered)(after)
           )
         else done((refining, value))

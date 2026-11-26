@@ -19,6 +19,8 @@
 λ profitable _
 . omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "lookahead")
 λ lazily _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "instance_reuse")
+λ within_version _
 . omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "native_blocks")
 λ no_native_blocks
 . omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "application")
@@ -43,6 +45,12 @@
 λ _ module
 . omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "compilation_place")
 λ upfront_compilation _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "unit_selection")
+λ whole_program _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "occurrence_tagging")
+λ untagged _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "group_blocks")
+λ no_group_blocks _
 . omega (omega (omega (omega gezi "tests") "executor_module_fixtures") "test_executor")
 λ test_executor
 . omega (omega (omega (omega gezi "corpora") "library") "top")
@@ -69,11 +77,12 @@
       )
   + λ
     . instances
-    λ instance_table instance_retention checkpoints lookahead
+    λ instance_table instance_retention checkpoints lookahead instance_reuse
     . ( instance_table λt f. t
       + instance_retention λ. generations λ. integer_literal 524288
       + checkpoints profitable
       + lookahead lazily
+      + instance_reuse within_version
       )
   + λ
     . reading
@@ -86,8 +95,10 @@
       )
   + λ
     . execution
-    λ executor compilation_place
+    λ executor compilation_place occurrence_tagging group_blocks
     . ( executor λ. module test_executor λs. s λ. integer_literal 7
-      + compilation_place upfront_compilation
+      + compilation_place (upfront_compilation whole_program)
+      + occurrence_tagging untagged
+      + group_blocks no_group_blocks
       )
   )

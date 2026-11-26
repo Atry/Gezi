@@ -1,26 +1,28 @@
 package gezi.egraph
 
-import gezi.ir.Layer
+import gezi.ir.LayerWith
 import scala.annotation.tailrec
 import scala.collection.immutable.HashMap
+import gezi.ir.{Configured, NativeSpecializer}
 
-/** A cost analysis of the classes of an e-graph: each class holds one cost, the join of the costs of its live nodes,
-  * a node's cost made from its layer over its children's class costs. A
-  * strategy or a cost model reads it; it never merges, prunes, adds a node
-  * or orders the agenda.
+/** An analysis of the classes of an e-graph: each class holds one value, the join of the values of its live nodes,
+  * a node's value made from its layer over its children's class values. A
+  * strategy, a cost model or a rule reads it as a hint; it never merges,
+  * prunes, adds a node or orders the agenda itself.
   *
-  * What a cost may be: values of a cost function joined by its order, such
-  * as size, depth or the counted cost of the cheapest spelling; `made` may
-  * read the node's own layer, a leaf's instruction included, and data the
-  * analysis was built with (`combinator_property` facts, backend facts) to
-  * price that one node. What it may not be
-  * (`CONTRIBUTING.md`, "Types live only in the term"): a value that says a class holds an assertion, a filter, or a
-  * define with a type-ness property. A class's value depends on which
-  * lemma instances merged the class, so a joined fact about the class's
-  * nodes is a record about the class kept beside the term, not a function
-  * of a term's syntax; only its cost may be stored.
+  * What a value may be: a cost, values of a cost function joined by its
+  * order, such as size, depth or the counted cost of the cheapest spelling;
+  * or a cached, recursively computed pure function of the class's member
+  * nodes, such as which native storages the class holds as leaves
+  * (`StorageLeafAnalysis`). `made` may read the node's own layer, a leaf's
+  * instruction included, and data the analysis was built with
+  * (`combinator_property` facts, backend facts). What it may not be
+  * (`CONTRIBUTING.md`, "Types live only in the term"): a verdict, a value
+  * that chooses a filter, decides whether a value is of a type, or stands as
+  * the proof of a merge. Every merge is the instance of a lemma or a rule,
+  * proved as such, whatever an analysis says.
   *
-  * The laws a cost analysis keeps, which make the incremental values equal
+  * The laws an analysis keeps, which make the incremental values equal
   * to the least fixed point computed from scratch (`AnalysisSlot.computed`)
   * whenever the agenda is empty, as it is whenever a saturation ends (while
   * a union of congruence waits, a class may still hold the cost of a node
@@ -30,42 +32,60 @@ import scala.collection.immutable.HashMap
   * the order has no infinite descending chain (the naturals under min), so
   * that repair ends.
   */
-trait ClassAnalysis[Value]:
+trait ClassAnalysis[C <: NativeSpecializer & Singleton, Value]:
+
+  /** The analysis's own key into a graph's slots: one object for each analysis, carrying the type of its values, so that
+    * a read through it (`EGraph.analysisValue`) is typed by the key, not by a cast of the caller's.
+    */
+  final val key: AnalysisKey[Value] = AnalysisKey[Value]()
 
   /** The unit of `joined`: the cost of a class with no node priced yet. */
   def identity: Value
 
-  /** The cost of one node: its layer over its children's class costs. */
-  def made(layer: Layer[Value]): Value
+  /** The cost of one node: its layer over its children's class costs, a leaf the term of the configuration `C` the
+    * analysis is of, whose specializer an analysis that reads a storage's criterion holds.
+    */
+  def made(layer: LayerWith[Value, Configured[C]]): Value
 
   /** The cost of a class holding both costs' nodes. */
   def joined(left: Value, right: Value): Value
 
+/** The key of one analysis in the slots of a graph, made by [[ClassAnalysis]] alone: it carries the type of the values the
+  * analysis gives, so that two keys that are one object have one value type.
+  */
+final class AnalysisKey[Value] private[egraph] ():
+
+  /** The evidence that the other key's value type is this key's, when the two are one object (the one analysis).
+    */
+  def sameAs[Other](other: AnalysisKey[Other]): Option[Value =:= Other] =
+    // Registered conversion (issue 2261, section 8): the key is the analysis's own and carries its value type, so one
+    // key object has one value type, whatever name a caller gives the type it asks for.
+    Option.when(this eq other)(summon[Value =:= Value].asInstanceOf[Value =:= Other])
+
 /** The cost of each class of a graph under one analysis, by the class's
-  * root, kept in the graph (`EGraph.analysis`) and updated by its
+  * root, one slot of the product the graph keeps (`EGraph.analyses`), updated by its
   * operations: a new node's class gets the node's cost, a union joins the
   * two classes' costs, and a class whose cost changes has its users priced
   * again until nothing changes (the repair of egg's e-class analyses).
   */
-final case class AnalysisSlot[Value](analysis: ClassAnalysis[Value], values: HashMap[Int, Value]):
+final case class AnalysisSlot[C <: NativeSpecializer & Singleton, Value](analysis: ClassAnalysis[C, Value], values: HashMap[Int, Value]):
 
-  /** The cost of the class of the root, when this slot holds the analysis
-    * given. The analysis is the key: the slot returns its values only to
-    * the caller holding the same analysis object, so the cast below gives
-    * back the type that object was built with.
+  /** The cost of the class of the root, when this slot holds the analysis of the key given. The key is the analysis's
+    * own (`ClassAnalysis.key`), and its type is the type of the values, so the slot returns its values only to the
+    * caller holding the key of the analysis it holds.
     */
-  def valueOf[Wanted](wanted: ClassAnalysis[Wanted], root: Int): Option[Wanted] =
-    if wanted eq analysis then values.get(root).map(_.asInstanceOf[Wanted]) else None
+  def valueOf[Wanted](wanted: AnalysisKey[Wanted], root: Int): Option[Wanted] =
+    analysis.key.sameAs(wanted).flatMap(sameType => values.get(root).map(sameType))
 
   /** The slot with the new node's class priced: the node is its own root. */
-  private[egraph] def nodeMade(graph: EGraph, node: Int): AnalysisSlot[Value] =
+  private[egraph] def nodeMade(graph: EGraph[C], node: Int): AnalysisSlot[C, Value] =
     copy(values = values.updated(node, nodeCost(graph, node)))
 
   /** The slot after the union that made `big` the root of `small`'s class,
     * the users of the joined class priced again when its cost differs from
     * either class's before.
     */
-  private[egraph] def classesJoined(graph: EGraph, small: Int, big: Int): AnalysisSlot[Value] =
+  private[egraph] def classesJoined(graph: EGraph[C], small: Int, big: Int): AnalysisSlot[C, Value] =
     val smallValue = values(small)
     val bigValue = values(big)
     val joinedValue = analysis.joined(bigValue, smallValue)
@@ -77,7 +97,7 @@ final case class AnalysisSlot[Value](analysis: ClassAnalysis[Value], values: Has
     * changes adding its class's users.
     */
   @tailrec
-  private def repaired(graph: EGraph, users: List[Int]): AnalysisSlot[Value] = users match
+  private def repaired(graph: EGraph[C], users: List[Int]): AnalysisSlot[C, Value] = users match
     case Nil => this
     case user :: rest =>
       val userRoot = graph.root(user)
@@ -87,8 +107,9 @@ final case class AnalysisSlot[Value](analysis: ClassAnalysis[Value], values: Has
       else copy(values = values.updated(userRoot, after)).repaired(graph, graph.classUsers(userRoot).toList ::: rest)
 
   /** The node's cost over its children's classes' current costs. */
-  private def nodeCost(graph: EGraph, node: Int): Value =
-    analysis.made(graph.layer(node).map(child => values(graph.root(child))))
+  private def nodeCost(graph: EGraph[C], node: Int): Value =
+    // An analysis's values are no terms: a layer over them is no term either.
+    analysis.made(graph.layer(node).map(child => values(graph.root(child)))(using gezi.ir.NotTerm.granted))
 
 object AnalysisSlot:
 
@@ -98,20 +119,20 @@ object AnalysisSlot:
     * A class whose nodes are all duplicates, its union with their twins'
     * classes waiting on the agenda, keeps the identity.
     */
-  def computed[Value](graph: EGraph, analysis: ClassAnalysis[Value]): AnalysisSlot[Value] =
+  def computed[C <: NativeSpecializer & Singleton, Value](graph: EGraph[C], analysis: ClassAnalysis[C, Value]): AnalysisSlot[C, Value] =
     val live = graph.liveNodes
     val start = HashMap.from(graph.nodes.indices.map(node => graph.root(node) -> analysis.identity))
     AnalysisSlot(analysis, settled(graph, live, analysis, start))
 
   @tailrec
-  private def settled[Value](
-      graph: EGraph,
-      live: Vector[LiveNode],
-      analysis: ClassAnalysis[Value],
+  private def settled[C <: NativeSpecializer & Singleton, Value](
+      graph: EGraph[C],
+      live: Vector[LiveNode[C]],
+      analysis: ClassAnalysis[C, Value],
       values: HashMap[Int, Value]
   ): HashMap[Int, Value] =
     val next = live.foldLeft(values)((current, node) =>
-      val cost = analysis.made(node.layer.map(child => current(graph.root(child))))
+      val cost = analysis.made(node.layer.map(child => current(graph.root(child)))(using gezi.ir.NotTerm.granted))
       current.updated(node.root, analysis.joined(current(node.root), cost))
     )
     if next == values then values else settled(graph, live, analysis, next)

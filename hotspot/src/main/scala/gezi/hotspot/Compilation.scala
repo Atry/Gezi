@@ -1,14 +1,14 @@
 package gezi.hotspot
 
-import gezi.ir.Instruction
+import gezi.ir.{Configured, NativeSpecializer}
 
-/** What a compiler compiles and an executor counts: a code, a closure (the instruction of a thunk layer, with its
-  * fillings), or a whole program.
+/** What a compiler compiles: a code, a closure (the term of a thunk layer, with its fillings), or a whole program,
+  * the terms of the configuration `C`.
   */
-enum CompilationUnit:
+enum CompilationUnit[C <: NativeSpecializer & Singleton]:
   case Code(code: gezi.ir.Code)
-  case Closure(thunk: Instruction)
-  case Program(root: Instruction)
+  case Closure(thunk: Configured[C])
+  case Program(root: Configured[C])
 
 /** The configuration that, with the unit, keys the artifacts a compiler
   * writes: its schedule, budget and refinement, as a value whose equality
@@ -24,7 +24,7 @@ trait CompilerConfiguration
   * `ArtifactKey(unit, configuration)`; `Artifact` is the type of what it
   * writes, so that a lookup gives an `Artifact` with no cast.
   */
-trait Compiler[Artifact]:
+trait Compiler[C <: NativeSpecializer & Singleton, Artifact]:
 
   /** The configuration that, with the unit, keys the artifacts this
     * compiler writes.
@@ -39,18 +39,18 @@ trait Compiler[Artifact]:
     * reports what it spent.
     */
   def compiled(
-      residual: Instruction,
-      unit: CompilationUnit,
+      residual: Configured[C],
+      unit: CompilationUnit[C],
       dependencies: ExecutionDependencies,
       stop: gezi.saturation.StopSignal
-  ): (Compiler[Artifact], ExecutionDependencies, CompilationSpent)
+  ): (Compiler[C, Artifact], ExecutionDependencies, CompilationSpent)
 
 /** The key of a compilation artifact in the cache service: the unit and the
   * compiler's configuration, every input of the compilation (the cache-table
   * rule, `CONTRIBUTING.md`, "Tables"). The artifact's type is part of
   * the key's type.
   */
-final case class ArtifactKey[Artifact](unit: CompilationUnit, configuration: CompilerConfiguration)
+final case class ArtifactKey[C <: NativeSpecializer & Singleton, Artifact](unit: CompilationUnit[C], configuration: CompilerConfiguration)
 
 /** What a compilation cost: the e-graph instances it took. */
 final case class CompilationSpent(instances: Long):

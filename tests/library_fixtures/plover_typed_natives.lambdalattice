@@ -1,0 +1,28 @@
+# The knowledge TypedNativesLawTest compiles its library from
+# (gezi.standardlibrary.StandardLibrary.compiledAt): the backends of the unary
+# and the binary naturals and the two modules of typed branches over the
+# standard set's natives, their choice the one field of this file's tuple. The
+# modules that bind the same natives to the bare defines are left out, so that
+# a call of one of these natives is a call through its typed version.
+# FIXME: the imports project "corpora" off the variable gezi, the name https://github.com/Atry/private-overlay/issues/1924
+# of the project root's own directory; they break if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega gezi "corpora") "compiler") "native_types")
+λ native_types
+. omega (omega (omega (omega gezi "corpora") "compiler") "prolog_backend")
+λ prolog_backend
+. omega (omega (omega (omega gezi "corpora") "compiler") "binary_prolog_backend")
+λ binary_prolog_backend
+. omega (omega (omega (omega gezi "corpora") "compiler") "plover_typed_binary_natives")
+λ plover_typed_binary_natives
+. omega (omega (omega (omega gezi "corpora") "compiler") "plover_typed_unary_natives")
+λ plover_typed_unary_natives
+. export
+  ( plover_typed_unary_natives
+  + plover_typed_binary_natives
+  + binary_prolog_backend
+  + prolog_backend
+  + native_types
+  )

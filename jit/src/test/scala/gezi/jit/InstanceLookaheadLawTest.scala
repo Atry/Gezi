@@ -4,6 +4,8 @@ import hedgehog.Gen
 import hedgehog.Range
 import hedgehog.Result
 import gezi.generatedinputs.GeneratedProperties
+import gezi.frontend.DeBruijnTerm
+import gezi.ir.Configured
 import gezi.jit.JitTesting.*
 import gezi.weakhead.Bounded
 import gezi.weakhead.EvaluatorTesting
@@ -18,20 +20,29 @@ import gezi.weakhead.NoJitState
   * memory: a head of the pulled rest dropped or given twice, a state kept
   * from a pull that ran out of its steps (a table left marked as stopped, a
   * partial reading recorded), or the reading's own limit left lowered after
-  * the pull. At least 30% of the draws finish under the lookahead with a
-  * table entry, so that the law compares readings the lookahead acted on.
+  * the pull. Every iteration checks the law also on `(λx. x x) (λy. y)`,
+  * whose β step reads the body `x x` as an instance of its code under the
+  * filling `λy. y`, missed by the empty table and pulled by the lookahead,
+  * whose heads end at `λy. y` with the table complete; that the lookahead's
+  * reading finished with a table entry is asserted, so that the law always
+  * compares a reading the lookahead acted on.
   */
 class InstanceLookaheadLawTest extends GeneratedProperties:
 
-  private def configuration(lookahead: InstanceLookahead): JitConfiguration =
-    JitConfiguration(
-      noFacts,
+  private val encoding = noFactsEncoding
+
+  private given encoding.type = encoding
+
+  private def configuration(lookahead: InstanceLookahead): JitConfiguration[encoding.type] =
+    JitConfiguration[encoding.type](
+      encoding,
       JitConfiguration.defaultBudget,
       PredicatePerCode,
       ClosureBackend,
       DispatchMode.NoDispatch,
       instanceTable = true,
-      instanceLookahead = lookahead
+      instanceLookahead = lookahead,
+      storageAccess = gezi.ir.StorageAccess.granted()
     )
 
   /** The steps of each reading. The draws that finish take 9 to 87 steps
@@ -54,27 +65,44 @@ class InstanceLookaheadLawTest extends GeneratedProperties:
       val term = EvaluatorTesting.draws(1, seed)(random => randomLatticeApplication(size, random)) match
         case Vector(only) => only
         case other        => throw IllegalStateException(s"one term drawn, not ${other.size}")
-      val value = valuesOf(Vector(instructionOf(term))) match
-        case Vector(only) => only
-        case other        => throw IllegalStateException(s"one value per term, not ${other.size}")
-      def read(lookahead: InstanceLookahead) =
-        NativesTesting.normalFormsSpent(Mode.Jit(Jit(configuration(lookahead))), value, limit, NoJitState)
-      (term, steps, read(InstanceLookahead.Lazy), read(InstanceLookahead.WithinSteps(steps)))
+      (term, steps, read(term, InstanceLookahead.Lazy), read(term, InstanceLookahead.WithinSteps(steps)))
+
+  /** The term's reading under the table with the lookahead. */
+  private def read(term: DeBruijnTerm, lookahead: InstanceLookahead): Spent[encoding.type, Vector[Configured[encoding.type]]] =
+    val value = valuesOf(Vector(instructionOf(term))) match
+      case Vector(only) => only
+      case other        => throw IllegalStateException(s"one value per term, not ${other.size}")
+    NativesTesting.normalFormsSpent(Jit(configuration(lookahead)), value, limit, NoJitState)
+
+  /** `(λx. x x) (λy. y)`: the instance of `x x` under `λy. y` is missed. */
+  private val selfApplied: DeBruijnTerm =
+    DeBruijnTerm.Apply(
+      DeBruijnTerm.Lambda(DeBruijnTerm.Apply(DeBruijnTerm.Variable(0), DeBruijnTerm.Variable(0))),
+      DeBruijnTerm.Lambda(DeBruijnTerm.Variable(0))
+    )
+
+  /** The law on the two readings of one term. */
+  private def agreed(term: DeBruijnTerm, steps: Long, lazily: Spent[encoding.type, Vector[Configured[encoding.type]]], ahead: Spent[encoding.type, Vector[Configured[encoding.type]]]): Result =
+    (lazily.outcome, ahead.outcome) match
+      case (Bounded.Finished(expected), Bounded.Finished(found)) =>
+        Result.assert(sameTerms(found, expected)).log(s"within $steps steps, term $term")
+      case _ => Result.success
 
   /** Whether the reading finished with an entry in the table. */
-  private def finishedWithAnEntry(read: Spent[?]): Boolean =
+  private def finishedWithAnEntry(read: Spent[encoding.type, ?]): Boolean =
     (read.outcome, read.jitState) match
-      case (Bounded.Finished(_), run: JitRunState) => run.tableCosts.values.exists(_.entries > 0)
+      case (Bounded.Finished(_), run: JitRunState[?]) => run.tableCosts.values.exists(_.entries > 0)
       case _                                      => false
 
   property("the lookahead reads the lazy table's normal forms wherever both finish") {
-    for
-      drawn <- readings.forAll
-        .cover(30, "a reading under the lookahead that finished with a table entry", (_, _, _, ahead) => finishedWithAnEntry(ahead))
+    for (term, steps, lazily, ahead) <- readings.forAll
     yield
-      val (term, steps, lazily, ahead) = drawn
-      (lazily.outcome, ahead.outcome) match
-        case (Bounded.Finished(expected), Bounded.Finished(found)) =>
-          Result.diff(found, expected)(_ == _).log(s"within $steps steps, term $term")
-        case _ => Result.success
+      val selfAhead = read(selfApplied, InstanceLookahead.WithinSteps(steps))
+      agreed(term, steps, lazily, ahead)
+        .and(agreed(selfApplied, steps, read(selfApplied, InstanceLookahead.Lazy), selfAhead))
+        .and(
+          Result
+            .assert(finishedWithAnEntry(selfAhead))
+            .log(s"(λx. x x) (λy. y) within $steps steps did not finish with a table entry: ${selfAhead.outcome}")
+        )
   }

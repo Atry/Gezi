@@ -28,7 +28,7 @@ final class MergePower(problems: ProblemFamilies, dynamic: MergeDynamic):
   /** The Church Boolean of `base^exponent == claimed`, with the original or
     * the twin arithmetic (`power_term/4`).
     */
-  def powerTerm(arithmetic: PowerArithmetic, exponent: Int, claimed: BigInt): Term = arithmetic match
+  def powerTerm(arithmetic: PowerArithmetic, exponent: Int, claimed: BigInt): ProblemTerm = arithmetic match
     case PowerArithmetic.Original =>
       dynamic.withArithmetic(names =>
         powerBodyTerm(exponent, claimed, names.equality, zero => dynamic.timesFunction(names.plus, zero))
@@ -38,10 +38,10 @@ final class MergePower(problems: ProblemFamilies, dynamic: MergeDynamic):
         powerBodyTerm(exponent, claimed, names.equality, zero => dynamic.twinTimesFunction(names.plus, zero))
       )
 
-  private def powerBody(times: Term, base: Term, one: Term): Term =
+  private def powerBody(times: ProblemTerm, base: ProblemTerm, one: ProblemTerm): ProblemTerm =
     file.program("power_body", times, base, one)
 
-  private def powerBodyTerm(exponent: Int, claimed: BigInt, equality: Term, timesTerm: Term => Term): Term =
+  private def powerBodyTerm(exponent: Int, claimed: BigInt, equality: ProblemTerm, timesTerm: ProblemTerm => ProblemTerm): ProblemTerm =
     λ(zero =>
       λ(one =>
         λ(times =>
@@ -70,7 +70,7 @@ final class MergePower(problems: ProblemFamilies, dynamic: MergeDynamic):
     )
 
   /** The point's program. */
-  def program(name: String): Term =
+  def program(name: String): ProblemTerm =
     points
       .find(_._1 == name)
       .map((_, arithmetic, exponent) => powerTerm(arithmetic, exponent, base.pow(exponent)))

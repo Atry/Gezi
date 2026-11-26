@@ -1,12 +1,12 @@
 package gezi.contest.entry
 
 import java.nio.file.Path
-import gezi.frontend.DeBruijnTerm
+import gezi.frontend.DeBruijnTermOf
 import gezi.hotspot.Cache
 import gezi.hotspot.ExpansionSource
 import gezi.hotspot.ForeignService
-import gezi.ir.Instruction
 import gezi.saturation.StopSignal
+import gezi.ir.{Closed, Configured, NativeSpecializer}
 
 /** What a contest entry registers with `java.util.ServiceLoader`, in
   * `META-INF/services/gezi.contest.entry.EntryProvider` of its project: exactly
@@ -34,7 +34,7 @@ trait EntryProvider:
     *   JVM (`ArticleDestination`): `Discarded` in the scored pass, a directory
     *   in the judge's article re-read
     */
-  def initial(entryDirectory: Path, cache: Cache, articles: ArticleDestination): Entry
+  def initial(entryDirectory: Path, cache: Cache, articles: ArticleDestination): Entry[?]
 
 /** An entry between two cells. The runner hands the entry each cell in turn,
   * the entry a cell's run finished with running the next, and passes nothing
@@ -42,27 +42,31 @@ trait EntryProvider:
   * the cells, compiled code, readings) is a field of the entry it finishes
   * with, in a shape of its own, or an entry of the cache it was given.
   */
-trait Entry:
+trait Entry[C <: NativeSpecializer & Singleton]:
 
-  /** The run of a cell: a closed `DeBruijnTerm` `State → (State, Output)` at
-    * the boundary, before defunctionalization, which the entry runs through
+  /** The native specializer of the entry's configuration: the adapter builds the terms it hands the entry
+    * through it (the cell's constants, the judgment's candidate), so that they are terms of `C`.
+    */
+  def specializer: C
+
+  /** The run of a cell: a closed `DeBruijnTermOf[Configured[C]]` `State → (State, Output)` at
+    * the boundary, whose constants the adapter built in `C`, before defunctionalization, which the entry runs through
     * the framework's front end to the defunctionalized IR before anything
     * else (`Cells.outputInstruction`, `Cells.nextStateInstruction`); nothing
     * between the front end and the read-back of the display holds a de
     * Bruijn tree.
     *
     * The run finishes with the display of the cell's Output, a term with the
-    * Output's answers (the closed βη normal forms N with Output ⊑_O N), the
+    * Output's Scott ADT values (the closed terms `λc1 … ck. ci v1 … vn` with Output ⊑_O them), the
     * phases of the run, and the entry after it, which keeps the state after
     * the cell (`Cells.nextState`, or any form ≃_O to it).
     * How far the Output is evaluated, and how many normal forms are shown,
-    * is the entry's choice: `Cells.displayed` is the most canonical display,
+    * is the entry's choice: the Scott ADT values of the Output (`ScottADTChoices.of`) are the most canonical display,
     * the Output not evaluated (`Cells.output`) the simplest, which asserts
     * nothing the Output does not. The judge splits the display's top-level
     * choice:
-    * members all normal forms assert the set; normal forms beside a
-    * remainder assert membership; no normal form member asserts nothing;
-    * `0` asserts the empty set.
+    * `Values` assert the set; `Mixed` asserts membership of its values;
+    * `Remainder` asserts nothing; `Values` of no member asserts the empty set.
     *
     * The source is the version of the contents the URI nodes of the cell
     * expand to (`ExpansionSource`), which the adapter gives, since only it
@@ -86,7 +90,7 @@ trait Entry:
     * `jit_generation` and `run`, and the judge enforces none of them. The
     * phases need not sum to the cell's wall time.
     */
-  def run(cell: DeBruijnTerm, source: ExpansionSource, stop: StopSignal): Interaction
+  def run(cell: DeBruijnTermOf[Configured[C]], source: ExpansionSource, stop: StopSignal): Interaction[C]
 
   /** The run of an FFI program, a Moore machine state
     * (`corpora/library/java_ffi/moore`), calling the service the adapter
@@ -95,12 +99,20 @@ trait Entry:
     * service. None for an entry that runs no FFI program, which is every
     * entry that does not override this.
     */
-  def interacted(state: Instruction, service: ForeignService, source: ExpansionSource, stop: StopSignal): Option[Interacted] = None
+  def interacted(state: Configured[C], service: ForeignService, source: ExpansionSource, stop: StopSignal): Option[Interacted[C]] = None
+
+  /** The display of one value an FFI program gave (`Interacted.answers`): the value's Scott ADT values
+    * (`ScottADTChoices.of`) read by this entry's reader and executor state, which the entry it returns keeps. A
+    * reading the budget or the stop ends is displayed as the term it was given, unevaluated
+    * (`OutputDisplay.Remainder`).
+    */
+  def displayed(value: Closed[C], source: ExpansionSource, stop: StopSignal): (Entry[C], OutputDisplay[C])
 
 /** What the run of an FFI program comes to: the answers its branches ended
-  * with, whether it ran to its end, and the entry after it.
+  * with, the output fields they left unread, each a closed value of the entry's configuration, whether it ran to
+  * its end, and the entry after it.
   */
-final case class Interacted(answers: Vector[Instruction], finished: Boolean, entry: Entry)
+final case class Interacted[C <: NativeSpecializer & Singleton](answers: Vector[Closed[C]], finished: Boolean, entry: Entry[C])
 
 /** What an entry reports of a cell's run beside its display
   * (`Interaction.Finished`): a phase's seconds or a count, in the order the

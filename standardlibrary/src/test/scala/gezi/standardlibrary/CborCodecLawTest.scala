@@ -12,15 +12,17 @@ import gezi.frontend.Defunctionalization
 import gezi.frontend.DeBruijnTerm
 import gezi.frontend.Literal
 import gezi.frontend.Literals
-import gezi.frontend.Term
+import gezi.frontend.DeBruijnTermOf
+import gezi.frontend.TermOf
+import gezi.frontend.Term as HoasTerm
 import gezi.frontend.Term.λ
 import gezi.generatedinputs.GeneratedProperties
-import gezi.ir.Instruction
+import gezi.ir.Configured
+import gezi.ir.NoFacts
 import gezi.knowledgereading.KnowledgeReading
 import gezi.weakhead.Computed
 import gezi.weakhead.Mode
 import gezi.weakhead.ReadingState
-import gezi.weakhead.Value
 import gezi.weakhead.Values
 import gezi.weakhead.WeakHead
 
@@ -51,6 +53,17 @@ import gezi.weakhead.WeakHead
   * that no module gives, its own reading one parallel set.
   */
 class CborCodecLawTest extends GeneratedProperties:
+
+  given NoFacts.type = NoFacts
+
+  private type NoFactsTerm = Configured[NoFacts.type]
+
+  private type Value = gezi.ir.Value[NoFacts.type]
+
+  /** A HOAS term holding closed terms of no facts as constants. */
+  private type Term = TermOf[NoFactsTerm]
+
+  private type ReadingState = gezi.weakhead.ReadingState[NoFacts.type]
 
   // FIXME: not yet measured. The step limit of each reading is https://github.com/Atry/private-overlay/issues/1962
   // DirectoryTreeLawTest's (2,000,000), taken without a run of this suite
@@ -87,10 +100,10 @@ class CborCodecLawTest extends GeneratedProperties:
     * continuation would read the file's imports again for each probe, the
     * cost that `ExportFormStepsTest` records, which this suite does not test.
     */
-  private val instances: Vector[(LibraryFile, Instruction)] =
+  private val instances: Vector[(LibraryFile, NoFactsTerm)] =
     LibraryFile.values.toVector.map(file =>
-      val instance = DirectoryTree.instance(visible, visible.resolve(file.path + DirectoryTree.fileExtension))
-      file -> KnowledgeReading.run(KnowledgeReading.tuplesTerm(instance), limit, ReadingState.knowing(limit, KnowledgeReading.knownExtremes))._1
+      val instance = DirectoryTree.instance[NoFacts.type](visible, visible.resolve(file.path + DirectoryTree.fileExtension))
+      file -> KnowledgeReading.run(KnowledgeReading.tuplesTerm(gezi.ir.Value.of(instance)), limit, gezi.weakhead.ReadingState.knowing(limit, KnowledgeReading.knownExtremes, gezi.weakhead.ReadingConfiguration.withoutFacts))._1
     )
 
   /** The CBOR item a literal is, as far as the modules tell items apart. */
@@ -163,7 +176,7 @@ class CborCodecLawTest extends GeneratedProperties:
     case IntegerList(value)                     => IntegerList(value :+ BigInt(0))
 
   /** The term of the closed de Bruijn term. */
-  private def closed(term: DeBruijnTerm): Term = Term.closed(Defunctionalization.thunkInstruction(term))
+  private def closed(term: DeBruijnTerm): Term = HoasTerm.closed(Defunctionalization.thunkInstruction[NoFacts.type](term))
 
   /** The instance's first two fields handed to the body, the others unused:
     * `instance (λfirst. λsecond. λ_ … λ_. body)`.
@@ -210,7 +223,9 @@ class CborCodecLawTest extends GeneratedProperties:
   /** `λx. x x`, the marker: a closed term no module gives. */
   private val markerTerm: DeBruijnTerm = λ(x => x(x)).deBruijnTerm(Map.empty)
 
-  private val marker: Instruction = Defunctionalization.thunkInstruction(markerTerm)
+  private val marker: NoFactsTerm = Defunctionalization.thunkInstruction[NoFacts.type](markerTerm)
+
+  private val markerValue: Value = gezi.ir.Value.of(marker)
 
   /** `λb. λrest. λp. rest (p b)`: the step of the fold that collects bits. */
   private val collected: Term = λ(bit => λ(rest => λ(applied => rest(applied(bit)))))
@@ -234,8 +249,10 @@ class CborCodecLawTest extends GeneratedProperties:
     def bound(files: List[LibraryFile], opened: Map[LibraryFile, Term]): Term = files match
       case Nil          => body(opened)
       case file :: rest => λ(instance => bound(rest, opened.updated(file, instance)))
-    val term = Defunctionalization.thunkInstruction(bound(instances.map(_._1).toList, Map.empty).deBruijnTerm(Map.empty))
-    instances.foldLeft(term: Value) { case (function, (_, instance)) => Value.Apply(function, instance) }
+    val term = Defunctionalization.thunkInstruction[NoFacts.type](bound(instances.map(_._1).toList, Map.empty).deBruijnTerm(Map.empty))
+    instances.foldLeft(gezi.ir.Value.of(term)) { case (function, (_, instance)) =>
+      gezi.ir.Value.Apply(function, gezi.ir.Value.of(instance))
+    }
 
   /** `to_cbor v f z` applied to the partial function of the key. */
   private def written(sample: Sample, key: Literal): Value =
@@ -255,18 +272,17 @@ class CborCodecLawTest extends GeneratedProperties:
     * the other sample's literal.
     */
   private def readAs(reader: Sample, other: Sample): Value =
-    probe(opened => codec(reader, opened)((fromCbor, _) => appliedToBits(fromCbor(λ(_ => Term.closed(marker))), literal(other))))
+    probe(opened => codec(reader, opened)((fromCbor, _) => appliedToBits(fromCbor(λ(_ => HoasTerm.closed(marker))), literal(other))))
 
   /** The answers of the reading read back to the IR under the state, and
     * the state after it; nothing when the budget stops it.
     */
-  private def answersFrom(reading: Value, state: ReadingState): (Option[Set[Set[Instruction]]], ReadingState) =
+  private def answersFrom(reading: Value, state: ReadingState): (Option[Set[Set[NoFactsTerm]]], ReadingState) =
     WeakHead.heads(Mode.TablingWeakHead, reading).collected.result(state) match
       case Computed.Done(sets, after) =>
         (
           Some(
-            WeakHead
-              .headsExpanded(Mode.TablingWeakHead, sets)
+            sets
               .map(_.heads.map(head => Values.instruction(head.value)).toSet)
               .toSet
           ),
@@ -277,8 +293,8 @@ class CborCodecLawTest extends GeneratedProperties:
   /** The readings in order under one state, each with a fresh budget, and
     * the state after them.
     */
-  private def readInOrder(readings: Vector[Value], start: ReadingState): (Vector[Option[Set[Set[Instruction]]]], ReadingState) =
-    readings.foldLeft((Vector.empty[Option[Set[Set[Instruction]]]], start)) { case ((found, state), reading) =>
+  private def readInOrder(readings: Vector[Value], start: ReadingState): (Vector[Option[Set[Set[NoFactsTerm]]]], ReadingState) =
+    readings.foldLeft((Vector.empty[Option[Set[Set[NoFactsTerm]]]], start)) { case ((found, state), reading) =>
       val (read, after) = answersFrom(reading, state)
       (found :+ read, after)
     }
@@ -303,8 +319,8 @@ class CborCodecLawTest extends GeneratedProperties:
     */
   private lazy val warmed: ReadingState =
     readInOrder(
-      smallest.flatMap(sample => Vector(written(sample, literal(sample)), roundTrip(sample))) :+ (marker: Value),
-      ReadingState.knowing(limit, KnowledgeReading.knownExtremes)
+      smallest.flatMap(sample => Vector(written(sample, literal(sample)), roundTrip(sample))) :+ markerValue,
+      gezi.weakhead.ReadingState.knowing(limit, KnowledgeReading.knownExtremes, gezi.weakhead.ReadingConfiguration.withoutFacts)
     )._2
 
   override def sharedFixtures: Vector[scala.concurrent.Future[Unit] => Any] = Vector(_ => warmed)
@@ -406,7 +422,7 @@ class CborCodecLawTest extends GeneratedProperties:
   property("to_cbor writes the front end's encoding of the value", _.copy(testLimit = 8)) {
     for drawn <- samples.forAll
     yield
-      val (markerRead, start) = answersFrom(marker, warmed)
+      val (markerRead, start) = answersFrom(markerValue, warmed)
       val (results, _) = drawn.foldLeft((List.empty[Result], start)) { case ((done, state), (sample, other)) =>
         val (matched, afterMatched) = answersFrom(written(sample, literal(sample)), state)
         val (missed, afterMissed) = answersFrom(written(sample, literal(other)), afterMatched)
@@ -435,7 +451,7 @@ class CborCodecLawTest extends GeneratedProperties:
   property("from_cbor of a literal is read back by to_cbor", _.copy(testLimit = 8)) {
     for drawn <- samples.forAll
     yield
-      val (markerRead, start) = answersFrom(marker, warmed)
+      val (markerRead, start) = answersFrom(markerValue, warmed)
       val (reads, _) = readInOrder(drawn.map((sample, _) => roundTrip(sample)), start)
       Result.all(
         Result.assert(markerRead.exists(_.size == 1)).log(s"the marker: $markerRead") ::

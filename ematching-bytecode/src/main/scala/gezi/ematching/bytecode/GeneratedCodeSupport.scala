@@ -72,7 +72,7 @@ object GeneratedCodeSupport:
   def thunkLayer(code: Code, holes: Vector[Hole], fillings: Vector[Int]): Layer[Int] =
     Thunk(code, holes, fillings)
 
-  def result(graph: GraphBuilding[?], node: Int): (Any, Int) = (graph, node)
+  def result(graph: GraphBuilding[?, ?], node: Int): (Any, Int) = (graph, node)
 
   /** A body that references a code the program lacks, thrown when it is
     * built, as the closure backend does.

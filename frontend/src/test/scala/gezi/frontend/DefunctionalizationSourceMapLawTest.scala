@@ -8,7 +8,8 @@ import gezi.generatedinputs.HoasGenerators
 import gezi.generatedinputs.LambdalatticeText
 import gezi.ir.Code
 import gezi.ir.CodeLayer
-import gezi.ir.Instruction
+import gezi.ir.Configured
+import gezi.ir.NoFacts
 import gezi.ir.Layer
 import gezi.locations.BinderOrigin
 import gezi.locations.Location
@@ -63,11 +64,15 @@ import gezi.ir
   */
 class DefunctionalizationSourceMapLawTest extends GeneratedProperties:
 
+  given NoFacts.type = NoFacts
+
+  private type NoFactsTerm = Configured[NoFacts.type]
+
   private val uri: java.net.URI = java.net.URI.create("file:///generated.lambdalattice")
 
-  private def located(text: String): (Instruction, SourceMap) =
+  private def located(text: String): (NoFactsTerm, SourceMap) =
     val read = Lambdalattice.located(text, FreeNames.Rejected)
-    Defunctionalization.locatedThunkInstruction(read.term, read.spans, uri)
+    Defunctionalization.locatedThunkInstruction(read.term, read.spans, uri)(using gezi.ir.NoFacts)
 
   property("the located conversion converts to the instruction, its map aligned and reading back") {
     HoasGenerators.closedTerm.forAllWithLog(LambdalatticeText.text).map(term =>
@@ -75,7 +80,7 @@ class DefunctionalizationSourceMapLawTest extends GeneratedProperties:
       val (instruction, map) = located(text)
       val codePoints = text.codePoints.toScala(Vector).map(_.toInt)
       val problems =
-        (if instruction eq Defunctionalization.thunkInstruction(Lambdalattice.term(text)) then Vector.empty
+        (if Configured.same(instruction, Defunctionalization.thunkInstruction(Lambdalattice.term(text))(using gezi.ir.NoFacts)) then Vector.empty
          else Vector("another instruction")) ++ instructionProblems(instruction, map, codePoints)
       Result.assert(problems.isEmpty).log(problems.mkString("\n"))
     )
@@ -100,7 +105,7 @@ class DefunctionalizationSourceMapLawTest extends GeneratedProperties:
       val closed = s"(${LambdalatticeText.text(term)})"
       val text = s"λf. f $closed (λx. f $closed) $closed"
       val read = Lambdalattice.located(text, FreeNames.Rejected)
-      val (instruction, map) = Defunctionalization.locatedThunkInstruction(read.term, read.spans, uri)
+      val (instruction, map) = Defunctionalization.locatedThunkInstruction(read.term, read.spans, uri)(using gezi.ir.NoFacts)
       val readback = Defunctionalization.readbackMap(instruction, map)
       val written = textMap(read.term, read.spans, chained = false)
       Result.assert(readback == written).log(s"readback $readback\nwritten $written")
@@ -116,7 +121,7 @@ class DefunctionalizationSourceMapLawTest extends GeneratedProperties:
       val (instruction, map) = located(text)
       val (readback, _, _) = Defunctionalization.locatedInstructionTerm(instruction, map, Set.empty)
       Result
-        .assert(instruction == Defunctionalization.thunkInstruction(Lambdalattice.term(text)))
+        .assert(Configured.same(instruction, Defunctionalization.thunkInstruction(Lambdalattice.term(text))(using gezi.ir.NoFacts)))
         .log("the located conversion converts to another instruction")
         .and(Result.assert(readback == Defunctionalization.instructionTerm(instruction)).log("the readback reads another term"))
         .and(Result.assert(originless(instruction, map).isEmpty).log(s"binders with no origin: ${originless(instruction, map).take(3)}"))
@@ -126,7 +131,7 @@ class DefunctionalizationSourceMapLawTest extends GeneratedProperties:
   /** The thunk places, an instruction's or an inner code's, with a binder
     * that has no origin, each by the binders' origins there.
     */
-  private def originless(instruction: Instruction, map: SourceMap): Vector[Vector[Set[BinderOrigin]]] =
+  private def originless(instruction: NoFactsTerm, map: SourceMap): Vector[Vector[Set[BinderOrigin]]] =
     def missing(holeCount: Int, at: SourceMap): Vector[Vector[Set[BinderOrigin]]] =
       if at.binders.size < holeCount || at.binders.exists(_.isEmpty) then Vector(at.binders) else Vector.empty
     def part(parts: Vector[SourceMap], position: Int): SourceMap = parts.lift(position).getOrElse(SourceMap.unlocated)
@@ -138,7 +143,7 @@ class DefunctionalizationSourceMapLawTest extends GeneratedProperties:
       case ir.Thunk(inner, holes, fillings) =>
         missing(holes.size, at) ++ inCode(inner, at.code.getOrElse(SourceMap.unlocated)) ++
           fillings.zipWithIndex.flatMap((filling, position) => inCode(filling, part(at.children, position)))
-    def inInstruction(current: Instruction, at: SourceMap): Vector[Vector[Set[BinderOrigin]]] = current.layer match
+    def inInstruction(current: NoFactsTerm, at: SourceMap): Vector[Vector[Set[BinderOrigin]]] = current.layer match
       case ir.Apply(function, argument) => inInstruction(function, part(at.children, 0)) ++ inInstruction(argument, part(at.children, 1))
       case ir.Choice(left, right)       => inInstruction(left, part(at.children, 0)) ++ inInstruction(right, part(at.children, 1))
       case ir.Parallel(left, right)     => inInstruction(left, part(at.children, 0)) ++ inInstruction(right, part(at.children, 1))
@@ -171,20 +176,21 @@ class DefunctionalizationSourceMapLawTest extends GeneratedProperties:
         TermMap.Pair(here, textMap(left, spans.child(0), chained = false), textMap(right, spans.child(1), chained = false))
       case DeBruijnTerm.Variable(_) | DeBruijnTerm.Constant(_) | DeBruijnTerm.Free(_) => TermMap.Leaf(here)
 
-  private def readsBack(locations: Set[Location], instruction: Instruction, codePoints: Vector[Int]): Vector[String] =
+  private def readsBack(locations: Set[Location], instruction: NoFactsTerm, codePoints: Vector[Int]): Vector[String] =
     locations.toVector.flatMap {
       case Location.Source(_, span) =>
         val text = span.of(codePoints)
-        val read = scala.util.Try(Defunctionalization.thunkInstruction(Lambdalattice.term(text))).toOption
-        if read.exists(_ eq instruction) then Vector.empty else Vector(s"the span $span, `$text`, reads another term")
+        val read = scala.util.Try(Defunctionalization.thunkInstruction(Lambdalattice.term(text))(using gezi.ir.NoFacts)).toOption
+        if read.exists(Configured.same(_, instruction)) then Vector.empty else Vector(s"the span $span, `$text`, reads another term")
       case other => Vector(s"a reader's location that is no span: $other")
     }
 
-  private def instructionProblems(instruction: Instruction, map: SourceMap, codePoints: Vector[Int]): Vector[String] =
+  private def instructionProblems(instruction: NoFactsTerm, map: SourceMap, codePoints: Vector[Int]): Vector[String] =
     val own = readsBack(map.locations, instruction, codePoints)
     if map.bare then own
     else
       own ++ (instruction.layer match
+        case storage: ir.NativeStorage    => Vector(s"the front end of no facts made the storage $storage")
         case ir.Apply(function, argument) => pairProblems(Vector(function, argument), map, codePoints)
         case ir.Choice(left, right)       => pairProblems(Vector(left, right), map, codePoints)
         case ir.Parallel(left, right)     => pairProblems(Vector(left, right), map, codePoints)
@@ -216,12 +222,12 @@ class DefunctionalizationSourceMapLawTest extends GeneratedProperties:
           case Seq(before, after) if before >= after => s"binder spans out of order at $before and $after"
         }
 
-  private def pairProblems(sides: Vector[Instruction], map: SourceMap, codePoints: Vector[Int]): Vector[String] =
+  private def pairProblems(sides: Vector[NoFactsTerm], map: SourceMap, codePoints: Vector[Int]): Vector[String] =
     if map.code.isDefined || map.children.size != sides.size then Vector(s"a map of ${map.children.size} sides for ${sides.size}")
     else sides.lazyZip(map.children).flatMap(instructionProblems(_, _, codePoints))
 
   /** The filling each slot of a thunk's code reads, none for a hole. */
-  private def slotValues(holes: Vector[gezi.ir.Hole], fillings: Vector[Instruction]): Map[Int, Instruction] =
+  private def slotValues(holes: Vector[gezi.ir.Hole], fillings: Vector[NoFactsTerm]): Map[Int, NoFactsTerm] =
     val holeSlots = holes.collect { case gezi.ir.Hole.Bound(slot) => slot }.toSet
     val filledSlots = (0 until holeSlots.size + fillings.size).filterNot(holeSlots.contains).toVector
     filledSlots.zip(fillings).toMap
@@ -234,7 +240,7 @@ class DefunctionalizationSourceMapLawTest extends GeneratedProperties:
   private def codeProblems(
       code: Code,
       map: SourceMap,
-      slotFillings: Map[Int, Instruction],
+      slotFillings: Map[Int, NoFactsTerm],
       codePoints: Vector[Int]
   ): Vector[String] =
     code.layer match
@@ -250,7 +256,7 @@ class DefunctionalizationSourceMapLawTest extends GeneratedProperties:
   private def codePairProblems(
       sides: Vector[Code],
       map: SourceMap,
-      slotFillings: Map[Int, Instruction],
+      slotFillings: Map[Int, NoFactsTerm],
       codePoints: Vector[Int]
   ): Vector[String] =
     if map.code.isDefined || map.children.size != sides.size then Vector(s"a code map of ${map.children.size} sides for ${sides.size}")

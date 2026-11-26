@@ -1,2 +1,0 @@
-double_scheme: double = double ∥ arrow nat_type nat_type + double
-even_scheme: even = even ∥ arrow nat_type boolean_type + even

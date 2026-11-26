@@ -1,0 +1,232 @@
+# The typing of an application whose function may be a Scott value. The
+# application rule of hindley_milner_unions (unions_application_typed) unifies
+# the function's type with function_type tx r; a Scott value eliminated
+# directly, xs n (λh t. a), has a structure as its type, and the unify node of
+# a structure and a function type is united with both (unions_unify_*), so
+# the structure and the function type become one class and the
+# representation of the value is refuted (prolog_backend_shapes). This module
+# types an application by applied_type tf tx instead, which stays until tf's
+# class holds a shape: a function type gives its result, its parameter unified
+# with tx; a structure gives the eliminator of its alternatives, each arm
+# unified with the function of its alternative's fields to a result fresh for
+# the elimination. No unify node of a structure and a function type is
+# written, whichever of the two the class of tf holds first. It replaces
+# unions_application_typed in a type check that does not use it.
+#
+# A value whose type has no structure, a parameter only eliminated, as xs n
+# (λh t. a), is given one by its eliminations: for each shape of the
+# backend's representations that a candidacy of prolog_backend_shapes or
+# binary_wren_shapes reads (the unary naturals': a second alternative of one
+# field; the lists': of two fields; the binary naturals': three alternatives,
+# the second and third of one field each), an application chain of that many
+# arms whose arms' types are functions of that many fields marks the value's
+# type v with eliminated_as v s, s the structure of those fields. Where an
+# elimination reads as two shapes (a list's cons arm, a function of two
+# fields, is also a function of one field returning a function), both are
+# marked: an ambiguous typing keeps every reading as a candidate, each
+# refuted by the type's own structure and repelled at the call where it
+# fails, the extraction choosing among the rest by cost. v is unified with the
+# mark, never with s: a structure written out is one class for every v that
+# writes it, so unifying would unite the types of values that share nothing
+# but a shape. A candidacy of s then reaches v (wren_scott_candidate_through_elimination),
+# and the refutations and repellers of prolog_backend_shapes act on v as on
+# any candidate. The booleans' shape, two arms of no field, is not read: every
+# application of two arguments has it.
+#
+# Every lemma is an equation of the zero universe, both sides top up to
+# contextual equivalence, but wren_scott_application_typed, which is
+# absorption. A lemma whose result is one of its metavariables X writes
+# unify X and its left side, never X alone, which a term out of the zero
+# universe would make unequal to the left side; the unions of
+# hindley_milner_unions unite X's class with it.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "hindley_milner_unions") "judgments")
+λ type_of _ unify
+. omega (omega (omega (omega corpora "library") "hindley_milner_unions") "types")
+λ function_type _ _ _ _
+. omega (omega (omega (omega corpora "library") "hindley_milner_unions") "shapes")
+λ structure alternative no_alternative field no_field _
+. omega (omega (omega (omega corpora "library") "wren_scott_elimination") "types")
+λ applied_type remaining_arms elimination_result fields_function eliminated_as
+. omega (omega (omega (omega corpora "library") "prolog_backend_shapes") "prolog_backend_shapes")
+λ candidate _ _ _ _ _ _
+. export
+  ( λ _ rewriting _ _
+    . rewriting
+    λ _ _ leaves
+    . leaves
+      ( λk. k applied_type
+      + λk. k remaining_arms
+      + λk. k elimination_result
+      + λk. k fields_function
+      + λk. k eliminated_as
+      )
+  + λ _ rewriting _ _
+    . rewriting
+    λ _ lemmas _
+    . lemmas
+      # A function judged tf applied to an argument judged tx is judged by
+      # the type of the application, unified with applied_type tf tx:
+      # absorption.
+      ( λ s
+        . s
+          (λk. k "wren_scott_application_typed")
+          (λx_0 x_1 x_2 x_3. (x_0 ∥ x_2 + x_0) (x_1 ∥ x_3 + x_1))
+          ( λ x_0 x_1 x_2 x_3
+            . ( (x_0 ∥ x_2 + x_0) (x_1 ∥ x_3 + x_1)
+              ∥ ( unify (type_of λ. (x_0 ∥ x_2 + x_0) (x_1 ∥ x_3 + x_1)) λ. applied_type x_2 x_3
+                + type_of λ. (x_0 ∥ x_2 + x_0) (x_1 ∥ x_3 + x_1)
+                )
+              + (x_0 ∥ x_2 + x_0) (x_1 ∥ x_3 + x_1)
+              )
+          ) λ_ md _. md λk. k "[absorption](docs/design/gezi-hindley-milner-unions-proofs.md#absorption)"
+      # unify a (applied_type f b) is applied_type f b, and likewise for the
+      # other combinators of this module that stand for a type not yet known.
+      + λ s
+        . s
+          (λk. k "wren_scott_unify_applied_right")
+          (λx_0 x_1 x_2. unify x_0 λ. applied_type x_1 x_2)
+          (λx_0 x_1 x_2. applied_type x_1 x_2) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      + λ s
+        . s
+          (λk. k "wren_scott_unify_applied_left")
+          (λx_0 x_1 x_2. unify (applied_type x_0 x_1) x_2)
+          (λx_0 x_1 x_2. applied_type x_0 x_1) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      + λ s
+        . s
+          (λk. k "wren_scott_unify_result_right")
+          (λx_0 x_1 x_2. unify x_0 λ. elimination_result x_1 x_2)
+          (λx_0 x_1 x_2. elimination_result x_1 x_2) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      + λ s
+        . s
+          (λk. k "wren_scott_unify_result_left")
+          (λx_0 x_1 x_2. unify (elimination_result x_0 x_1) x_2)
+          (λx_0 x_1 x_2. elimination_result x_0 x_1) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      + λ s
+        . s
+          (λk. k "wren_scott_unify_arms_right")
+          (λx_0 x_1 x_2. unify x_0 λ. remaining_arms x_1 x_2)
+          (λx_0 x_1 x_2. remaining_arms x_1 x_2) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      + λ s
+        . s
+          (λk. k "wren_scott_unify_arms_left")
+          (λx_0 x_1 x_2. unify (remaining_arms x_0 x_1) x_2)
+          (λx_0 x_1 x_2. remaining_arms x_0 x_1) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      # A function of the type function_type a r applied to b: the
+      # application's type is r, and a is unified with b.
+      + λ s
+        . s
+          (λk. k "wren_scott_applied_function_result")
+          (λx_0 x_1 x_2. applied_type (function_type x_0 x_1) x_2)
+          (λx_0 x_1 x_2. unify x_1 λ. applied_type (function_type x_0 x_1) x_2) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      + λ s
+        . s
+          (λk. k "wren_scott_applied_function_argument")
+          (λx_0 x_1 x_2. applied_type (function_type x_0 x_1) x_2)
+          (λx_0 x_1 x_2. (unify x_0 x_2 + applied_type (function_type x_0 x_1) x_2)) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      # A Scott value of the structure s applied to its first arm a: its
+      # alternatives remain to be given arms, the result a variable of this
+      # elimination.
+      + λ s
+        . s
+          (λk. k "wren_scott_applied_structure")
+          (λx_0 x_1. applied_type (structure x_0) x_1)
+          (λx_0 x_1. applied_type (remaining_arms x_0 λ. elimination_result x_0 x_1) x_1) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      # The arm of the alternative of the fields f, before the alternatives
+      # rest, whose elimination gives r: the arm is unified with the function
+      # of f to r, and the alternatives rest remain.
+      + λ s
+        . s
+          (λk. k "wren_scott_applied_arm_rest")
+          (λx_0 x_1 x_2 x_3. applied_type (remaining_arms (alternative x_0 x_1) x_2) x_3)
+          (λx_0 x_1 x_2 x_3. remaining_arms x_1 x_2) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      + λ s
+        . s
+          (λk. k "wren_scott_applied_arm_unified")
+          (λx_0 x_1 x_2 x_3. applied_type (remaining_arms (alternative x_0 x_1) x_2) x_3)
+          ( λ x_0 x_1 x_2 x_3
+            . (unify x_3 λ. fields_function x_0 x_2 + applied_type (remaining_arms (alternative x_0 x_1) x_2) x_3)
+          ) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      # No alternative remains: the elimination's result.
+      + λ s
+        . s
+          (λk. k "wren_scott_no_arm_remains")
+          (λx_0. remaining_arms no_alternative x_0)
+          (λx_0. unify x_0 λ. remaining_arms no_alternative x_0) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      # The function of no field to r is r; of a field t before the fields f,
+      # a function of t to the function of f to r.
+      + λ s
+        . s
+          (λk. k "wren_scott_no_field_function")
+          (λx_0. fields_function no_field x_0)
+          (λx_0. unify x_0 λ. fields_function no_field x_0) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      + λ s
+        . s
+          (λk. k "wren_scott_field_function")
+          (λx_0 x_1 x_2. fields_function (field x_0 x_1) x_2)
+          (λx_0 x_1 x_2. function_type x_0 λ. fields_function x_1 x_2) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      # An application chain whose arms' types are functions of the fields of a
+      # representation's shape: the applied value's type is marked with that
+      # structure, the first alternative of no field, each other alternative
+      # of the fields its arm's type takes. Three shapes are read: the unary
+      # naturals' (two arms, the second of one field), the lists' (two arms,
+      # the second of two fields) and the binary naturals' (three arms, the
+      # second and third of one field each). A list's cons arm has the unary
+      # naturals' shape too, read as one field returning a function: both
+      # readings are marked, and a reading the type's own structure refutes is
+      # repelled at the call (prolog_backend_shapes).
+      + λ s
+        . s
+          (λk. k "wren_scott_eliminated_as_natural")
+          (λx_0 x_1 x_2 x_3. applied_type (applied_type x_0 x_1) λ. function_type x_2 x_3)
+          ( λ x_0 x_1 x_2 x_3
+            . ( λ
+                . unify x_0
+                λ
+                . eliminated_as x_0 λ. structure λ. alternative no_field λ. alternative (field x_2 no_field) no_alternative
+              + applied_type (applied_type x_0 x_1) λ. function_type x_2 x_3
+              )
+          ) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      + λ s
+        . s
+          (λk. k "wren_scott_eliminated_as_list")
+          (λx_0 x_1 x_2 x_3 x_4. applied_type (applied_type x_0 x_1) λ. function_type x_2 λ. function_type x_3 x_4)
+          ( λ x_0 x_1 x_2 x_3 x_4
+            . ( λ
+                . unify x_0
+                λ
+                . eliminated_as x_0
+                λ
+                . structure λ. alternative no_field λ. alternative (field x_2 λ. field x_3 no_field) no_alternative
+              + applied_type (applied_type x_0 x_1) λ. function_type x_2 λ. function_type x_3 x_4
+              )
+          ) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      + λ s
+        . s
+          (λk. k "wren_scott_eliminated_as_binary")
+          ( λ x_0 x_1 x_2 x_3 x_4 x_5
+            . applied_type (applied_type (applied_type x_0 x_1) λ. function_type x_2 x_3) λ. function_type x_4 x_5
+          )
+          ( λ x_0 x_1 x_2 x_3 x_4 x_5
+            . ( λ
+                . unify x_0
+                λ
+                . eliminated_as x_0
+                λ
+                . structure
+                λ
+                . alternative no_field λ. alternative (field x_2 no_field) λ. alternative (field x_4 no_field) no_alternative
+              + applied_type (applied_type (applied_type x_0 x_1) λ. function_type x_2 x_3) λ. function_type x_4 x_5
+              )
+          ) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      # A type marked as eliminated as a structure that is a candidate for the
+      # representation r is a candidate for r.
+      + λ s
+        . s
+          (λk. k "wren_scott_candidate_through_elimination")
+          (λx_0 x_1 x_2. eliminated_as x_0 λ. candidate x_1 x_2)
+          (λx_0 x_1 x_2. candidate x_1 λ. eliminated_as x_0 λ. candidate x_1 x_2) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      )
+  )

@@ -9,6 +9,7 @@ import gezi.ematching.Program
 import gezi.ematching.SeedKey
 import gezi.ematching.SeedKind
 import gezi.ir.Code
+import gezi.ir.NativeSpecializer
 
 /** The backend that compiles a program into one hidden class (the package's
   * documentation gives the discipline of the generated code). The tree of
@@ -23,7 +24,7 @@ import gezi.ir.Code
   */
 object BytecodeCompilation extends Backend:
 
-  def compiled(program: Program): CompiledProgram =
+  def compiled[C <: NativeSpecializer & Singleton](program: Program[C]): CompiledProgram[C] =
     val entries = program.trees.toVector
     val sharedNumbers = program.orientations
       .scanLeft(0)((first, plan) => first + plan.shared.size)
@@ -43,33 +44,35 @@ object BytecodeCompilation extends Backend:
       )
     )
 
-private final class CompiledBytecode(
-    entries: Map[SeedKind, Map[SeedKey, Int]],
+private final class CompiledBytecode[C <: NativeSpecializer & Singleton](
+    entries: Map[SeedKind, Map[SeedKey[C], Int]],
     sharedNumbers: Vector[Int],
     codeNumbers: Map[Code, Int],
     generated: GeneratedProgram
-) extends CompiledProgram:
+) extends CompiledProgram[C]:
 
   def matches(
       kind: SeedKind,
-      key: SeedKey,
-      graph: GraphView,
+      key: SeedKey[C],
+      graph: GraphView[C],
       delta: Int
   ): Matching =
     entries.get(kind).flatMap(_.get(key)) match
       case Some(entry) => generated.matches(entry, graph, delta)
       case None        => Matching.none
 
-  def added[Graph <: GraphBuilding[Graph]](
+  def added[Graph <: GraphBuilding[C, Graph]](
       orientation: Int,
       graph: Graph,
       bindings: Vector[Option[Int]]
   ): (Graph, Int) =
+    // Registered conversion (issue 2261, section 8): the generated class returns an untyped `(Any, Int)`; the graph it
+    // builds on is the `Graph` it was handed.
     generated
       .added(orientation, graph, bindings.map(_.getOrElse(-1)))
       .asInstanceOf[(Graph, Int)]
 
-  def shared[Graph <: GraphBuilding[Graph]](
+  def shared[Graph <: GraphBuilding[C, Graph]](
       orientation: Int,
       part: Int,
       graph: Graph,
@@ -79,15 +82,18 @@ private final class CompiledBytecode(
       part >= 0 && sharedNumbers(orientation) + part < sharedNumbers(orientation + 1),
       s"the orientation $orientation has no shared subterm $part"
     )
+    // Registered conversion (issue 2261, section 8): as in `added`.
     generated
       .shared(sharedNumbers(orientation) + part, graph, bindings.map(_.getOrElse(-1)))
       .asInstanceOf[(Graph, Int)]
 
-  def body[Graph <: GraphBuilding[Graph]](
+  def body[Graph <: GraphBuilding[C, Graph]](
       code: Code,
       graph: Graph,
       slotValues: Vector[Int]
   ): (Graph, Int) =
+    // Registered conversion (issue 2261, section 8): as in `added`, for the body of a code; a code the program does not
+    // number throws before any graph is returned.
     codeNumbers.get(code) match
       case Some(number) => generated.body(number, graph, slotValues).asInstanceOf[(Graph, Int)]
       case None         => GeneratedCodeSupport.missingCode(code).asInstanceOf[(Graph, Int)]

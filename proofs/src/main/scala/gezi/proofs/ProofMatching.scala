@@ -1,10 +1,8 @@
 package gezi.proofs
 
-import gezi.rewritetrace.Conversions
 import gezi.frontend.Defunctionalization
 import gezi.ir.BindingNormalForm
 import gezi.ir.Code
-import gezi.ir.Instruction
 import gezi.ir.Hole
 import gezi.ir.Layer
 import scala.util.control.TailCalls.TailRec
@@ -15,7 +13,8 @@ import ArticleProof.congruence
 import ArticleProof.connection
 import ArticleProof.symmetry
 import ArticleProof.transitivity
-import gezi.ir.{Apply, Thunk}
+import gezi.ir.{Apply, Slot, Thunk}
+import gezi.ir.{NativeSpecializer}
 
 /** How a thunk node reads as an application: filled from the thunk node
   * `parent` with one hole more, the filling at `position` filling the
@@ -23,8 +22,8 @@ import gezi.ir.{Apply, Thunk}
   * which drops its argument.
   */
 private enum Reading:
-  case Filled(position: Int, parent: Instruction)
-  case Dropped(parent: Instruction)
+  case Filled(position: Int, parent: TermId)
+  case Dropped(parent: TermId)
 
 /** The proofs of the steps of a search: that a side's instance equals a node
   * of the forest, and that each union holds, using only the unions made
@@ -41,7 +40,7 @@ private enum Reading:
   * An attempt is run only when the ones before it gave none: an alternative
   * the Prolog never reached is never computed, and some throw.
   */
-private final class ProofMatching(store: ArticleStore, forest: ProofForest):
+private final class ProofMatching[C <: NativeSpecializer & Singleton](store: ArticleStore[C], forest: ProofForest[C]):
 
   private type Attempt = TailRec[Option[ArticleProof]]
 
@@ -59,27 +58,27 @@ private final class ProofMatching(store: ArticleStore, forest: ProofForest):
   /** The proof that the pattern, its metavariable i the element i of the
     * leaves, equals the target, using only the unions below `time`, or none.
     */
-  def matchedProof(pattern: MatchPattern, leaves: Vector[Option[Instruction]], target: Instruction, time: Int): Option[ArticleProof] =
+  def matchedProof(pattern: MatchPattern, leaves: Vector[Option[TermId]], target: TermId, time: Int): Option[ArticleProof] =
     tailcall(matched(pattern, leaves, target, time)).result
 
   /** The attempt to prove that the pattern equals the target: a
-    * metavariable whose leaf is in the target's class is the leaf; an instruction
-    * is the target, or a node of its class, or else read as its layer; a
+    * metavariable whose leaf is in the target's class is the leaf; a term of
+    * the article is the target, or a node of its class, or else read as its layer; a
     * lambda pattern whose leaf is in the target's class is the leaf by the
     * defunctionalized η rule of its thunk constant (a search binds the
     * metavariable to the class of a closure the pattern stands at), and is
     * otherwise matched as a thunk layer.
     */
-  private def matched(pattern: MatchPattern, leaves: Vector[Option[Instruction]], target: Instruction, time: Int): Attempt =
+  private def matched(pattern: MatchPattern, leaves: Vector[Option[TermId]], target: TermId, time: Int): Attempt =
     pattern match
       case MatchPattern.Metavariable(index) =>
         val bound = ArticleStore.leafBound(leaves, index)
         done(Option.when(forest.connectedBefore(bound, target, time))(connection(bound, target)))
-      case MatchPattern.Reference(instruction) =>
-        if instruction == target then done(Some(ArticleProof.Reflexivity(ArticleTerm.Stored(instruction))))
-        else if forest.isNode(instruction) && forest.connectedBefore(instruction, target, time) then
-          done(Some(connection(instruction, target)))
-        else tailcall(layerMatched(store.storedPattern(instruction), leaves, target, time))
+      case MatchPattern.Reference(term) =>
+        if term == target then done(Some(ArticleProof.Reflexivity(ArticleTerm.Stored(term))))
+        else if forest.isNode(term) && forest.connectedBefore(term, target, time) then
+          done(Some(connection(term, target)))
+        else tailcall(layerMatched(store.storedPattern(term), leaves, target, time))
       case MatchPattern.Lambda(index, thunk) =>
         val bound = ArticleStore.leafBound(leaves, index)
         if forest.connectedBefore(bound, target, time) then
@@ -102,8 +101,8 @@ private final class ProofMatching(store: ArticleStore, forest: ProofForest):
     */
   private def layerMatched(
       layer: Layer[MatchPattern],
-      leaves: Vector[Option[Instruction]],
-      target: Instruction,
+      leaves: Vector[Option[TermId]],
+      target: TermId,
       time: Int
   ): Attempt =
     if !forest.isNode(target) then done(None)
@@ -135,8 +134,8 @@ private final class ProofMatching(store: ArticleStore, forest: ProofForest):
   private def candidateProofs(
       shape: LayerShape,
       children: Vector[MatchPattern],
-      leaves: Vector[Option[Instruction]],
-      candidate: Instruction,
+      leaves: Vector[Option[TermId]],
+      candidate: TermId,
       time: Int
   ): LazyList[Attempt] =
     val candidateLayer = store.layer(candidate)
@@ -154,7 +153,7 @@ private final class ProofMatching(store: ArticleStore, forest: ProofForest):
               if (spelledCode, spelledHoles) == (candidateCode, candidateHoles) &&
                 spelledFillings.size == candidateFillings.size =>
             val spelledChildren =
-              spelledFillings.map(BindingNormalForm.placeholdersMapped(_, children)(MatchPattern.Layered(_)))
+              spelledFillings.map(filling => BindingNormalForm.fillingMapped(filling, children)(MatchPattern.Layered(_)))
             val substitution = children.zipWithIndex.map((child, position) =>
               (s"filling$position", store.patternTerm(child, leaves.map(_.map(ArticleTerm.Stored(_)))))
             )
@@ -183,7 +182,7 @@ private final class ProofMatching(store: ArticleStore, forest: ProofForest):
   /** The respelling instance (`Axiom.Respell`) of the thunk of the code and
     * holes over the fillings.
     */
-  private def respellInstance(code: Code, holes: Vector[Hole], fillings: Vector[Instruction]): ArticleProof =
+  private def respellInstance(code: Code, holes: Vector[Hole], fillings: Vector[TermId]): ArticleProof =
     ArticleProof.Instance(
       Axiom.Respell(code, holes),
       fillings.zipWithIndex.map((filling, position) => (s"filling$position", ArticleTerm.Stored(filling)))
@@ -192,16 +191,16 @@ private final class ProofMatching(store: ArticleStore, forest: ProofForest):
   /** Each thunk layer the defunctionalized β rule makes of a thunk node of
     * the forest, its first hole filled or dropped, that is not its own
     * spelling, by the code and holes of its spelling: the layer's code and
-    * holes and the spelling's fillings over the placeholders. In the order
-    * the nodes were made. Computed once, when a reading first asks.
+    * holes and the spelling's fillings, codes over the slots of the layer's
+    * fillings. In the order the nodes were made. Computed once, when a
+    * reading first asks.
     */
-  private lazy val respelledFrom: Map[(Code, Vector[Hole]), Vector[(Code, Vector[Hole], Vector[Instruction])]] =
+  private lazy val respelledFrom: Map[(Code, Vector[Hole]), Vector[(Code, Vector[Hole], Vector[Code])]] =
     forest.nodes
-      .filterNot(_.opaque)
       .flatMap(node =>
-        store.layer(node) match
-          case Thunk(code, _ +: holes, _) if holes.nonEmpty => Some((code, holes))
-          case _                                            => None
+        forest.terms.key(node) match
+          case TermKey.Layered(Thunk(code, _ +: holes, _)) if holes.nonEmpty => Some((code, holes))
+          case _                                                             => None
       )
       .distinct
       .flatMap((code, holes) =>
@@ -213,63 +212,77 @@ private final class ProofMatching(store: ArticleStore, forest: ProofForest):
 
   /** The thunk layers the thunk node's layer of the code, holes and fillings
     * is the respelling of (`respelledFrom`): each with the fillings the
-    * node's fillings hold at the placeholders of its spelling, when every
-    * placeholder is held, one node at all its places.
+    * node's fillings hold at the slots of its spelling's fillings, when every
+    * slot is held, one term at all its places.
     */
   private def unspelledLayers(
       code: Code,
       holes: Vector[Hole],
-      fillings: Vector[Instruction]
-  ): LazyList[(Code, Vector[Hole], Vector[Instruction])] =
+      fillings: Vector[TermId]
+  ): LazyList[(Code, Vector[Hole], Vector[TermId])] =
     LazyList.from(respelledFrom.getOrElse((code, holes), Vector.empty)).flatMap {
       (sourceCode, sourceHoles, spelledFillings) =>
         val arity = store.thunkArity(sourceCode, sourceHoles)
-        val placeholders = BindingNormalForm.placeholders(arity).zipWithIndex.toMap
         val held =
           if spelledFillings.size != fillings.size then None
           else
-            spelledFillings.zip(fillings).foldLeft(Option(Map.empty[Int, Instruction])) {
-              case (found, (spelled, node)) => found.flatMap(placeholdersHeld(spelled, node, placeholders, _))
+            spelledFillings.zip(fillings).foldLeft(Option(Map.empty[Int, TermId])) {
+              case (found, (spelled, node)) => found.flatMap(slotsHeld(spelled, node, _))
             }
         held.filter(_.size == arity).map(found => (sourceCode, sourceHoles, Vector.tabulate(arity)(found)))
     }
 
-  /** The nodes the node holds at the placeholders of the respelled filling,
-    * added to those found, when the node's layers are the filling's down to
-    * its placeholders and a placeholder found before is the same node. A
-    * respelled filling's leaves are its placeholders
-    * (`BindingNormalForm.placeholdersFolded`), so `layered` is read of
-    * layers only.
+  /** The terms the term holds at the slots of the respelled filling, a code
+    * over the slots of the fillings, added to those found, when the term's
+    * layers are the filling's down to its slots and a slot found before is
+    * the same term.
     */
-  private def placeholdersHeld(
-      spelled: Instruction,
-      node: Instruction,
-      placeholders: Map[Instruction, Int],
-      found: Map[Int, Instruction]
-  ): Option[Map[Int, Instruction]] =
-    placeholders.get(spelled) match
-      case Some(position) =>
+  private def slotsHeld(
+      spelled: Code,
+      node: TermId,
+      found: Map[Int, TermId]
+  ): Option[Map[Int, TermId]] =
+    spelled.layer match
+      case Slot(position) =>
         found.get(position) match
           case Some(earlier) => Option.when(earlier == node)(found)
           case None          => Some(found.updated(position, node))
-      case None =>
-        if node.opaque then None
-        else
-          val spelledLayer = spelled.layered
-          val nodeLayer = store.layer(node)
-          if LayerShape.of(spelledLayer) != LayerShape.of(nodeLayer) || spelledLayer.children.size != nodeLayer.children.size
-          then None
-          else
-            spelledLayer.children.zip(nodeLayer.children).foldLeft(Option(found)) { case (held, (spelledChild, nodeChild)) =>
-              held.flatMap(placeholdersHeld(spelledChild, nodeChild, placeholders, _))
-            }
+      case spelledLayer =>
+        forest.terms.key(node) match
+          case TermKey.Leaf(_) => None
+          case _ =>
+            val nodeLayer = store.layer(node)
+            val spelledChildren = codeChildren(spelled)
+            val shapeMatches = (spelledLayer, nodeLayer) match
+              case (Thunk(spelledCode, spelledHoles, _), Thunk(nodeCode, nodeHoles, _)) =>
+                spelledCode == nodeCode && spelledHoles == nodeHoles
+              case (Apply(_, _), Apply(_, _))               => true
+              case (gezi.ir.Parallel(_, _), gezi.ir.Parallel(_, _)) => true
+              case (gezi.ir.Parallel(_, _), gezi.ir.StorageView(_, _)) => true
+              case (gezi.ir.Choice(_, _), gezi.ir.Choice(_, _)) => true
+              case _                                        => false
+            if !shapeMatches || spelledChildren.size != nodeLayer.children.size then None
+            else
+              spelledChildren.zip(nodeLayer.children).foldLeft(Option(found)) { case (held, (spelledChild, nodeChild)) =>
+                held.flatMap(slotsHeld(spelledChild, nodeChild, _))
+              }
+
+  /** The codes under a code's layer, in the order of a layer's children: an
+    * inner thunk's fillings, none under a slot.
+    */
+  private def codeChildren(code: Code): Vector[Code] = code.layer match
+    case Slot(_)                   => Vector.empty
+    case Apply(function, argument) => Vector(function, argument)
+    case gezi.ir.Parallel(left, right) => Vector(left, right)
+    case gezi.ir.Choice(left, right)   => Vector(left, right)
+    case Thunk(_, _, fillings)     => fillings
 
   /** Each pattern matched against its node, in order, each the first proof
     * it has; none when one has none.
     */
   private def childrenMatched(
-      pairs: List[(MatchPattern, Instruction)],
-      leaves: Vector[Option[Instruction]],
+      pairs: List[(MatchPattern, TermId)],
+      leaves: Vector[Option[TermId]],
       time: Int,
       proofs: Vector[ArticleProof]
   ): TailRec[Option[Vector[ArticleProof]]] = pairs match
@@ -294,14 +307,14 @@ private final class ProofMatching(store: ArticleStore, forest: ProofForest):
   private def filledReadings(
       code: Code,
       holes: Vector[Hole],
-      fillings: Vector[Instruction],
+      fillings: Vector[TermId],
       time: Int
   ): LazyList[Reading] =
     val slots = filledSlots(holes, fillings.size)
-    def parentsAt(position: Int): LazyList[Instruction] =
+    def parentsAt(position: Int): LazyList[TermId] =
       thunkParents(code, Hole.Bound(slots(position)) +: holes, fillings.patch(position, Vector.empty, 1), time)
     @scala.annotation.tailrec
-    def nextFilled(position: Int): Option[(Int, LazyList[Instruction])] =
+    def nextFilled(position: Int): Option[(Int, LazyList[TermId])] =
       if position == slots.size then None
       else
         val parents = parentsAt(position)
@@ -321,9 +334,9 @@ private final class ProofMatching(store: ArticleStore, forest: ProofForest):
   private def thunkParents(
       code: Code,
       holes: Vector[Hole],
-      fillings: Vector[Instruction],
+      fillings: Vector[TermId],
       time: Int
-  ): LazyList[Instruction] =
+  ): LazyList[TermId] =
     LazyList.from(forest.thunks.getOrElse((code, holes), Vector.empty)).filter(parent =>
       store.layer(parent) match
         case Thunk(_, _, parentFillings) =>
@@ -343,10 +356,10 @@ private final class ProofMatching(store: ArticleStore, forest: ProofForest):
       reading: Reading,
       code: Code,
       holes: Vector[Hole],
-      fillings: Vector[Instruction],
+      fillings: Vector[TermId],
       functionPattern: MatchPattern,
       argumentPattern: MatchPattern,
-      leaves: Vector[Option[Instruction]],
+      leaves: Vector[Option[TermId]],
       time: Int
   ): Attempt = reading match
     case Reading.Filled(position, parent) =>
@@ -384,7 +397,7 @@ private final class ProofMatching(store: ArticleStore, forest: ProofForest):
         }
       })
 
-  private def thunkParts(node: Instruction): (Vector[Hole], Vector[Instruction]) = store.layer(node) match
+  private def thunkParts(node: TermId): (Vector[Hole], Vector[TermId]) = store.layer(node) match
     case Thunk(_, holes, fillings) => (holes, fillings)
     case other => throw IllegalStateException(s"the thunk node $node has the layer $other")
 
@@ -399,14 +412,16 @@ private final class ProofMatching(store: ArticleStore, forest: ProofForest):
     */
   def edgeProof(number: Int): ArticleProof =
     val union = forest.union(number)
-    val first = union.first
-    val second = union.second
+    val first = forest.terms.nodeTerm(union.first)
+    val second = forest.terms.nodeTerm(union.second)
+    def term(node: Int): TermId = forest.terms.nodeTerm(node)
     union.justification match
       case Justification.Congruence =>
         firstFound(congruenceProofs(number, first, second)).result.getOrElse(
           throw OpentheoryArticleError(ArticleErrorReason.CongruenceNotProved(number, first, second))
         )
-      case Justification.Lemma(lemma, bindings) =>
+      case Justification.Lemma(lemma, boundNodes) =>
+        val bindings = boundNodes.map(_.map(term))
         val (arity, leftPattern, rightPattern) = store.lemmaPatterns(lemma)
         if bindings.size != arity then
           throw OpentheoryArticleError(ArticleErrorReason.BindingsDiffer(number, lemma, bindings.size, arity))
@@ -425,26 +440,163 @@ private final class ProofMatching(store: ArticleStore, forest: ProofForest):
         firstFound(betaProofs(number, first, second)).result.getOrElse(
           throw OpentheoryArticleError(ArticleErrorReason.BetaNotProved(number, first, second))
         )
-      case Justification.BetaConversion(reduct) => ArticleProof.Conversion(first, second, reduct)
+      case Justification.BetaConversion(reduct) => ArticleProof.Conversion(first, second, term(reduct))
+      case Justification.PatternView(_) => patternViewProof(number, first, second)
+      case Justification.StorageView(_) => storageViewProof(number, first, second)
+      // The application the union's first node was made as equals the define
+      // applied to the storages the fold read, by the forest (its function's
+      // and arguments' classes); that equals the result by the native's
+      // obligation, the axiom stating exactly the instance the fold read.
+      case Justification.Folding(native, defineNode, argumentNodes) =>
+        val define = term(defineNode)
+        val arguments = argumentNodes.map(term)
+        val pattern = arguments.foldLeft(MatchPattern.Reference(define): MatchPattern)((function, argument) =>
+          MatchPattern.Layered(gezi.ir.Apply(function, MatchPattern.Reference(argument)))
+        )
+        val read = arguments.foldLeft(ArticleTerm.Stored(define): ArticleTerm)((function, argument) =>
+          ArticleTerm.Layered(gezi.ir.Apply(function, ArticleTerm.Stored(argument)))
+        )
+        transitivity(
+          symmetry(instanceSideProof(number, pattern, Vector.empty, first)),
+          ArticleProof.Instance(Axiom.Native(native, read, second), Vector.empty)
+        )
       // The spelling the thunk was written back from is the thunk opened at
       // the eigenvariables (it is the front end's abstraction of it,
       // `HigherOrderMatching.abstraction`); the recorded spelling node is the
       // node of the body's class its layer names, whose term may be another
       // spelling of it, so the spelling is matched against the body's class.
-      case Justification.Abstraction(eigenvariables, body, _) =>
-        val spelling = Conversions.opened(second, eigenvariables)
-        val proof = matchedProof(MatchPattern.Reference(spelling), Vector.empty, body, number).getOrElse(
+      case Justification.Abstraction(eigenvariableNodes, bodyNode, _) =>
+        val eigenvariables = eigenvariableNodes.map(term)
+        val body = term(bodyNode)
+        val proof = matchedProof(openedPattern(second, eigenvariables), Vector.empty, body, number).getOrElse(
           throw OpentheoryArticleError(ArticleErrorReason.SideNotMatched(body))
         )
         ArticleProof.Abstraction(first, second, eigenvariables, body, ArticleProof.symmetry(proof))
+      // The η rule: the thunk, one hole, its code applying its one filling to
+      // the hole, equals the filling (`Axiom.Eta`); the union's other node is
+      // that filling's node, whose term is the thunk's filling.
+      case Justification.Eta(thunkNode) =>
+        val thunk = term(thunkNode)
+        val LayerShape.Thunk(code, holes) = LayerShape.of(store.layer(thunk)): @unchecked
+        val filling = if first == thunk then second else first
+        val etaProof = ArticleProof.Instance(Axiom.Eta(code, holes), Vector("filling0" -> ArticleTerm.Stored(filling)))
+        if first == thunk then etaProof else ArticleProof.symmetry(etaProof)
+      // FIXME: the artifact of a closure unit is cached with no proof, so the https://github.com/Atry/private-overlay/issues/2217
+      // union that replaces the unit by it is refused; the unit's proof is to be kept with the artifact and written
+      // first, as a theorem the union then uses.
+      case Justification.Compiled(function) =>
+        throw OpentheoryArticleError(ArticleErrorReason.CompiledUnitNotProved(number, term(function)))
       case other @ Justification.Valuation(_) =>
         throw OpentheoryArticleError(ArticleErrorReason.NotAJustification(number, other))
+
+  /** The pattern of the body of the thunk term opened at the eigenvariables,
+    * one for each of its first holes in lambda order, as the defunctionalized
+    * β rule fills them (the term `gezi.rewritetrace.Conversions.opened` makes
+    * of them): a bound hole's eigenvariable put among the fillings at its
+    * slot's place, an ignored hole's dropped; with holes left, the thunk of
+    * those holes, else its code read at the fillings, an inner thunk with no
+    * hole its code's body in turn. Each layer whose term the article has is
+    * that term (`ProofTerms.existing`), as the term the opening makes is; a
+    * layer it has none of is the layer over its parts' patterns, which is how
+    * the matcher reads a term that is no node. Throws
+    * `IllegalArgumentException` for a term that is no thunk of at least as
+    * many holes as eigenvariables.
+    */
+  private def openedPattern(thunk: TermId, eigenvariables: Vector[TermId]): MatchPattern =
+    if forest.terms.isLeaf(thunk) then throw IllegalArgumentException(s"$thunk is no thunk")
+    store.layer(thunk) match
+      case Thunk(code, holes, fillings) if holes.size >= eigenvariables.size && eigenvariables.nonEmpty =>
+        val (rest, filled) = eigenvariables.foldLeft((holes, fillings)) { case ((remaining, current), eigenvariable) =>
+          remaining match
+            case Hole.Bound(slot) +: others =>
+              (others, current.patch(Defunctionalization.fillingPosition(others, slot), Vector(eigenvariable), 0))
+            case Hole.Ignored +: others => (others, current)
+            case _                      => throw IllegalStateException(s"no hole is left for $eigenvariable")
+        }
+        if rest.nonEmpty then collapsed(Thunk(code, rest, filled.map(MatchPattern.Reference(_))))
+        else instancePattern(code, filled.map(MatchPattern.Reference(_)))
+      case other => throw IllegalArgumentException(s"$other is no thunk of at least ${eigenvariables.size} holes")
+
+  /** The pattern of the code's body, its slot i the element i of the slots, an inner thunk with no hole its code's
+    * body over its fillings in turn, each layer collapsed to the article's term of it (`collapsed`). The recursion
+    * follows the code's own nesting, which the front end wrote.
+    */
+  private def instancePattern(code: Code, slots: Vector[MatchPattern]): MatchPattern = code.layer match
+    case Slot(index) =>
+      slots.lift(index).getOrElse(throw IllegalArgumentException(s"the code reads slot $index of ${slots.size}"))
+    case Apply(function, argument) => collapsed(Apply(instancePattern(function, slots), instancePattern(argument, slots)))
+    case gezi.ir.Parallel(left, right) =>
+      collapsed(gezi.ir.Parallel(instancePattern(left, slots), instancePattern(right, slots)))
+    case gezi.ir.Choice(left, right) =>
+      collapsed(gezi.ir.Choice(instancePattern(left, slots), instancePattern(right, slots)))
+    case Thunk(inner, innerHoles, innerFillings) =>
+      val filled = innerFillings.map(instancePattern(_, slots))
+      if innerHoles.nonEmpty then collapsed(Thunk(inner, innerHoles, filled)) else instancePattern(inner, filled)
+
+  /** The layer of patterns as the article's term of it, when its parts are terms and the article has it; else the
+    * layer.
+    */
+  private def collapsed(layer: Layer[MatchPattern]): MatchPattern =
+    val terms = layer.children.collect { case MatchPattern.Reference(term) => term }
+    Option
+      .when(terms.size == layer.children.size)(LayerShape.layer(LayerShape.of(layer), terms))
+      .flatMap(forest.terms.existing)
+      .fold(MatchPattern.Layered(layer))(MatchPattern.Reference(_))
+
+  /** The proof that a storage's pattern view `s ∥ T′` equals the storage `s`,
+    * the view node `first` and the leaf `second` of the union. The article
+    * writes a storage as its view `v ∥ T` (`ArticleStore.layer` reads it
+    * through `layered`), keyed by the storage, so the union states
+    * `(v ∥ T) ∥ T′ = v ∥ T`, T′ the term the graph made for the criterion's
+    * class, which the forest connects to T. The proof: the instance of (4),
+    * `(v ∥ T) ∥ T′ = v ∥ (T ∥ T′)`, then `T ∥ T′ = T ∥ T` by the connection
+    * and the idempotence `T ∥ T = T` under the congruence of the parallel. The
+    * idempotence: `T ∥ T = T ∥ (T + (T ∥ T))` by the instance of (6),
+    * `T + (T ∥ T) = T`, turned under the congruence, and
+    * `T ∥ (T + (T ∥ T)) = T` by the instance of (5). Every step is an imported
+    * equation, a congruence or the forest's path.
+    */
+  private def patternViewProof(number: Int, view: TermId, storage: TermId): ArticleProof =
+    (store.layer(view), store.layer(storage)) match
+      case (gezi.ir.Parallel(viewed, viewCriterion), gezi.ir.StorageView(value, criterion)) if viewed == storage =>
+        val valueTerm = ArticleTerm.Stored(value)
+        val criterionTerm = ArticleTerm.Stored(criterion)
+        val criterionParallel = ArticleTerm.Layered(gezi.ir.Parallel(criterionTerm, criterionTerm))
+        val reassociated = ArticleProof.Instance(
+          Axiom.SetEquation(4),
+          Vector("M" -> valueTerm, "N" -> criterionTerm, "P" -> ArticleTerm.Stored(viewCriterion))
+        )
+        val absorbedChoice = ArticleProof.Instance(Axiom.SetEquation(6), Vector("M" -> criterionTerm, "N" -> criterionTerm))
+        val absorbedParallel = ArticleProof.Instance(Axiom.SetEquation(5), Vector("M" -> criterionTerm, "N" -> criterionParallel))
+        val idempotence = transitivity(
+          congruence(LayerShape.Parallel, Vector(ArticleProof.Reflexivity(criterionTerm), symmetry(absorbedChoice))),
+          absorbedParallel
+        )
+        val criterionJoined = transitivity(
+          congruence(LayerShape.Parallel, Vector(ArticleProof.Reflexivity(criterionTerm), connection(viewCriterion, criterion))),
+          idempotence
+        )
+        transitivity(reassociated, congruence(LayerShape.Parallel, Vector(ArticleProof.Reflexivity(valueTerm), criterionJoined)))
+      case _ => throw OpentheoryArticleError(ArticleErrorReason.PatternViewNotProved(number, view, storage))
+
+  /** The proof that a storage `s` equals the node of its view, the leaf
+    * `first` and the node `second` of the union. The article writes `s` as
+    * its view `v ∥ T` (`ArticleStore.layer`), so the union states
+    * `v ∥ T = v′ ∥ T′`, v′ and T′ the terms the graph made for the view's
+    * classes: the congruence of the parallel over the forest's paths from v
+    * to v′ and from T to T′, reflexive where they are the same term.
+    */
+  private def storageViewProof(number: Int, storage: TermId, view: TermId): ArticleProof =
+    (store.layer(storage), store.layer(view)) match
+      case (gezi.ir.StorageView(value, criterion), gezi.ir.Parallel(viewValue, viewCriterion)) =>
+        congruence(LayerShape.Parallel, Vector(connection(value, viewValue), connection(criterion, viewCriterion)))
+      case _ => throw OpentheoryArticleError(ArticleErrorReason.StorageViewNotProved(number, storage, view))
 
   private def instanceSideProof(
       number: Int,
       pattern: MatchPattern,
-      bindings: Vector[Option[Instruction]],
-      node: Instruction
+      bindings: Vector[Option[TermId]],
+      node: TermId
   ): ArticleProof =
     matchedProof(pattern, bindings, node, number).getOrElse(
       throw OpentheoryArticleError(ArticleErrorReason.InstanceNotMatched(number, pattern, node))
@@ -460,7 +612,7 @@ private final class ProofMatching(store: ArticleStore, forest: ProofForest):
     * metavariable i is the filling of slot i, is matched against the body
     * node.
     */
-  private def betaProofs(time: Int, application: Instruction, body: Instruction): LazyList[Attempt] =
+  private def betaProofs(time: Int, application: TermId, body: TermId): LazyList[Attempt] =
     store.layer(application) match
       case Apply(function, argument) =>
         closureReads(time, Nil, function, 1).map { (code, holes, fillings, functionProof) =>
@@ -494,8 +646,8 @@ private final class ProofMatching(store: ArticleStore, forest: ProofForest):
     * respelling instance where the node is that thunk's respelling
     * (`candidateProofs`).
     */
-  private def residualProofs(time: Int, function: Instruction, argument: Instruction, body: Instruction): LazyList[Attempt] =
-    if body.opaque then LazyList.empty
+  private def residualProofs(time: Int, function: TermId, argument: TermId, body: TermId): LazyList[Attempt] =
+    if forest.terms.isLeaf(body) then LazyList.empty
     else
       store.layer(body) match
         case Thunk(_, residualHoles, _) if residualHoles.nonEmpty =>
@@ -528,12 +680,12 @@ private final class ProofMatching(store: ArticleStore, forest: ProofForest):
     */
   private def closureReads(
       time: Int,
-      visited: List[Instruction],
-      node: Instruction,
+      visited: List[TermId],
+      node: TermId,
       holeCount: Int
-  ): LazyList[(Code, Vector[Hole], Vector[Instruction], ArticleProof)] =
+  ): LazyList[(Code, Vector[Hole], Vector[TermId], ArticleProof)] =
     LazyList.from(forest.candidatesBefore(node, time)).filterNot(visited.contains).flatMap { candidate =>
-      val reads: LazyList[(Code, Vector[Hole], Vector[Instruction], ArticleProof)] =
+      val reads: LazyList[(Code, Vector[Hole], Vector[TermId], ArticleProof)] =
         store.layer(candidate) match
           case Thunk(code, holes, fillings) if holes.nonEmpty && holes.size == holeCount =>
             LazyList((code, holes, fillings, ArticleProof.Reflexivity(ArticleTerm.Stored(candidate))))
@@ -564,7 +716,7 @@ private final class ProofMatching(store: ArticleStore, forest: ProofForest):
     * argument at the place of the hole's slot, or dropped by an ignored
     * hole.
     */
-  private def holeFilled(hole: Hole, holes: Vector[Hole], fillings: Vector[Instruction], argument: Instruction): Vector[Instruction] =
+  private def holeFilled(hole: Hole, holes: Vector[Hole], fillings: Vector[TermId], argument: TermId): Vector[TermId] =
     hole match
       case Hole.Ignored => fillings
       case Hole.Bound(slot) =>
@@ -579,7 +731,7 @@ private final class ProofMatching(store: ArticleStore, forest: ProofForest):
     * two, the first proof for the second node taken for each proof for the
     * first, in order.
     */
-  private def congruenceProofs(time: Int, user: Instruction, twin: Instruction): LazyList[Attempt] =
+  private def congruenceProofs(time: Int, user: TermId, twin: TermId): LazyList[Attempt] =
     val userLayer = store.layer(user)
     candidateProofs(LayerShape.of(userLayer), userLayer.children.map(MatchPattern.Reference(_)), Vector.empty, twin, time) #:::
       (nodeApplications(user, time) #::: nodeApplications(twin, time)).flatMap { (function, argument) =>
@@ -601,8 +753,8 @@ private final class ProofMatching(store: ArticleStore, forest: ProofForest):
     * here the parent itself; and so a thunk the node's layer is the
     * respelling of (`unspelledLayers`).
     */
-  private def nodeApplications(node: Instruction, time: Int): LazyList[(Instruction, Instruction)] =
-    def applications(code: Code, holes: Vector[Hole], fillings: Vector[Instruction]): LazyList[(Instruction, Instruction)] =
+  private def nodeApplications(node: TermId, time: Int): LazyList[(TermId, TermId)] =
+    def applications(code: Code, holes: Vector[Hole], fillings: Vector[TermId]): LazyList[(TermId, TermId)] =
       filledReadings(code, holes, fillings, time).map {
         case Reading.Filled(position, parent) => (parent, fillings(position))
         case Reading.Dropped(parent)          => (parent, parent)

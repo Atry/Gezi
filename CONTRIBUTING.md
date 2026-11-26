@@ -85,6 +85,11 @@ The main line every run takes. Whoever moves it updates this section in the same
   `ExecutorModuleInputs`, so that a module may interpret within a small budget and compile only what does not finish,
   as the tiered module `contest-modules-solo-tiering` does; the framework's executor reads the uncompiled program as it
   is. Under `by_executor` no round's reports, article or trace are written (a FIXME in `GenericEntry.answered`).
+  Before the rounds, the generic entry tags the program as occurrences as its data's `occurrence_tagging` says
+  (`OccurrenceTaggingOption`, `Defaults.occurrencesTagged`): `untagged`, the program as the cell gives it, or
+  `names_and_closures`, its lambda chains and shared parts marked with the library's occurrence markers
+  (`gezi.frontend.ProgramOccurrences`), so that a library whose lemmas type each occurrence on its own, the HM
+  baseline's, has occurrences to start from on a point whose library terms are inlined.
 - The tabled weak head applies a function to a continuation as its `ReadingState.continuations` says
   (`ContinuationReading`): `Substituted`, the β rule as it is, the reference reading's; or `Packed`, a head that uses
   its continuation in tail position read as applied to a closed pack first, its work before the continuation shared,
@@ -112,8 +117,9 @@ The main line every run takes. Whoever moves it updates this section in the same
   corpora read so (`ProblemFamilies`); an entry chooses it by its data's `table_sharing`, which `Defaults.executor`
   passes to its `ReadingExecutor`.
 - The default semantics of the Vision is the entry this section names, the best approximation so far by the scored
-  benchmark: `contest-entries-solo`, whose tiered executor interprets a program within a small budget and compiles what
-  does not finish. Naming it runs nothing: the kernel and the judge run the entry they are given, and there is no
+  benchmark: `contest-entries-plover`, which selects the narrow list block and whose knowledge recognises dynamic
+  programs written by their definition (counting dice sums and coin combinations, removing digits, modular
+  exponentiation) and replaces them through lemmas by native algorithms. Naming it runs nothing: the kernel and the judge run the entry they are given, and there is no
   default entry; every preset is opt-in.
 - An FFI program is a closed term, a Moore machine state (section "Terms"), and how it runs is the configured entry's,
   so that a type once recognised costs no encoding and the call can compile with the Gezi code around it. The Jupyter
@@ -289,6 +295,20 @@ The main line every run takes. Whoever moves it updates this section in the same
 - Native types are typed only where the configured backend represents them: a backend and the native typing of the
   types it supports are one preset of the module system (`corpora/compiler/prolog_backend_preset.lambdalattice`), which
   a configuration enables whole, and no configuration enables a native typing without its backend.
+- An operation a native data structure supports runs as that native operation, on its native data: it is never done
+  by spelling the structure out as storage-free IR, operating on the IR and building the structure again. Only an
+  operation the structure does not support reads it as IR, and then one layer at a time, as the operation asks for
+  each layer (a reader eliminating a storage reads its one-layer view, and a field it meets is again a storage).
+- Reading a storage's view recursively is forbidden everywhere but in the formatters: no code walks, copies or writes
+  out a storage by reading its view and then its children's views. What a walk needs from a storage, the storage
+  answers from its own data (the terms it holds, its constructor, its fields). Computing a program's normal forms leaves
+  a storage in place: IR that holds storages represents the same terms, so a normal form may have storages as its
+  leaves, and only the terms a storage holds as written are read further. A formatter, which writes a term as text for a reader outside the program
+  (`frontend`'s `ReadableText`, and the writer of OpenTheory articles for the proof checker), may read each storage's
+  view and its fields' views as it writes, building no IR from them.
+- A storage's view is one layer of native-free IR (IR holding no storage at that layer): `C f1 … fk ∥ T`, its fields
+  still storages or the terms the storage holds. No API gives a term's native-free IR deeper than that one layer; the
+  formatter's recursion over views is its own, private to it.
 
 ### Tables
 
@@ -335,9 +355,10 @@ site (`memo(f, a)`), so the table and every input of the key are visible where t
 direct call instead of a function value called from many sites. A memoized function value is thread-unsafe without
 showing it, and unfriendly to the JVM's inliner. The cache service follows Rust's lock: a caller first acquires the
 table's lock, a thread-unsafe guard, and then calls `getOrElseUpdate(key, value)` on the guard as often as it likes; no
-signature takes the computation as a function to memoize. A custom wart is to forbid a thread-unsafe value inside any
-closure (a lambda, a partial application, an eta-expansion, an anonymous class, a by-name argument), except one passed
-to an `inline` parameter; until it lands, review enforces the rule.
+signature takes the computation as a function to memoize. The custom wart `NoThreadConfinedCapture` (project `warts`)
+forbids a thread-unsafe value, one of a type extending `gezi.hotspot.ThreadConfined`, inside any closure (a lambda, a
+partial application, an eta-expansion, an anonymous class, a by-name argument) that it is not defined in, except an
+argument of an `inline` method, which is inlined at the call.
 
 ### Dogfooding, and what work is weighed by
 
@@ -421,6 +442,11 @@ native representation, a new module starving HM's steps):
     the `Array[Byte]` of borer's `Dom.ByteArrayElem`, the array is made at that site and passed to the library, and the
     code's own data stays `IArray` (`frontend`'s `DiagnosticNotation.hexadecimalBytes`);
   - the executor of `FailFastSuite` (section "Tests fail fast").
+- Exception without a wart, since it is generated bytecode and no Scala source: the kernels of the JVM array group
+  backend (`gezi.narrowblocks.groups.JvmArrayKernels`) allocate an `int[]` or a `long[]` and write it in a counting
+  loop, the most efficient structure and one HotSpot's C2 vectorizes: cell by cell, by increments at the cells its
+  input names (a histogram), or by `java.util.Arrays.sort` in place on its own copy of the input. A kernel writes only
+  the array it allocated, before it returns it; the Scala code holds the result as an `IArray` and never writes it.
 
 ### The module graph
 
@@ -484,7 +510,7 @@ of the IR's graph. The line of no normal form is the format's own `{}`, which is
   strings, and a misspelled symbol is found only when the call runs. It covers the symbols of a computation graph and
   nothing else.
 - Exception, natives and codecs: a knowledge file names a native's implementation (the `natives` slot,
-  `λk. k "binary_odd"`) and a representation's codec (the `representations` slot, `λk. k "big_integer"`) by a string
+  `λk. k "wren_binary_plus"`) and a representation's codec (the `representations` slot, `λk. k "big_integer"`) by a string
   literal in CBOR diagnostic notation, which the host decodes and looks up in `NativeBackend`. A Scott list does not
   serve: the implementations and codecs are an open set (`NativesProvider.loaded` from the classpath,
   `NativeBackend.extended`), a published Scott list a closed one, and lists of one width cannot be told apart by
@@ -574,9 +600,9 @@ changes what a text means.
      by one space, the operand two columns in, and a first operand that is an expression writes `( operand`:
 
     ```
-    . ( λs. s binary_odd λk. k "binary_odd"
-      + λs. s binary_even λk. k "binary_even"
-      + λs. s binary_zero λk. k "binary_zero"
+    . ( λs. s binary_minimum λk. k "wren_binary_minimum"
+      + λs. s binary_maximum λk. k "wren_binary_maximum"
+      + λs. s merge_binary_plus λk. k "wren_binary_plus"
       )
     ```
 
@@ -837,6 +863,11 @@ suppression that lacks its quoted justification; the constructs this guide forbi
 - Every test states its purpose in its Scaladoc, in one sentence: the defect it would catch. Snapshot is the default
   kind; a property or a state machine is written only when its law or its model is much simpler than the implementation.
   Where no concise law exists, do not write the implementation's logic again as a test oracle; record a snapshot.
+- A law covers each kind of case it must reach by construction, never by a share of random draws: each kind has a
+  generator that yields that kind by construction (a multi-valued case is a choice of at least two members whose answers
+  differ by construction), and every iteration checks the law on one sample of each kind; where the construction gives
+  the exact outcome, the law asserts it. Hedgehog's `cover` is not used: a percentage of draws under a seed that changes
+  from run to run fails now and then and catches nothing.
 - Do not assert a value against a literal written in the test: assert it against a snapshot (snapshot4s with munit,
   `assertFileSnapshot` with a descriptive path, or `assertInlineSnapshot`). When a snapshot fails, run
   `sbt snapshot4sPromote`, review the promoted diff, and run the tests again without promoting. No snapshot compares two
@@ -882,10 +913,17 @@ suppression that lacks its quoted justification; the constructs this guide forbi
 Every timing of the Scala code is a JMH benchmark run through sbt-jmh in the module `jmh-pipeline`, which holds
 benchmarks only: no timing written by hand (`System.nanoTime` and the like around a call). A reading reports JMH's score
 and error with its unit, mode, forks, iterations, command, commit, date and load, and the warm-up count is justified from
-the warm-up readings. A benchmark returns its result or feeds it to a `Blackhole`. Deterministic counts (instances,
-matches, entries read) are not timings and stay outside JMH. A change's effect is shown first by what load does not
-disturb (evaluator steps, instances, table entries, allocation per operation with `-prof gc`); a wall-time JMH is a short
-run of a few forks.
+the warm-up readings. A benchmark returns its result or feeds it to a `Blackhole`. A count (evaluator steps,
+instances, matches, table entries, decodings) is a test's expectation only when the test states, before it is run, the
+expected value and the part of the design it follows from: a deterministic test on a small generated input, whose
+differing reading is a defect or a fault in the design's reasoning, never a reason to change the expectation. A count
+with no such derivation is neither a test's expectation nor evidence of a speed-up; a step budget that bounds a run is
+control. A change whose effect follows from its design is shown by such a test on one small example from the case it is
+for, and no exploratory benchmark is written for it. Only an effect that cannot be derived beforehand, on a complex
+program, is shown by timing one small example on which the effect is large, by a short JMH of one fork (allocation per
+operation with `-prof gc`, or a short JFR profile, where the mechanism matters). A large change made in several steps
+does not prove each step: a step that adds an option nothing selects yet changes no measurement, and the step that
+selects it carries the example.
 
 ## Building and testing
 

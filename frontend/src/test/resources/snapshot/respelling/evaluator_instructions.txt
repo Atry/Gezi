@@ -1,199 +1,199 @@
 # sample 0
-instruction 6e0faabd, 1 instructions
+instruction λstart. start (λk. k 0) (λx. x), 1 instructions
 =>
-instruction 6e0faabd, 1 instructions, 3 operations
+instruction λstart. start (λk. k 0) (λx. x), 1 instructions, 3 operations
 
 # sample 1
-instruction 6e0faabd, 1 instructions
+instruction λstart. start (λk. k 0) (λx. x), 1 instructions
 =>
-instruction 6e0faabd, 1 instructions, 3 operations
+instruction λstart. start (λk. k 0) (λx. x), 1 instructions, 3 operations
 
 # sample 2
-instruction 8fe335f5, 1 instructions
+instruction λstart. start (λk. k 0) (λx. (x + x)), 1 instructions
 =>
-instruction 8fe335f5, 1 instructions, 7 operations
+instruction λstart. start (λk. k 0) (λx. (x + x)), 1 instructions, 7 operations
 
 # sample 3
-instruction c644a467, 1 instructions
+instruction λstart. start (λk. k 0) (λx x_2. (x + x)), 1 instructions
 =>
-instruction c644a467, 1 instructions, 7 operations
+instruction λstart. start (λk. k 0) (λx x_2. (x + x)), 1 instructions, 7 operations
 
 # sample 4
-instruction 562a40a8, 1 instructions
+instruction λstart. start (λk. k 0) (λx. (x ∥ x)), 1 instructions
 =>
-instruction 562a40a8, 1 instructions, 7 operations
+instruction λstart. start (λk. k 0) (λx. (x ∥ x)), 1 instructions, 7 operations
 
 # sample 5
-instruction e29f5e54, 1 instructions
+instruction λstart. start (λk. k 0) (λx. x x λ. x x), 1 instructions
 =>
-instruction e29f5e54, 1 instructions, 15 operations
+instruction λstart. start (λk. k 0) (λx. x x λ. x x), 1 instructions, 15 operations
 
 # sample 6
-instruction c5c091a3, 1 instructions
+instruction λstart. start (λk. k 0) (λx x_2. (x ∥ x) λ. x_2 x_2), 1 instructions
 =>
-instruction c5c091a3, 1 instructions, 15 operations
+instruction λstart. start (λk. k 0) (λx x_2. (x ∥ x) λ. x_2 x_2), 1 instructions, 15 operations
 
 # sample 7
-instruction f56823f6, 4 instructions
+instruction λstart. start (λk. k 0) (λx. (x x ∥ (x + x)) + λx. x x λx_2 x_3. x_3), 4 instructions
 =>
-instruction f56823f6, 4 instructions, 30 operations
+instruction λstart. start (λk. k 0) (λx. (x x ∥ (x + x)) + λx. x x λx_2 x_3. x_3), 4 instructions, 30 operations
 
 # sample 8
-instruction 1019fd9d, 1 instructions
+instruction λstart. start (λk. k 0) (λx. (λx_2 x_3. x x + x)), 1 instructions
 =>
-instruction 1019fd9d, 1 instructions, 13 operations
+instruction λstart. start (λk. k 0) (λx. (λx_2 x_3. x x + x)), 1 instructions, 13 operations
 
 # sample 9
-instruction 6e0faabd, 1 instructions
+instruction λstart. start (λk. k 0) (λx. x), 1 instructions
 =>
-instruction 6e0faabd, 1 instructions, 3 operations
+instruction λstart. start (λk. k 0) (λx. x), 1 instructions, 3 operations
 
 # sample 10
-instruction c4cdcf7b, 1 instructions
+instruction λstart. start (λk. k 0) (λx. x λx_2 x_3. (x + x)), 1 instructions
 =>
-instruction c4cdcf7b, 1 instructions, 13 operations
+instruction λstart. start (λk. k 0) (λx. x λx_2 x_3. (x + x)), 1 instructions, 13 operations
 
 # sample 11
-instruction 39d338d9, 1 instructions
+instruction λstart. start (λk. k 0) (λx. (x x ∥ x ∥ (x ∥ x) λ. x x)), 1 instructions
 =>
-instruction 39d338d9, 1 instructions, 27 operations
+instruction λstart. start (λk. k 0) (λx. (x x ∥ x ∥ (x ∥ x) λ. x x)), 1 instructions, 27 operations
 
 # sample 12
-instruction e73862b7, 1 instructions
+instruction λstart. start (λk. k 0) (λx. (λx_2. x) x), 1 instructions
 =>
-instruction e73862b7, 1 instructions, 9 operations
+instruction λstart. start (λk. k 0) (λx. (λx_2. x) x), 1 instructions, 9 operations
 
 # sample 13
-instruction 66d1bddc, 3 instructions
+instruction λstart. start (λk. k 0) ((λx. (x ∥ x) x λ. (x ∥ x) x) λx x_2. x_2), 3 instructions
 =>
-instruction 66d1bddc, 3 instructions, 27 operations
+instruction λstart. start (λk. k 0) ((λx. (x ∥ x) x λ. (x ∥ x) x) λx x_2. x_2), 3 instructions, 27 operations
 
 # sample 14
-instruction 8991c101, 1 instructions
+instruction λstart. start (λk. k 0) (λx x_2. x), 1 instructions
 =>
-instruction 8991c101, 1 instructions, 3 operations
+instruction λstart. start (λk. k 0) (λx x_2. x), 1 instructions, 3 operations
 
 # sample 15
-instruction 6889d432, 3 instructions
+instruction λstart. start (λk. k 0) (λx. x x + λx. x), 3 instructions
 =>
-instruction 6889d432, 3 instructions, 11 operations
+instruction λstart. start (λk. k 0) (λx. x x + λx. x), 3 instructions, 11 operations
 
 # sample 16
-instruction c33e55fb, 3 instructions
+instruction λstart. start (λk. k 0) ((λx. x) λx. (λx_2 x_3 x_4. (x_2 + x + x_4) + x)), 3 instructions
 =>
-instruction c33e55fb, 3 instructions, 21 operations
+instruction λstart. start (λk. k 0) ((λx. x) λx. (λx_2 x_3 x_4. (x_2 + x + x_4) + x)), 3 instructions, 21 operations
 
 # sample 17
-instruction 53b4613b, 5 instructions
+instruction λstart. start (λk. k 0) ((λx. x x (x ∥ x) λ. (λx_2 x_3 x_4. x_3) (x + x)) λx. (λx_2 x_3. x_3 x_2) (λx_2 x_3 x_4. x) (x ∥ λx_2 x_3 x_4. x)), 5 instructions
 =>
-instruction 53b4613b, 5 instructions, 57 operations
+instruction λstart. start (λk. k 0) ((λx. x x (x ∥ x) λ. (λx_2 x_3 x_4. x_3) (x + x)) λx. (λx_2 x_3. x_3 x_2) (λx_2 x_3 x_4. x) (x ∥ λx_2 x_3 x_4. x)), 5 instructions, 57 operations
 
 # sample 18
-instruction 7fee3a8f, 3 instructions
+instruction λstart. start (λk. k 0) (λx. (x x (x + x) ∥ x x (x + x)) + λx. x x x), 3 instructions
 =>
-instruction 7fee3a8f, 3 instructions, 43 operations
+instruction λstart. start (λk. k 0) (λx. (x x (x + x) ∥ x x (x + x)) + λx. x x x), 3 instructions, 43 operations
 
 # sample 19
-instruction 6e0faabd, 1 instructions
+instruction λstart. start (λk. k 0) (λx. x), 1 instructions
 =>
-instruction 6e0faabd, 1 instructions, 3 operations
+instruction λstart. start (λk. k 0) (λx. x), 1 instructions, 3 operations
 
 # sample 20
-instruction 435baa9e, 1 instructions
+instruction λstart. start (λk. k 0) (λx x_2 x_3 x_4. x_4), 1 instructions
 =>
-instruction 435baa9e, 1 instructions, 3 operations
+instruction λstart. start (λk. k 0) (λx x_2 x_3 x_4. x_4), 1 instructions, 3 operations
 
 # sample 21
-instruction 87ed6919, 1 instructions
+instruction λstart. start (λk. k 0) (λx. (x x + x x) (x x (x ∥ x)) λ. (x x + x x) λ. x x (x ∥ x)), 1 instructions
 =>
-instruction 87ed6919, 1 instructions, 63 operations
+instruction λstart. start (λk. k 0) (λx. (x x + x x) (x x (x ∥ x)) λ. (x x + x x) λ. x x (x ∥ x)), 1 instructions, 63 operations
 
 # sample 22
-instruction a005b064, 1 instructions
+instruction λstart. start (λk. k 0) (λx x_2. (x ∥ x + x_2 x + x x_2 ∥ x_2)), 1 instructions
 =>
-instruction a005b064, 1 instructions, 27 operations
+instruction λstart. start (λk. k 0) (λx x_2. (x ∥ x + x_2 x + x x_2 ∥ x_2)), 1 instructions, 27 operations
 
 # sample 23
-instruction 214c175e, 3 instructions
+instruction λstart. start (λk. k 0) ((λx. (x + x + x x + (x + x) + (x + x) + (x + x) λ. x x)) λx x_2 x_3. (x_3 ∥ x_3 x_2 (x_3 + x_2) x_2)), 3 instructions
 =>
-instruction 214c175e, 3 instructions, 71 operations
+instruction λstart. start (λk. k 0) ((λx. (x + x + x x + (x + x) + (x + x) + (x + x) λ. x x)) λx x_2 x_3. (x_3 ∥ x_3 x_2 (x_3 + x_2) x_2)), 3 instructions, 71 operations
 
 # sample 24
-instruction a8440e99, 2 instructions
+instruction λstart. start (λk. k 0) (λx. (λx_2 x_3 x_4 x_5. (λx_6. x_2) (x_4 + x_5)) ((x + x + x) λx_2. x + λx_2. (λx_3. x ∥ λx_3. x))), 2 instructions
 =>
-instruction a8440e99, 2 instructions, 48 operations
+instruction λstart. start (λk. k 0) (λx. (λx_2 x_3 x_4 x_5. (λx_6. x_2) (x_4 + x_5)) ((x + x + x) λx_2. x + λx_2. (λx_3. x ∥ λx_3. x))), 2 instructions, 48 operations
 
 # sample 25
-instruction 6e0faabd, 1 instructions
+instruction λstart. start (λk. k 0) (λx. x), 1 instructions
 =>
-instruction 6e0faabd, 1 instructions, 3 operations
+instruction λstart. start (λk. k 0) (λx. x), 1 instructions, 3 operations
 
 # sample 26
-instruction 8ea5f85b, 2 instructions
+instruction λstart. start (λk. k 1) ((λt. t λx. x) λ$merkle$fc082a46 x. (λx_2 x_3. (λx_4. (x_2 x_2 ∥ $merkle$fc082a46)) λx_4. (x_3 ∥ x) (x + x) ∥ λx_2 x_3. (λx_4. (x_2 x_2 ∥ $merkle$fc082a46)) λx_4. (x_3 ∥ x) (x + x))), 2 instructions
 =>
-instruction 8ea5f85b, 2 instructions, 70 operations
+instruction λstart. start (λk. k 1) ((λt. t λx. x) λ$merkle$fc082a46 x. (λx_2 x_3. (λx_4. (x_2 x_2 ∥ $merkle$fc082a46)) λx_4. (x_3 ∥ x) (x + x) ∥ λx_2 x_3. (λx_4. (x_2 x_2 ∥ $merkle$fc082a46)) λx_4. (x_3 ∥ x) (x + x))), 2 instructions, 70 operations
 
 # sample 27
-instruction c6957271, 1 instructions
+instruction λstart. start (λk. k 0) (λx x_2. ((x ∥ x) (x_2 + x_2) + x_2 x (x_2 ∥ x_2) + (x + x + λx_3. x_2 x_3 + x))), 1 instructions
 =>
-instruction c6957271, 1 instructions, 53 operations
+instruction λstart. start (λk. k 0) (λx x_2. ((x ∥ x) (x_2 + x_2) + x_2 x (x_2 ∥ x_2) + (x + x + λx_3. x_2 x_3 + x))), 1 instructions, 53 operations
 
 # sample 28
-instruction 4033d4cc, 4 instructions
+instruction λstart. start (λk. k 0) ((λx. (λx_2. x_2 ∥ x (x ∥ x + x x + (x ∥ x)))) λx x_2 x_3. x_2), 4 instructions
 =>
-instruction 4033d4cc, 4 instructions, 38 operations
+instruction λstart. start (λk. k 0) ((λx. (λx_2. x_2 ∥ x (x ∥ x + x x + (x ∥ x)))) λx x_2 x_3. x_2), 4 instructions, 38 operations
 
 # sample 29
-instruction c88f61d2, 5 instructions
+instruction λstart. start (λk. k 1) ((λt. t (λx x_2. x + λx x_2. x)) λ$merkle$1e2160b9. (λx. ($merkle$1e2160b9 λ. x x x + $merkle$1e2160b9 λ. x x x)) λx. (λx_2 x_3 x_4. x ∥ (x ∥ x))), 5 instructions
 =>
-instruction c88f61d2, 5 instructions, 50 operations
+instruction λstart. start (λk. k 1) ((λt. t (λx x_2. x + λx x_2. x)) λ$merkle$1e2160b9. (λx. ($merkle$1e2160b9 λ. x x x + $merkle$1e2160b9 λ. x x x)) λx. (λx_2 x_3 x_4. x ∥ (x ∥ x))), 5 instructions, 50 operations
 
 # sample 30
-instruction 6e0faabd, 1 instructions
+instruction λstart. start (λk. k 0) (λx. x), 1 instructions
 =>
-instruction 6e0faabd, 1 instructions, 3 operations
+instruction λstart. start (λk. k 0) (λx. x), 1 instructions, 3 operations
 
 # sample 31
-instruction 7b4e600f, 3 instructions
+instruction λstart. start (λk. k 0) (λx x_2. x λ. (x_2 ∥ x_2) (x_2 x_2 + x_2 x_2) ∥ λx. x), 3 instructions
 =>
-instruction 7b4e600f, 3 instructions, 31 operations
+instruction λstart. start (λk. k 0) (λx x_2. x λ. (x_2 ∥ x_2) (x_2 x_2 + x_2 x_2) ∥ λx. x), 3 instructions, 31 operations
 
 # sample 32
-instruction b6cf7b72, 9 instructions
+instruction λstart. start (λk. k 0) ((λx. (λx_2. (x_2 x_2 ∥ x_2 x_2 ∥ (x_2 x_2 ∥ x_2 x_2)) ∥ λx_2. (λx_3 x_4. x_4 x_4 λx_5. x_3 ∥ λx_3. x x λx_4 x_5. x))) λx. x ∥ (λx. x x ∥ λx. x (x x) (λx_2 x_3. x) (x ∥ x + x x ∥ λx_2. (λx_3. x_2 x_2) (x ∥ x)))), 9 instructions
 =>
-instruction b6cf7b72, 9 instructions, 135 operations
+instruction λstart. start (λk. k 0) ((λx. (λx_2. (x_2 x_2 ∥ x_2 x_2 ∥ (x_2 x_2 ∥ x_2 x_2)) ∥ λx_2. (λx_3 x_4. x_4 x_4 λx_5. x_3 ∥ λx_3. x x λx_4 x_5. x))) λx. x ∥ (λx. x x ∥ λx. x (x x) (λx_2 x_3. x) (x ∥ x + x x ∥ λx_2. (λx_3. x_2 x_2) (x ∥ x)))), 9 instructions, 135 operations
 
 # sample 33
-instruction 379fb03, 2 instructions
+instruction λstart. start (λk. k 1) ((λt. t λx. x) λ$merkle$fc082a46 x. (x ∥ x) (x x) (x ∥ x ∥ x x) (x + x x + x x $merkle$fc082a46 + ($merkle$fc082a46 + x x))), 2 instructions
 =>
-instruction 379fb03, 2 instructions, 70 operations
+instruction λstart. start (λk. k 1) ((λt. t λx. x) λ$merkle$fc082a46 x. (x ∥ x) (x x) (x ∥ x ∥ x x) (x + x x + x x $merkle$fc082a46 + ($merkle$fc082a46 + x x))), 2 instructions, 70 operations
 
 # sample 34
-instruction 582acdf, 6 instructions
+instruction λstart. start (λk. k 0) ((λx x_2. x_2 + λx. x) λx. (λx_2 x_3. x_2) x), 6 instructions
 =>
-instruction 582acdf, 6 instructions, 18 operations
+instruction λstart. start (λk. k 0) ((λx x_2. x_2 + λx. x) λx. (λx_2 x_3. x_2) x), 6 instructions, 18 operations
 
 # sample 35
-instruction eeebfa3f, 3 instructions
+instruction λstart. start (λk. k 0) ((λx. (x + (x ∥ (x ∥ x)) + x x (x + x + x) ∥ (x x λ. x x ∥ x x λ. x x))) λx. (x + (x ∥ x) + (x x + x x + λx_2. (x + x_2)))), 3 instructions
 =>
-instruction eeebfa3f, 3 instructions, 105 operations
+instruction λstart. start (λk. k 0) ((λx. (x + (x ∥ (x ∥ x)) + x x (x + x + x) ∥ (x x λ. x x ∥ x x λ. x x))) λx. (x + (x ∥ x) + (x x + x x + λx_2. (x + x_2)))), 3 instructions, 105 operations
 
 # sample 36
-instruction a37ab27a, 3 instructions
+instruction λstart. start (λk. k 0) ((λx. x) λx x_2 x_3. (x_2 x_3 (x_2 + x + x_2) λ. (x + x + x_2) λ. x x_2 + x_2 x_3 (x_2 + x + x_2) λ. (x + x + x_2) λ. x x_2)), 3 instructions
 =>
-instruction a37ab27a, 3 instructions, 83 operations
+instruction λstart. start (λk. k 0) ((λx. x) λx x_2 x_3. (x_2 x_3 (x_2 + x + x_2) λ. (x + x + x_2) λ. x x_2 + x_2 x_3 (x_2 + x + x_2) λ. (x + x + x_2) λ. x x_2)), 3 instructions, 83 operations
 
 # sample 37
-instruction ea0c6e2c, 5 instructions
+instruction λstart. start (λk. k 0) (λx. (λx_2. (λx_3 x_4 x_5. x_3 ∥ x_2 ∥ x_2) λ. x_2 (x_2 + x_2) (x_2 + (x_2 + x_2) + (x_2 + x_2))) (λx_2. x_2) x), 5 instructions
 =>
-instruction ea0c6e2c, 5 instructions, 57 operations
+instruction λstart. start (λk. k 0) (λx. (λx_2. (λx_3 x_4 x_5. x_3 ∥ x_2 ∥ x_2) λ. x_2 (x_2 + x_2) (x_2 + (x_2 + x_2) + (x_2 + x_2))) (λx_2. x_2) x), 5 instructions, 57 operations
 
 # sample 38
-instruction f7ab68c4, 5 instructions
+instruction λstart. start (λk. k 1) ((λt. t λx x_2. x x_2) λ$merkle$f52c9f30. (λx. (x (x x λ. x x + $merkle$f52c9f30) + x (x x λ. x x + $merkle$f52c9f30))) λx. ((x ∥ x ∥ (x ∥ x + x x)) λx_2. x x ∥ λx_2. x_2)), 5 instructions
 =>
-instruction f7ab68c4, 5 instructions, 95 operations
+instruction λstart. start (λk. k 1) ((λt. t λx x_2. x x_2) λ$merkle$f52c9f30. (λx. (x (x x λ. x x + $merkle$f52c9f30) + x (x x λ. x x + $merkle$f52c9f30))) λx. ((x ∥ x ∥ (x ∥ x + x x)) λx_2. x x ∥ λx_2. x_2)), 5 instructions, 95 operations
 
 # sample 39
-instruction 12339681, 1 instructions
+instruction λstart. start (λk. k 0) (λx x_2 x_3 x_4. x_3), 1 instructions
 =>
-instruction 12339681, 1 instructions, 3 operations
+instruction λstart. start (λk. k 0) (λx x_2 x_3 x_4. x_3), 1 instructions, 3 operations

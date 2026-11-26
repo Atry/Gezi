@@ -1,9 +1,13 @@
 package gezi.weakhead
 
+import gezi.ir.NoFacts
+import gezi.ir.Configured
+import gezi.ir.Value
 import gezi.frontend.DeBruijnTerm
 import gezi.frontend.Defunctionalization
 import gezi.frontend.Term
 import gezi.frontend.Term.*
+import gezi.ir.{Configured, NativeSpecializer}
 
 /** How the judge's claim on one test ended. */
 enum Ending:
@@ -60,6 +64,8 @@ enum Verdict:
   */
 object Judge:
 
+  given NoFacts.type = NoFacts
+
   /** For each test of the suite in order, its ending and the steps its
     * reading took (claims_answered/4): a reading past its budget or out of a
     * resource ends `Stopped`, never `Failed`. The root of a test T is the closed
@@ -69,11 +75,11 @@ object Judge:
   def claimsAnswered(mode: Mode, tests: Vector[Term], limit: Long): Vector[(Ending, Long)] =
     val roots = tests.map { test =>
       assert(test.isInstanceOf[Term.Abstraction], "a test is an abstraction (test_not_an_abstraction)")
-      val program = Defunctionalization.thunkInstruction(λ(argument => test(argument)).deBruijnTerm(Map.empty))
-      Value.Apply(program, witness)
+      val program = Defunctionalization.thunkInstruction[NoFacts.type](λ(argument => test(argument)).deBruijnTerm(Map.empty))
+      Value.Apply(Value.of(program), witness)
     }
     Reading
-      .witnessReadings(mode, roots, witness, limit)
+      .witnessReadings(mode, roots, witness, limit, ReadingConfiguration.withoutFacts)
       .map(reading =>
         val ending = reading.outcome match
           case WitnessOutcome.Found     => Ending.Succeeded
@@ -83,7 +89,7 @@ object Judge:
         (ending, reading.spent)
       )
 
-  private val witness: Value = Value.Neutral(JudgeWitness, Vector.empty)
+  private val witness: Value[NoFacts.type] = NeutralValue(JudgeWitness, Vector.empty)
 
   /** The decode's own budget, the Prolog verdict's `decode_limits(limits(10,
     * 256, 256))`: 10 seconds as a budget of steps.
@@ -106,7 +112,7 @@ object Judge:
         val decodings = Computation
           .traversed(heads)(set => observedDecodings(intended, set, zeroMarker, successorMarker))
           .map(_.flatten.distinct)
-          .result(ReadingState.fresh(decodeLimit))
+          .result(ReadingState.fresh(decodeLimit, gezi.weakhead.ReadingConfiguration.withoutFacts))
         decodings match
           case Computed.Stopped(_) => Verdict.DecodeLimitReached
           case Computed.Done(found, _) =>
@@ -118,35 +124,35 @@ object Judge:
       case stopped @ (ReadingOutcome.StepLimit | ReadingOutcome.Exhausted(_)) => Verdict.ReadingStopped(stopped)
 
   /** `\a.\b.\c. c` and `\p.\a.\b.\c.\d. p` as heads. */
-  private def markers: (Head, Head) =
+  private def markers: (Head[NoFacts.type], Head[NoFacts.type]) =
     val zero = DeBruijnTerm.Lambda(DeBruijnTerm.Lambda(DeBruijnTerm.Lambda(DeBruijnTerm.Variable(0))))
     val successor = DeBruijnTerm.Lambda(
       DeBruijnTerm.Lambda(DeBruijnTerm.Lambda(DeBruijnTerm.Lambda(DeBruijnTerm.Lambda(DeBruijnTerm.Variable(4)))))
     )
-    val zeroValue = Values.ofInstruction(Defunctionalization.thunkInstruction(zero), Set.empty)
-    val successorValue = Values.ofInstruction(Defunctionalization.thunkInstruction(successor), Set.empty)
+    val zeroValue = Values.ofInstruction(Defunctionalization.thunkInstruction(zero)(using gezi.ir.NoFacts), Set.empty)
+    val successorValue = Values.ofInstruction(Defunctionalization.thunkInstruction(successor)(using gezi.ir.NoFacts), Set.empty)
     (asHead(zeroValue), asHead(successorValue))
 
-  private def asHead(value: Value): Head = value match
+  private def asHead[C <: NativeSpecializer & Singleton](value: Value[C])(using C): Head[C] = value match
     case Value.Thunk(code, holes, fillings) if holes.nonEmpty => Head.Lambda(code, holes, fillings)
     case other => throw IllegalStateException(s"a marker is a lambda, not $other")
 
   private type Decoding = Either[String, Intended]
 
-  private def heads(term: Value) = WeakHead.heads(Mode.WeakHead, term).collected
+  private def heads[C <: NativeSpecializer & Singleton](term: Value[C])(using C) = WeakHead.heads(Mode.WeakHead, term).collected
 
   /** The parallel set as a value. The judge runs the plain evaluator, which
     * answers no empty parallel set.
     */
-  private def valueOf(set: ParallelSet): Value =
-    set.value.getOrElse(throw IllegalStateException("the plain evaluator answers no empty parallel set"))
+  private def valueOf[C <: NativeSpecializer & Singleton](set: ParallelSet[C])(using C): Value[C] =
+    set.value(summon[C]).getOrElse(throw IllegalStateException("the plain evaluator answers no empty parallel set"))
 
   private def observedDecodings(
       intended: Intended,
-      set: ParallelSet,
-      zeroMarker: Head,
-      successorMarker: Head
-  ): Computation[ReadingState, Vector[Decoding]] =
+      set: ParallelSet[NoFacts.type],
+      zeroMarker: Head[NoFacts.type],
+      successorMarker: Head[NoFacts.type]
+  ): Computation[ReadingState[NoFacts.type], Vector[Decoding]] =
     intended match
       case Intended.Truth(_) =>
         heads(Value.Apply(Value.Apply(valueOf(set), zeroMarker.value), successorMarker.value)).flatMap(choices =>
@@ -155,12 +161,12 @@ object Judge:
         )
       case Intended.Natural(_) => observedNatural(valueOf(set), zeroMarker, successorMarker, 0)
 
-  private def chosenBoolean(chosen: ParallelSet, zeroMarker: Head, successorMarker: Head): Computation[ReadingState, Vector[Decoding]] =
-    chosen.view match
+  private def chosenBoolean(chosen: ParallelSet[NoFacts.type], zeroMarker: Head[NoFacts.type], successorMarker: Head[NoFacts.type]): Computation[ReadingState[NoFacts.type], Vector[Decoding]] =
+    chosen.view(NoFacts) match
       case ParallelView.Single(head) if head == zeroMarker => Computation.pure(Vector(Right(Intended.Truth(true))))
       case ParallelView.Single(head) if head == successorMarker => Computation.pure(Vector(Right(Intended.Truth(false))))
       case ParallelView.Several(left, right) =>
-        def side(term: Value) =
+        def side(term: Value[NoFacts.type]) =
           heads(term).flatMap(sideHeads =>
             Computation.traversed(sideHeads)(chosenBoolean(_, zeroMarker, successorMarker)).map(_.flatten.distinct)
           )
@@ -170,12 +176,12 @@ object Judge:
         yield leftDecodings.filter(rightDecodings.contains)
       case _ => Computation.pure(Vector(Left("not_a_boolean")))
 
-  private def observedNatural(
-      term: Value,
-      zeroMarker: Head,
-      successorMarker: Head,
+  private def observedNatural[C <: NativeSpecializer & Singleton](
+      term: Value[C],
+      zeroMarker: Head[C],
+      successorMarker: Head[C],
       accumulated: Int
-  ): Computation[ReadingState, Vector[Decoding]] =
+  )(using C): Computation[ReadingState[C], Vector[Decoding]] =
     heads(Value.Apply(Value.Apply(term, zeroMarker.value), successorMarker.value)).flatMap(choices =>
       if choices.isEmpty then Computation.pure(Vector(Left("not_a_natural")))
       else
@@ -185,17 +191,17 @@ object Judge:
     )
 
   private def chosenNatural(
-      chosen: ParallelSet,
-      zeroMarker: Head,
-      successorMarker: Head,
+      chosen: ParallelSet[NoFacts.type],
+      zeroMarker: Head[NoFacts.type],
+      successorMarker: Head[NoFacts.type],
       accumulated: Int
-  ): Computation[ReadingState, Vector[Decoding]] =
-    chosen.view match
+  ): Computation[ReadingState[NoFacts.type], Vector[Decoding]] =
+    chosen.view(NoFacts) match
       case ParallelView.Single(head) if head == zeroMarker =>
         Computation.pure(Vector(Right(Intended.Natural(accumulated))))
       case ParallelView.Single(head) if head == successorMarker => Computation.pure(Vector(Left("not_a_natural")))
       case ParallelView.Several(left, right) =>
-        def side(term: Value) =
+        def side(term: Value[NoFacts.type]) =
           heads(term).flatMap(sideHeads =>
             Computation
               .traversed(sideHeads)(chosenNatural(_, zeroMarker, successorMarker, accumulated))
@@ -217,4 +223,4 @@ object Judge:
                 )
                 .map(_.flatten)
           )
-      case ParallelView.Bottom => Computation.pure(Vector(Left("not_a_natural")))
+      case ParallelView.Bottom() => Computation.pure(Vector(Left("not_a_natural")))

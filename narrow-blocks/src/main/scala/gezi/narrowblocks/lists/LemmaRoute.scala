@@ -3,13 +3,17 @@ package gezi.narrowblocks
 /** The opt-in copy of the narrow blocks with lists and booleans ([[gezi.narrowblocks.lists]]), selected by `ExtractorImplementation.NarrowListBlock`. */
 package lists
 
-import gezi.ir.Instruction
+import gezi.frontend.Defunctionalization
+import gezi.frontend.Literals
+import gezi.ir.{Configured, NativeSpecializer}
 import gezi.narrowblocks.LemmaRoute.nativeCommands
 import gezi.narrowblocks.LemmaRoute.numeral
 import gezi.narrowblocks.LemmaRoute.stopped
 import gezi.narrowblocks.LemmaRoute.substituted
 import gezi.narrowblocks.LemmaRoute.timed
+import gezi.ir.Pure
 import gezi.jit.NativeBackend
+import gezi.jit.NaturalLattice
 import gezi.rewritetrace.TraceCommand
 import gezi.saturation.Run
 import gezi.saturation.StopSignal
@@ -21,22 +25,27 @@ import gezi.strategies.NormalityModule
   * the rounds saturated by the parent's `saturatedRounds`, with this
   * package's narrow blocks (`NarrowBlockOrder`, `NarrowBlockCompilation`)
   * and a block that gives no value read as no program rather than as a
-  * defect (`blockValues`).
+  * defect (`blockValues`). `declaredRecords` is whether its blocks also decode
+  * lists of records of declared data families (`NarrowBlockCompilation`).
   */
-object LemmaRoute extends NarrowBlockRoute:
+class ListBlockRoute(declaredRecords: Boolean) extends NarrowBlockRoute:
 
   /** The copy's narrow blocks over the natives first, then the size. */
-  def extractorModules(natives: NativeBackend): Vector[NormalityModule] = Vector(NarrowBlockOrder(natives), Compression)
+  def extractorModules[C <: NativeSpecializer & Singleton](
+      natives: NativeBackend,
+      configuration: gezi.weakhead.ReadingConfiguration[C]
+  ): Vector[NormalityModule[C]] = Vector(NarrowBlockOrder(natives, configuration), Compression.at[C])
 
   /** The parent's `compiledRounds`, its blocks those of this package. */
-  def compiledRounds(
-      index: StandardLibraryIndex,
-      rounds: Vector[PreparedLemmaCompilation],
+  def compiledRounds[C <: NativeSpecializer & Singleton](
+      index: StandardLibraryIndex[C],
+      rounds: Vector[PreparedLemmaCompilation[C]],
       natives: NativeBackend,
-      program: Instruction,
+      encoding: gezi.jit.StorageEncoding & C,
+      program: Configured[C],
       explained: Boolean,
       stop: StopSignal
-  ): LemmaRoundsResult =
+  )(using C): LemmaRoundsResult[C] =
     val (run, steps, saturations) = gezi.narrowblocks.LemmaRoute.saturatedRounds(rounds, program, explained, stop)
     val (computed, extracted, allSteps) = blocksComputed(index, rounds.last, natives, program, run, steps, explained, stop)
     LemmaRoundsResult(
@@ -45,7 +54,7 @@ object LemmaRoute extends NarrowBlockRoute:
       allSteps,
       saturations,
       run.graph,
-      computed.fold(Vector.empty[TraceCommand])(_._2)
+      computed.fold(Vector.empty[TraceCommand[C]])(_._2)
     )
 
   /** After a saturation: nothing more when it was stopped; otherwise the
@@ -64,19 +73,20 @@ object LemmaRoute extends NarrowBlockRoute:
     * its value are fixed here. Each is to become an option of one interface chosen by configuration (entry data and
     * `Defaults`).
     */
-  private def blocksComputed(
-      index: StandardLibraryIndex,
-      compilation: PreparedLemmaCompilation,
+  private def blocksComputed[C <: NativeSpecializer & Singleton](
+      index: StandardLibraryIndex[C],
+      compilation: PreparedLemmaCompilation[C],
       natives: NativeBackend,
-      program: Instruction,
-      run: Run,
+      program: Configured[C],
+      run: Run[C],
       steps: Vector[(String, Long)],
       explained: Boolean,
       stop: StopSignal
-  ): (Option[(Instruction, Vector[TraceCommand])], Option[Instruction], Vector[(String, Long)]) =
+  )(using C): (Option[(Configured[C], Vector[TraceCommand[C]])], Option[Configured[C]], Vector[(String, Long)]) =
     if stopped(run.end) then (None, None, steps)
     else
-      val blockCompilation = NarrowBlockCompilation(index, natives)
+      val blockCompilation =
+        NarrowBlockCompilation(index, natives, gezi.narrowblocks.LemmaRoute.readingConfiguration(run), declaredRecords)
       val ((output, blocks), extraction) = timed("lemma_extraction") {
         val extracted = compilation.extracted(program, run, stop)
         (extracted, blockCompilation.blocks(extracted))
@@ -91,30 +101,67 @@ object LemmaRoute extends NarrowBlockRoute:
         compiled match
           case Left(_) => (None, Some(output), steps ++ Vector(extraction, compilationStep))
           case Right(programs) =>
-            val (values, running) = timed("block_run")(blockValues(blocks, programs, stop))
+            val (values, running) = timed("block_run")(blockValues(blockCompilation, blocks, programs, stop))
             values match
               case None => (None, Some(output), steps ++ Vector(extraction, compilationStep, running))
+              // A native command states an equation, and a block replaced by `top` is an approximation from
+              // above: a trace reads the extraction instead.
+              case Some(computed) if explained && computed.notNumerals =>
+                (None, Some(output), steps ++ Vector(extraction, compilationStep, running))
               case Some(computed) =>
                 (
                   Some(
                     (
-                      substituted(output, computed, index.noinline),
-                      if explained then nativeCommands(output, computed, index.noinline) else Vector.empty
+                      substituted(output, computed.values, index.noinline),
+                      if explained then nativeCommands(output, computed.values, index.noinline) else Vector.empty
                     )
                   ),
                   Some(output),
                   steps ++ Vector(extraction, compilationStep, running)
                 )
 
-  /** Each block's numeral, its program run under `stop`, in order; nothing
+  /** The term a block whose root native found its term ≃_O `top` is
+    * replaced by (`gezi.jit.StaticBlockResult.NaturalOrNoAnswer`): `top`
+    * itself, from the front end, so that it depends on no reading state's
+    * list of known extremes.
+    */
+  private val noAnswerTerm: Pure = Defunctionalization.pure(Literals.top)
+
+  /** The IR term of a native's term over naturals: its numerals the
+    * canonical binary naturals, a choice nested to the right in the members'
+    * order, a parallel of the two sides. Stack-safe over a long choice: the
+    * members are folded from the last; a nesting of choices and parallels
+    * as deep as the native builds is recursed into.
+    */
+  private def latticeTerm[C <: NativeSpecializer & Singleton](lattice: NaturalLattice)(using specializer: C): Configured[C] = lattice match
+    case NaturalLattice.Numeral(value) => numeral(BigInt(value))
+    case NaturalLattice.Choice(members) =>
+      val (last, others) = members.lastOption.map(last => (last, members.init)).getOrElse(
+        throw IllegalStateException("a native's term over naturals holds an empty choice")
+      )
+      others.foldRight(latticeTerm(last))((member, right) => specializer.choice(latticeTerm(member), right))
+    case NaturalLattice.Parallel(left, right) => specializer.parallel(latticeTerm(left), latticeTerm(right))
+
+  /** What the blocks' runs gave: each block's term, a numeral, `noAnswerTerm`,
+    * the term over naturals of a native (`latticeTerm`) or a value of a
+    * declared family, and whether any is not a numeral, for
+    * which a native command of a trace states no equation.
+    */
+  private final case class BlockValues[C <: NativeSpecializer & Singleton](values: Map[Configured[C], Configured[C]], notNumerals: Boolean)
+
+  /** Each block's term, its program run under `stop`, in order; nothing
     * from the first run that gave nothing, the blocks after it not run. A
     * run gives nothing when `stop` asked for a stop or when the block gives
     * no value, a value read in a representation it does not have (a list as
     * a natural, a natural as a list or another value as a boolean)
-    * (`NarrowBlockProgram.run`): the
+    * (`NarrowBlockProgram.outcome`): the
     * route then gives no program, as when a block does not compile, and its
     * caller reads the extraction, its blocks not computed
-    * (`ProgramCompiler.compiledProgram`), which adds no answer.
+    * (`ProgramCompiler.compiledProgram`), which adds no answer. A block whose
+    * root native found its term ≃_O `top` is `noAnswerTerm`, and one whose
+    * root native gave the term over naturals its term is ≃_O to is that term
+    * (`latticeTerm`): each stands for the block's term in every context, so
+    * neither loses an answer.
     *
     * FIXME (found in a review, 2026-11-21; https://github.com/Atry/private-overlay/issues/1538):
     * one block that gives no value makes the route give no
@@ -125,13 +172,34 @@ object LemmaRoute extends NarrowBlockRoute:
     * extraction wrote them, which the reader then reads; their values are
     * independent, each a closed natural.
     */
-  private def blockValues(
-      blocks: Vector[Instruction],
+  private def blockValues[C <: NativeSpecializer & Singleton](
+      blockCompilation: NarrowBlockCompilation[C],
+      blocks: Vector[Configured[C]],
       programs: Vector[NarrowBlockProgram],
       stop: StopSignal
-  ): Option[Map[Instruction, Instruction]] =
-    blocks.zip(programs).foldLeft(Option(Map.empty[Instruction, Instruction])) {
+  )(using C): Option[BlockValues[C]] =
+    blocks.zip(programs).foldLeft(Option(BlockValues[C](Map.empty, false))) {
       case (None, _) => None
       case (Some(found), (block, compiled)) =>
-        compiled.run(stop).map(value => found.updated(block, numeral(BigInt(value))))
+        compiled.outcome(stop) match
+          case NarrowBlockOutcome.Computed(value) =>
+            Some(found.copy(values = found.values.updated(block, numeral(BigInt(value)))))
+          case NarrowBlockOutcome.NoAnswer =>
+            Some(BlockValues(found.values.updated(block, Configured.fromPure(summon[C]: C)(noAnswerTerm)), true))
+          case NarrowBlockOutcome.Lattice(lattice) =>
+            Some(BlockValues(found.values.updated(block, latticeTerm(lattice)), true))
+          case NarrowBlockOutcome.Constructed(value) =>
+            blockCompilation.constructedTerm(block, value).map(term => BlockValues(found.values.updated(block, term), true))
+          case NarrowBlockOutcome.NoValue => None
     }
+
+/** The route of the extractor `narrow_list_block`: lists of naturals, no
+  * declared family.
+  */
+object LemmaRoute extends ListBlockRoute(false)
+
+/** The opt-in route whose blocks also read lists of records of declared data
+  * families, selected by an entry through an extractor module. It differs from
+  * `LemmaRoute` only at a native's `NativePlace.NaturalRecordList`.
+  */
+object DeclaredFamilyRoute extends ListBlockRoute(true)

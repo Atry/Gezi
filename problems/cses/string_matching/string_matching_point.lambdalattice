@@ -1,0 +1,60 @@
+# The base problems of the CSES families repeated_cses_string_matching_*: a text and a pattern, lists of letters (a = 0 to z = 25), the answer the number of places of the text where the pattern occurs.
+#
+# THE ANSWER of each row is the problem's definition computed exhaustively by a
+# brute-force script (2026-11-22), which enumerates every candidate the problem's
+# statement describes. PROOF: the program of the problem's file follows the
+# definition, and its header argues under Definition 14 that its one normal form
+# is that answer; the data are finite and within the family's bottom rungs, which
+# the reference reading answers. The inputs are the author's own, no CSES test
+# data.
+#
+#   string_matching_point(?Point, ?Text, ?Pattern, ?Result)
+#
+# Text and Pattern are Scott lists (corpora/library/prelude/list) of integers from 0
+# to 25, Pattern nonempty; Result is an integer.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λvalue. value)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λvalue. value)
+λ integer
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "pair")
+λ pair _ _
+. export
+λ
+. cons
+  ( λ _string_matching_point
+    . _string_matching_point (text "cses_string_matching_sample") (cons (integer 18) λ. cons (integer 0) λ. cons (integer 8) λ. cons (integer 15) λ. cons (integer 15) λ. cons (integer 20) λ. cons (integer 0) λ. cons (integer 10) λ. cons (integer 0) λ. cons (integer 20) λ. cons (integer 15) λ. cons (integer 15) λ. cons (integer 8) λ. cons (integer 0) λ. cons (integer 18) λ. nil) (cons (integer 15) λ. cons (integer 15) λ. nil) λ. (integer 2)
+  )
+λ
+. cons
+  ( λ _string_matching_point
+    . _string_matching_point (text "cses_string_matching_single_letter") (cons (integer 0) λ. nil) (cons (integer 0) λ. nil) λ. (integer 1)
+  )
+λ
+. cons
+  ( λ _string_matching_point
+    . _string_matching_point (text "cses_string_matching_overlapping") (cons (integer 0) λ. cons (integer 0) λ. cons (integer 0) λ. cons (integer 0) λ. nil) (cons (integer 0) λ. cons (integer 0) λ. nil) λ. (integer 3)
+  )
+λ
+. cons
+  ( λ _string_matching_point
+    . _string_matching_point (text "cses_string_matching_pattern_longer_than_text") (cons (integer 0) λ. cons (integer 1) λ. nil) (cons (integer 0) λ. cons (integer 1) λ. cons (integer 2) λ. nil) λ. (integer 0)
+  )
+λ
+. cons
+  ( λ _string_matching_point
+    . _string_matching_point (text "cses_string_matching_no_occurrence") (cons (integer 0) λ. cons (integer 1) λ. cons (integer 0) λ. cons (integer 1) λ. nil) (cons (integer 1) λ. cons (integer 1) λ. nil) λ. (integer 0)
+  )
+λ
+. cons
+  ( λ _string_matching_point
+    . _string_matching_point (text "cses_string_matching_whole_text") (cons (integer 0) λ. cons (integer 1) λ. cons (integer 2) λ. nil) (cons (integer 0) λ. cons (integer 1) λ. cons (integer 2) λ. nil) λ. (integer 1)
+  ) nil

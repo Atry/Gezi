@@ -1,16 +1,18 @@
 package gezi.extraction
 
 import gezi.egraph.EGraph
+import gezi.egraph.MemberShape
 import gezi.ir.DispatchPattern
 import gezi.ir.Fallback
-import gezi.ir.Instruction
-import gezi.ir.Layer
+import gezi.ir.{Layer, LayerWith}
+import gezi.ir.NotTerm
 import gezi.ir.Specialization
 import gezi.ir.SpecializationRange
 import scala.util.control.TailCalls.TailRec
 import scala.util.control.TailCalls.done
 import scala.util.control.TailCalls.tailcall
 import gezi.ir.{Apply, Choice, NoinlineLeaf, Parallel}
+import gezi.ir.{Configured, NativeSpecializer}
 
 /** What a production spells: a live node's layer over the roots of its
   * children's classes; a name, an instruction whose node is in the class and
@@ -20,11 +22,11 @@ import gezi.ir.{Apply, Choice, NoinlineLeaf, Parallel}
   * specialization choice `F A + T`, T its typed member, or a judgment
   * `X + (X ∥ T)`.
   */
-enum Shape:
-  case Node(node: Int, layer: Layer[Int])
-  case Name(instruction: Instruction)
-  case Specialized(node: Int, specialization: Specialization[Int])
-  case Judged(node: Int, fallback: Fallback[Int])
+enum Shape[C <: NativeSpecializer & Singleton]:
+  case Node(node: Int, layer: LayerWith[Int, Configured[C]])
+  case Name(instruction: Configured[C])
+  case Specialized[C <: NativeSpecializer & Singleton](node: Int, specialization: Specialization[Int]) extends Shape[C]
+  case Judged[C <: NativeSpecializer & Singleton](node: Int, fallback: Fallback[Int]) extends Shape[C]
 
   /** The classes the production reads, in the order of its layer or of the
     * pattern's parts.
@@ -41,7 +43,12 @@ object Shape:
     * the order of `children`, each layer made by `make`: a name or a leaf
     * its instruction, made by `leaf`.
     */
-  def spelled[Node](shape: Shape, children: Vector[Node], leaf: Instruction => Node, make: Layer[Node] => Node): Node =
+  def spelled[C <: NativeSpecializer & Singleton, Node](
+      shape: Shape[C],
+      children: Vector[Node],
+      leaf: Configured[C] => Node,
+      make: Layer[Node] => Node
+  )(using NotTerm[Node]): Node =
     shape match
       case Name(instruction)                => leaf(instruction)
       case Node(_, NoinlineLeaf(instruction)) => leaf(instruction)
@@ -51,6 +58,23 @@ object Shape:
       case Judged(_, fallback) =>
         val Vector(value, criterion) = children: @unchecked
         DispatchPattern.spelled(Fallback(value, criterion, fallback.valueFirst), make)
+
+  /** The term the production's shape spells over its children's terms, in the order of `children`: a name or a leaf
+    * its instruction, a layer built over the children through the configuration (`NativeSpecializer.built`), and a
+    * dispatch pattern spelled as its term (`DispatchPattern.spelledTerm`), so that a term is never a layer's child that
+    * the IR's public constructors build.
+    */
+  def spelledTerm[C <: NativeSpecializer & Singleton](shape: Shape[C], children: Vector[Configured[C]])(using
+      specializer: C
+  ): Configured[C] =
+    shape match
+      case Name(instruction)                  => instruction
+      case Node(_, NoinlineLeaf(instruction)) => instruction
+      case Node(_, layer)                     => specializer.built(layer.over(children.indices.toVector))(children)
+      case Specialized(_, specialization)     => DispatchPattern.spelledTerm(partsOver(specialization, children))
+      case Judged(_, fallback) =>
+        val Vector(value, criterion) = children: @unchecked
+        DispatchPattern.spelledTerm(Fallback(value, criterion, fallback.valueFirst))
 
   /** The specialization with its parts replaced, in the order of `parts`,
     * by the nodes given.
@@ -68,9 +92,19 @@ object Shape:
         Specialization(function, argument, domain, SpecializationRange.Contracted(contract), specialization.untypedFirst)
 
 /** A production of a class: its number, in the order the productions were
-  * listed, the root of its class and its shape.
+  * listed, the root of its class and its shape; and, for an application,
+  * the criteria whose filter of its argument is a repelled class
+  * (`Extraction.productions` over a model), so that its function is read by
+  * no entry that is a contract of such a domain (`CostModel.contractDomain`):
+  * the call keeps the function's other entries, the specialization at that
+  * call being taken from the knowledge's repeller as at its typed version.
   */
-final case class Production(number: Int, root: Int, shape: Shape)
+final case class Production[C <: NativeSpecializer & Singleton](
+    number: Int,
+    root: Int,
+    shape: Shape[C],
+    repelledDomains: Set[Int] = Set.empty
+)
 
 /** An entry: a production's shape with an entry for each child, made before
   * it, and its cost, so that an entry spells a finite term.
@@ -93,14 +127,16 @@ final case class Production(number: Int, root: Int, shape: Shape)
   * (2026-11-14), as `gezi.frontend.Structural`'s hash once held
   * ParallelSetLawTest for two hours.
   */
-final case class Entry[Cost](cost: Cost, shape: Shape, childEntries: Vector[Entry[Cost]]):
+final case class Entry[C <: NativeSpecializer & Singleton, Cost](cost: Cost, shape: Shape[C], childEntries: Vector[Entry[C, Cost]]):
 
   /** The number of layers and names of the term the entry spells, a shared
     * child entry counted at each of its places; read from the children's,
     * which were made before the entry.
     */
   val size: BigInt =
-    Shape.spelled[BigInt](shape, childEntries.map(_.size), _ => BigInt(1), layer => layer.children.foldLeft(BigInt(1))(_ + _))
+    // The sizes of the children are numbers, no term: the layer made over them is counted, never built as a term.
+    given NotTerm[BigInt] = NotTerm.granted[BigInt]
+    Shape.spelled[C, BigInt](shape, childEntries.map(_.size), _ => BigInt(1), layer => layer.children.foldLeft(BigInt(1))(_ + _))
 
   /** The hash code, from the shape's and the child entries' held hash codes
     * (`Entry.entryHash`).
@@ -110,7 +146,7 @@ final case class Entry[Cost](cost: Cost, shape: Shape, childEntries: Vector[Entr
   override def hashCode: Int = heldHash
 
   override def equals(other: Any): Boolean = other match
-    case that: Entry[?] => Entry.allEqual(List(Entry.EntryPair(this, that)), Set.empty)
+    case that: Entry[?, ?] => Entry.allEqual(List(Entry.EntryPair(this, that)), Set.empty)
     case _              => false
 
 object Entry:
@@ -119,7 +155,7 @@ object Entry:
     * and not by their structure, so that a set of the pairs met costs a
     * lookup and no walk.
     */
-  private final class EntryPair(val left: Entry[?], val right: Entry[?]):
+  private final class EntryPair(val left: Entry[?, ?], val right: Entry[?, ?]):
     override def equals(other: Any): Boolean = other match
       case that: EntryPair => (left eq that.left) && (right eq that.right)
       case _               => false
@@ -156,7 +192,7 @@ object Entry:
   /** The hash of one entry: its shape's, the number of its child entries and
     * their held hash codes, in order.
     */
-  private def entryHash(shape: Shape, childEntries: Vector[Entry[?]]): Int =
+  private def entryHash(shape: Shape[?], childEntries: Vector[Entry[?, ?]]): Int =
     val mixed = childEntries.foldLeft(
       scala.util.hashing.MurmurHash3.mix(scala.util.hashing.MurmurHash3.mix(19, shape.##), childEntries.size)
     )((hash, child) => scala.util.hashing.MurmurHash3.mix(hash, child.heldHash))
@@ -192,12 +228,12 @@ object Entry:
   * CountedExtractionLawTest). A cost model that is monotone across all its
   * costs has one reading, the default.
   */
-trait CostModel[Cost]:
+trait CostModel[C <: NativeSpecializer & Singleton, Cost]:
 
   /** The cost of the production's shape over its children's costs, in the
     * order of `Shape.children`.
     */
-  def cost(shape: Shape, childCosts: Vector[Cost]): Cost
+  def cost(shape: Shape[C], childCosts: Vector[Cost]): Cost
 
   /** The order of costs, the lesser better. */
   def ordering: Ordering[Cost]
@@ -215,7 +251,7 @@ trait CostModel[Cost]:
     * each reading without listing the product
     * (`gezi.strategies.ThunkCandidates`).
     */
-  def candidates(shape: Shape, options: Vector[Vector[Entry[Cost]]]): Vector[Entry[Cost]] =
+  def candidates(shape: Shape[C], options: Vector[Vector[Entry[C, Cost]]]): Vector[Entry[C, Cost]] =
     CostModel.combinations(options).map(entries => Entry(cost(shape, entries.map(_.cost)), shape, entries))
 
   /** Whether the production's cost reads each child's cost beyond its
@@ -225,7 +261,7 @@ trait CostModel[Cost]:
     * that wrongly calls a child priced makes the extraction's last pass fail
     * to settle, and a default would say so silently).
     */
-  def pricedChildren(shape: Shape): Vector[Boolean]
+  def pricedChildren(shape: Shape[C]): Vector[Boolean]
 
   /** The children whose cost the production drops under these children's
     * readings, in the order of `Shape.children`: the cost reads only their
@@ -235,13 +271,53 @@ trait CostModel[Cost]:
     * positions, on which the least tree's settling in `CountedExtraction`
     * rests. Nothing by default.
     */
-  def droppedChildren(shape: Shape, childCosts: Vector[Cost]): Vector[Boolean] = shape.children.map(_ => false)
+  def droppedChildren(shape: Shape[C], childCosts: Vector[Cost]): Vector[Boolean] = shape.children.map(_ => false)
 
   /** The children `droppedChildren` may drop under some readings: the
     * extraction's last pass offers their classes' least entries there as
     * well. Nothing by default.
     */
-  def mayDropChildren(shape: Shape): Vector[Boolean] = shape.children.map(_ => false)
+  def mayDropChildren(shape: Shape[C]): Vector[Boolean] = shape.children.map(_ => false)
+
+  /** The children the model's `candidates` settle to their first entry by
+    * size, then content, when each child is given as many entries as
+    * `entryCounts` says, in the order of `Shape.children`, each of more than
+    * one entry: those it lists jointly but, above a bound on the product of
+    * their numbers of entries, does not enumerate, and those it gives their
+    * first entry at any numbers, as a thunk's fillings its code does not read,
+    * whose states a module's fold of the thunk may still read
+    * (`gezi.strategies.ThunkCandidates`, `gezi.strategies.CodeFold.Closing`). A function of
+    * the shape and the counts alone, and monotone in the counts: a child
+    * settled at some numbers of entries is settled at any numbers at least
+    * as large, position by position. A production some of whose children
+    * may be dropped (`mayDropChildren`) settles none: the extraction's last
+    * pass offers two lists of entries there, so the numbers its candidates
+    * see are not its classes'. `CountedExtraction` reads it at the
+    * numbers of entries its first run ends with, and runs its passes again
+    * with such a production read once per combination of its children's
+    * readings found in the trees that run kept, so that every pass settles
+    * alike. None by default: a model that enumerates every combination
+    * settles nothing, and its extraction runs once.
+    */
+  def settledChildren(shape: Shape[C], entryCounts: Vector[Int]): Vector[Boolean] = shape.children.map(_ => false)
+
+  /** The production spells a repeller: a class that holds an application of
+    * a class with such a production has no entry, and no production reads
+    * through it (`Extraction.productions` over the model). A model reads it
+    * off a combinator property of the library term the production names,
+    * never off a type. None by default.
+    */
+  def repeller(shape: Shape[C]): Boolean = false
+
+  /** The domain's class an entry of this cost checks its next argument by
+    * when its spelling is a contract, or a contract applied to some of its
+    * arguments (`gezi.ir.DispatchPattern.contractChecks`), so that a call
+    * whose argument's filter by that domain is repelled reads the function
+    * by its other entries (`Production.repelledDomains`); none by default. A
+    * model that gives domains keeps a contract's entries apart from the
+    * class's other entries in its readings (`sameReading`).
+    */
+  def contractDomain(cost: Cost): Option[Int] = None
 
   /** The production's entries over the entries each child is read by: for
     * every reading some combination of the options has, the combination of
@@ -250,7 +326,7 @@ trait CostModel[Cost]:
     * whose productions have many children of several readings finds them
     * without listing the product (`gezi.strategies.ThunkCandidates`).
     */
-  def leastCandidates(shape: Shape, options: Vector[Vector[Entry[Cost]]]): Vector[Entry[Cost]] =
+  def leastCandidates(shape: Shape[C], options: Vector[Vector[Entry[C, Cost]]]): Vector[Entry[C, Cost]] =
     CostModel.leastOfEachReading(
       this,
       CostModel.combinations(options).map(entries => Entry(cost(shape, entries.map(_.cost)), shape, entries))
@@ -275,22 +351,22 @@ trait CostModel[Cost]:
   def emptyMemo: Memo
 
   /** `candidates`, given the memo so far, with the memo after the call. */
-  def memoizedCandidates(shape: Shape, options: Vector[Vector[Entry[Cost]]], memo: Memo): (Vector[Entry[Cost]], Memo)
+  def memoizedCandidates(shape: Shape[C], options: Vector[Vector[Entry[C, Cost]]], memo: Memo): (Vector[Entry[C, Cost]], Memo)
 
   /** `leastCandidates`, given the memo so far, with the memo after the
     * call.
     */
-  def memoizedLeastCandidates(shape: Shape, options: Vector[Vector[Entry[Cost]]], memo: Memo): (Vector[Entry[Cost]], Memo)
+  def memoizedLeastCandidates(shape: Shape[C], options: Vector[Vector[Entry[C, Cost]]], memo: Memo): (Vector[Entry[C, Cost]], Memo)
 
 /** A cost model that remembers nothing between calls: its memo is `Unit`,
   * and its memoized calls are `candidates` and `leastCandidates`.
   */
-trait StatelessCostModel[Cost] extends CostModel[Cost]:
+trait StatelessCostModel[C <: NativeSpecializer & Singleton, Cost] extends CostModel[C, Cost]:
   final type Memo = Unit
   final def emptyMemo: Unit = ()
-  final def memoizedCandidates(shape: Shape, options: Vector[Vector[Entry[Cost]]], memo: Unit): (Vector[Entry[Cost]], Unit) =
+  final def memoizedCandidates(shape: Shape[C], options: Vector[Vector[Entry[C, Cost]]], memo: Unit): (Vector[Entry[C, Cost]], Unit) =
     (candidates(shape, options), memo)
-  final def memoizedLeastCandidates(shape: Shape, options: Vector[Vector[Entry[Cost]]], memo: Unit): (Vector[Entry[Cost]], Unit) =
+  final def memoizedLeastCandidates(shape: Shape[C], options: Vector[Vector[Entry[C, Cost]]], memo: Unit): (Vector[Entry[C, Cost]], Unit) =
     (leastCandidates(shape, options), memo)
 
 object CostModel:
@@ -299,7 +375,7 @@ object CostModel:
     * its shape prices (`pricedChildren`) and these children's readings do
     * not drop (`droppedChildren`).
     */
-  def pricedUnder[Cost](model: CostModel[Cost], shape: Shape, childCosts: Vector[Cost]): Vector[Boolean] =
+  def pricedUnder[C <: NativeSpecializer & Singleton, Cost](model: CostModel[C, Cost], shape: Shape[C], childCosts: Vector[Cost]): Vector[Boolean] =
     // A production none of whose children its readings may drop is priced
     // as its shape says, its children's readings not read: the cost reads
     // priced positions on every call.
@@ -309,8 +385,8 @@ object CostModel:
   /** The entries least by `ContentOrder` of each reading, in the order the
     * readings first occur.
     */
-  def leastOfEachReading[Cost](model: CostModel[Cost], entries: Vector[Entry[Cost]]): Vector[Entry[Cost]] =
-    entries.foldLeft(Vector.empty[Entry[Cost]]) { (kept, entry) =>
+  def leastOfEachReading[C <: NativeSpecializer & Singleton, Cost](model: CostModel[C, Cost], entries: Vector[Entry[C, Cost]]): Vector[Entry[C, Cost]] =
+    entries.foldLeft(Vector.empty[Entry[C, Cost]]) { (kept, entry) =>
       kept.indexWhere(other => model.sameReading(other.cost, entry.cost)) match
         case -1 => kept :+ entry
         case position =>
@@ -340,32 +416,32 @@ object CostModel:
   * (`ContentOrder`); and the numbers of the productions that read the class,
   * in order.
   */
-final case class ClassEntries[Cost](
-    entries: Vector[Entry[Cost]],
-    looplessEntries: Vector[Entry[Cost]],
-    best: Option[Entry[Cost]],
-    bestLoopless: Option[Entry[Cost]],
+final case class ClassEntries[C <: NativeSpecializer & Singleton, Cost](
+    entries: Vector[Entry[C, Cost]],
+    looplessEntries: Vector[Entry[C, Cost]],
+    best: Option[Entry[C, Cost]],
+    bestLoopless: Option[Entry[C, Cost]],
     readers: Vector[Int]
 )
 
 object ClassEntries:
 
   /** The data of a class with no entry yet. */
-  def unentered[Cost](readers: Vector[Int]): ClassEntries[Cost] =
+  def unentered[C <: NativeSpecializer & Singleton, Cost](readers: Vector[Int]): ClassEntries[C, Cost] =
     ClassEntries(Vector.empty, Vector.empty, None, None, readers)
 
 /** The fixed point of an extraction: the entries of every class that has
   * one, by the root of the class, and the cost model whose readings the
   * entries are kept by.
   */
-final case class Extracted[Cost](classes: Map[Int, ClassEntries[Cost]], model: CostModel[Cost]):
+final case class Extracted[C <: NativeSpecializer & Singleton, Cost](classes: Map[Int, ClassEntries[C, Cost]], model: CostModel[C, Cost]):
 
   /** The class's final entry of the entry's reading, of a production that
     * does not read the class when `loopless`. Throws
     * `IllegalArgumentException` when the class has none: a class keeps an
     * entry of every reading it was ever entered with.
     */
-  def entryOfReading(root: Int, entry: Entry[Cost], loopless: Boolean): Entry[Cost] =
+  def entryOfReading(root: Int, entry: Entry[C, Cost], loopless: Boolean): Entry[C, Cost] =
     val kept = classes.get(root).map(entries => if loopless then entries.looplessEntries else entries.entries)
     kept
       .flatMap(_.find(candidate => model.sameReading(candidate.cost, entry.cost)))
@@ -377,7 +453,7 @@ final case class Extracted[Cost](classes: Map[Int, ClassEntries[Cost]], model: C
   /** The best entry of the class. Throws `IllegalArgumentException` for a
     * class with none.
     */
-  def best(root: Int): Entry[Cost] =
+  def best(root: Int): Entry[C, Cost] =
     classes
       .get(root)
       .flatMap(_.best)
@@ -416,19 +492,83 @@ object Extraction:
 
   /** The productions of the graph, the names given, and the readers of each
     * class: the productions with it as a child, in order, a production with
-    * a class as two children listed twice.
+    * a class as two children listed twice. No class is repelled.
     */
-  def productions(graph: EGraph, names: Set[Instruction]): (Vector[Production], Map[Int, Vector[Int]]) =
-    val readNodes = graph.liveNodes.filterNot(live => absorbedChoice(graph, live.root, live.layer))
-    val readings = choiceOperandReadings(graph, readNodes.map(_.layer))
-    val nodeShapes = readNodes
-      .flatMap(live => (Shape.Node(live.node, live.layer) +: dispatchShapes(live.node, live.layer, readings)).map((live.root, _)))
-    val nameShapes = graph.instructionFilings.collect {
+  def productions[C <: NativeSpecializer & Singleton](graph: EGraph[C], names: Set[Configured[C]])(using C): (Vector[Production[C]], Map[Int, Vector[Int]]) =
+    productionsOutside(graph, names, _ => Set.empty)
+
+  /** The productions of the graph and the names given, as `productions`
+    * lists them, but none of a class the model repels
+    * (`repelledClasses`), and the readers of each class. A repelled class
+    * also reads as no layer to the dispatch patterns
+    * (`choiceOperandReadings`), so that no specialization or judgment is
+    * read through it: such a pattern reads the classes of its parts' layers,
+    * a typed member's filter among them, which are not its children. So the
+    * class has no entry, nor has any production that reads it as a child or
+    * through a pattern.
+    */
+  def productions[C <: NativeSpecializer & Singleton](graph: EGraph[C], names: Set[Configured[C]], model: CostModel[C, ?])(using C): (Vector[Production[C]], Map[Int, Vector[Int]]) =
+    productionsOutside(graph, names, shapes => repelledClasses(model, shapes))
+
+  /** The classes the model repels: each that holds an application whose
+    * function's class holds a repeller (`CostModel.repeller`), among the
+    * live nodes and names read, each with the root of its class.
+    */
+  private def repelledClasses[C <: NativeSpecializer & Singleton](model: CostModel[C, ?], shapes: Vector[(Int, Shape[C])]): Set[Int] =
+    val repellers = shapes.collect { case (root, shape) if model.repeller(shape) => root }.toSet
+    if repellers.isEmpty then Set.empty
+    else shapes.collect { case (root, Shape.Node(_, Apply(function, _))) if repellers.contains(function) => root }.toSet
+
+  /** The productions of `productions`, none of a class in the set `repelled`
+    * gives over the live nodes and the names, each with the root of its
+    * class.
+    */
+  private def productionsOutside[C <: NativeSpecializer & Singleton](
+      graph: EGraph[C],
+      names: Set[Configured[C]],
+      repelled: Vector[(Int, Shape[C])] => Set[Int]
+  )(using C): (Vector[Production[C]], Map[Int, Vector[Int]]) =
+    // A storage leaf's pattern view (`EGraph.patternViews`) is no production:
+    // its class always holds the leaf, and it spells the leaf filtered again.
+    val liveNodes = graph.liveNodes.filterNot(live => graph.patternViews.contains(live.node))
+    // Each class a choice could be absorbed by is read once, so that the
+    // filter costs the graph's size, not the choices times their classes.
+    val absorbingParallels = liveNodes
+      .flatMap(live => absorbingOperand(live.root, live.layer))
+      .distinct
+      .map(other => other -> parallelOperands(graph, other))
+      .toMap
+    val liveRead = liveNodes.filterNot(live =>
+      absorbingOperand(live.root, live.layer).exists(other => absorbingParallels(other).contains(live.root))
+    )
+    val namesRead = graph.instructionFilings.collect {
       case (instruction, node) if names.contains(instruction) && graph.live(node) =>
         (graph.root(node), Shape.Name(instruction))
     }
+    val repelledRoots = repelled(liveRead.map(live => (live.root, Shape.Node(live.node, live.layer))) ++ namesRead)
+    val readNodes = liveRead.filterNot(live => repelledRoots.contains(live.root))
+    val readings = choiceOperandReadings(graph, readNodes.map(_.layer), repelledRoots)
+    val nodeShapes = readNodes
+      .flatMap(live => (Shape.Node(live.node, live.layer) +: dispatchShapes(live.node, live.layer, readings)).map((live.root, _)))
+    val nameShapes = namesRead.filterNot((root, _) => repelledRoots.contains(root))
+    // The filters a repelled class holds, each value with the criteria it is
+    // filtered by there.
+    val repelledFilters = liveRead
+      .collect { case live if repelledRoots.contains(live.root) => live.layer }
+      .collect { case Parallel(value, criterion) => (value, criterion) }
+      .groupMap(_._1)(_._2)
+      .view
+      .mapValues(_.toSet)
+      .toMap
     val listed = (nodeShapes ++ nameShapes).zipWithIndex.map { case ((root, shape), number) =>
-      Production(number, root, shape)
+      shape match
+        case Shape.Node(_, Apply(_, argument)) =>
+          Production(number, root, shape, repelledFilters.getOrElse(argument, Set.empty))
+        // A specialization's function is its first child too, applied to
+        // its argument in both members.
+        case Shape.Specialized(_, specialization) =>
+          Production(number, root, shape, repelledFilters.getOrElse(specialization.argument, Set.empty))
+        case _ => Production(number, root, shape)
     }
     val readers = listed.foldLeft(Map.empty[Int, Vector[Int]]) { (filed, production) =>
       production.shape.children.foldLeft(filed)((current, child) =>
@@ -442,7 +582,11 @@ object Extraction:
     * and then its judgments (`DispatchPattern`), a class read as the layers
     * of its live members (`choiceOperandReadings`).
     */
-  def dispatchShapes(node: Int, layer: Layer[Int], readings: Int => DispatchPattern.Reading[Int]): Vector[Shape] = layer match
+  def dispatchShapes[C <: NativeSpecializer & Singleton](
+      node: Int,
+      layer: LayerWith[Int, Configured[C]],
+      readings: Int => DispatchPattern.Reading[Int]
+  ): Vector[Shape[C]] = layer match
     case Choice(left, right) =>
       val (leftReading, rightReading) = (readings(left), readings(right))
       DispatchPattern
@@ -475,11 +619,19 @@ object Extraction:
     * A class looked up may have no live member, its nodes all duplicates
     * whose union with their twins' classes waits on the agenda
     * (`AnalysisSlot.computed`), and is read as no layer, as `classMembers`
-    * reads it.
+    * reads it; so is a class in `repelled`.
     */
-  private def choiceOperandReadings(graph: EGraph, readLayers: Vector[Layer[Int]]): Map[Int, DispatchPattern.Reading[Int]] =
-    def layersOf(roots: Vector[Int], known: Map[Int, Vector[Layer[Int]]]): Map[Int, Vector[Layer[Int]]] =
-      roots.distinct.filterNot(known.contains).foldLeft(known)((read, root) => read.updated(root, graph.classMembers(root).map(_.layer)))
+  private def choiceOperandReadings[C <: NativeSpecializer & Singleton](
+      graph: EGraph[C],
+      readLayers: Vector[LayerWith[Int, Configured[C]]],
+      repelled: Set[Int]
+  ): Map[Int, DispatchPattern.Reading[Int]] =
+    def layersOf(roots: Vector[Int], known: Map[Int, Vector[LayerWith[Int, Configured[C]]]]): Map[Int, Vector[LayerWith[Int, Configured[C]]]] =
+      roots.distinct
+        .filterNot(known.contains)
+        .foldLeft(known)((read, root) =>
+          read.updated(root, if repelled.contains(root) then Vector.empty else graph.classMembers(root).map(_.layer))
+        )
     val operands = readLayers.flatMap {
       case Choice(left, right) => Vector(left, right)
       case _                         => Vector.empty
@@ -501,17 +653,25 @@ object Extraction:
     * two members spelled no longer one `s` (the baseline's
     * `absorbed_choice/3`).
     */
-  def absorbedChoice(graph: EGraph, root: Int, layer: Layer[Int]): Boolean = layer match
-    case Choice(first, second) =>
-      val absorbing = if first == root then Some(second) else if second == root then Some(first) else None
-      absorbing.exists(other =>
-        graph.classMembers(other).exists(member =>
-          member.layer match
-            case Parallel(left, _) => left == root
-            case _                       => false
-        )
-      )
-    case _ => false
+  def absorbedChoice[C <: NativeSpecializer & Singleton](graph: EGraph[C], root: Int, layer: LayerWith[Int, Configured[C]]): Boolean =
+    absorbingOperand(root, layer).exists(other => parallelOperands(graph, other).contains(root))
+
+  /** The other member of a choice of the class `root` with the class itself,
+    * the class that could absorb it, none for any other layer.
+    */
+  private def absorbingOperand[C <: NativeSpecializer & Singleton](root: Int, layer: LayerWith[Int, Configured[C]]): Option[Int] = layer match
+    case Choice(first, second) => if first == root then Some(second) else if second == root then Some(first) else None
+    case _                     => None
+
+  /** The roots of the classes `s` the class holds a parallel `s ∥ t` over:
+    * its parallel members' left operands, read from its parallels alone.
+    */
+  private def parallelOperands[C <: NativeSpecializer & Singleton](graph: EGraph[C], node: Int): Set[Int] =
+    graph
+      .members(graph.root(node), MemberShape.Parallel)
+      .map(member => graph.layer(member))
+      .collect { case Parallel(left, _) => graph.root(left) }
+      .toSet
 
   // TODO: the fixed
   // point of the extraction is computed by `CountedExtraction.fixed`, a
@@ -535,31 +695,31 @@ object Extraction:
     * one `Spelled`. Throws `IllegalArgumentException` for a class with no
     * entry.
     */
-  def spelled[Cost, Spelling, Accumulator](
-      extracted: Extracted[Cost],
+  def spelled[C <: NativeSpecializer & Singleton, Cost, Spelling, Accumulator](
+      extracted: Extracted[C, Cost],
       root: Int,
       state: Spelled[Spelling, Accumulator]
-  )(spell: (Accumulator, Shape, Vector[Spelling]) => (Accumulator, Spelling)): (Spelled[Spelling, Accumulator], Spelling) =
+  )(spell: (Accumulator, Shape[C], Vector[Spelling]) => (Accumulator, Spelling)): (Spelled[Spelling, Accumulator], Spelling) =
     require(extracted.hasEntry(root), s"the class $root has no entry")
     Speller(extracted, spell).classSpelled(root, extracted.best(root), Set.empty, state).result
 
   /** The walks of one spelling, trampolined: a spelling is as deep as the
     * term it spells.
     */
-  private final case class Speller[Cost, Spelled0, Accumulator](
-      extracted: Extracted[Cost],
-      spell: (Accumulator, Shape, Vector[Spelled0]) => (Accumulator, Spelled0)
+  private final case class Speller[C <: NativeSpecializer & Singleton, Cost, Spelled0, Accumulator](
+      extracted: Extracted[C, Cost],
+      spell: (Accumulator, Shape[C], Vector[Spelled0]) => (Accumulator, Spelled0)
   ):
     type State = Spelled[Spelled0, Accumulator]
 
     /** The class and the position of its final entry of the reading of the
       * entry given, the key of the memo and of the stack.
       */
-    private def readingKey(classId: Int, entry: Entry[Cost]): (Int, Int) =
+    private def readingKey(classId: Int, entry: Entry[C, Cost]): (Int, Int) =
       val finalEntry = extracted.entryOfReading(classId, entry, loopless = false)
       (classId, extracted.classes(classId).entries.indexWhere(_ eq finalEntry))
 
-    def classSpelled(classId: Int, reading: Entry[Cost], stack: Set[(Int, Int)], state: State): TailRec[(State, Spelled0)] =
+    def classSpelled(classId: Int, reading: Entry[C, Cost], stack: Set[(Int, Int)], state: State): TailRec[(State, Spelled0)] =
       val key = readingKey(classId, reading)
       state.kept.get(key) match
         case Some(kept) => done((state, kept))
@@ -570,7 +730,7 @@ object Extraction:
           }
 
     def entryRespelled(
-        entry: Entry[Cost],
+        entry: Entry[C, Cost],
         classId: Int,
         stack: Set[(Int, Int)],
         state: State
@@ -582,7 +742,7 @@ object Extraction:
         else tailcall(classSpelled(child, childEntry, stack, current))
       )
 
-    def entryFreshened(entry: Entry[Cost], stack: Set[(Int, Int)], state: State): TailRec[(State, Spelled0)] =
+    def entryFreshened(entry: Entry[C, Cost], stack: Set[(Int, Int)], state: State): TailRec[(State, Spelled0)] =
       childrenSpelled(entry, state)((child, childEntry, current) =>
         if stack.contains(readingKey(child, childEntry)) then tailcall(entryFreshened(childEntry, stack, current))
         else tailcall(classSpelled(child, childEntry, stack, current))
@@ -591,11 +751,11 @@ object Extraction:
     /** The entry's shape spelled over its children, each spelled by
       * `child` from its class and the child entry the entry names.
       */
-    private def childrenSpelled(entry: Entry[Cost], state: State)(
-        child: (Int, Entry[Cost], State) => TailRec[(State, Spelled0)]
+    private def childrenSpelled(entry: Entry[C, Cost], state: State)(
+        child: (Int, Entry[C, Cost], State) => TailRec[(State, Spelled0)]
     ): TailRec[(State, Spelled0)] =
       val pairs = entry.shape.children.zip(entry.childEntries).toList
-      def loop(rest: List[(Int, Entry[Cost])], current: State, spellings: Vector[Spelled0]): TailRec[(State, Spelled0)] =
+      def loop(rest: List[(Int, Entry[C, Cost])], current: State, spellings: Vector[Spelled0]): TailRec[(State, Spelled0)] =
         rest match
           case Nil =>
             val (accumulator, spelling) = spell(current.accumulator, entry.shape, spellings)

@@ -40,23 +40,29 @@
 # hindley_milner_unions' were (the paper proofs their declarations cite).
 #
 # A class can be a candidate for a representation its values are not: a
-# program's own data that coincide with the library's in the layer read
-# here, a hand-written Either whose right has successor's body while its
-# left has a field, or a Maybe whose payload is no natural, which the
-# field's candidacy reaches. The typed versions filter such values by
-# nat_type, and each one's fallback point reads the value's heads once and
-# takes the untyped path, decoding nothing (lambda_jit_jit, A FALLBACK
-# POINT; measured 2026-10-29). Telling the other alternative apart would
-# need a closed-world step, which this module does not take. A dispatch strategy that rejects, which the
-# baseline does not offer, throws on the same values
-# (lambda_jit_baseline_dispatch_strategies).
+# candidacy pushed into a field from an enclosing structure, the naturals'
+# field or a list cell's head and tail, as in a Maybe whose payload is no
+# natural; or a program's own data that coincide with the library's in the
+# layer a candidacy reads, a hand-written Either whose right has successor's
+# body while its left has a field. Where the class's own type refutes the
+# candidacy (the refutation lemmas below), each filter of a typed version by
+# r over the class is under the repeller $repelled, so that the extraction
+# keeps the untyped version at that call and the typed one wherever the
+# candidacy holds. A refuted candidacy says that the values have no native
+# representation of r, not that the program has no type: under recursive
+# types such a program has one, and missing a native representation only
+# slows a program down. A typed version that stays filters its values by
+# r, and each one's fallback point reads the value's heads once and takes
+# the untyped path, decoding nothing (lambda_jit_jit, A FALLBACK POINT;
+# measured 2026-10-29); a dispatch strategy that rejects throws on such a
+# value (lambda_jit_baseline_dispatch_strategies).
 λ export
 . (λtuple. tuple λmixin. mixin mixin)
 λ omega
 . omega (omega (omega (omega corpora "library") "hindley_milner_unions") "shapes")
 λ structure alternative no_alternative field no_field _
 . omega (omega (omega (omega corpora "library") "prolog_backend_shapes") "prolog_backend_shapes")
-λ candidate contract_at domain_candidate function_candidate item_candidate list_item_candidate
+λ candidate contract_at domain_candidate function_candidate item_candidate list_item_candidate refuted
 . omega (omega (omega (omega corpora "library") "native_types") "natural")
 λ _ _ _ nat_type
 . omega (omega (omega (omega corpora "library") "native_types") "boolean")
@@ -67,12 +73,15 @@
 λ _ _ _ list_type
 . omega (omega (omega (omega corpora "library") "hindley_milner_unions") "types")
 λ function_type _ _ _ _
+. omega (omega (omega (omega corpora "library") "native_types") "markers")
+λ _ _ _ _ $repelled
 . export
   ( λ _ rewriting _ _
     . rewriting
     λ _ _ leaves
     . leaves
-      ( λk. k contract_at
+      ( λk. k refuted
+      + λk. k contract_at
       + λk. k function_candidate
       + λk. k domain_candidate
       + λk. k list_item_candidate
@@ -151,6 +160,61 @@
           (λx_0 x_1 x_2 x_3 x_4. (x_0 (x_4 ∥ x_1) ∥ x_2 + x_0 x_4))
         λ _ md _
         . md λk. k "[function_contract](docs/design/gezi-hindley-milner-unions-proofs.md#function_contract)"
+      # ---- the repeller of a typed version whose candidacy is refuted ----
+      #
+      # A filter x ∥ r whose operand's type is refuted for r is x ∥ r under
+      # the marker $repelled, the identity, so that the extraction spells no
+      # typed version through it, nor a call of a contract of that domain on
+      # x: the specialization at each call keeps the untyped version where
+      # the candidacy fails and the typed one where it holds. The class of
+      # the operand's type holds refuted r t (the paper proof repelled).
+      + λ s
+        . s
+          (λk. k "shapes_filter_repelled")
+          (λx_0 x_1 x_2. (x_0 ∥ refuted x_1 x_2 + x_0 ∥ x_1))
+          (λx_0 x_1 x_2. $repelled λ. (x_0 ∥ refuted x_1 x_2 + x_0 ∥ x_1))
+        λ _ md _
+        . md λk. k "[repelled](docs/design/gezi-hindley-milner-unions-proofs.md#repelled)"
+      # The range's filter likewise: a typed version f (x ∥ r) ∥ s whose
+      # function's type has a range refuted for s, the type of f x, is under
+      # $repelled, so that the call keeps f x where its result is no value of
+      # s; read off f's type, since f (x ∥ r) is a class of its own, whose
+      # type is not f x's.
+      + λ s
+        . s
+          (λk. k "shapes_range_repelled")
+          (λx_0 x_1 x_2 x_3 x_4 x_5. ((x_0 ∥ function_type x_5 (refuted x_3 x_4) + x_0) (x_1 ∥ x_2) ∥ x_3))
+          (λx_0 x_1 x_2 x_3 x_4 x_5. $repelled λ. ((x_0 ∥ function_type x_5 (refuted x_3 x_4) + x_0) (x_1 ∥ x_2) ∥ x_3))
+        λ _ md _
+        . md λk. k "[repelled](docs/design/gezi-hindley-milner-unions-proofs.md#repelled)"
+      # A call that fills the tail of a cell refuted for the lists of r, its
+      # argument the cell's tail field (the function's domain is the type of
+      # that field), filters the argument by the lists of r under $repelled:
+      # the cell is no list of r, so the filter would only pair a tail of
+      # the lists of r with a range of another representation, a typed
+      # version whose check of the range cannot hold at the cell. Read by
+      # structure, the domain met again in the field.
+      + λ s
+        . s
+          (λk. k "shapes_list_tail_domain_repelled")
+          ( λ x_0 x_1 x_2 x_3 x_4 x_5
+            . ( x_0
+              ∥ function_type x_3 (refuted (list_type x_2) λ. structure λ. alternative x_4 λ. alternative (field x_5 λ. field x_3 no_field) no_alternative)
+              + x_0
+              )
+              (x_1 ∥ list_type x_2)
+          )
+          ( λ x_0 x_1 x_2 x_3 x_4 x_5
+            . $repelled
+            λ
+            . ( x_0
+              ∥ function_type x_3 (refuted (list_type x_2) λ. structure λ. alternative x_4 λ. alternative (field x_5 λ. field x_3 no_field) no_alternative)
+              + x_0
+              )
+              (x_1 ∥ list_type x_2)
+          )
+        λ _ md _
+        . md λk. k "[repelled](docs/design/gezi-hindley-milner-unions-proofs.md#repelled)"
       # ---- typed versions where the markers are ----
       #
       # An application of a function whose class of types holds a marker has
@@ -205,6 +269,220 @@
           (λk. k "shapes_unify_candidate_left")
           (λx_0 x_1 x_2. unify (candidate x_0 x_1) x_2)
           (λx_0 x_1 x_2. candidate x_0 x_1) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      + λ s
+        . s
+          (λk. k "shapes_unify_refuted_right")
+          (λx_0 x_1 x_2. unify x_1 λ. refuted x_0 x_2)
+          (λx_0 x_1 x_2. refuted x_0 x_2) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      + λ s
+        . s
+          (λk. k "shapes_unify_refuted_left")
+          (λx_0 x_1 x_2. unify (refuted x_0 x_1) x_2)
+          (λx_0 x_1 x_2. refuted x_0 x_1) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      # ---- refutation: a candidacy its own type contradicts ----
+      #
+      # A candidate class is REFUTED for a representation when its type cannot
+      # be the representation's: one layer of its own structure differs from
+      # the representation's shape (a few lemmas for each representation, of
+      # the shapes the candidacy lemmas name), it holds a function type, or a
+      # field the shape names is refuted in turn (the naturals' field, a list
+      # cell's head or tail). Refutation is a least fixed point read bottom up,
+      # so a candidate that no layer contradicts, a cycle through such layers
+      # included, is never refuted: "a candidate not refuted" is the greatest
+      # fixed point of one layer's shapes, the membership a recursive type and
+      # an infinite datum's type need. A mismatch is written for a candidate
+      # only, as the unify node of the candidacy and the refutation beside the
+      # candidacy, so that neither side is matched to write a candidacy; the
+      # head of a list cell refutes the cell only where the cell is a
+      # candidate for the lists of that representation, so that a clash that
+      # makes a structure its own head cannot nest list_type without end (see
+      # the item candidacy below). Every lemma here only adds.
+      + λ s
+        . s
+          (λk. k "shapes_natural_refuted_no_field")
+          (λx_0 x_1. candidate nat_type λ. structure λ. alternative x_0 λ. alternative no_field x_1)
+          ( λ x_0 x_1
+            . ( unify (candidate nat_type λ. structure λ. alternative x_0 λ. alternative no_field x_1)
+                λ
+                . refuted nat_type λ. structure λ. alternative x_0 λ. alternative no_field x_1
+              + candidate nat_type λ. structure λ. alternative x_0 λ. alternative no_field x_1
+              )
+          ) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      + λ s
+        . s
+          (λk. k "shapes_natural_refuted_fields")
+          ( λ x_0 x_1 x_2 x_3 x_4
+            . candidate nat_type λ. structure λ. alternative x_0 λ. alternative (field x_1 λ. field x_2 x_3) x_4
+          )
+          ( λ x_0 x_1 x_2 x_3 x_4
+            . ( unify (candidate nat_type λ. structure λ. alternative x_0 λ. alternative (field x_1 λ. field x_2 x_3) x_4)
+                λ
+                . refuted nat_type λ. structure λ. alternative x_0 λ. alternative (field x_1 λ. field x_2 x_3) x_4
+              + candidate nat_type λ. structure λ. alternative x_0 λ. alternative (field x_1 λ. field x_2 x_3) x_4
+              )
+          ) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      + λ s
+        . s
+          (λk. k "shapes_natural_refuted_alternatives")
+          ( λ x_0 x_1 x_2 x_3
+            . candidate nat_type λ. structure λ. alternative x_0 λ. alternative x_1 λ. alternative x_2 x_3
+          )
+          ( λ x_0 x_1 x_2 x_3
+            . ( unify (candidate nat_type λ. structure λ. alternative x_0 λ. alternative x_1 λ. alternative x_2 x_3)
+                λ
+                . refuted nat_type λ. structure λ. alternative x_0 λ. alternative x_1 λ. alternative x_2 x_3
+              + candidate nat_type λ. structure λ. alternative x_0 λ. alternative x_1 λ. alternative x_2 x_3
+              )
+          ) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      + λ s
+        . s
+          (λk. k "shapes_natural_refuted_first_field")
+          (λx_0 x_1 x_2. candidate nat_type λ. structure λ. alternative (field x_0 x_1) x_2)
+          ( λ x_0 x_1 x_2
+            . ( unify (candidate nat_type λ. structure λ. alternative (field x_0 x_1) x_2)
+                λ
+                . refuted nat_type λ. structure λ. alternative (field x_0 x_1) x_2
+              + candidate nat_type λ. structure λ. alternative (field x_0 x_1) x_2
+              )
+          ) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      + λ s
+        . s
+          (λk. k "shapes_boolean_refuted_field")
+          ( λ x_0 x_1 x_2 x_3
+            . candidate boolean_type λ. structure λ. alternative x_0 λ. alternative (field x_1 x_2) x_3
+          )
+          ( λ x_0 x_1 x_2 x_3
+            . ( unify (candidate boolean_type λ. structure λ. alternative x_0 λ. alternative (field x_1 x_2) x_3)
+                λ
+                . refuted boolean_type λ. structure λ. alternative x_0 λ. alternative (field x_1 x_2) x_3
+              + candidate boolean_type λ. structure λ. alternative x_0 λ. alternative (field x_1 x_2) x_3
+              )
+          ) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      + λ s
+        . s
+          (λk. k "shapes_boolean_refuted_alternatives")
+          ( λ x_0 x_1 x_2 x_3
+            . candidate boolean_type λ. structure λ. alternative x_0 λ. alternative x_1 λ. alternative x_2 x_3
+          )
+          ( λ x_0 x_1 x_2 x_3
+            . ( unify (candidate boolean_type λ. structure λ. alternative x_0 λ. alternative x_1 λ. alternative x_2 x_3)
+                λ
+                . refuted boolean_type λ. structure λ. alternative x_0 λ. alternative x_1 λ. alternative x_2 x_3
+              + candidate boolean_type λ. structure λ. alternative x_0 λ. alternative x_1 λ. alternative x_2 x_3
+              )
+          ) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      + λ s
+        . s
+          (λk. k "shapes_boolean_refuted_first_field")
+          (λx_0 x_1 x_2. candidate boolean_type λ. structure λ. alternative (field x_0 x_1) x_2)
+          ( λ x_0 x_1 x_2
+            . ( unify (candidate boolean_type λ. structure λ. alternative (field x_0 x_1) x_2)
+                λ
+                . refuted boolean_type λ. structure λ. alternative (field x_0 x_1) x_2
+              + candidate boolean_type λ. structure λ. alternative (field x_0 x_1) x_2
+              )
+          ) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      + λ s
+        . s
+          (λk. k "shapes_list_refuted_no_field")
+          (λx_0 x_1 x_2. candidate (list_type x_0) λ. structure λ. alternative x_1 λ. alternative no_field x_2)
+          ( λ x_0 x_1 x_2
+            . ( unify (candidate (list_type x_0) λ. structure λ. alternative x_1 λ. alternative no_field x_2)
+                λ
+                . refuted (list_type x_0) λ. structure λ. alternative x_1 λ. alternative no_field x_2
+              + candidate (list_type x_0) λ. structure λ. alternative x_1 λ. alternative no_field x_2
+              )
+          ) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      + λ s
+        . s
+          (λk. k "shapes_list_refuted_one_field")
+          ( λ x_0 x_1 x_2 x_3
+            . candidate (list_type x_0) λ. structure λ. alternative x_1 λ. alternative (field x_2 no_field) x_3
+          )
+          ( λ x_0 x_1 x_2 x_3
+            . ( unify (candidate (list_type x_0) λ. structure λ. alternative x_1 λ. alternative (field x_2 no_field) x_3)
+                λ
+                . refuted (list_type x_0) λ. structure λ. alternative x_1 λ. alternative (field x_2 no_field) x_3
+              + candidate (list_type x_0) λ. structure λ. alternative x_1 λ. alternative (field x_2 no_field) x_3
+              )
+          ) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      + λ s
+        . s
+          (λk. k "shapes_list_refuted_fields")
+          ( λ x_0 x_1 x_2 x_3 x_4 x_5 x_6
+            . candidate (list_type x_0) λ. structure λ. alternative x_1 λ. alternative (field x_2 λ. field x_3 λ. field x_4 x_5) x_6
+          )
+          ( λ x_0 x_1 x_2 x_3 x_4 x_5 x_6
+            . ( unify (candidate (list_type x_0) λ. structure λ. alternative x_1 λ. alternative (field x_2 λ. field x_3 λ. field x_4 x_5) x_6)
+                λ
+                . refuted (list_type x_0) λ. structure λ. alternative x_1 λ. alternative (field x_2 λ. field x_3 λ. field x_4 x_5) x_6
+              + candidate (list_type x_0) λ. structure λ. alternative x_1 λ. alternative (field x_2 λ. field x_3 λ. field x_4 x_5) x_6
+              )
+          ) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      + λ s
+        . s
+          (λk. k "shapes_list_refuted_alternatives")
+          ( λ x_0 x_1 x_2 x_3 x_4
+            . candidate (list_type x_0) λ. structure λ. alternative x_1 λ. alternative x_2 λ. alternative x_3 x_4
+          )
+          ( λ x_0 x_1 x_2 x_3 x_4
+            . ( unify (candidate (list_type x_0) λ. structure λ. alternative x_1 λ. alternative x_2 λ. alternative x_3 x_4)
+                λ
+                . refuted (list_type x_0) λ. structure λ. alternative x_1 λ. alternative x_2 λ. alternative x_3 x_4
+              + candidate (list_type x_0) λ. structure λ. alternative x_1 λ. alternative x_2 λ. alternative x_3 x_4
+              )
+          ) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      + λ s
+        . s
+          (λk. k "shapes_list_refuted_first_field")
+          (λx_0 x_1 x_2 x_3. candidate (list_type x_0) λ. structure λ. alternative (field x_1 x_2) x_3)
+          ( λ x_0 x_1 x_2 x_3
+            . ( unify (candidate (list_type x_0) λ. structure λ. alternative (field x_1 x_2) x_3)
+                λ
+                . refuted (list_type x_0) λ. structure λ. alternative (field x_1 x_2) x_3
+              + candidate (list_type x_0) λ. structure λ. alternative (field x_1 x_2) x_3
+              )
+          ) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      + λ s
+        . s
+          (λk. k "shapes_function_refuted")
+          (λx_0 x_1 x_2. candidate x_0 λ. function_type x_1 x_2)
+          ( λ x_0 x_1 x_2
+            . ( unify (candidate x_0 λ. function_type x_1 x_2) λ. refuted x_0 λ. function_type x_1 x_2
+              + candidate x_0 λ. function_type x_1 x_2
+              )
+          ) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      + λ s
+        . s
+          (λk. k "shapes_natural_field_refuted")
+          ( λ x_0 x_1
+            . structure λ. alternative x_0 λ. alternative (field (refuted nat_type x_1) no_field) no_alternative
+          )
+          ( λ x_0 x_1
+            . refuted nat_type λ. structure λ. alternative x_0 λ. alternative (field (refuted nat_type x_1) no_field) no_alternative
+          ) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      + λ s
+        . s
+          (λk. k "shapes_list_tail_refuted")
+          ( λ x_0 x_1 x_2 x_3
+            . structure λ. alternative x_1 λ. alternative (field x_2 λ. field (refuted (list_type x_0) x_3) no_field) no_alternative
+          )
+          ( λ x_0 x_1 x_2 x_3
+            . refuted (list_type x_0) λ. structure λ. alternative x_1 λ. alternative (field x_2 λ. field (refuted (list_type x_0) x_3) no_field) no_alternative
+          ) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+      + λ s
+        . s
+          (λk. k "shapes_list_head_refuted")
+          ( λ x_0 x_1 x_2 x_3 x_4
+            . candidate (list_type x_0) λ. structure λ. alternative x_1 λ. alternative (field (refuted x_0 x_2) λ. field x_3 x_4) no_alternative
+          )
+          ( λ x_0 x_1 x_2 x_3 x_4
+            . ( unify (candidate (list_type x_0) λ. structure λ. alternative x_1 λ. alternative (field (refuted x_0 x_2) λ. field x_3 x_4) no_alternative)
+                λ
+                . refuted (list_type x_0) λ. structure λ. alternative x_1 λ. alternative (field (refuted x_0 x_2) λ. field x_3 x_4) no_alternative
+              + candidate (list_type x_0) λ. structure λ. alternative x_1 λ. alternative (field (refuted x_0 x_2) λ. field x_3 x_4) no_alternative
+              )
+          ) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
       # A structure of two alternatives whose second has exactly two fields, the
       # first an item candidate for a representation r, is a candidate for the
       # lists of r, whatever its first alternative, and so is such a structure

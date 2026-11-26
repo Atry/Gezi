@@ -2,6 +2,7 @@ package gezi.jit
 
 import gezi.ir.Code
 import gezi.ir.Hole
+import gezi.ir.{Configured, NativeSpecializer}
 import gezi.saturation.StopSignal
 
 /** The native block mechanism of the JIT, a replaceable component of
@@ -48,7 +49,7 @@ trait NativeBlockMechanism:
     * costs recorded so far: the policy of which argument shapes enter and
     * of when a code is retired.
     */
-  def entered(entry: BlockEntry, record: BlockRecord): Boolean
+  def entered[C <: NativeSpecializer & Singleton](entry: BlockEntry[C], record: BlockRecord): Boolean
 
   /** The block of the entry run, within `allowance` steps, `spent` being
     * the steps the reading spent before it (for the stop checks of
@@ -60,15 +61,15 @@ trait NativeBlockMechanism:
     * finishes with the term it has reached, an instance the machine then
     * reads on.
     */
-  def run(
-      rules: JitRules,
-      entry: BlockEntry,
-      self: Option[SelfFilling],
+  def run[C <: NativeSpecializer & Singleton](
+      rules: JitRules[C],
+      entry: BlockEntry[C],
+      self: Option[SelfFilling[C]],
       artifact: Option[BlockArtifact],
       allowance: Long,
       spent: Long,
       stop: StopSignal
-  ): BlockResult
+  ): BlockResult[C]
 
 /** A mechanism's compiled form of a code, kept in the run state between
   * its blocks (`JitRunState.blockArtifacts`); each mechanism defines its own
@@ -88,21 +89,21 @@ trait BlockArtifact
 /** A block's outcome and the artifact to keep for its code: a new one, or
   * none to keep what was kept.
   */
-final case class BlockResult(outcome: BlockOutcome, artifact: Option[BlockArtifact])
+final case class BlockResult[C <: NativeSpecializer & Singleton](outcome: BlockOutcome[C], artifact: Option[BlockArtifact])
 
 /** An instance at a block's entry: the code, its last hole, its fillings
   * before the hole is filled, and the argument that fills it, as the term
   * writes it (a cell read through).
   */
-final case class BlockEntry(code: Code, hole: Hole, fillings: Vector[JitValue], argument: JitValue)
+final case class BlockEntry[C <: NativeSpecializer & Singleton](code: Code, hole: Hole, fillings: Vector[JitValue[C]], argument: JitValue[C])
 
 /** How a block ended: with a value the machine continues from, or by
   * falling back; the costs it spent either way. The steps of a finished
   * block are charged to the reading; those of a fallen back block are not,
   * since the machine then reads the instance again from the entry.
   */
-enum BlockOutcome:
-  case Finished(value: JitValue, costs: BlockCosts)
+enum BlockOutcome[C <: NativeSpecializer & Singleton]:
+  case Finished(value: JitValue[C], costs: BlockCosts)
   case FellBack(costs: BlockCosts)
 
 /** The costs a native block spent: its steps and its native calls. */
@@ -117,7 +118,7 @@ final case class BlockCosts(steps: Long, callsByNative: Map[NativeName, Long]):
   * to: a lambda of `code` with `holes` left, over `fillings`, among which the
   * self itself (`JitRules.selfFound`).
   */
-final case class SelfFilling(value: JitValue, code: Code, holes: Vector[Hole], fillings: Vector[JitValue])
+final case class SelfFilling[C <: NativeSpecializer & Singleton](value: JitValue[C], code: Code, holes: Vector[Hole], fillings: Vector[JitValue[C]])
 
 /** The costs of the blocks each code ran so far in a run state's life
   * (`JitRunState.blockRecord`): costs, never a type.
@@ -128,7 +129,7 @@ final case class BlockRecord(byCode: Map[Code, BlockCodeRecord]):
   def of(code: Code): BlockCodeRecord = byCode.getOrElse(code, BlockCodeRecord.empty)
 
   /** The record with the outcome of a block of the code added. */
-  def recorded(code: Code, outcome: BlockOutcome): BlockRecord =
+  def recorded[C <: NativeSpecializer & Singleton](code: Code, outcome: BlockOutcome[C]): BlockRecord =
     BlockRecord(byCode.updated(code, of(code).recorded(outcome)))
 
 object BlockRecord:
@@ -141,7 +142,7 @@ object BlockRecord:
   */
 final case class BlockCodeRecord(finished: Long, fellBack: Long, finishedSteps: Long, fellBackSteps: Long):
 
-  def recorded(outcome: BlockOutcome): BlockCodeRecord = outcome match
+  def recorded[C <: NativeSpecializer & Singleton](outcome: BlockOutcome[C]): BlockCodeRecord = outcome match
     case BlockOutcome.Finished(_, costs) => copy(finished = finished + 1, finishedSteps = finishedSteps + costs.steps)
     case BlockOutcome.FellBack(costs)    => copy(fellBack = fellBack + 1, fellBackSteps = fellBackSteps + costs.steps)
 
@@ -152,17 +153,17 @@ object BlockCodeRecord:
 /** No native block: every instance is read by the machine. The default. */
 object NoNativeBlocks extends NativeBlockMechanism:
 
-  def entered(entry: BlockEntry, record: BlockRecord): Boolean = false
+  def entered[C <: NativeSpecializer & Singleton](entry: BlockEntry[C], record: BlockRecord): Boolean = false
 
-  def run(
-      rules: JitRules,
-      entry: BlockEntry,
-      self: Option[SelfFilling],
+  def run[C <: NativeSpecializer & Singleton](
+      rules: JitRules[C],
+      entry: BlockEntry[C],
+      self: Option[SelfFilling[C]],
       artifact: Option[BlockArtifact],
       allowance: Long,
       spent: Long,
       stop: StopSignal
-  ): BlockResult =
+  ): BlockResult[C] =
     throw IllegalStateException(s"no native block is entered, yet one was run at code ${entry.code}")
 
 // TODO: a mechanism that chooses a block's strategy only from a property

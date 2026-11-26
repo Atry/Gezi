@@ -39,7 +39,7 @@ final class MergeDatalog(problems: ProblemFamilies):
   /** `\x. \y. ...`, the case on x of a case on y of the flag of the tuple
     * (`relation_body/5`).
     */
-  private def relationBody(facts: Vector[(Int, Int)], count: Int, trueValue: Term, falseValue: Term): Term =
+  private def relationBody(facts: Vector[(Int, Int)], count: Int, trueValue: ProblemTerm, falseValue: ProblemTerm): ProblemTerm =
     λ(x =>
       λ(y =>
         MergeGraph.numeralCase(
@@ -58,7 +58,7 @@ final class MergeDatalog(problems: ProblemFamilies):
     * lets of the Booleans, the constants, the relation, existence and `and`
     * (`rule_term/6`).
     */
-  def ruleTerm(rule: DatalogRule, count: Int, facts: Vector[(Int, Int)], from: Int, to: Int): Term =
+  def ruleTerm(rule: DatalogRule, count: Int, facts: Vector[(Int, Int)], from: Int, to: Int): ProblemTerm =
     λ(trueValue =>
       λ(falseValue =>
         MergeGraph.numeralLets(
@@ -75,7 +75,7 @@ final class MergeDatalog(problems: ProblemFamilies):
       )(file.program("false_term"))
     )(file.program("true_term"))
 
-  private def ruleBody(rule: DatalogRule, edge: Term, exists: Term, and: Term, from: Term, to: Term): Term =
+  private def ruleBody(rule: DatalogRule, edge: ProblemTerm, exists: ProblemTerm, and: ProblemTerm, from: ProblemTerm, to: ProblemTerm): ProblemTerm =
     rule match
       case DatalogRule.Path =>
         λ(path => path(from)(to))(
@@ -140,7 +140,7 @@ final class MergeDatalog(problems: ProblemFamilies):
     )
 
   /** The point's program. */
-  def program(name: String): Term =
+  def program(name: String): ProblemTerm =
     points
       .find(_._1 == name)
       .map((_, shape, size) =>

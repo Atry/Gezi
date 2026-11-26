@@ -84,6 +84,7 @@ class CustomWartsTest extends gezi.generatedinputs.FailFastSuite with snapshot4s
     "NoJavaUtilMutableCollection",
     "NoNewBuilder",
     "NoStringBuilder",
+    "NoThreadConfinedCapture",
     "NoThreadLocal",
     "NoUnsafe",
     "NoVarHandle",

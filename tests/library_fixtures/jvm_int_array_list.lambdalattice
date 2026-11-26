@@ -1,0 +1,25 @@
+# The knowledge GroupBlockArrayListKindsTest compiles its library from
+# (gezi.standardlibrary.StandardLibrary.compiledAt): the Prolog backend, the standard types,
+# the binary naturals' backend, the array lists' module, and the 32-bit words' modules, so
+# that the encoding makes array lists of the canonical naturals, of the positive ones and of
+# the 32-bit words held as a JVM int; their choice the one field of this file's tuple.
+# FIXME: the imports project "corpora" off the variable gezi, the name https://github.com/Atry/private-overlay/issues/1924
+# of the project root's own directory; they break if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega gezi "corpora") "compiler") "native_types")
+λ native_types
+. omega (omega (omega (omega gezi "corpora") "compiler") "prolog_backend")
+λ prolog_backend
+. omega (omega (omega (omega gezi "corpora") "compiler") "binary_prolog_backend")
+λ binary_prolog_backend
+. omega (omega (omega (omega gezi "corpora") "compiler") "array_list")
+λ array_list
+. omega (omega (omega (omega gezi "corpora") "compiler") "fixed_width")
+λ fixed_width
+. omega (omega (omega (omega gezi "corpora") "compiler") "fixed_width_prolog_backend")
+λ fixed_width_prolog_backend
+. omega (omega (omega (omega gezi "corpora") "compiler") "jvm_int")
+λ jvm_int
+. export (jvm_int + fixed_width_prolog_backend + fixed_width + array_list + binary_prolog_backend + prolog_backend + native_types)

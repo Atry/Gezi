@@ -1,0 +1,11 @@
+# The library of corpora/compiler/wren_elimination_preset.lambdalattice, its
+# first field, with occurrence_erasure, as the strategies' tests read a
+# preset's library (ScottEliminationTypingTest).
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega gezi "corpora") "compiler") "wren_elimination_preset")
+λ wren_elimination_preset _
+. omega (omega (omega (omega gezi "corpora") "compiler") "occurrence_erasure")
+λ occurrence_erasure
+. export (occurrence_erasure + wren_elimination_preset)

@@ -4,7 +4,13 @@ import hedgehog.Gen
 import hedgehog.Range
 import gezi.frontend.DeBruijnTerm
 import gezi.frontend.Term
+import gezi.frontend.TermOf
 import gezi.frontend.Term.*
+import gezi.ir.Configured
+import gezi.ir.Hole
+import gezi.ir.NativeSpecializer.*
+import gezi.ir.NoFacts
+import gezi.ir.NonEmptyHoles
 
 /** Generators of closed object terms in the HOAS of `gezi.frontend.Term`.
   *
@@ -17,7 +23,10 @@ import gezi.frontend.Term.*
 object HoasGenerators:
 
   /** A term as a function of the variables bound outside it. */
-  type Open = Vector[Term] => Term
+  type Open = OpenOver[Nothing]
+
+  /** A term of the constants as a function of the variables bound outside it. */
+  type OpenOver[+Constant] = Vector[Term] => TermOf[Constant]
 
   /** Closed terms of every construct: abstraction, application, choice
     * (choices of two to four members, choices nested in choices), parallel and variables, each at
@@ -36,30 +45,36 @@ object HoasGenerators:
     * (`Term.Closed`) a test read off a fixture file by projection, never a
     * name.
     */
-  def closedTermOver(libraryTerms: Vector[Term]): Gen[Term] =
-    Gen.sized(size => openTermOver(0, size.value / 2, libraryTerms)).map(_(Vector.empty))
+  def closedTermOver[Constant](libraryTerms: Vector[TermOf[Constant]]): Gen[TermOf[Constant]] =
+    Gen.sized(size => openTermOver[Constant](0, size.value / 2, libraryTerms)).map(_(Vector.empty))
 
   /** The open terms of `closedTerm` under `depth` binders, of at most
     * `nodes` nodes.
     */
-  def openTerm(depth: Int, nodes: Int): Gen[Open] = openTermOver(depth, nodes, Vector.empty)
+  def openTerm(depth: Int, nodes: Int): Gen[Open] = openTermOver[Nothing](depth, nodes, Vector.empty)
 
   /** The open terms of `closedTermOver` under `depth` binders, of at most
     * `nodes` nodes.
     */
-  def openTermOver(depth: Int, nodes: Int, libraryTerms: Vector[Term]): Gen[Open] =
+  def openTermOver[Constant](depth: Int, nodes: Int, libraryTerms: Vector[TermOf[Constant]]): Gen[OpenOver[Constant]] =
     val variable =
       if depth == 0 then Nil
-      else List(3 -> Gen.int(Range.constant(0, depth - 1)).map(level => (outer: Vector[Term]) => outer(level)))
+      else
+        List(
+          3 -> Gen
+            .int(Range.constant(0, depth - 1))
+            .map(level => ((outer: Vector[Term]) => (outer(level): TermOf[Constant])): OpenOver[Constant])
+        )
     val library =
       libraryTerms match
-        case first +: rest => List(2 -> Gen.element(first, rest.toList).map(term => (_: Vector[Term]) => term))
+        case first +: rest =>
+          List(2 -> Gen.element(first, rest.toList).map(term => ((_: Vector[Term]) => term): OpenOver[Constant]))
         case _             => Nil
     val leaves = variable ++ library
     // With no binder and no library term there is no leaf: the term is an
     // abstraction, whose body has its variable as a leaf.
-    lazy val abstraction = openTermOver(depth + 1, nodes - 1, libraryTerms).map(body =>
-      (outer: Vector[Term]) => λ(bound => body(outer :+ bound))
+    lazy val abstraction: Gen[OpenOver[Constant]] = openTermOver[Constant](depth + 1, nodes - 1, libraryTerms).map(body =>
+      (outer: Vector[Term]) => λ[Constant](bound => body(outer :+ bound))
     )
     if leaves.isEmpty then abstraction
     else
@@ -67,71 +82,74 @@ object HoasGenerators:
       if nodes <= 1 then leaf
       else
         val half = (nodes - 1) / 2
-        val smaller = openTermOver(depth, half, libraryTerms)
+        val smaller = openTermOver[Constant](depth, half, libraryTerms)
         Gen.frequency1(
           2 -> leaf,
           3 -> abstraction,
           3 -> (for function <- smaller; argument <- smaller
-          yield (outer: Vector[Term]) => function(outer)(argument(outer))),
+          yield ((outer: Vector[Term]) => function(outer)(argument(outer))): OpenOver[Constant]),
           1 -> (for
             count <- Gen.int(Range.linear(2, 4))
-            members <- openTermOver(depth, (nodes - 1) / count, libraryTerms).list(Range.singleton(count))
-          yield (outer: Vector[Term]) => choice(members.map(_(outer))*)),
+            members <- openTermOver[Constant](depth, (nodes - 1) / count, libraryTerms).list(Range.singleton(count))
+          yield ((outer: Vector[Term]) => Term.choice[Constant](members.map(_(outer))*)): OpenOver[Constant]),
           1 -> (for left <- smaller; right <- smaller
-          yield (outer: Vector[Term]) => left(outer) ∥ right(outer)),
+          yield ((outer: Vector[Term]) => left(outer) ∥ right(outer)): OpenOver[Constant]),
           1 -> (for
             shared <- smaller
-            combine <- Gen.element1[(Term, Term) => Term](
+            combine <- Gen.element1[(TermOf[Constant], TermOf[Constant]) => TermOf[Constant]](
               (first, second) => first(second),
-              (first, second) => choice(first, second),
+              (first, second) => Term.choice[Constant](first, second),
               (first, second) => first ∥ second
             )
-          yield (outer: Vector[Term]) => combine(shared(outer), shared(outer)))
+          yield ((outer: Vector[Term]) => combine(shared(outer), shared(outer))): OpenOver[Constant])
         )
 
   /** The IR of generated closed terms through the front end: the terms of
     * `closedTerm`, converted and defunctionalized
-    * (`Defunctionalization.thunkInstruction`); every thunk is well formed. A
+    * (`Defunctionalization.thunkInstruction`), under no facts; every thunk is well formed. A
     * test that needs an ill-formed thunk takes `PlantedDefects.malformedThunk`.
     */
-  def instruction: Gen[gezi.ir.Instruction] =
+  def instruction: Gen[Configured[NoFacts.type]] =
     closedTerm
-      .map(term => gezi.frontend.Defunctionalization.thunkInstruction(term.deBruijnTerm(Map.empty)))
+      .map(term =>
+        gezi.frontend.Defunctionalization.thunkInstruction[NoFacts.type](term.deBruijnTerm(Map.empty))(using NoFacts)
+      )
 
   /** Closed instructions as the evaluator makes them: the front end's
     * (`instruction`) combined `size` levels deep by a thunk with its first
     * hole filled by an argument (the evaluator's partial application, which
     * keeps the code as it is, so that the thunk's term is no longer the front
-    * end's spelling of it), an application, a choice and a parallel.
+    * end's spelling of it), an application, a choice and a parallel, under no facts.
     */
-  def evaluatorInstruction(size: Int): Gen[gezi.ir.Instruction] =
+  def evaluatorInstruction(size: Int): Gen[Configured[NoFacts.type]] =
     if size <= 1 then instruction
     else
       val smaller = evaluatorInstruction(size / 2)
       Gen.frequency1(
         2 -> instruction,
         3 -> (for function <- smaller; argument <- smaller yield applied(function, argument)),
-        1 -> (for left <- smaller; right <- smaller yield gezi.ir.Instruction.Choice(left, right)),
-        1 -> (for left <- smaller; right <- smaller yield gezi.ir.Instruction.Parallel(left, right))
+        1 -> (for left <- smaller; right <- smaller yield NoFacts.choice(left, right)),
+        1 -> (for left <- smaller; right <- smaller yield NoFacts.parallel(left, right))
       )
 
   /** The thunk with its first hole filled by the argument, as the evaluator
     * applies a thunk of two or more holes; the application of the function
     * to the argument otherwise.
     */
-  private def applied(function: gezi.ir.Instruction, argument: gezi.ir.Instruction): gezi.ir.Instruction =
-    import gezi.ir.Hole
-    import gezi.ir.Instruction
-    function match
-      case Instruction.Thunk(code, Hole.Ignored +: rest, fillings) if rest.nonEmpty =>
-        Instruction.Thunk(code, rest, fillings)
-      case Instruction.Thunk(code, Hole.Bound(slot) +: rest, fillings) if rest.nonEmpty =>
-        Instruction.Thunk(
+  private def applied(function: Configured[NoFacts.type], argument: Configured[NoFacts.type]): Configured[NoFacts.type] =
+    function.layer match
+      case gezi.ir.Thunk(code, Hole.Ignored +: rest, fillings) if rest.nonEmpty =>
+        NoFacts.thunk(code, restHoles(rest), fillings)
+      case gezi.ir.Thunk(code, Hole.Bound(slot) +: rest, fillings) if rest.nonEmpty =>
+        NoFacts.thunk(
           code,
-          rest,
+          restHoles(rest),
           fillings.patch(gezi.frontend.Defunctionalization.fillingPosition(rest, slot), Vector(argument), 0)
         )
-      case _ => Instruction.Apply(function, argument)
+      case _ => NoFacts.application(function, argument)
+
+  private def restHoles(holes: Vector[Hole]): NonEmptyHoles =
+    NonEmptyHoles.of(holes).getOrElse(throw IllegalStateException("a thunk with a hole left has holes"))
 
   /** `λx. x x ... x` with `copies` occurrences of x, two or more. */
   def selfApplication(copies: Int): Term =
@@ -307,7 +325,7 @@ object HoasGenerators:
       case DeepKind.ApplicationSpine =>
         λ(leaf => (1 to length).foldLeft(leaf)((function, _) => function(leaf)))
       case DeepKind.NestedChoice =>
-        λ(leaf => (1 to length).foldLeft(leaf)((inner, _) => choice(leaf, inner)))
+        λ(leaf => (1 to length).foldLeft(leaf)((inner, _) => Term.choice(leaf, inner)))
       case DeepKind.ParallelChain =>
         λ(leaf => (1 to length).foldLeft(leaf)((left, _) => left ∥ leaf))
       case DeepKind.NestedRedex =>

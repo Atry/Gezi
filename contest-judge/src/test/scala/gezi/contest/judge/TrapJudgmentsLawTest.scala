@@ -30,12 +30,10 @@ import gezi.generatedinputs.GeneratedProperties
   *     written without it, and no evaluation point. Its purpose is to catch
   *     an evaluation row left in, or a judgment point lost or changed.
   *
-  * An input whose points get no trap satisfies the first law vacuously; the
-  * property requires that at least 20% of its 30 inputs write one. The
-  * share measured on 2026-10-31 was 72% of 100 inputs, in one run, so a run
-  * under 20% (fewer than 6 of 30) has a probability of about 4e-10 (the
-  * binomial tail at 72%) and is a sign that the writer or the corpora
-  * changed.
+  * An input whose points get no trap satisfies the first law vacuously, so
+  * every iteration checks the laws also on a draw of a family every point of
+  * which gets a trap by construction (`LawFamilies.trapAtEveryPoint`), and
+  * that it writes one.
   *
   * An input is logged by its draw, not by its points: Hedgehog's `forAll`
   * logs every input by its `toString`, eagerly, and the derived `toString`
@@ -68,9 +66,12 @@ class TrapJudgmentsLawTest extends GeneratedProperties:
   /** A repeated family, its points' seed, a different trap seed, and the R
     * values, small.
     */
-  private val draws: Gen[(String, Long, Long, Vector[Int])] =
+  private val draws: Gen[(String, Long, Long, Vector[Int])] = drawsOf(Gen.elementUnsafe(LawFamilies.names))
+
+  /** The draws of a family the generator gives. */
+  private def drawsOf(families: Gen[String]): Gen[(String, Long, Long, Vector[Int])] =
     for
-      family <- Gen.elementUnsafe(LawFamilies.names)
+      family <- families
       seed <- Gen.long(Range.constant(0L, (1L << 31) - 1))
       trapSeed <- Gen.long(Range.constant(0L, (1L << 31) - 1)).filter(_ != seed)
       repetitions <- LawFamilies.repetitions(family, 3, 2)
@@ -132,15 +133,23 @@ class TrapJudgmentsLawTest extends GeneratedProperties:
   // serves all three, each law on 30 inputs as before. Drawn apart, each property wrote and read 30 files of its own,
   // 90 in all, which was the suite's cost.
   property("the points with traps: every trap's point has one normal form, every judged point has a trap, names by rank", _.copy(testLimit = 30)) {
-    for points <- draws.forAll.map(writtenPoints(_, false)).cover(20, "writes a trap", _.exists(isTrap))
-    yield Result.all(
+    for
+      points <- draws.forAll.map(writtenPoints(_, false))
+      trapped <- drawsOf(Gen.constant(LawFamilies.trapAtEveryPoint)).forAll.map(writtenPoints(_, false))
+    yield laws(points)
+      .and(laws(trapped))
+      .and(Result.assert(trapped.exists(isTrap)).log(s"${LawFamilies.trapAtEveryPoint} writes no trap"))
+  }
+
+  /** The first three laws on the points of one file. */
+  private def laws(points: Vector[Point]): Result =
+    Result.all(
       List(
         trapsOutsideTheirReferences(points).log("every trap's point has one normal form, and the trap is not it"),
         everyJudgedPointTrapped(points).log("every point with judgment points has a trap among them"),
         namedByRank(points).log("a judgment point is named by its candidate's rank, whatever its expectation")
       )
     )
-  }
 
   property("--judgments-only writes the judgment points and no evaluation point", _.copy(testLimit = 10)) {
     for draw <- draws.forAll

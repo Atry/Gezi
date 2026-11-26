@@ -4,18 +4,19 @@ import hedgehog.Gen
 import hedgehog.Range
 import hedgehog.Result
 import gezi.weakhead.Mode
-import gezi.weakhead.Value
-import gezi.weakhead.Values
-import gezi.ir.Instruction
-import gezi.ir.Layer
+import gezi.ir.Value
+import gezi.ir.Configured
+import gezi.ir.NoFacts
+import gezi.weakhead.Bounded
+import gezi.weakhead.ParallelSet
 import gezi.standardlibrary.LibraryFiles
 import gezi.standardlibrary.StandardLibrary
 import gezi.standardlibrary.TermTables
 import gezi.weakhead.Expansions
 import gezi.frontend.Defunctionalization
 import gezi.frontend.Term
+import gezi.frontend.TermOf
 import gezi.generatedinputs.GeneratedProperties
-import gezi.ir.{Apply, Choice, Parallel}
 
 /** The law of a literal of a family that has a codec and whose constructor
   * natives are at the family's parameter (binary_natural, word), so
@@ -45,16 +46,16 @@ class CodecLiteralLawTest extends GeneratedProperties:
   // FIXME: this suite exceeds the 3 s default with no reason yet; its slow tests are to be made fast. https://github.com/Atry/private-overlay/issues/1925
   override val munitTimeout: scala.concurrent.duration.Duration = scala.concurrent.duration.Duration(5, "s")
 
-  private val canonicalBinary: Representation = Representation.Data(BinaryNaturalFamily.identity, Some(NativeValue.Truth(true)))
+  private val canonicalBinary: Representation[Nothing] = Representation.Data(BinaryNaturalFamily.identity, Some(BinaryCanonicity(true)))
 
   private val wordWidth: Int = 16
 
-  private val sixteenBitWord: Representation = Representation.Data(WordFamily.identity, Some(NativeValue.Natural(wordWidth)))
+  private val sixteenBitWord: Representation[Nothing] = Representation.Data(WordFamily.identity, Some(WordWidth(wordWidth)))
 
   /** A native of two canonical binary naturals with the result at the
     * representation.
     */
-  private def binaryOperation(operation: (BigInt, BigInt) => NativeValue, result: Representation): Native =
+  private def binaryOperation(operation: (BigInt, BigInt) => NativeValue[Nothing], result: Representation[Nothing]): Native =
     Native(Vector(NativePlace.Fixed(canonicalBinary), NativePlace.Fixed(canonicalBinary)), NativePlace.Fixed(result), {
       case Vector(NativeArgument.Represented(BinaryNatural(left)), NativeArgument.Represented(BinaryNatural(right))) =>
         operation(left, right)
@@ -96,37 +97,57 @@ class CodecLiteralLawTest extends GeneratedProperties:
     */
   private val termsFile: String = TermTables.codecTerms.file
 
-  /** The members of `termsFile`, each a closed instruction read by
+  /** The members of `termsFile`, each a closed term of no facts read by
     * projection (`StandardLibrary.entryMembers`).
     */
-  private lazy val terms: Map[String, Instruction] =
+  private lazy val terms: Map[String, Plain] =
     StandardLibrary.entryMembers(LibraryFiles.buildRoot, TermTables.codecTerms, Expansions.none)._1
 
+  /** A closed term of no facts: the programs and literals are written under no facts and crossed into the encoding
+    * that reads them (`valueIn`).
+    */
+  private type Plain = Configured[NoFacts.type]
+
+  /** A closed HOAS term over the terms of no facts. */
+  private type Hoas = TermOf[Configured[NoFacts.type]]
+
+  /** The encoding of the library's facts under the test's natives, whose singleton type is the configuration of the
+    * readings with natives.
+    */
+  private lazy val encoding: StorageEncoding = BackendFacts.of(library, testNatives).storageEncoding
+
+  /** The encoding of the same library under no native. */
+  private lazy val encodingWithoutNatives: StorageEncoding = BackendFacts.of(library, NativeBackend(Map.empty, Vector.empty)).storageEncoding
+
   /** The library with the test's natives and the terms of `termsFile`, forced before the first test and not charged to it (FailFastSuite). */
-  override def sharedFixtures: Vector[scala.concurrent.Future[Unit] => Any] = Vector(_ => library, _ => terms)
+  override def sharedFixtures: Vector[scala.concurrent.Future[Unit] => Any] =
+    Vector(_ => library, _ => terms, _ => encoding, _ => encodingWithoutNatives)
 
-  private def define(key: String): Instruction = terms.getOrElse(key, throw IllegalArgumentException(s"$termsFile has no member $key"))
+  private def define(key: String): Plain = terms.getOrElse(key, throw IllegalArgumentException(s"$termsFile has no member $key"))
 
-  private def name(key: String): Term = Term.closed(define(key))
+  private def name(key: String): Hoas = Term.closed(define(key))
 
   /** The canonical numeral of the natural: binary_zero, or binary_even or
     * binary_odd over the half, so that an even numeral's half is positive.
     */
-  private def binary(value: BigInt): Term =
+  private def binary(value: BigInt): Hoas =
     if value == 0 then name("binary_zero")
     else if value.testBit(0) then name("binary_odd")(binary(value >> 1))
     else name("binary_even")(binary(value >> 1))
 
   /** The word of the bits, the least significant first. */
-  private def word(bits: List[Boolean]): Term =
+  private def word(bits: List[Boolean]): Hoas =
     bits.foldRight(name("word_end"))((bit, above) => name("word_cell")(name(if bit then "true" else "false"))(above))
 
-  /** The term compiled to one thunk, the instructions of `terms` kept as
-    * references, so that a filter by a criterion the backend binds reaches
-    * the JIT as that instruction.
+  /** The term compiled to one thunk under no facts, the terms of `terms` kept as they are, so that a filter by a
+    * criterion the backend binds reaches the JIT as that term.
     */
-  private def termValue(term: Term): Value =
-    Values.ofInstruction(Defunctionalization.thunkInstruction(term.deBruijnTerm(Map.empty)), terms.values.toSet)
+  private def plain(term: Hoas): Plain =
+    Defunctionalization.thunkInstruction[NoFacts.type](term.deBruijnTerm(Map.empty))(using NoFacts)
+
+  /** The value of the term of no facts in the encoding's configuration: its parallels converted by the encoding. */
+  private def valueIn[E <: StorageEncoding & Singleton](encoding: E)(term: Plain): Value[E] =
+    JitTesting.instructionValue[E](JitTesting.instructionCrossed(encoding)(term))(using encoding)
 
   /** A term spelled in interned layers, as the refinement's output is: a
     * subterm written twice is one instruction. A fallback point doubles its
@@ -134,17 +155,17 @@ class CodecLiteralLawTest extends GeneratedProperties:
     * a tree exponential in its depth.
     */
   private final case class Layers():
-    def layer(found: Layer[Instruction]): (Layers, Instruction) = (this, Instruction(found))
+    def parallel(left: Plain, right: Plain): (Layers, Plain) = (this, NoFacts.parallel(left, right))
 
-    def applied(function: Instruction, arguments: Instruction*): (Layers, Instruction) =
-      arguments.foldLeft((this, function)) { case ((current, applying), argument) => current.layer(Apply(applying, argument)) }
+    def applied(function: Plain, arguments: Plain*): (Layers, Plain) =
+      arguments.foldLeft((this, function)) { case ((current, applying), argument) => (current, NoFacts.application(applying, argument)) }
 
     /** `operand + (operand ∥ criterion)`, a fallback point as the
       * refinement writes one.
       */
-    def fallback(operand: Instruction, criterion: Instruction): (Layers, Instruction) =
-      val (afterFiltered, filtered) = layer(Parallel(operand, criterion))
-      afterFiltered.layer(Choice(operand, filtered))
+    def fallback(operand: Plain, criterion: Plain): (Layers, Plain) =
+      val (afterFiltered, filtered) = parallel(operand, criterion)
+      (afterFiltered, NoFacts.choice(operand, filtered))
 
   /** The canonical numeral of the natural with a fallback point on every
     * field, each by `binary_set p`, p generated per level (`parameters`,
@@ -153,8 +174,8 @@ class CodecLiteralLawTest extends GeneratedProperties:
     * equals x whatever T is, by equation (6) of the formal definition,
     * M + (M ∥ N) = M, so the value is the numeral's either way.
     */
-  private def nestedBinary(value: BigInt, parameters: List[Boolean])(start: Layers): (Layers, Instruction) =
-    def level(current: Layers, remaining: BigInt, depth: Int): (Layers, Instruction) =
+  private def nestedBinary(value: BigInt, parameters: List[Boolean])(start: Layers): (Layers, Plain) =
+    def level(current: Layers, remaining: BigInt, depth: Int): (Layers, Plain) =
       if remaining == 0 then (current, define("binary_zero"))
       else
         val (afterField, field) = level(current, remaining >> 1, depth + 1)
@@ -165,15 +186,15 @@ class CodecLiteralLawTest extends GeneratedProperties:
     level(start, value, 0)
 
   /** The natural written out with successor and zero, as int16_width is. */
-  private def numeral(value: Int)(start: Layers): (Layers, Instruction) =
+  private def numeral(value: Int)(start: Layers): (Layers, Plain) =
     (1 to value).foldLeft((start, define("zero"))) { case ((current, below), _) => current.applied(define("successor"), below) }
 
   /** The word of the bits with a fallback point on every field: each
     * boolean by boolean_type, and each word of width w by `word_type w`, w
     * written out.
     */
-  private def nestedWord(bits: List[Boolean])(start: Layers): (Layers, Instruction) =
-    def cells(current: Layers, remaining: List[Boolean]): (Layers, Instruction) = remaining match
+  private def nestedWord(bits: List[Boolean])(start: Layers): (Layers, Plain) =
+    def cells(current: Layers, remaining: List[Boolean]): (Layers, Plain) = remaining match
       case Nil => (current, define("word_end"))
       case bit :: above =>
         val (afterAbove, aboveWord) = cells(current, above)
@@ -187,11 +208,11 @@ class CodecLiteralLawTest extends GeneratedProperties:
   /** The function applied to a fallback point over each literal under the
     * criterion, in interned layers, as a reference.
     */
-  private def layered(function: String, literals: Vector[Layers => (Layers, Instruction)], criterion: Layers => (Layers, Instruction)): Value =
+  private def layered(function: String, literals: Vector[Layers => (Layers, Plain)], criterion: Layers => (Layers, Plain)): Plain =
     val (after, program) = literals.foldLeft((Layers(), define(function))) { case ((current, applying), literal) =>
-      val (afterLiteral, literalInstruction) = literal(current)
-      val (afterCriterion, criterionInstruction) = criterion(afterLiteral)
-      val (afterPoint, point) = afterCriterion.fallback(literalInstruction, criterionInstruction)
+      val (afterLiteral, literalTerm) = literal(current)
+      val (afterCriterion, criterionTerm) = criterion(afterLiteral)
+      val (afterPoint, point) = afterCriterion.fallback(literalTerm, criterionTerm)
       afterPoint.applied(applying, point)
     }
     program
@@ -202,32 +223,33 @@ class CodecLiteralLawTest extends GeneratedProperties:
     * point anywhere, which the filtered program equals by equation (6); and
     * the native called once.
     */
-  private def agreement(filteredProgram: Value, plainProgram: Term, native: String): Result =
-    val filtered = filteredProgram
-    val plain = termValue(plainProgram)
+  private def agreement(filteredProgram: Plain, plainProgram: Hoas, native: String): Result =
+    given encoding.type = encoding
+    val filtered = valueIn(encoding)(filteredProgram)
+    val plainValue = valueIn(encoding)(plain(plainProgram))
     val jit = NativesTesting.normalFormsSpent(
-      Mode.Jit(Jit(JitTesting.configured(BackendFacts.of(library, testNatives), JitConfiguration.defaultBudget))),
+      Jit(JitTesting.configured(encoding, JitConfiguration.defaultBudget)),
       filtered,
       NativesTesting.normalFormLimit
     )
-    val reference = NativesTesting.normalFormsSpent(Mode.TablingWeakHead, plain, NativesTesting.normalFormLimit)
+    val reference = NativesTesting.normalFormsSpent(Mode.TablingWeakHead, JitTesting.plainConfiguration(encoding), plainValue, NativesTesting.normalFormLimit)
     val counts = JitTesting.counts(jit.jitState)
     Result.all(
       List(
         Result.assert(jit.outcome.finished).log(s"the JIT's reading: ${jit.outcome}"),
-        Result.diff(jit.outcome, reference.outcome)(_ == _),
+        Result.assert(JitTesting.sameOutcomes(jit.outcome, reference.outcome)),
         Result.diff(counts.callsOf(NativeName.Function(native)), 1L)(_ == _).log(s"counts: $counts")
       )
     )
 
-  private val canonicalCriterion: Layers => (Layers, Instruction) = _.applied(define("binary_set"), define("true"))
+  private val canonicalCriterion: Layers => (Layers, Plain) = _.applied(define("binary_set"), define("true"))
 
   property("a native is called on a canonical binary literal under binary_set true, and reads as tabling(weak_head)") {
     for value <- Gen.long(Range.linear(0L, 1L << 20)).forAll
     yield
       val literal = binary(BigInt(value))
       agreement(
-        termValue(name("merge_binary_increment")(Term.choice(literal, literal ∥ name("binary_set")(name("true"))))),
+        plain(name("merge_binary_increment")(Term.choice(literal, literal ∥ name("binary_set")(name("true"))))),
         name("merge_binary_increment")(literal),
         "test_binary_increment"
       )
@@ -237,7 +259,7 @@ class CodecLiteralLawTest extends GeneratedProperties:
     for bits <- Gen.list(Gen.boolean, Range.singleton(wordWidth)).forAll
     yield
       val literal = word(bits)
-      agreement(termValue(name("int16_negate")(Term.choice(literal, literal ∥ name("int16_type")))), name("int16_negate")(literal), "test_int16_negate")
+      agreement(plain(name("int16_negate")(Term.choice(literal, literal ∥ name("int16_type")))), name("int16_negate")(literal), "test_int16_negate")
   }
 
   property("a native is called on a canonical binary literal with a fallback point at every level, and reads as tabling(weak_head)") {
@@ -285,33 +307,36 @@ class CodecLiteralLawTest extends GeneratedProperties:
   }
 
   /** Ω, a term with no head. */
-  private val omega: Term = Term.λ(a => a(a))(Term.λ(b => b(b)))
+  private val omega: Hoas = Term.λ(a => a(a))(Term.λ(b => b(b)))
 
   /** The natural written out with successor and zero. */
-  private def unary(value: Int): Term = (1 to value).foldLeft(name("zero"))((below, _) => name("successor")(below))
+  private def unary(value: Int): Hoas = (1 to value).foldLeft(name("zero"))((below, _) => name("successor")(below))
 
-  private def wordType(width: Int): Term = name("word_type")(unary(width))
+  private def wordType(width: Int): Hoas = name("word_type")(unary(width))
 
-  private def binarySet(parameter: Boolean): Term = name("binary_set")(name(if parameter then "true" else "false"))
+  private def binarySet(parameter: Boolean): Hoas = name("binary_set")(name(if parameter then "true" else "false"))
 
   /** The heads of the term under the JIT with the test's natives, under the
     * JIT with no native (an empty set, so no decode point either), and under
     * tabling(weak_head), each within a million steps.
     */
-  private def headsAgree(term: Term): Result =
-    val value = termValue(term)
-    def jitHeads(natives: NativeBackend) =
-      JitTesting.headsRead(
-        Mode.Jit(Jit(JitTesting.configured(BackendFacts.of(library, natives), JitConfiguration.defaultBudget))),
-        value,
-        1000000
-      ).outcome
-    val reference = JitTesting.headsRead(Mode.TablingWeakHead, value, 1000000).outcome
+  private def headsAgree(term: Hoas): Result =
+    val program = plain(term)
+    /** The JIT's heads and the reference's, within a million steps, under the encoding. */
+    def read[E <: StorageEncoding & Singleton](encoding: E): (Bounded[Vector[ParallelSet[E]]], Bounded[Vector[ParallelSet[E]]]) =
+      given E = encoding
+      val value = valueIn(encoding)(program)
+      (
+        JitTesting.headsRead(Jit(JitTesting.configured(encoding, JitConfiguration.defaultBudget)), value, 1000000).outcome,
+        JitTesting.headsRead(Mode.TablingWeakHead, JitTesting.plainConfiguration(encoding), value, 1000000).outcome
+      )
+    val (jitOn, referenceOn) = read(encoding)
+    val (jitOff, referenceOff) = read(encodingWithoutNatives)
     Result.all(
       List(
-        Result.assert(reference.finished).log(s"tabling(weak_head) did not finish on $term"),
-        Result.diff(jitHeads(testNatives), reference)(_ == _).log(s"natives on: $term"),
-        Result.diff(jitHeads(NativeBackend(Map.empty, Vector.empty)), reference)(_ == _).log(s"natives off: $term")
+        Result.assert(referenceOn.finished).log(s"tabling(weak_head) did not finish on $term"),
+        Result.diff(jitOn, referenceOn)(_ == _).log(s"natives on: $term"),
+        Result.diff(jitOff, referenceOff)(_ == _).log(s"natives off: $term")
       )
     )
 
@@ -321,16 +346,18 @@ class CodecLiteralLawTest extends GeneratedProperties:
     * not, as a filter on a value of another width or parameter decodes into
     * nothing (`JitNativesTest`, aFilterOnANonNumberGivesNoAnswerWithNatives).
     */
-  private def filterReads(literal: Term, criterion: Term, member: Boolean): Result =
+  private def filterReads(literal: Hoas, criterion: Hoas, member: Boolean): Result =
+    given encoding.type = encoding
     val jit = NativesTesting.normalFormsSpent(
-      Mode.Jit(Jit(JitTesting.configured(BackendFacts.of(library, testNatives), JitConfiguration.defaultBudget))),
-      termValue(literal ∥ criterion),
+      Jit(JitTesting.configured(encoding, JitConfiguration.defaultBudget)),
+      valueIn(encoding)(plain(literal ∥ criterion)),
       NativesTesting.normalFormLimit
     ).outcome
     val expected =
-      if member then NativesTesting.normalFormsSpent(Mode.TablingWeakHead, termValue(literal), NativesTesting.normalFormLimit).outcome
+      if member then
+        NativesTesting.normalFormsSpent(Mode.TablingWeakHead, JitTesting.plainConfiguration(encoding), valueIn(encoding)(plain(literal)), NativesTesting.normalFormLimit).outcome
       else gezi.weakhead.Bounded.Finished(Vector.empty)
-    Result.diff(jit, expected)(_ == _).log(s"${literal ∥ criterion}, member: $member")
+    Result.assert(JitTesting.sameOutcomes(jit, expected)).log(s"${literal ∥ criterion}, member: $member")
 
   // The purpose: catch a constructor native at the family's parameter
   // that changes a head the reference reads, forces a field the term
@@ -371,15 +398,12 @@ class CodecLiteralLawTest extends GeneratedProperties:
   }
 
   /** The value rebuilt by the family's constructor natives from the layers
-    * the codec takes it apart into, each native's result parameter checked:
-    * a word's is the width the layer was taken at, a binary natural's is
-    * the canonical naturals' (true) at either parameter (the FIXME at
-    * `BinaryNaturalFamily.builtParameter`).
+    * the codec takes it apart into.
     */
-  private def rebuilt(family: DataFamily, parameter: Option[NativeValue], value: NativeValue): Either[String, NativeValue] =
+  private def rebuilt(family: DataFamily, parameter: Option[FamilyParameter[Nothing]], value: NativeValue[Nothing]): Either[String, NativeValue[Value[NoFacts.type]]] =
     val layer = family.taken(parameter, value)
     val constructor = family.constructors(parameter)(layer.constructor)
-    val fields = layer.fields.zip(constructor.fields).foldLeft(Right(Vector.empty): Either[String, Vector[NativeValue]]) {
+    val fields = layer.fields.zip(constructor.fields).foldLeft(Right(Vector.empty): Either[String, Vector[NativeValue[Value[NoFacts.type]]]]) {
       case (found, (field, declared)) =>
         found.flatMap(sofar =>
           declared.representation(parameter) match
@@ -390,16 +414,10 @@ class CodecLiteralLawTest extends GeneratedProperties:
     }
     fields.flatMap(values =>
       val native = NativeBackend.standard.natives(constructor.native)
-      val built = native.implementation(values.map(NativeArgument.Represented(_)))
-      native.resultParameter(values) match
-        case Some(found) if found == resultParameterExpected(family, parameter) => Right(built)
-        case other => Left(s"${constructor.native} over $values gives the parameter $other at $parameter")
+      Right(native.implementation[NoFacts.type](values.map(NativeArgument.Represented(_)))(using NoFacts))
     )
 
-  private def resultParameterExpected(family: DataFamily, parameter: Option[NativeValue]): Option[NativeValue] =
-    if family.identity == BinaryNaturalFamily.identity then Some(NativeValue.Truth(true)) else parameter
-
-  // The purpose: catch a constructor native whose value or result parameter
+  // The purpose: catch a constructor native whose value
   // differs from the codec's (`DataFamily.built`, `taken`), which the JIT
   // would then plant as the literal's value.
   property("the constructor natives of words and binary naturals rebuild every value the codec takes apart") {
@@ -412,8 +430,8 @@ class CodecLiteralLawTest extends GeneratedProperties:
       val binaryValue = BinaryNatural(BigInt(natural))
       Result.all(
         List(
-          Result.diff(rebuilt(WordFamily, Some(NativeValue.Natural(width)), wordValue), Right(wordValue))(_ == _),
-          Result.diff(rebuilt(BinaryNaturalFamily, Some(NativeValue.Truth(true)), binaryValue), Right(binaryValue))(_ == _)
+          Result.diff(rebuilt(WordFamily, Some(WordWidth(width)), wordValue), Right(wordValue))(_ == _),
+          Result.diff(rebuilt(BinaryNaturalFamily, Some(BinaryCanonicity(true)), binaryValue), Right(binaryValue))(_ == _)
         )
       )
   }

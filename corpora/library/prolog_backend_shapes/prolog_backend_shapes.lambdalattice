@@ -47,4 +47,13 @@
 # equivalence.
 . (λtuple. tuple λr c. (r ∥ top ∥ top ∥ (c ∥ top) ∥ top))
 λ list_item_candidate
-. export candidate contract_at domain_candidate function_candidate item_candidate list_item_candidate
+# refuted:
+# refuted r c is in the class of a type c that is a candidate for the
+# representation whose filter is r and whose values cannot be that
+# representation's: its own structure does not have the representation's
+# shape in one layer, it is a function type, or a field the shape names is
+# refuted in turn; a term of the zero universe, top up to contextual
+# equivalence.
+. (λtuple. tuple λr c. (r ∥ (top ∥ top) ∥ (c ∥ top)))
+λ refuted
+. export candidate contract_at domain_candidate function_candidate item_candidate list_item_candidate refuted

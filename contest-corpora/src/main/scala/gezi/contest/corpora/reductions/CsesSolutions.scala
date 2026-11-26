@@ -38,6 +38,30 @@ object CsesSolutions:
       val middle = (low + high) >>> 1
       if keys(middle) < key then lowerBound(keys, key, middle + 1, high) else lowerBound(keys, key, low, middle)
 
+  /** The input a top rung computes from its seed, `seeded_numbers seed count low high` of
+    * `problems/cses/common/seeded_input`: count numbers, the k-th (k from 1) low + s_k mod (high - low + 1), where
+    * s_0 = seed and s_k = 48271 s_(k-1) mod (2^31 - 1), the Lehmer generator of Park and Miller's minimal standard. A
+    * seed below 2^31 - 1 keeps every product within a Long.
+    */
+  def seededNumbers(seed: Long, count: Int, low: Long, high: Long): IArray[Long] =
+    require(seed >= 0 && seed < seededModulus, s"no seed $seed below 2^31 - 1")
+    require(count >= 0 && low >= 0 && low <= high, s"no $count numbers from $low to $high")
+    val range = high - low + 1
+    IArray.iterate(seed * seededMultiplier % seededModulus, count)(state => state * seededMultiplier % seededModulus).map(state => low + state % range)
+
+  /** The state after the seeded generators' state, `next_state` of
+    * `problems/cses/common/seeded_input`: 48271 state mod (2^31 - 1).
+    */
+  def nextSeededState(state: Long): Long =
+    require(state >= 0 && state < seededModulus, s"no state $state below 2^31 - 1")
+    state * seededMultiplier % seededModulus
+
+  /** The multiplier of `seededNumbers`' generator. */
+  private val seededMultiplier: Long = 48271L
+
+  /** The modulus of `seededNumbers`' generator, 2^31 - 1. */
+  private val seededModulus: Long = 2147483647L
+
   /** CSES 1633: the sequences of faces 1 to 6 that sum to n, modulo 10^9 + 7, by the recurrence ways(s) = ways(s - 1) +
     * … + ways(s - 6), ways(0) = 1 and ways of a negative sum 0, in O(n) time on a window of the last six values.
     */
@@ -250,13 +274,13 @@ object CsesSolutions:
     }
     BigInt(best(budget))
 
-  /** CSES 1671: the least cost of a trip from city 1 to each city over one-way flights of positive cost, by Dijkstra's
+  /** CSES 1671: the sum over the cities of the least cost of a trip from city 1 to the city over one-way flights of positive cost, by Dijkstra's
     * algorithm with a priority queue, in O((n + m) log n) time: the flights are an `Adjacency` to their places in
     * `IArray`s of their ends and costs, the queue a `DistanceHeap`, and the settled costs a `BlockedLongs` (-1 for a city
-    * not settled yet). A city no trip reaches answers the total cost of all flights plus one, as the problem's program
+    * not settled yet). A city no trip reaches counts the total cost of all flights plus one, as the problem's program
     * does (CSES promises every city is reached, and the generator draws so).
     */
-  def shortestRoutesSingleSource(cities: Int, flights: Vector[(Int, Int, Long)]): Vector[BigInt] =
+  def shortestRoutesSingleSource(cities: Int, flights: Vector[(Int, Int, Long)]): BigInt =
     require(
       cities >= 1 && flights.forall((from, to, cost) => from >= 1 && from <= cities && to >= 1 && to <= cities && cost > 0),
       s"no flights $flights over $cities cities"
@@ -280,7 +304,7 @@ object CsesSolutions:
         else search(relaxed(departures.first(city), departures.first(city + 1), distance, rest, settled), settled.updated(city, distance))
     val distances = search(DistanceHeap.Empty.inserted(0L, 1), BlockedLongs.fill(cities + 1)(-1L))
     val unreachable = BigInt(flights.map(_._3).sum) + 1
-    (1 to cities).toVector.map(city => if distances(city) < 0 then unreachable else BigInt(distances(city)))
+    (1 to cities).foldLeft(BigInt(0))((sum, city) => sum + (if distances(city) < 0 then unreachable else BigInt(distances(city))))
 
   /** CSES 1672: for each query, the least cost of a route between two cities over two-way roads of positive cost, or
     * none, by the Floyd–Warshall algorithm on the matrix of least costs, in O(n³ + q) time: the matrix is an `IArray` of
@@ -321,18 +345,18 @@ object CsesSolutions:
     }
     queries.map((from, to) => Option(least(from - 1)(to - 1)).filter(_ != none).map(BigInt(_)))
 
-  /** CSES 1713: the number of divisors of each number, by trial division up to its square root, counting each divisor
+  /** CSES 1713: the sum over the numbers of the number of divisors of each, by trial division up to its square root, counting each divisor
     * pair once, in O(q √x) time.
     */
-  def countingDivisors(numbers: Vector[Int]): Vector[BigInt] =
+  def countingDivisors(numbers: Vector[Int]): BigInt =
     require(numbers.forall(_ >= 1), s"no divisors of $numbers")
-    numbers.map(number =>
+    numbers.foldLeft(BigInt(0))((sum, number) =>
       @scala.annotation.tailrec
       def count(divisor: Long, found: Int): Int =
         if divisor * divisor > number then found
         else if number % divisor != 0 then count(divisor + 1, found)
         else count(divisor + 1, found + (if divisor * divisor == number then 1 else 2))
-      BigInt(count(1L, 0))
+      sum + count(1L, 0)
     )
 
   /** CSES 1079: a choose b modulo 10^9 + 7 for each query, by the factorials up to the largest a, an `IArray[Long]`, and
@@ -537,17 +561,17 @@ object CsesSolutions:
     /** Each of the cities 1 to cities alone. */
     def separate(cities: Int): UnionFind = UnionFind(BlockedInts.tabulate(cities + 1)(identity), BlockedInts.tabulate(cities + 1)(_ => 1))
 
-  /** CSES 1745: the sums that a nonempty set of the coins makes, each once, in increasing order, by the reachability table
+  /** CSES 1745: the sum of the sums that a nonempty set of the coins makes, each counted once, by the reachability table
     * of subset sums, reachable(s) = reachable(s) or reachable(s - c) for each coin c, one table of Booleans for each
     * coin, in O(n S) time for n coins that sum to S.
     */
-  def moneySums(coins: IArray[Int]): Vector[BigInt] =
+  def moneySums(coins: IArray[Int]): BigInt =
     require(coins.forall(_ > 0), s"no coins ${coins.mkString(",")}")
     val total = coins.foldLeft(0)(_ + _)
     val reachable = coins.foldLeft(IArray.tabulate(total + 1)(_ == 0)) { (before, coin) =>
       IArray.tabulate(total + 1)(sum => before(sum) || (sum >= coin && before(sum - coin)))
     }
-    (1 to total).filter(reachable(_)).map(BigInt(_)).toVector
+    (1 to total).filter(reachable(_)).foldLeft(BigInt(0))(_ + _)
 
   /** CSES 1744: the fewest cuts that make a rectangle of whole units into squares, by the table cuts(a, b) = 0 for a = b and
     * 1 + the least over the first cuts of cuts(c, b) + cuts(a - c, b) and cuts(a, c) + cuts(a, b - c), one row of
@@ -691,13 +715,16 @@ object CsesSolutions:
     }
     BigInt(routes(1))
 
-  /** CSES 1646: the sum of the values from place a to place b (counted from 1, both included) for each query, by prefix
+  /** CSES 1646: the sum over the queries of the sum of the values from place a to place b (counted from 1, both included), by prefix
     * sums in an unboxed array of Longs, in O(n + q) time.
     */
-  def staticRangeSums(values: IArray[Long], queries: Vector[(Int, Int)]): Vector[BigInt] =
+  def staticRangeSums(values: IArray[Long], queries: Vector[(Int, Int)]): BigInt =
     require(queries.forall((first, last) => first >= 1 && first <= last && last <= values.length), s"no queries $queries over ${values.length} values")
     val prefixes = values.scanLeft(0L)(_ + _)
-    queries.map((first, last) => BigInt(prefixes(last) - prefixes(first - 1)))
+    queries.foldLeft(BigInt(0))((sum, query) =>
+      val (first, last) = query
+      sum + BigInt(prefixes(last) - prefixes(first - 1))
+    )
 
   /** CSES 1618: the zeros that end n!, by Legendre's formula, the sum of floor(n / 5^k) over k ≥ 1, in O(log n) time. */
   def trailingZeros(number: Long): BigInt =
@@ -725,6 +752,209 @@ object CsesSolutions:
         val runSum = (half % modulus) * (other % modulus) % modulus
         runs(last + 1, (total + runSum * (quotient % modulus)) % modulus)
     BigInt(runs(1L, 0L))
+
+  // The fourth batch.
+
+  /** CSES 1083: the number from 1 to n that a list of the other n - 1 distinct numbers leaves out, as n (n + 1) / 2
+    * less their sum, in O(n) time.
+    */
+  def missingNumber(upper: Int, numbers: IArray[Int]): BigInt =
+    require(
+      upper >= 1 && numbers.length == upper - 1 && numbers.forall(number => number >= 1 && number <= upper) && numbers.distinct.length == numbers.length,
+      s"no list ${numbers.mkString(",")} of the numbers of 1 to $upper but one"
+    )
+    BigInt(upper.toLong * (upper + 1) / 2 - numbers.foldLeft(0L)(_ + _))
+
+  /** CSES 1069: the length of the longest run of one letter, by one linear scan that counts the run that ends at each
+    * letter, in O(n) time.
+    */
+  def repetitions(letters: IArray[Int]): BigInt =
+    @scala.annotation.tailrec
+    def scanned(index: Int, run: Int, longest: Int): Int =
+      if index == letters.length then longest
+      else
+        val next = if letters(index) == letters(index - 1) then run + 1 else 1
+        scanned(index + 1, next, math.max(longest, next))
+    BigInt(if letters.isEmpty then 0 else scanned(1, 1, 1))
+
+  /** CSES 1090: the fewest gondolas that carry the children, each gondola one child or two whose weights sum to at most
+    * x, by sorting the weights and, from the lightest and the heaviest, pairing them when they fit and sending the
+    * heaviest alone when they do not, with two pointers, in O(n log n) time. Each weight must be at most x.
+    */
+  def ferrisWheel(capacity: Int, weights: IArray[Int]): BigInt =
+    require(weights.forall(weight => weight >= 1 && weight <= capacity), s"a weight of ${weights.mkString(",")} is above $capacity")
+    val sorted = weights.sorted
+    @scala.annotation.tailrec
+    def carried(light: Int, heavy: Int, gondolas: Int): Int =
+      if light > heavy then gondolas
+      else if light == heavy then gondolas + 1
+      else if sorted(light).toLong + sorted(heavy) <= capacity then carried(light + 1, heavy - 1, gondolas + 1)
+      else carried(light, heavy - 1, gondolas + 1)
+    BigInt(carried(0, sorted.length - 1, 0))
+
+  /** CSES 1640, narrowed to the count: the pairs of places i < j whose values sum to x, by sorting and moving two
+    * pointers in from both ends; where the two ends are equal, every pair of the run counts, and where they are not, the
+    * two runs of equal values at the ends count the product of their lengths, in O(n log n) time.
+    */
+  def sumOfTwoValues(target: Long, values: IArray[Long]): BigInt =
+    val sorted = values.sorted
+    @scala.annotation.tailrec
+    def runEnd(index: Int, step: Int): Int =
+      if index + step >= 0 && index + step < sorted.length && sorted(index + step) == sorted(index) then runEnd(index + step, step) else index
+    @scala.annotation.tailrec
+    def paired(low: Int, high: Int, found: Long): Long =
+      if low >= high then found
+      else
+        val sum = sorted(low) + sorted(high)
+        if sum < target then paired(low + 1, high, found)
+        else if sum > target then paired(low, high - 1, found)
+        else if sorted(low) == sorted(high) then found + (high - low + 1).toLong * (high - low) / 2
+        else
+          val lowEnd = runEnd(low, 1)
+          val highEnd = runEnd(high, -1)
+          paired(lowEnd + 1, highEnd - 1, found + (lowEnd - low + 1).toLong * (high - highEnd + 1))
+    BigInt(paired(0, sorted.length - 1, 0L))
+
+  /** CSES 1660: the contiguous subarrays of positive values that sum to x, by two pointers: the right end moves over each
+    * place, and the left end moves right while the window's sum is above x, in O(n) time.
+    */
+  def subarraySums(target: Long, values: IArray[Long]): BigInt =
+    require(values.forall(_ >= 1), s"a value of ${values.mkString(",")} is not positive")
+    @scala.annotation.tailrec
+    def shrunk(left: Int, right: Int, sum: Long): (Int, Long) =
+      if sum > target then shrunk(left + 1, right, sum - values(left)) else (left, sum)
+    @scala.annotation.tailrec
+    def windows(right: Int, left: Int, sum: Long, found: Long): Long =
+      if right == values.length then found
+      else
+        val (nextLeft, nextSum) = shrunk(left, right, sum + values(right))
+        windows(right + 1, nextLeft, nextSum, if nextSum == target then found + 1 else found)
+    BigInt(windows(0, 0, 0L, 0L))
+
+  /** CSES 1647: the sum over the queries of the least value from place a to place b (counted from 1, both included), by a sparse
+    * table, level k holding the least of each window of 2^k values, so that a query is the least of two overlapping
+    * windows, built in O(n log n) time and answered in O(1) each.
+    */
+  def staticRangeMinimums(values: IArray[Int], queries: Vector[(Int, Int)]): BigInt =
+    require(queries.forall((first, last) => first >= 1 && first <= last && last <= values.length), s"no queries $queries over ${values.length} values")
+    @scala.annotation.tailrec
+    def levels(table: Vector[IArray[Int]]): Vector[IArray[Int]] =
+      val width = 1 << table.length
+      if width > values.length then table
+      else
+        val below = table.last
+        levels(table :+ IArray.tabulate(values.length - width + 1)(place => math.min(below(place), below(place + (width >> 1)))))
+    val table = levels(Vector(values))
+    queries.foldLeft(BigInt(0))((sum, query) =>
+      val (first, last) = query
+      val level = 31 - Integer.numberOfLeadingZeros(last - first + 1)
+      sum + BigInt(math.min(table(level)(first - 1), table(level)(last - (1 << level))))
+    )
+
+  /** CSES 1131: the longest distance between two nodes of a tree, by two breadth-first searches: from any node to its
+    * farthest node, then from that node to its farthest, in O(n) time.
+    */
+  def treeDiameter(nodes: Int, edges: Vector[(Int, Int)]): BigInt =
+    val neighbours = treeNeighbours(nodes, edges)
+    val first = treeSearch(neighbours, nodes, 1)
+    val second = treeSearch(neighbours, nodes, first.order(nodes - 1))
+    BigInt(second.distance(second.order(nodes - 1)))
+
+  /** CSES 1130: the most edges of a tree that share no node, by the greedy that goes from the leaves up: in the reverse of
+    * a breadth-first order from the root, a node joins the edge to its parent when neither is matched, in O(n) time.
+    */
+  def treeMatching(nodes: Int, edges: Vector[(Int, Int)]): BigInt =
+    val search = treeSearch(treeNeighbours(nodes, edges), nodes, 1)
+    @scala.annotation.tailrec
+    def matched(index: Int, taken: BlockedInts, count: Int): Int =
+      if index == 0 then count
+      else
+        val node = search.order(index)
+        val parent = search.parent(node)
+        if taken(node) == 0 && taken(parent) == 0 then matched(index - 1, taken.updated(node, 1).updated(parent, 1), count + 1)
+        else matched(index - 1, taken, count)
+    BigInt(matched(nodes - 1, BlockedInts.fill(nodes + 1, BlockedInts.updateShift)(0), 0))
+
+  /** The tree's nodes 1 to n and its n - 1 edges, as an undirected `Adjacency`. */
+  private def treeNeighbours(nodes: Int, edges: Vector[(Int, Int)]): Adjacency =
+    require(
+      nodes >= 1 && edges.length == nodes - 1 && edges.forall((from, to) => from >= 1 && from <= nodes && to >= 1 && to <= nodes),
+      s"no tree of $nodes nodes with the edges $edges"
+    )
+    Adjacency.of(nodes, IArray.from(edges.map(_._1) ++ edges.map(_._2)), IArray.from(edges.map(_._2) ++ edges.map(_._1)))
+
+  /** The nodes of a tree in the order a breadth-first search from the start reaches them, the parent of each (0 for the
+    * start) and its distance from the start (-1 for a node not reached).
+    */
+  private final case class TreeSearch(order: BlockedInts, parent: BlockedInts, distance: BlockedInts)
+
+  /** The breadth-first search of the tree from the start, which reaches every node, in O(n) time. */
+  private def treeSearch(neighbours: Adjacency, nodes: Int, start: Int): TreeSearch =
+    @scala.annotation.tailrec
+    def reached(index: Int, last: Int, from: Int, found: TreeSearch): TreeSearch =
+      if index == last then found
+      else
+        val neighbour = neighbours.payload(index)
+        if found.distance(neighbour) >= 0 then reached(index + 1, last, from, found)
+        else
+          reached(
+            index + 1,
+            last,
+            from,
+            TreeSearch(found.order.appended(neighbour), found.parent.updated(neighbour, from), found.distance.updated(neighbour, found.distance(from) + 1))
+          )
+    @scala.annotation.tailrec
+    def search(head: Int, found: TreeSearch): TreeSearch =
+      if head == found.order.length then found
+      else
+        val node = found.order(head)
+        search(head + 1, reached(neighbours.first(node), neighbours.first(node + 1), node, found))
+    val found = search(
+      0,
+      TreeSearch(
+        BlockedInts.emptyInBlocks(BlockedInts.updateShift).appended(start),
+        BlockedInts.fill(nodes + 1, BlockedInts.updateShift)(0),
+        BlockedInts.fill(nodes + 1, BlockedInts.updateShift)(-1).updated(start, 0)
+      )
+    )
+    require(found.order.length == nodes, s"the edges do not make a tree of $nodes nodes")
+    found
+
+  /** CSES 1753: the places of the text where the pattern occurs, by the Knuth-Morris-Pratt prefix function of the
+    * pattern, a separator that no letter equals, and the text: a place counts where the longest prefix of the pattern that
+    * ends there is the whole pattern, in O(n + m) time.
+    */
+  def stringMatching(text: IArray[Int], pattern: IArray[Int]): BigInt =
+    require(pattern.nonEmpty && (text ++ pattern).forall(_ >= 0), "no pattern, or a letter below 0")
+    val combined = (pattern :+ -1) ++ text
+    @scala.annotation.tailrec
+    def fallback(table: BlockedInts, length: Int, letter: Int): Int =
+      if length > 0 && combined(length) != letter then fallback(table, table(length - 1), letter)
+      else if combined(length) == letter then length + 1
+      else length
+    @scala.annotation.tailrec
+    def prefixes(index: Int, table: BlockedInts, found: Int): Int =
+      if index == combined.length then found
+      else
+        val length = fallback(table, table(index - 1), combined(index))
+        prefixes(index + 1, table.appended(length), if length == pattern.length then found + 1 else found)
+    BigInt(prefixes(1, BlockedInts.emptyInBlocks(BlockedInts.updateShift).appended(0), 0))
+
+  /** CSES 1712: a^(b^c) modulo 10^9 + 7, 0^0 being 1: where b^c is 0 (b = 0, c > 0) the power is a^0 = 1; where 10^9 + 7
+    * divides a the answer is 0; otherwise Fermat's little theorem lets b^c be reduced modulo 10^9 + 6, which is found by
+    * exponentiation by squaring, and then a is raised to it by the same, in O(log b c) time on Longs.
+    */
+  def exponentiationTwo(base: Long, exponentBase: Long, exponentPower: Long): BigInt =
+    require(base >= 0 && exponentBase >= 0 && exponentPower >= 0, s"no powers of $base, $exponentBase, $exponentPower")
+    @scala.annotation.tailrec
+    def powered(square: Long, remaining: Long, product: Long, residue: Long): Long =
+      if remaining == 0 then product
+      else powered(square * square % residue, remaining >> 1, if (remaining & 1) == 1 then product * square % residue else product, residue)
+    if exponentBase == 0 && exponentPower > 0 then BigInt(1)
+    else if base % modulus == 0 then BigInt(0)
+    else
+      val exponent = powered(exponentBase % (modulus - 1), exponentPower, 1L, modulus - 1)
+      BigInt(power(base, exponent))
 
   /** The weighted paths of `problems/speculative_untabling`: the value of node 0 of a directed acyclic graph whose
     * every edge goes from a node to a later one, a node's value being its weight plus its successors' values modulo

@@ -2,9 +2,10 @@ package gezi.egraph
 
 import gezi.ir.Code
 import gezi.ir.CodeLayer
-import gezi.ir.Instruction
+import gezi.ir.Configured
 import gezi.ir.Hole
-import gezi.ir.Layer
+import gezi.ir.NoFacts
+import gezi.ir.NonEmptyHoles
 import gezi.ir.LemmaIdentifier
 import gezi.ir.Store
 import gezi.ir.{Apply, NoinlineLeaf, Parallel, Slot, Thunk}
@@ -14,16 +15,16 @@ class EGraphTest extends gezi.generatedinputs.FailFastSuite:
   /** `pair` is the parallel of `function first` and `function second`; the
     * three names are noinline leaves.
     */
-  private val function = Instruction.opaque("function")
-  private val first = Instruction.opaque("first")
-  private val second = Instruction.opaque("second")
-  private val functionOfFirst = Instruction(Apply(function, first))
-  private val functionOfSecond = Instruction(Apply(function, second))
-  private val pair = Instruction(Parallel(functionOfFirst, functionOfSecond))
+  private val function = NoFacts.opaque("function")
+  private val first = NoFacts.opaque("first")
+  private val second = NoFacts.opaque("second")
+  private val functionOfFirst = NoFacts.application(function, first)
+  private val functionOfSecond = NoFacts.application(function, second)
+  private val pair = NoFacts.parallel(functionOfFirst, functionOfSecond)
 
-  private val store = Store(noinline = Set(function, first, second))
+  private val store = Store(noinline = Set(function, first, second), gezi.ir.TermConstruction(NoFacts))
 
-  private def added(graph: EGraph, instruction: Instruction): EGraph =
+  private def added(graph: Graph, instruction: Configured[NoFacts.type]): Graph =
     val (next, _) = graph.instructionAdded(instruction)
     next
 
@@ -34,14 +35,14 @@ class EGraphTest extends gezi.generatedinputs.FailFastSuite:
     assertEquals(node, 5)
     assertEquals(
       graph.nodes.map(_.layer),
-      Vector(
+      Vector[GraphLayer](
         NoinlineLeaf(function),
         NoinlineLeaf(first),
         Apply(0, 1),
         NoinlineLeaf(second),
         Apply(0, 3),
         Parallel(2, 4)
-      )
+      ).map(layer => gezi.ir.Interned.canonicalLayer[GraphLayer](layer))
     )
     assertEquals(
       graph.instructionFilings,
@@ -81,7 +82,7 @@ class EGraphTest extends gezi.generatedinputs.FailFastSuite:
     assertEquals(node, 4)
     assertEquals(withSecond.root(node), withSecond.root(2))
     assert(!withSecond.live(node), "a made duplicate is not live")
-    assertEquals(withSecond.madeLayer(node), Apply(0, 3))
+    assertEquals(withSecond.madeLayer(node), gezi.ir.Interned.canonicalLayer[GraphLayer](Apply(0, 3)))
     assertEquals(withSecond.nodeCount, 5)
     assertEquals(withSecond.canonicalNodeCount, 4)
     assertEquals(withSecond.joiningUnionCount, united.joiningUnionCount)
@@ -111,7 +112,7 @@ class EGraphTest extends gezi.generatedinputs.FailFastSuite:
       Vector(UnionRecord(1, 3, lemma, None), UnionRecord(4, 2, Justification.Congruence, None))
     )
     assertEquals(congruent.root(2), 4, "a tie goes to the first node's root")
-    assertEquals(congruent.signatures.get(Parallel(4, 4)), Some(5))
+    assertEquals(congruent.signatures.get(gezi.ir.Interned.canonicalLayer(Parallel(4, 4))), Some(5))
     assertEquals(
       congruent.members(4, MemberShape.Apply).filter(congruent.live),
       Vector(2)
@@ -119,9 +120,9 @@ class EGraphTest extends gezi.generatedinputs.FailFastSuite:
   }
 
   test("applications are filed under the heads of their function's class within the bound") {
-    val once = Instruction(Apply(function, first))
-    val twice = Instruction(Apply(once, first))
-    val thrice = Instruction(Apply(twice, first))
+    val once = NoFacts.application(function, first)
+    val twice = NoFacts.application(once, first)
+    val thrice = NoFacts.application(twice, first)
     val spines = store
     val graph = added(EGraph.empty(spines, Map(function -> 2), explained = false), thrice)
     assertEquals(graph.classHeads(0), Vector(Head(function, 0)))
@@ -132,8 +133,8 @@ class EGraphTest extends gezi.generatedinputs.FailFastSuite:
   }
 
   test("a class that gains a head files its applications under it and pushes them") {
-    val other = Instruction.opaque("other")
-    val otherOfFirst = Instruction(Apply(other, first))
+    val other = NoFacts.opaque("other")
+    val otherOfFirst = NoFacts.application(other, first)
     val heads = store.copy(noinline = store.noinline + other)
     val graph =
       added(added(EGraph.empty(heads, Map(function -> 1), explained = false), otherOfFirst), function)
@@ -148,8 +149,8 @@ class EGraphTest extends gezi.generatedinputs.FailFastSuite:
 
   test("a thunk with a hole is a closure state, and a read application queues a β step") {
     val identity = Code(Slot(0))
-    val thunk = Instruction(Thunk(identity, Vector(Hole.Bound(0)), Vector.empty))
-    val applied = Instruction(Apply(thunk, first))
+    val thunk = NoFacts.thunk(identity, NonEmptyHoles(Hole.Bound(0), Vector.empty), Vector.empty)
+    val applied = NoFacts.application(thunk, first)
     val closures = store
     val graph = added(EGraph.empty(closures, Map.empty, explained = false), applied)
     val state = ClosureState(0, Nil, 1)
@@ -164,10 +165,10 @@ class EGraphTest extends gezi.generatedinputs.FailFastSuite:
   test("a duplicate thunk's closure state is dead: its twin's state stands for it") {
     // λx. x f, its filling f read by the code, so that the thunks over first and over second are two terms.
     val appliedToFilling = Code(Apply(Code(Slot(0)), Code(Slot(1))))
-    val thunkOverFirst = Instruction(Thunk(appliedToFilling, Vector(Hole.Bound(0)), Vector(first)))
-    val thunkOverSecond = Instruction(Thunk(appliedToFilling, Vector(Hole.Bound(0)), Vector(second)))
-    val thunks = Instruction(Parallel(thunkOverFirst, thunkOverSecond))
-    val appliedToSecond = Instruction(Apply(thunkOverSecond, second))
+    val thunkOverFirst = NoFacts.thunk(appliedToFilling, NonEmptyHoles(Hole.Bound(0), Vector.empty), Vector(first))
+    val thunkOverSecond = NoFacts.thunk(appliedToFilling, NonEmptyHoles(Hole.Bound(0), Vector.empty), Vector(second))
+    val thunks = NoFacts.parallel(thunkOverFirst, thunkOverSecond)
+    val appliedToSecond = NoFacts.application(thunkOverSecond, second)
     val closures = store
     val graph = added(EGraph.empty(closures, Map.empty, explained = false), thunks)
     val united = graph.unionWorked(0, 2, lemma, None)

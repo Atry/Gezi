@@ -30,13 +30,13 @@ object CollectKeys:
     (rows * columns, edges)
 
   /** The bit set of `count` false elements (`none_collected/2`). */
-  def noneCollected(attractors: Attractors, count: Int): Term =
+  def noneCollected(attractors: Attractors, count: Int): ProblemTerm =
     SetFree.booleanList(attractors, Vector.fill(count)(0))
 
   /** The program with each leg bounded by the number of nodes and the total
     * by the budget (`collect_keys_term/6`).
     */
-  def collectKeysTerm(attractors: Attractors, count: Int, edges: Vector[(Int, Int)], keys: Vector[Int], start: Int, budget: Int): Term =
+  def collectKeysTerm(attractors: Attractors, count: Int, edges: Vector[(Int, Int)], keys: Vector[Int], start: Int, budget: Int): ProblemTerm =
     def function(name: String) = attractors.functionSurface(name, Spelling.Direct)
     Graphs.numeralLets(
       count,
@@ -55,7 +55,7 @@ object CollectKeys:
     * walk the numeral case of v over the boxes of its successors
     * (`lengths_function/4`).
     */
-  private def lengthsFunctionTerm(attractors: Attractors, count: Int, edges: Vector[(Int, Int)], nodes: Vector[Term]): Term =
+  private def lengthsFunctionTerm(attractors: Attractors, count: Int, edges: Vector[(Int, Int)], nodes: Vector[ProblemTerm]): ProblemTerm =
     val equal = attractors.functionSurface("natural_equal", Spelling.Direct)
     val zero = attractors.attractorSurface("zero", Spelling.Direct)
     attractors.fixpoint(
@@ -91,7 +91,7 @@ object CollectKeys:
   /** `Y (\self. \c. \v. \r. \k. full c (k r) { branch_i | i a key })`
     * (`tour_function/5`).
     */
-  private def tourFunction(attractors: Attractors, keys: Vector[Int], nodes: Vector[Term], count: Int, lengths: Term): Term =
+  private def tourFunction(attractors: Attractors, keys: Vector[Int], nodes: Vector[ProblemTerm], count: Int, lengths: ProblemTerm): ProblemTerm =
     def function(name: String) = attractors.functionSurface(name, Spelling.Direct)
     val full = function("bit_set_full")
     attractors.fixpoint(

@@ -1,0 +1,13 @@
+# The 32-bit words held as the JVM's int: int32_type under a criterion of its own, so that
+# a backend may hold such a word as one int rather than as 32 cells. jvm_int_type is
+# int32_type under the synthetic label $int, the identity the label's partial function
+# applied to its key is, the two equal by the β rule (docs/design/gezi-set-equations-proofs.md,
+# section 25).
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "fixed_width") "int32_representation")
+λ _ int32_type _ _
+. (λtuple. tuple λ. (λ"$int" v. v) "$int" int32_type)
+λ jvm_int_type
+. export jvm_int_type

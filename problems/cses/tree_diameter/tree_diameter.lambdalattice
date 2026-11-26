@@ -1,0 +1,108 @@
+# tree_diameter:
+# CSES 1131, Tree Diameter (https://cses.fi/problemset/task/1131), in our own words: a
+# tree of n nodes, numbered 1 to n, given by its n - 1 edges, each joining two nodes;
+# the diameter, the greatest number of edges on the path between two nodes. The input
+# is the binary natural n (corpora/library/binary/natural), at least 1, and the edges,
+# a Scott list (corpora/library/prelude/list) of pairs `pair a b`
+# (corpora/library/prelude/pair) of binary naturals from 1 to n, which make a tree;
+# the answer is a binary natural. Part of the CSES port's fourth batch.
+#
+# THE PROGRAM, written by the definition: node b is reached from node a within steps
+# edges when a = b, or when some edge joins a to a node that reaches b within one step
+# fewer (steps 0 allows no edge); the distance of two nodes is the least steps within
+# which the first reaches the second, which is below n since a path repeats no node
+# (the search answers n + 1 past n, which no tree reaches); the diameter is the
+# greatest distance over every pair of nodes. Under tabling the reading shares the
+# reachability for each steps and pair of nodes, about n cubed times the edges; the
+# replacement the family asks for is two breadth-first searches, the first from any
+# node to its farthest node, the second from that node to its farthest, in about n
+# steps, on fixed-width integers.
+#
+# DEFINITION 14: the program P, the point's term, is built of λ and application only:
+# its text holds no top, no choice, no parallel and no literal. It β-reduces to V, the
+# canonical binary numeral of the answer: every recursion ends, since reaches consumes
+# steps, a binary numeral that falls by one at each call, the search for a distance
+# consumes the gap n - steps, the two loops over the nodes consume the gap n - node,
+# and every other recursion consumes a finite list; the branches that a Scott boolean
+# discards are never read. binary_subtract, which writes no top
+# (../common/binary_modular), is asked for steps - 1 only when steps is not zero. So
+# ⊢_β P = V, and P ≃_O V by the soundness of the derivable equations for the
+# contextual preorder of Definition 14 (Lean
+# `ContextualPreorder.contextualEquivalenceOfDerivableLatticeEta`): V is an answer, P
+# ⊑_O V. No other closed βη normal form W has P ⊑_O W: then V ⊑_O W, while Böhm's
+# theorem gives a pure context that takes V to λx y. x and W to λx y. y, and applying
+# both to λa. a and Ω makes the first solvable and the second not.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "fixpoint")
+λ fixpoint
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "boolean")
+λ true false _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "natural")
+λ binary_zero _ binary_odd _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "arithmetic")
+λ merge_binary_increment _ _ merge_binary_equality
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "order")
+λ binary_less_than binary_maximum _
+. omega (omega (omega (omega (omega gezi "problems") "cses") "common") "binary_modular")
+λ _ binary_subtract _ _
+. (λtuple. tuple (binary_odd binary_zero))
+λ one
+. ( λ tuple
+    . tuple
+    λ edges
+    . fixpoint
+      ( λ self steps from target
+        . merge_binary_equality from target true
+          ( ( λ any
+              . steps false (λ_. any edges) λ_. any edges
+            )
+            ( fixpoint
+              ( λ walk rest
+                . rest false
+                  λ edge others
+                  . edge
+                    λ left right
+                    . (merge_binary_equality from left (self (binary_subtract steps one false) right target) false)
+                      true
+                      ( (merge_binary_equality from right (self (binary_subtract steps one false) left target) false)
+                        true (walk others)
+                      )
+              )
+            )
+          )
+      )
+  )
+λ reaches
+. ( λ tuple
+    . tuple
+    λ node_count edges
+    . fixpoint
+      ( λ self steps from target
+        . binary_less_than node_count steps (merge_binary_increment node_count)
+          (reaches edges steps from target steps (self (merge_binary_increment steps) from target))
+      ) binary_zero
+  )
+λ distance
+. ( λ tuple
+    . tuple
+    λ node_count edges from
+    . fixpoint
+      ( λ self target most
+        . binary_less_than node_count target most
+          (self (merge_binary_increment target) (binary_maximum most (distance node_count edges from target)))
+      ) one binary_zero
+  )
+λ farthest
+. ( λ tuple
+    . tuple
+    λ node_count edges
+    . fixpoint
+      ( λ self from most
+        . binary_less_than node_count from most
+          (self (merge_binary_increment from) (binary_maximum most (farthest node_count edges from)))
+      ) one binary_zero
+  )
+λ tree_diameter
+. export tree_diameter

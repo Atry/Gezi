@@ -6,15 +6,22 @@ import hedgehog.Result
 import gezi.ir.BindingNormalForm
 import gezi.ir.CodeLayer
 import gezi.ir.Code
-import gezi.ir.Instruction
+import gezi.ir.Configured
 import gezi.ir.Hole
-import gezi.ir.Layer
+import gezi.ir.LayerWith
+import gezi.ir.NoFacts
 import gezi.ir.LemmaIdentifier
 import gezi.ir.Store
 import gezi.generatedinputs.GeneratedProperties
 import gezi.generatedinputs.StateMachine
 import scala.annotation.tailrec
 import gezi.ir.{Apply, Choice, NoinlineLeaf, Parallel, Slot, Thunk}
+
+/** The e-graph of the state machine tests, whose terms are of no facts. */
+type Graph = EGraph[NoFacts.type]
+
+/** One layer of the graph over the positions of earlier terms, a leaf a term of no facts. */
+type GraphLayer = LayerWith[Int, Configured[NoFacts.type]]
 
 /** A command of the e-graph's state machine test. Terms are named by their
   * position among the terms added so far, the position the command that
@@ -25,10 +32,10 @@ enum GraphCommand:
   /** Add a noinline instruction, a leaf, through `instructionAdded`, which files its
     * head when a matched side is headed by it.
     */
-  case AddInstruction(instruction: Instruction)
+  case AddInstruction(instruction: Configured[NoFacts.type])
 
   /** Add one layer over terms already added, through `layerAdded`. */
-  case AddLayer(layer: Layer[Int])
+  case AddLayer(layer: GraphLayer)
 
   /** Unite the classes of two terms already added, through `unionWorked`;
     * the unions of congruence it causes wait on the agenda.
@@ -43,7 +50,7 @@ enum GraphCommand:
   * last union.
   */
 final case class GraphModel(
-    terms: Vector[Layer[Int]],
+    terms: Vector[GraphLayer],
     unions: Vector[(Int, Int)],
     agendaRun: Boolean
 ):
@@ -66,12 +73,12 @@ final case class GraphModel(
     * step of the model: a thunk with holes that `BindingNormalForm.respelled`
     * respells is replaced by its respelling, whose fillings are new terms
     * after the added ones, made by the fold the graph makes them with
-    * (`BindingNormalForm.placeholdersFolded`), each placeholder the drawn
+    * (`BindingNormalForm.fillingFolded`), each slot the position of the drawn
     * thunk's filling. A new term has a position above every added term, so
     * the smallest position of a class that holds an added term is an added
     * term's.
     */
-  private def spelledTerms: Vector[Layer[Int]] =
+  private def spelledTerms: Vector[GraphLayer] =
     terms.indices.foldLeft(terms)((current, position) =>
       current(position) match
         case Thunk(code, holes, fillings) if holes.nonEmpty =>
@@ -80,7 +87,7 @@ final case class GraphModel(
             case Some((spelledCode, spelledHoles, spelledFillings)) =>
               val (extended, fillingPositions) = spelledFillings.foldLeft((current, Vector.empty[Int])) {
                 case ((before, positions), filling) =>
-                  val (after, fillingPosition) = BindingNormalForm.placeholdersFolded(filling, fillings, before)(
+                  val (after, fillingPosition) = BindingNormalForm.fillingFolded(filling, fillings, before)(
                     (grown, layer) => (grown :+ layer, grown.size)
                   )
                   (after, positions :+ fillingPosition)
@@ -93,7 +100,7 @@ final case class GraphModel(
     * until one merges nothing.
     */
   @tailrec
-  private def closed(spelled: Vector[Layer[Int]], labels: Vector[Int]): Vector[Int] =
+  private def closed(spelled: Vector[GraphLayer], labels: Vector[Int]): Vector[Int] =
     val pairs = for
       first <- spelled.indices
       second <- spelled.indices
@@ -106,7 +113,7 @@ final case class GraphModel(
     }
     if passed == labels then labels else closed(spelled, passed)
 
-  private def congruent(first: Layer[Int], second: Layer[Int], labels: Vector[Int]): Boolean =
+  private def congruent(first: GraphLayer, second: GraphLayer, labels: Vector[Int]): Boolean =
     first.map(labels) == second.map(labels)
 
   private def merged(labels: Vector[Int], first: Int, second: Int): Vector[Int] =
@@ -115,7 +122,7 @@ final case class GraphModel(
     labels.map(label => if label == replaced then kept else label)
 
 /** The system: the e-graph, and the node of each term added. */
-final case class GraphSystem(graph: EGraph, nodes: Vector[Int]):
+final case class GraphSystem(graph: Graph, nodes: Vector[Int]):
 
   /** The class of each term, named by the smallest position whose node has
     * the same root.
@@ -135,7 +142,7 @@ final case class GraphSystem(graph: EGraph, nodes: Vector[Int]):
   * their classes hold closure states, which unions join. The β rule is not
   * run: its bodies are built by a compiled program, outside this module.
   */
-abstract class GraphMachine(initialGraph: EGraph) extends StateMachine[GraphCommand, GraphModel, GraphSystem]:
+abstract class GraphMachine(initialGraph: Graph) extends StateMachine[GraphCommand, GraphModel, GraphSystem]:
   import GraphMachine.instructions
 
   val initialModel: GraphModel = GraphModel(Vector.empty, Vector.empty, agendaRun = true)
@@ -211,9 +218,9 @@ abstract class GraphMachine(initialGraph: EGraph) extends StateMachine[GraphComm
     * respelling is right is `InstructionAddedLawTest`'s law and
     * `gezi.strategies.LayerRespellingLawTest`'s.
     */
-  private def layerGenerator(term: Gen[Int]): Gen[Layer[Int]] =
+  private def layerGenerator(term: Gen[Int]): Gen[GraphLayer] =
     val hole = Gen.element1[Hole](Hole.Bound(0), Hole.Bound(1), Hole.Ignored)
-    val thunk: Gen[Layer[Int]] =
+    val thunk: Gen[GraphLayer] =
       for
         code <- Gen.element1(Code(Slot(0)), Code(Slot(1)), Code(Apply(Code(Slot(0)), Code(Slot(1)))))
         holes <- hole.list(Range.linear(1, 2)).map(_.toVector).filter(holes => Code.fillingCount(code, holes).nonEmpty)
@@ -229,23 +236,23 @@ abstract class GraphMachine(initialGraph: EGraph) extends StateMachine[GraphComm
     )
 
   @tailrec
-  private def unionsWorked(graph: EGraph): EGraph = graph.unionTaken match
+  private def unionsWorked(graph: Graph): Graph = graph.unionTaken match
     case Some((pending, rest)) =>
       unionsWorked(rest.unionWorked(pending.first, pending.second, pending.justification, pending.made))
     case None => graph
 
 object GraphMachine:
 
-  val instructions: Vector[Instruction] = Vector(0, 1, 2, 3).map(position => Instruction.opaque(s"leaf $position"))
+  val instructions: Vector[Configured[NoFacts.type]] = Vector(0, 1, 2, 3).map(position => NoFacts.opaque(s"leaf $position"))
 
-  private val store = Store(noinline = instructions.toSet)
+  private val store = Store(noinline = instructions.toSet, gezi.ir.TermConstruction(NoFacts))
 
-  private val headArityBounds: Map[Instruction, Int] = Map(instructions(0) -> 2, instructions(1) -> 1)
+  private val headArityBounds: Map[Configured[NoFacts.type], Int] = Map(instructions(0) -> 2, instructions(1) -> 1)
 
   private val justification = Justification.Lemma(LemmaIdentifier(0), Vector.empty)
 
   /** The empty graph over the instructions, two of them heading matched spines. */
-  val emptyGraph: EGraph = EGraph.empty(store, headArityBounds, explained = false)
+  val emptyGraph: Graph = EGraph.empty(store, headArityBounds, explained = false)
 
 /** The state machine test of the e-graph's incremental bookkeeping, whose
   * purpose is to catch a union whose consequences the graph fails to
@@ -279,30 +286,37 @@ class EGraphStateMachineTest extends GeneratedProperties:
         Result.failure.log(s"after the agenda the classes differ: $classesText")
       else Result.success
 
-  // The coverage thresholds sit about four standard deviations below the
-  // rates the generator gives, so that a run of 200 tests misses one only by
-  // a defect of the generator, not by chance. Measured on 2026-10-31 with
-  // 4,000 tests (seed 1): a node made a duplicate in 17% of the runs, a class
-  // held two closure states in 16%; at 200 tests one standard deviation is
-  // about 2.7 points. The duplicate threshold was 15%, and the property
-  // failed for "Insufficient coverage" in 3 of 6 full test runs (seed
-  // 484996788267871: 14%).
+  /** The commands every sequence starts with, so that every iteration has
+    * the two cases the law must reach by construction: two leaves united
+    * under `Apply(a, a)` and `Apply(a, b)`, which the agenda finds congruent,
+    * marking one a duplicate; and two thunks of distinct closure states,
+    * `λx. x` and `λx. a`, united, so that their class holds both.
+    */
+  private val congruenceAndClosures: Vector[GraphCommand] =
+    Vector(
+      GraphCommand.AddInstruction(GraphMachine.instructions(0)),
+      GraphCommand.AddInstruction(GraphMachine.instructions(1)),
+      GraphCommand.AddLayer(Apply(0, 0)),
+      GraphCommand.AddLayer(Apply(0, 1)),
+      GraphCommand.AddLayer(Thunk(Code(Slot(0)), Vector(Hole.Bound(0)), Vector.empty[Int])),
+      GraphCommand.AddLayer(Thunk(Code(Slot(1)), Vector(Hole.Bound(0)), Vector(0))),
+      GraphCommand.Union(0, 1),
+      GraphCommand.Union(4, 5),
+      GraphCommand.RunAgenda
+    )
+
+  test("the commands every sequence starts with make a duplicate and a class of two closure states") {
+    val graph = Machine.finalSystem(congruenceAndClosures).graph
+    assert(graph.nodes.exists(_.duplicate), "no node made a duplicate")
+    assert(graph.classes.exists(_.closures.exists(_.items.size >= 2)), "no class holds two closure states")
+  }
+
   property(
     "the graph's classes are the congruence closure of its unions",
     _.copy(testLimit = 200)
   ) {
-    for
-      commands <- StateMachine
-        .forAll(Machine, 60)
-        .cover(5, "a node made a duplicate", commands => Machine.finalSystem(commands).graph.nodes.exists(_.duplicate))
-        .cover(
-          5,
-          "a class holding two closure states",
-          commands =>
-            val graph = Machine.finalSystem(commands).graph
-            graph.classes.exists(_.closures.exists(_.items.size >= 2))
-        )
-    yield StateMachine.run(Machine, commands)
+    for commands <- StateMachine.forAll(Machine, 60)
+    yield StateMachine.run(Machine, congruenceAndClosures ++ commands)
   }
 
   /** The machine over a graph whose respelling memo keeps nothing

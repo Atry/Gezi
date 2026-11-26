@@ -2,6 +2,7 @@ package gezi.strategies
 
 import gezi.ir.Code
 import gezi.ir.Spine
+import gezi.ir.{Configured, NativeSpecializer}
 
 /** The kind of a spine head as row 3 reads it: an instruction of no constructor
   * shape, a constructor of some fields applied to some arguments (capped at
@@ -45,13 +46,13 @@ final case class LookupsReading(head: LookupHead, known: Boolean) extends Module
   * or such a thunk (one layer only). The shape is read from the definition,
   * never from a name.
   */
-object KnownConstructorLookups extends NormalityModule:
+object KnownConstructorLookups extends ConfigurationFreeModule:
 
   val name: String = "known_constructor_lookups"
 
   val meetsExtractionContract: Boolean = true
 
-  def folded(layer: OrderTerm, reading: TermReading): FoldState = state(layer, reading)
+  def folded[C <: NativeSpecializer & Singleton](layer: OrderTerm[C], reading: TermReading[C]): FoldState = state(layer, reading)
 
   /** A field: a binder at a position, or a binder at a position applied to
     * the binders at the positions given (`field_read/3`).
@@ -61,7 +62,7 @@ object KnownConstructorLookups extends NormalityModule:
   /** The number of fields of a thunk with no filling of the constructor
     * shape (`constructor_fields/2`).
     */
-  private def constructorFields(term: OrderTerm): Option[Int] = term match
+  private def constructorFields[C <: NativeSpecializer & Singleton](term: OrderTerm[C]): Option[Int] = term match
     case OrderTerm.Thunk(code, holes, Vector()) =>
       Spine.of(code) match
         case (Code.Slot(headSlot), arguments) =>
@@ -98,15 +99,15 @@ object KnownConstructorLookups extends NormalityModule:
   /** The number of fields of an instruction whose layer has the constructor shape
     * (`handle_constructor/2`).
     */
-  private def instructionConstructor(term: OrderTerm, reading: TermReading): Option[Int] = term match
+  private def instructionConstructor[C <: NativeSpecializer & Singleton](term: OrderTerm[C], reading: TermReading[C]): Option[Int] = term match
     case OrderTerm.Name(instruction) => constructorFields(reading.instructionLayer(instruction))
     case _                      => None
 
-  private def saturatedConstructor(head: OrderTerm, arguments: Vector[OrderTerm], reading: TermReading): Boolean =
+  private def saturatedConstructor[C <: NativeSpecializer & Singleton](head: OrderTerm[C], arguments: Vector[OrderTerm[C]], reading: TermReading[C]): Boolean =
     instructionConstructor(head, reading).exists(fields => fields > 0 && arguments.size == fields)
 
   /** `known_constructor_value/1`. */
-  private def knownConstructorValue(term: OrderTerm, reading: TermReading): Boolean = term match
+  private def knownConstructorValue[C <: NativeSpecializer & Singleton](term: OrderTerm[C], reading: TermReading[C]): Boolean = term match
     case OrderTerm.Name(instruction) =>
       val layer = reading.instructionLayer(instruction)
       constructorFields(layer).contains(0) || (layer match
@@ -122,7 +123,7 @@ object KnownConstructorLookups extends NormalityModule:
     case thunk @ OrderTerm.Thunk(_, _, _) => constructorFields(thunk).contains(0)
     case _                                => false
 
-  private def state(term: OrderTerm, reading: TermReading): LookupsState = term match
+  private def state[C <: NativeSpecializer & Singleton](term: OrderTerm[C], reading: TermReading[C]): LookupsState = term match
     case OrderTerm.Folded(folded, _) => TermOrder.ownState[LookupsState](folded)
     case name @ OrderTerm.Name(_) =>
       val head = instructionConstructor(name, reading) match

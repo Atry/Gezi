@@ -1,0 +1,86 @@
+# The typed branch of a power of a power modulo a modulus: a program that reduces such
+# a power, written by the definition, equals the choice of itself and the typed version
+# at filtered operands, for all operands, by monotonicity alone, by the paper proof its
+# declaration cites. The recursion a program writes is the IR term plover_power itself,
+# so no lemma folds it.
+#
+# The typed version is a noinline leaf, so the lemma never matches inside its own right
+# side. Termination of this module's saturation, derived and not proved: the left sides'
+# instances are the program's own subterms of those shapes, and the right sides add only
+# applications of terms already there, the typed leaf and filters of operands already
+# there.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "binary") "natural")
+λ _ _ _ _ binary_set
+. omega (omega (omega (omega corpora "library") "native_types") "boolean")
+λ true false _ _
+. omega (omega (omega (omega corpora "library") "plover_compositions") "plover_compositions")
+λ _ _ plover_binary_modulo _ _ _
+. omega (omega (omega (omega corpora "library") "plover_compositions") "plover_modular_power")
+λ plover_power _ plover_typed_modular_power
+. omega (omega (omega (omega corpora "library") "plover_compositions") "plover_modular_tower")
+λ _ plover_typed_modular_tower
+. omega (omega (omega (omega corpora "library") "native_types") "markers")
+λ _ _ _ _ $repelled
+. export
+  ( λ _ rewriting _ _
+    . rewriting
+    λ _ _ leaves
+    . leaves (λkey. key plover_typed_modular_tower + λkey. key $repelled)
+  + λ _ _ _ backend
+    . backend
+    λ _ natives _ _ _ _
+    . natives (λ binding. binding plover_typed_modular_tower λkey. key "plover_modular_tower")
+  + λ _ rewriting _ _
+    . rewriting
+    λ _ lemmas _
+    . lemmas
+      # A program binds the function once and calls it at each site. Each of
+      # the two is an instance of the β rule.
+      ( λ lemma
+        . lemma
+          (λkey. key "plover_modular_tower_let")
+          ( λ body modulus
+            . (λ function. body function) λ base exponent_base exponent_power. plover_binary_modulo (plover_power base (plover_power exponent_base exponent_power)) modulus
+          )
+          (λ body modulus. body λ base exponent_base exponent_power. plover_binary_modulo (plover_power base (plover_power exponent_base exponent_power)) modulus)
+        λ _ metadata _
+        . metadata λkey. key "[plover_modular_tower_let](docs/design/gezi-plover-ordered-compositions-proofs.md)"
+      + λ lemma
+        . lemma
+          (λkey. key "plover_modular_tower_applied")
+          ( λ modulus first second third
+            . (λ base exponent_base exponent_power. plover_binary_modulo (plover_power base (plover_power exponent_base exponent_power)) modulus) first second third
+          )
+          (λ modulus first second third. plover_binary_modulo (plover_power first (plover_power second third)) modulus)
+        λ _ metadata _
+        . metadata λkey. key "[plover_modular_tower_applied](docs/design/gezi-plover-ordered-compositions-proofs.md)"
+      + λ lemma
+        . lemma
+          (λkey. key "plover_modular_tower_branch")
+          (λ base exponent_base exponent_power modulus. plover_binary_modulo (plover_power base (plover_power exponent_base exponent_power)) modulus)
+          ( λ base exponent_base exponent_power modulus
+            . ( plover_binary_modulo (plover_power base (plover_power exponent_base exponent_power)) modulus
+              + plover_typed_modular_tower (base ∥ binary_set true) (exponent_base ∥ binary_set true) (exponent_power ∥ binary_set true) (modulus ∥ binary_set false)
+              )
+          )
+        λ _ metadata _
+        . metadata λkey. key "[plover_modular_tower_branch](docs/design/gezi-plover-ordered-compositions-proofs.md)"
+      # The modular power's typed version at an exponent that is itself a power
+      # is under the repeller, the identity: its native would need b^c exactly,
+      # where this module's reads b and c.
+      + λ lemma
+        . lemma
+          (λkey. key "plover_power_exponent_repelled")
+          ( λ base exponent_base exponent_power modulus
+            . plover_typed_modular_power base (plover_power exponent_base exponent_power ∥ binary_set true) modulus
+          )
+          ( λ base exponent_base exponent_power modulus
+            . $repelled λ. plover_typed_modular_power base (plover_power exponent_base exponent_power ∥ binary_set true) modulus
+          )
+        λ _ metadata _
+        . metadata λkey. key "[plover_power_exponent_repelled](docs/design/gezi-plover-ordered-compositions-proofs.md)"
+      )
+  )

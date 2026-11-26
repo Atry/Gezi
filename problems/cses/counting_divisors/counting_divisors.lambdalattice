@@ -2,9 +2,11 @@
 # CSES 1713, Counting Divisors (https://cses.fi/problemset/task/1713), in our
 # own words: for each given positive integer number, the number of positive integers
 # that divide it. The input is a Scott list (corpora/library/prelude/list) of
-# binary naturals (corpora/library/binary/natural) and the answer the Scott
-# list of their divisor counts, binary naturals. Part of the CSES port's second
-# batch.
+# binary naturals (corpora/library/binary/natural) and the answer the sum of
+# their divisor counts, a binary natural (CSES asks the list of the counts; the
+# sum keeps the work and makes the answer one number, where the list of 10^5
+# counts at the top rung made a point's answer and its trap megabytes). Part of
+# the CSES port's second batch.
 #
 # THE PROGRAM, written by the definition: the divisors of number are the divisor from 1 to
 # number with number mod divisor = 0, counted by walking divisor up from 1 with a running count. The
@@ -14,9 +16,9 @@
 # largest number (about the square root of number per query without a sieve).
 #
 # DEFINITION 14: the program P, the point's term, is built of λ and application
-# only, with no top, no choice and no parallel. It β-reduces to V, the Scott list
-# of the canonical binary numerals of the counts (the walk consumes number - divisor, binary_modulo
-# consumes the bits of number, each fold a finite list), and binary_modulo is
+# only, with no top, no choice and no parallel. It β-reduces to V, the canonical
+# binary numeral of the sum of the counts (the walk consumes number - divisor, binary_modulo
+# consumes the bits of number, the sum consumes the list, each fold a finite list), and binary_modulo is
 # given divisor >= 1 only, as ../common/binary_modular needs, and writes no top. So
 # ⊢_β P = V, and P ≃_O V by the soundness of the derivable equations for the
 # contextual preorder of Definition 14 (Lean
@@ -30,12 +32,10 @@
 λ omega
 . omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "fixpoint")
 λ fixpoint
-. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
-λ nil cons _ map _
 . omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "natural")
 λ binary_zero _ binary_odd _ _
 . omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "arithmetic")
-λ merge_binary_increment _ _ merge_binary_equality
+λ merge_binary_increment merge_binary_plus _ merge_binary_equality
 . omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "order")
 λ binary_less_than _ _
 . omega (omega (omega (omega (omega gezi "problems") "cses") "common") "binary_modular")
@@ -51,6 +51,13 @@
       ) one binary_zero
   )
 λ divisor_count
-. (λtuple. tuple λnumbers. map divisor_count numbers)
+. ( λ tuple
+    . tuple
+    λ numbers
+    . fixpoint
+      ( λ self sum rest
+        . rest sum λ number others. self (merge_binary_plus sum (divisor_count number)) others
+      ) binary_zero numbers
+  )
 λ counting_divisors
 . export counting_divisors

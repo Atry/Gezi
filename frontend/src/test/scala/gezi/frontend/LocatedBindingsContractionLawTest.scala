@@ -2,7 +2,9 @@ package gezi.frontend
 
 import hedgehog.Result
 import gezi.generatedinputs.GeneratedProperties
-import gezi.ir.Instruction
+import gezi.ir.Configured
+import gezi.ir.NoFacts
+import gezi.ir.StorageAccess
 import gezi.locations.BinderOrigin
 import gezi.locations.Location
 import gezi.locations.SourceMap
@@ -23,6 +25,9 @@ import gezi.locations.Span
   * occurrences of its name, or the spans of a binding shifted onto the next.
   */
 class LocatedBindingsContractionLawTest extends GeneratedProperties:
+
+  given NoFacts.type = NoFacts
+  given StorageAccess = StorageAccess.granted()
 
   private val uri: java.net.URI = java.net.URI("file:///located-bindings.lambdalattice")
 
@@ -53,7 +58,7 @@ class LocatedBindingsContractionLawTest extends GeneratedProperties:
       .map(instruction =>
         val printed = ReadableText.printedNameless(instruction)
         val read = Lambdalattice.located(printed.text, FreeNames.Rejected)
-        val located = Defunctionalization.locatedBindingsContracted(read.term, read.spans, uri, printed.bindings)
+        val located = Defunctionalization.locatedBindingsContracted[NoFacts.type](read.term, read.spans, uri, printed.bindings)
         located match
           case Left(reason) => Result.failure.log(reason)
           case Right(contracted) =>
@@ -66,8 +71,8 @@ class LocatedBindingsContractionLawTest extends GeneratedProperties:
                 (spansHere.child(1).child(0), problems ++ rootProblems ++ outside(s"binding $index", binding.map, valueSpan))
             }
             val problems =
-              (if contracted.body eq instruction then Vector.empty else Vector("the body is not the printed instruction")) ++
-                (if Defunctionalization.bindingsContracted(read.term, printed.bindings, enclosingBinders = 0).exists(_ eq instruction) then Vector.empty
+              (if Configured.same(contracted.body, instruction) then Vector.empty else Vector("the body is not the printed instruction")) ++
+                (if Defunctionalization.bindingsContracted[NoFacts.type](read.term, printed.bindings, enclosingBinders = 0).exists(Configured.same(_, instruction)) then Vector.empty
                  else Vector("the unlocated contraction gives another instruction")) ++
                 (if contracted.bindings.size == printed.bindings then Vector.empty
                  else Vector(s"${contracted.bindings.size} bindings for the printer's ${printed.bindings}")) ++

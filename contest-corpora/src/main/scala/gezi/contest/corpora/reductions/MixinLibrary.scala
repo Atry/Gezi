@@ -35,45 +35,45 @@ final case class MixinLibrary(
   private def named(hierarchy: String): Hierarchy = Hierarchy(hierarchy, slots(hierarchy))
 
   /** `\Self. \c1. ... \cW. cm Body` (`self_mixin/5`). */
-  def selfMixin(hierarchy: String, slot: String)(body: Term => Term): Term =
+  def selfMixin(hierarchy: String, slot: String)(body: ProblemTerm => ProblemTerm): ProblemTerm =
     encoding.selfMixin(named(hierarchy), slot, body)
 
   /** The wrapper of each slot and value (`value_mixin/3`). */
-  def valueMixin(hierarchy: String, definitions: (String, Term)*): Term =
+  def valueMixin(hierarchy: String, definitions: (String, ProblemTerm)*): ProblemTerm =
     encoding.valueMixin(named(hierarchy), definitions*)
 
   /** The slot read from the object (`read_slot/4`). */
-  def readSlot(hierarchy: String, slot: String, objectTerm: Term): Term =
+  def readSlot(hierarchy: String, slot: String, objectTerm: ProblemTerm): ProblemTerm =
     encoding.readSlot(named(hierarchy), slot, objectTerm)
 
   /** The read applied to the arguments (`slot_applied/5`). */
-  def slotApplied(hierarchy: String, slot: String, objectTerm: Term, arguments: Term*): Term =
+  def slotApplied(hierarchy: String, slot: String, objectTerm: ProblemTerm, arguments: ProblemTerm*): ProblemTerm =
     encoding.slotApplied(named(hierarchy), slot, objectTerm, arguments*)
 
   /** The body under the lets of the module of each library, the libraries'
     * and the given hierarchies each declared once (`with_mixin_library/5`).
     */
-  def withMixinLibrary(libraries: Vector[String], hierarchies: Vector[String])(body: MixinNames => Term): Term =
+  def withMixinLibrary(libraries: Vector[String], hierarchies: Vector[String])(body: MixinNames => ProblemTerm): ProblemTerm =
     (hierarchies ++ libraries.flatMap(encoding.libraryHierarchies)).foreach(slots)
     encoding.withMixinLibrary(libraries, body)
 
   /** The class read from the library's module (`library_class/4`). */
-  def libraryClass(names: MixinNames, library: String, className: String): Term =
+  def libraryClass(names: MixinNames, library: String, className: String): ProblemTerm =
     encoding.libraryClass(names, library, className)
 
   /** The class read from the one library of the program that has it
     * (`library_class/3`).
     */
-  def libraryClass(names: MixinNames, className: String): Term = encoding.libraryClass(names, className)
+  def libraryClass(names: MixinNames, className: String): ProblemTerm = encoding.libraryClass(names, className)
 
   /** The natural of the library `natural` (`natural_instance/3`). */
-  def naturalInstance(names: MixinNames, count: Int): Term = encoding.naturalInstance(names, count)
+  def naturalInstance(names: MixinNames, count: Int): ProblemTerm = encoding.naturalInstance(names, count)
 
   /** `{successor, predecessor : Predecessor}` (`successor_class/3`). */
-  def successorClass(names: MixinNames, predecessor: Term): Term = encoding.successorClass(names, predecessor)
+  def successorClass(names: MixinNames, predecessor: ProblemTerm): ProblemTerm = encoding.successorClass(names, predecessor)
 
   /** The natural of the library `binary` (`binary_instance/3`). */
-  def binaryInstance(names: MixinNames, count: BigInt): Term = encoding.binaryInstance(names, count)
+  def binaryInstance(names: MixinNames, count: BigInt): ProblemTerm = encoding.binaryInstance(names, count)
 
 /** Reading the hierarchies. */
 object MixinLibrary:

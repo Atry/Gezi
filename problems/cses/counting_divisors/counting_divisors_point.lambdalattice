@@ -1,17 +1,17 @@
-# The base problems of the CSES families repeated_cses_counting_divisors_*: a list of positive integers, the answer the number of
-# divisors of each.
+# The base problems of the CSES families repeated_cses_counting_divisors_*: a list of positive integers, the answer the
+# sum of their divisor counts.
 #
 # THE ANSWER of each row is the problem's definition computed exhaustively by
 # a brute-force script of it (enumerating the walks, subsets, divisors or
-# elements, 2026-11-21), not by the efficient algorithm. PROOF: the program of the problem's
+# elements, 2026-11-21; the counts summed 2026-11-22), not by the efficient algorithm. PROOF: the program of the problem's
 # file follows the definition, and its header argues under Definition 14 that
 # its one normal form is that answer; the data are finite and small. The inputs
 # are our own, no CSES test data.
 #
 #   counting_divisors_point(?Point, ?Numbers, ?Result)
 #
-# Numbers is a Scott list (corpora/library/prelude/list) of integers (corpora/library/integer/cbor); Result is a
-# Scott list of integers.
+# Numbers is a Scott list (corpora/library/prelude/list) of integers (corpora/library/integer/cbor); Result is an
+# integer, the sum.
 λ export
 . (λtuple. tuple λmixin. mixin mixin)
 λ omega
@@ -29,25 +29,25 @@
 λ
 . cons
   ( λ _counting_divisors_point
-    . _counting_divisors_point (text "cses_counting_divisors_prime_and_one") (cons (integer 1) λ. cons (integer 7) λ. nil) λ. cons (integer 1) λ. cons (integer 2) λ. nil
+    . _counting_divisors_point (text "cses_counting_divisors_prime_and_one") (cons (integer 1) λ. cons (integer 7) λ. nil) (integer 3)
   )
 λ
 . cons
   ( λ _counting_divisors_point
-    . _counting_divisors_point (text "cses_counting_divisors_square_and_composite") (cons (integer 16) λ. cons (integer 12) λ. nil) λ. cons (integer 5) λ. cons (integer 6) λ. nil
+    . _counting_divisors_point (text "cses_counting_divisors_square_and_composite") (cons (integer 16) λ. cons (integer 12) λ. nil) (integer 11)
   )
 λ
 . cons
   ( λ _counting_divisors_point
-    . _counting_divisors_point (text "cses_counting_divisors_highly_composite") (cons (integer 36) λ. cons (integer 30) λ. nil) λ. cons (integer 9) λ. cons (integer 8) λ. nil
+    . _counting_divisors_point (text "cses_counting_divisors_highly_composite") (cons (integer 36) λ. cons (integer 30) λ. nil) (integer 17)
   )
 λ
 . cons
   ( λ _counting_divisors_point
-    . _counting_divisors_point (text "cses_counting_divisors_single_prime_square") (cons (integer 25) λ. nil) λ. cons (integer 3) λ. nil
+    . _counting_divisors_point (text "cses_counting_divisors_single_prime_square") (cons (integer 25) λ. nil) (integer 3)
   )
 λ
 . cons
   ( λ _counting_divisors_point
-    . _counting_divisors_point (text "cses_counting_divisors_empty_list") nil λ. nil
+    . _counting_divisors_point (text "cses_counting_divisors_empty_list") nil (integer 0)
   ) nil

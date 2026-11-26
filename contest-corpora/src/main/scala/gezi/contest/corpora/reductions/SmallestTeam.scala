@@ -14,7 +14,7 @@ object SmallestTeam:
   private val family = "smallest_team"
 
   /** `Team People None Budget (\r. difference Budget r)` (`team_term/4`). */
-  def teamTerm(attractors: Attractors, skillCount: Int, people: Vector[Vector[Int]], budget: Int): Term =
+  def teamTerm(attractors: Attractors, skillCount: Int, people: Vector[Vector[Int]], budget: Int): ProblemTerm =
     val difference = attractors.functionSurface("natural_difference", Spelling.Direct)
     teamFunction(attractors)(peopleSurface(attractors, people, skillCount))(
       CollectKeys.noneCollected(attractors, skillCount)
@@ -23,7 +23,7 @@ object SmallestTeam:
   /** Each person left out or taken at the cost of one unit of the budget,
     * the skills covered by union (`team_function/1`).
     */
-  private def teamFunction(attractors: Attractors): Term =
+  private def teamFunction(attractors: Attractors): ProblemTerm =
     val full = attractors.functionSurface("bit_set_full", Spelling.Direct)
     val union = attractors.functionSurface("bit_set_union", Spelling.Direct)
     attractors.fixpoint(
@@ -52,7 +52,7 @@ object SmallestTeam:
     )
 
   /** The Scott list of the people's skill sets (`people_surface/3`). */
-  private def peopleSurface(attractors: Attractors, people: Vector[Vector[Int]], skillCount: Int): Term =
+  private def peopleSurface(attractors: Attractors, people: Vector[Vector[Int]], skillCount: Int): ProblemTerm =
     SetFree.scottList(
       attractors,
       people.map(skills => SetFree.booleanList(attractors, (0 until skillCount).toVector.map(skill => if skills.contains(skill) then 1 else 0)))

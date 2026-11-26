@@ -33,8 +33,8 @@ abstract class FailFastSuite extends munit.FunSuite:
   /** A test whose body receives the stop request, which never completes
     * under Scala.js.
     */
-  def stoppableTest(name: String)(body: Future[Unit] => Any)(using munit.Location): Unit =
-    test(name)(body(Promise[Unit]().future))
+  def stoppableTest(options: munit.TestOptions)(body: Future[Unit] => Any)(using munit.Location): Unit =
+    test(options)(body(Promise[Unit]().future))
 
 /** A test body that did not return within its deadline: the JVM suite's
   * failure, which no test under Scala.js raises.

@@ -6,8 +6,10 @@
 # (corpora/library/prelude/list) of binary naturals
 # (corpora/library/binary/natural), and the queries, a Scott list of pairs `pair a b`
 # (corpora/library/prelude/pair) of binary naturals, 1 <= a <= b <= the length of
-# the list; the answer is the Scott list of the sums of the queries, in their order.
-# Part of the CSES port's third batch.
+# the list; the answer is the sum over the queries of each range sum, a binary natural
+# (CSES asks the list of the sums; the sum keeps the work and makes the answer one number,
+# where the list of 2*10^5 sums at the top rung made a point's answer and its trap
+# megabytes). Part of the CSES port's third batch.
 #
 # THE PROGRAM, written by the definition: for each query, the list is walked from
 # its first number with the place counted up from 1, adding the numbers whose place is not
@@ -18,8 +20,8 @@
 #
 # DEFINITION 14: the program P, the point's term, is built of λ and application
 # only: its text holds no top, no choice, no parallel and no literal. It β-reduces
-# to V, the Scott list of the canonical binary numerals of the sums (each walk consumes
-# the finite list of numbers, the map consumes the finite list of queries); the
+# to V, the canonical binary numeral of the sum of the range sums (each walk consumes
+# the finite list of numbers, the sum consumes the finite list of queries); the
 # branches that a Scott boolean discards are never read. The program calls no
 # subtraction. So ⊢_β P = V, and P ≃_O V by the soundness of the derivable
 # equations for the contextual preorder of Definition 14 (Lean
@@ -33,8 +35,6 @@
 λ omega
 . omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "fixpoint")
 λ fixpoint
-. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
-λ _ _ _ map _
 . omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "natural")
 λ binary_zero _ binary_odd _ _
 . omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "arithmetic")
@@ -57,6 +57,13 @@
       ) one numbers binary_zero
   )
 λ range_sum
-. (λtuple. tuple λnumbers queries. map (λquery. query λfirst_place last_place. range_sum numbers first_place last_place) queries)
+. ( λ tuple
+    . tuple
+    λ numbers queries
+    . fixpoint
+      ( λ self total rest
+        . rest total λ query others. self (merge_binary_plus total (query λfirst_place last_place. range_sum numbers first_place last_place)) others
+      ) binary_zero queries
+  )
 λ static_range_sums
 . export static_range_sums

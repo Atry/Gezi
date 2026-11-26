@@ -1,0 +1,56 @@
+# The base problems of the CSES families repeated_cses_missing_number_*: a number n and a list of the other n - 1 numbers of 1 to n, the answer the number that is missing.
+#
+# THE ANSWER of each row is the problem's definition computed exhaustively by a
+# brute-force script (2026-11-22), which enumerates every candidate the problem's
+# statement describes. PROOF: the program of the problem's file follows the
+# definition, and its header argues under Definition 14 that its one normal form
+# is that answer; the data are finite and within the family's bottom rungs, which
+# the reference reading answers. The inputs are the author's own, no CSES test
+# data.
+#
+#   missing_number_point(?Point, ?N, ?Numbers, ?Result)
+#
+# N is an integer (corpora/library/integer/cbor); Numbers is a Scott list
+# (corpora/library/prelude/list) of integers, n - 1 different numbers of 1 to n;
+# Result is an integer.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "text") "cbor")
+λ text_from_cbor _ _ _
+. (λtuple. tuple λ. text_from_cbor λvalue. value)
+λ text
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λvalue. value)
+λ integer
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "pair")
+λ pair _ _
+. export
+λ
+. cons
+  ( λ _missing_number_point
+    . _missing_number_point (text "cses_missing_number_sample") (integer 5) (cons (integer 2) λ. cons (integer 3) λ. cons (integer 1) λ. cons (integer 5) λ. nil) λ. (integer 4)
+  )
+λ
+. cons
+  ( λ _missing_number_point
+    . _missing_number_point (text "cses_missing_number_single_number") (integer 1) nil λ. (integer 1)
+  )
+λ
+. cons
+  ( λ _missing_number_point
+    . _missing_number_point (text "cses_missing_number_first_lost") (integer 2) (cons (integer 2) λ. nil) λ. (integer 1)
+  )
+λ
+. cons
+  ( λ _missing_number_point
+    . _missing_number_point (text "cses_missing_number_last_lost") (integer 3) (cons (integer 2) λ. cons (integer 1) λ. nil) λ. (integer 3)
+  )
+λ
+. cons
+  ( λ _missing_number_point
+    . _missing_number_point (text "cses_missing_number_middle_lost_in_order") (integer 6) (cons (integer 1) λ. cons (integer 2) λ. cons (integer 4) λ. cons (integer 5) λ. cons (integer 6) λ. nil) λ. (integer 3)
+  ) nil

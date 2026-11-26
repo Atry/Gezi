@@ -1,12 +1,12 @@
 package gezi.egraph
 
-import gezi.ir.Instruction
-import gezi.ir.Layer
+import gezi.ir.LayerWith
+import gezi.ir.{Configured, NativeSpecializer}
 
 /** The head of an application's spine: an instruction and the number of arguments
   * applied to it; a class holding the instruction's node has the head of arity 0.
   */
-final case class Head(instruction: Instruction, arity: Int)
+final case class Head[C <: NativeSpecializer & Singleton](instruction: Configured[C], arity: Int)
 
 /** The shapes a class files its members under. */
 enum MemberShape:
@@ -43,12 +43,12 @@ final case class PositionUser(position: Int, user: Int)
   * `live` is false. A list is a snapshot of the graph it was read from, so
   * that reading it while matching sees exactly the entries filed before.
   */
-trait GraphView:
+trait GraphView[C <: NativeSpecializer & Singleton]:
 
   /** The node's layer as it was made, over the nodes that were then the
     * roots of its children's classes.
     */
-  def layer(node: Int): Layer[Int]
+  def layer(node: Int): LayerWith[Int, Configured[C]]
 
   /** The root of the node's class. */
   def root(node: Int): Int
@@ -60,19 +60,19 @@ trait GraphView:
 
   def members(root: Int, shape: MemberShape): Vector[Int]
 
-  def headMembers(root: Int, head: Head): Vector[Int]
+  def headMembers(root: Int, head: Head[C]): Vector[Int]
 
   def users(root: Int, role: UserRole): Vector[Int]
 
   def positionUsers(root: Int, role: PositionRole): Vector[PositionUser]
 
   /** The node of the instruction, if the graph has added it. */
-  def instructionNode(instruction: Instruction): Option[Int]
+  def instructionNode(instruction: Configured[C]): Option[Int]
 
   /** The node of the layer, a layer over nodes of any class read over their
     * roots, when the graph has one of that signature.
     */
-  def layerNode(layer: Layer[Int]): Option[Int]
+  def layerNode(layer: LayerWith[Int, Configured[C]]): Option[Int]
 
   /** The class holds a closure state (a thunk with a hole left). */
   def hasClosure(root: Int): Boolean

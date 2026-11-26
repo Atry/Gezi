@@ -159,14 +159,14 @@ final class LibraryEditDistances(spelling: Spelling, val nominal: NominalRanges,
   protected def drawn(group: ReductionGroup, draws: Draws, repetitions: Int): LibraryEditDistances.Drawn =
     LibraryEditDistances.drawn(nominal, draws, repetitions)
 
-  private def arguments(terms: StandardLibraryTerms, strings: Strings): Vector[Term] =
+  private def arguments(terms: StandardLibraryTerms, strings: Strings): Vector[ProblemTerm] =
     import terms.*
     Vector(list(strings.first.map(character => binary(character))), list(strings.second.map(character => binary(character))))
 
-  protected def program(terms: StandardLibraryTerms, drawn: LibraryEditDistances.Drawn): Term =
+  protected def program(terms: StandardLibraryTerms, drawn: LibraryEditDistances.Drawn): ProblemTerm =
     terms.sites(LibraryEditDistances.function(terms, spelling), drawn.sites.map(arguments(terms, _)))
 
-  protected def singlePrograms(terms: StandardLibraryTerms, drawn: LibraryEditDistances.Drawn): Vector[Term] =
+  protected def singlePrograms(terms: StandardLibraryTerms, drawn: LibraryEditDistances.Drawn): Vector[ProblemTerm] =
     val function = LibraryEditDistances.function(terms, spelling)
     drawn.sites.map(strings => applied(function, arguments(terms, strings)))
 
@@ -212,13 +212,13 @@ object LibraryEditDistances:
     )
 
   /** The recursion on the two lists in the spelling. */
-  def function(terms: StandardLibraryTerms, spelling: Spelling): Term =
+  def function(terms: StandardLibraryTerms, spelling: Spelling): ProblemTerm =
     import terms.*
     fixpoint(
       λ(self =>
         λ(firstString =>
           λ(secondString =>
-            def incremented(function: Term, argument: Term): Term = spelling match
+            def incremented(function: ProblemTerm, argument: ProblemTerm): ProblemTerm = spelling match
               case Spelling.Direct    => binaryIncrement(function(argument))
               case Spelling.Respelled => compose(binaryIncrement)(function)(argument)
             firstString(
@@ -342,14 +342,14 @@ final class LibrarySmallestTeams(spelling: Spelling, val nominal: NominalRanges,
   protected def drawn(group: ReductionGroup, draws: Draws, repetitions: Int): LibrarySmallestTeams.Drawn =
     LibrarySmallestTeams.drawn(nominal, draws, repetitions)
 
-  private def arguments(terms: StandardLibraryTerms, team: Team): Vector[Term] =
+  private def arguments(terms: StandardLibraryTerms, team: Team): Vector[ProblemTerm] =
     import terms.*
     Vector(list(team.people.map(person => binary(person))), binary((BigInt(1) << team.skills) - 1), binary(team.people.size + 1))
 
-  protected def program(terms: StandardLibraryTerms, drawn: LibrarySmallestTeams.Drawn): Term =
+  protected def program(terms: StandardLibraryTerms, drawn: LibrarySmallestTeams.Drawn): ProblemTerm =
     terms.sites(LibrarySmallestTeams.function(terms, spelling), drawn.sites.map(arguments(terms, _)))
 
-  protected def singlePrograms(terms: StandardLibraryTerms, drawn: LibrarySmallestTeams.Drawn): Vector[Term] =
+  protected def singlePrograms(terms: StandardLibraryTerms, drawn: LibrarySmallestTeams.Drawn): Vector[ProblemTerm] =
     val function = LibrarySmallestTeams.function(terms, spelling)
     drawn.sites.map(team => applied(function, arguments(terms, team)))
 
@@ -399,7 +399,7 @@ object LibrarySmallestTeams:
   /** The function of the people, the full set and the count plus one, in
     * the spelling.
     */
-  def function(terms: StandardLibraryTerms, spelling: Spelling): Term =
+  def function(terms: StandardLibraryTerms, spelling: Spelling): ProblemTerm =
     import terms.*
     λ(people =>
       λ(full =>
@@ -535,14 +535,14 @@ final class LibraryLongestCommonSubsequences(spelling: Spelling, val nominal: No
   protected def drawn(group: ReductionGroup, draws: Draws, repetitions: Int): LibraryLongestCommonSubsequences.Drawn =
     LibraryLongestCommonSubsequences.drawn(nominal, draws, repetitions)
 
-  private def arguments(terms: StandardLibraryTerms, strings: Strings): Vector[Term] =
+  private def arguments(terms: StandardLibraryTerms, strings: Strings): Vector[ProblemTerm] =
     import terms.*
     Vector(list(strings.first.map(character => binary(character))), list(strings.second.map(character => binary(character))))
 
-  protected def program(terms: StandardLibraryTerms, drawn: LibraryLongestCommonSubsequences.Drawn): Term =
+  protected def program(terms: StandardLibraryTerms, drawn: LibraryLongestCommonSubsequences.Drawn): ProblemTerm =
     terms.sites(LibraryLongestCommonSubsequences.function(terms, spelling), drawn.sites.map(arguments(terms, _)))
 
-  protected def singlePrograms(terms: StandardLibraryTerms, drawn: LibraryLongestCommonSubsequences.Drawn): Vector[Term] =
+  protected def singlePrograms(terms: StandardLibraryTerms, drawn: LibraryLongestCommonSubsequences.Drawn): Vector[ProblemTerm] =
     val function = LibraryLongestCommonSubsequences.function(terms, spelling)
     drawn.sites.map(strings => applied(function, arguments(terms, strings)))
 
@@ -577,7 +577,7 @@ object LibraryLongestCommonSubsequences:
     )
 
   /** The recursion on the two lists in the spelling. */
-  def function(terms: StandardLibraryTerms, spelling: Spelling): Term =
+  def function(terms: StandardLibraryTerms, spelling: Spelling): ProblemTerm =
     import terms.*
     fixpoint(
       λ(self =>
@@ -735,13 +735,13 @@ final class LibraryBillboards(spelling: Spelling, val nominal: NominalRanges, va
   protected def drawn(group: ReductionGroup, draws: Draws, repetitions: Int): LibraryBillboards.Drawn =
     LibraryBillboards.drawn(nominal, draws, repetitions)
 
-  private def arguments(terms: StandardLibraryTerms, site: Site): Vector[Term] =
+  private def arguments(terms: StandardLibraryTerms, site: Site): Vector[ProblemTerm] =
     Vector(terms.list(site.rods.map(rod => terms.binary(rod))), terms.binary(site.target))
 
-  protected def program(terms: StandardLibraryTerms, drawn: LibraryBillboards.Drawn): Term =
+  protected def program(terms: StandardLibraryTerms, drawn: LibraryBillboards.Drawn): ProblemTerm =
     terms.sites(LibraryBillboards.function(terms, spelling), drawn.sites.map(arguments(terms, _)))
 
-  protected def singlePrograms(terms: StandardLibraryTerms, drawn: LibraryBillboards.Drawn): Vector[Term] =
+  protected def singlePrograms(terms: StandardLibraryTerms, drawn: LibraryBillboards.Drawn): Vector[ProblemTerm] =
     val function = LibraryBillboards.function(terms, spelling)
     drawn.sites.map(site => applied(function, arguments(terms, site)))
 
@@ -800,7 +800,7 @@ object LibraryBillboards:
       case _ => (Site(rods, heights.max), draws)
 
   /** The function of the rods and the target in the spelling. */
-  def function(terms: StandardLibraryTerms, spelling: Spelling): Term =
+  def function(terms: StandardLibraryTerms, spelling: Spelling): ProblemTerm =
     import terms.*
     val go = fixpoint(
       λ(self =>

@@ -15,7 +15,7 @@ object ReductionMixinGrid:
   private val family = "reduction_mixin_grid"
 
   /** The program (`grid_surface/4`). */
-  def gridSurface(mixins: MixinLibrary, rows: Int, columns: Int, claimed: BigInt): Term =
+  def gridSurface(mixins: MixinLibrary, rows: Int, columns: Int, claimed: BigInt): ProblemTerm =
     mixins.withMixinLibrary(Vector("natural", "binary"), Vector("grid_module", "grid"))(names =>
       val module = gridModule(mixins, names)
       val count =
@@ -25,11 +25,11 @@ object ReductionMixinGrid:
     )
 
   /** The module whose one slot is the class grid (`grid_module/2`). */
-  private def gridModule(mixins: MixinLibrary, names: MixinNames): Term =
+  private def gridModule(mixins: MixinLibrary, names: MixinNames): ProblemTerm =
     members(Vector(mixins.selfMixin("grid_module", "grid")(module => members(Vector(gridMixin(mixins, names, module))))))
 
   /** count over self's i and j (`grid_mixin/3`). */
-  private def gridMixin(mixins: MixinLibrary, names: MixinNames, module: Term): Term =
+  private def gridMixin(mixins: MixinLibrary, names: MixinNames, module: ProblemTerm): ProblemTerm =
     mixins.selfMixin("grid", "count")(self =>
       val upCount = gridCall(
         mixins,
@@ -63,7 +63,7 @@ object ReductionMixinGrid:
   /** `{grid, i : I, j : J}.count`, the class read from the module
     * (`grid_call/4`).
     */
-  private def gridCall(mixins: MixinLibrary, module: Term, row: Term, column: Term): Term =
+  private def gridCall(mixins: MixinLibrary, module: ProblemTerm, row: ProblemTerm, column: ProblemTerm): ProblemTerm =
     val grid = mixins.readSlot("grid_module", "grid", module)
     mixins.readSlot("grid", "count", members(Vector(grid, mixins.valueMixin("grid", "i" -> row, "j" -> column))))
 

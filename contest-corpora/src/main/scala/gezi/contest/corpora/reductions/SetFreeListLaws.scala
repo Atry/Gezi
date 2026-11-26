@@ -38,13 +38,13 @@ object SetFreeListLaws:
   /** `equal (length (transformer argument list)) (length list)`
     * (`list_law_point_surface/2`).
     */
-  def pointSurface(attractors: Attractors, point: ListLawPoint): Term =
+  def pointSurface(attractors: Attractors, point: ListLawPoint): ProblemTerm =
     lawApplied(attractors, point.transformer, point.spelling, unary(point.doublings))
 
   /** The law's two lengths compared on the list doubled the given number of
     * times, a unary numeral.
     */
-  private[reductions] def lawApplied(attractors: Attractors, transformerName: String, spelling: Spelling, doublings: Term): Term =
+  private[reductions] def lawApplied(attractors: Attractors, transformerName: String, spelling: Spelling, doublings: ProblemTerm): ProblemTerm =
     def function(name: String) = attractors.functionSurface(name, spelling)
     val equal = function("natural_equal")
     val lengthOne = function("length")
@@ -61,7 +61,7 @@ object SetFreeListLaws:
     )
 
   /** `repeat k dbl [i]` (`doubled_list/3`), k a unary numeral. */
-  private def doubledList(attractors: Attractors, spelling: Spelling, doublings: Term): Term =
+  private def doubledList(attractors: Attractors, spelling: Spelling, doublings: ProblemTerm): ProblemTerm =
     val repeat = attractors.fixpoint(
       Attractors.spelledSurface(
         spelling,

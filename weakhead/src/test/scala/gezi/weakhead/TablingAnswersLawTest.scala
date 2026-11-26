@@ -1,5 +1,6 @@
 package gezi.weakhead
 
+import gezi.ir.NoFacts
 import gezi.frontend.Term
 import gezi.frontend.Term.*
 import gezi.generatedinputs.GeneratedProperties
@@ -24,6 +25,8 @@ import hedgehog.Result
   */
 class TablingAnswersLawTest extends GeneratedProperties:
 
+  given NoFacts.type = NoFacts
+
   private val limit: Long = 2000
 
   private val tabledLimit: Long = 10 * limit
@@ -39,17 +42,17 @@ class TablingAnswersLawTest extends GeneratedProperties:
     */
   @scala.annotation.tailrec
   private def pulled(
-      heads: Answers[ReadingState, ParallelSet],
-      state: ReadingState,
-      found: Vector[ParallelSet]
-  ): Vector[ParallelSet] =
+      heads: Answers[ReadingState[NoFacts.type], ParallelSet[NoFacts.type]],
+      state: ReadingState[NoFacts.type],
+      found: Vector[ParallelSet[NoFacts.type]]
+  ): Vector[ParallelSet[NoFacts.type]] =
     heads.pull.result(state) match
       case Computed.Done(Some((set, more)), after) => pulled(more, after, found :+ set)
       case Computed.Done(None, _)                  => found
       case Computed.Stopped(_)                     => found
 
-  private def answersOf(mode: Mode, term: Term, steps: Long): Set[ParallelSet] =
-    pulled(WeakHead.heads(mode, valueOf(term)), ReadingState.fresh(steps), Vector.empty).toSet
+  private def answersOf(mode: Mode, term: Term, steps: Long): Set[ParallelSet[NoFacts.type]] =
+    pulled(WeakHead.heads(mode, valueOf(term)), ReadingState.fresh(steps, gezi.weakhead.ReadingConfiguration.withoutFacts), Vector.empty).toSet
 
   property("tabling(weak_head) gives every parallel set the weak head gives") {
     for

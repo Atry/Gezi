@@ -4,6 +4,7 @@ import hedgehog.Gen
 import hedgehog.Range
 import hedgehog.Result
 import gezi.generatedinputs.GeneratedProperties
+import scala.collection.immutable.BitSet
 
 /** The facts of a code (`Code.facts`) on a chain of thunks nested 5,000 to
   * 10,000 deep, the shape a text in the multi-line CPS layout gives (a body
@@ -33,5 +34,5 @@ class CodeFactsDepthLawTest extends GeneratedProperties:
 
   property("the facts of thunks nested thousands deep are computed with each level's counts", _.copy(testLimit = hedgehog.core.SuccessCount(5))) {
     for applications <- levels.forAll
-    yield Result.diff(Code.facts(chain(applications)), CodeFacts(Map(0 -> 2, 1 -> 1), Set(0, 1)))(_ == _)
+    yield Result.diff(Code.facts(chain(applications)), CodeFacts(BitSet(0, 1), BitSet(0), BitSet(0, 1)))(_ == _)
   }

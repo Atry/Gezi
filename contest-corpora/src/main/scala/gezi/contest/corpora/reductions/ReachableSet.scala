@@ -18,7 +18,7 @@ object ReachableSet:
   /** `reach Count Start` on the graph under the lets of the nodes and of the
     * identity, a step budget of the node count (`Graphs.budgetedReachBody`).
     */
-  def reachableSetTerm(count: Int, edges: Vector[(Int, Int)], start: Int): Term =
+  def reachableSetTerm(count: Int, edges: Vector[(Int, Int)], start: Int): ProblemTerm =
     Graphs.numeralLets(
       count,
       nodes =>
