@@ -8,6 +8,10 @@ on:
 
 name: Launch Scala Steward
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   scala-steward:
     # Scala Steward reads and opens pull requests with the workflow's token
@@ -16,7 +20,7 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-26.04
     name: Launch Scala Steward
     steps:
       # Scala Steward needs Java 17 or later (class file version 61); the
