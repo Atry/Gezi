@@ -10,8 +10,8 @@ import gezi.ir.Code
 import gezi.ir.{Configured, NativeSpecializer}
 import gezi.ir.Store
 
-/** What a run of the saturation reads: the store, the orientations, the
-  * pattern instructions, the inputs and the budget.
+/** What a run of the saturation reads: the store, the orientations, the pattern
+  * instructions, the inputs and the budget.
   */
 final case class RunInput[C <: NativeSpecializer & Singleton](
     store: Store[C],
@@ -21,10 +21,11 @@ final case class RunInput[C <: NativeSpecializer & Singleton](
     budget: Int
 ):
   /** The codes the run may meet (`Indexing.codesMet`). */
-  def codes(using C): Set[Code] = Indexing.codesMet(orientations, patternInstructions ++ inputs)
+  def codes(using C): Set[Code] =
+    Indexing.codesMet(orientations, patternInstructions ++ inputs)
 
-/** A run's input compiled: its program, the program as the backend compiled
-  * it, and the head arity bounds of its orientations.
+/** A run's input compiled: its program, the program as the backend compiled it,
+  * and the head arity bounds of its orientations.
   */
 final case class Compiled[C <: NativeSpecializer & Singleton](
     input: RunInput[C],
@@ -38,10 +39,15 @@ object Compiled:
     * (`Backends.defaultName`, closure compilation), for callers that choose
     * none.
     */
-  def of[C <: NativeSpecializer & Singleton](input: RunInput[C])(using C): Compiled[C] = of(input, Backends.named(Backends.defaultName))
+  def of[C <: NativeSpecializer & Singleton](input: RunInput[C])(using
+      C
+  ): Compiled[C] = of(input, Backends.named(Backends.defaultName))
 
   /** The input compiled by the index and by the backend. */
-  def of[C <: NativeSpecializer & Singleton](input: RunInput[C], backend: Backend)(using C): Compiled[C] =
+  def of[C <: NativeSpecializer & Singleton](
+      input: RunInput[C],
+      backend: Backend
+  )(using C): Compiled[C] =
     val program = Indexing.program(input.orientations, input.codes)
     Compiled(
       input,

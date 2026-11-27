@@ -8,22 +8,27 @@ import java.nio.file.Path
 import java.nio.file.Paths
 import java.security.MessageDigest
 
-/** The claims group, read from Gezi's directory once for the test
-  * JVM, and the forms the tests write programs in.
+/** The claims group, read from Gezi's directory once for the test JVM, and the
+  * forms the tests write programs in.
   */
 object ClaimsTesting:
 
-  /** The root of Gezi's build, which the build passes to the forked
-    * test JVM.
+  /** The root of Gezi's build, which the build passes to the forked test JVM.
     */
   val buildRoot: Path = Paths.get(
     sys.props.getOrElse(
       "gezi.buildRoot",
-      throw IllegalStateException("the build passes gezi.buildRoot to the forked test JVM")
+      throw IllegalStateException(
+        "the build passes gezi.buildRoot to the forked test JVM"
+      )
     )
   )
 
-  lazy val problems: ProblemFamilies = ProblemFamilies(buildRoot, Expansions.none, gezi.hotspot.baselines.BaselineCaches.provider())
+  lazy val problems: ProblemFamilies = ProblemFamilies(
+    buildRoot,
+    Expansions.none,
+    gezi.hotspot.baselines.BaselineCaches.provider()
+  )
 
   val group: Claims = Claims(buildRoot, problems, Vector.empty)
 
@@ -32,7 +37,8 @@ object ClaimsTesting:
   /** The form of the HOAS term, a closed term with no library name: the
     * lambdalattice text of its tree, as `MergeTesting.form` writes it.
     */
-  def form(term: Term): String = Lambdalattice.textWithLiterals(term.deBruijnTerm(Map.empty), Map.empty)
+  def form(term: Term): String =
+    Lambdalattice.textWithLiterals(term.deBruijnTerm(Map.empty), Map.empty)
 
   /** `sha256:<hex>:<length>` of the form. */
   def digest(form: String): String =

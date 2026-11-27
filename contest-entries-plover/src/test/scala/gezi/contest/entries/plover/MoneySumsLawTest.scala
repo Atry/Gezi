@@ -21,10 +21,18 @@ class MoneySumsLawTest extends GeneratedProperties:
       Gen.int(Range.linear(0, 3)).list(Range.linear(1, 11))
     )
 
-  property("the total is the sum of the distinct sums of the nonempty subsets") {
+  property(
+    "the total is the sum of the distinct sums of the nonempty subsets"
+  ) {
     for coins <- drawnCoins.forAll
     yield
-      val distinct = coins.indices.toSet.subsets().filter(_.nonEmpty).map(_.toList.map(coins).sum).toSet
-      val computed = MoneySums.total(coins.toVector.map(coin => BigInteger.valueOf(coin.toLong)))
+      val distinct = coins.indices.toSet
+        .subsets()
+        .filter(_.nonEmpty)
+        .map(_.toList.map(coins).sum)
+        .toSet
+      val computed = MoneySums.total(
+        coins.toVector.map(coin => BigInteger.valueOf(coin.toLong))
+      )
       Result.diff(BigInt(computed), BigInt(distinct.sum))(_ == _)
   }

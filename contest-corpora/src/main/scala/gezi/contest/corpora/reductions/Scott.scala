@@ -12,15 +12,14 @@ import scala.util.control.TailCalls.TailRec
 import scala.util.control.TailCalls.done
 import scala.util.control.TailCalls.tailcall
 
-/** A constructor tree of a Scott data type, `constructor(Name, Subtrees)`
-  * of `lambda_jit_scott_decoding`: the expected answer of a problem of the
+/** A constructor tree of a Scott data type, `constructor(Name, Subtrees)` of
+  * `lambda_jit_scott_decoding`: the expected answer of a problem of the
   * reduction series, a tree with no ill-formed node.
   */
 final case class ScottTree(name: String, subtrees: Vector[ScottTree]):
 
-  /** The tree as the Scott decoder writes it (`ConstructorTree`),
-    * trampolined, so that the deep trees of the large problems take no JVM
-    * stack.
+  /** The tree as the Scott decoder writes it (`ConstructorTree`), trampolined,
+    * so that the deep trees of the large problems take no JVM stack.
     */
   def decoded: ConstructorTree = ScottTree.decodedOf(this).result
 
@@ -28,7 +27,9 @@ final case class ScottTree(name: String, subtrees: Vector[ScottTree]):
 object ScottTree:
 
   private[reductions] def decodedOf(tree: ScottTree): TailRec[ConstructorTree] =
-    Scott.traversed(tree.subtrees)(decodedOf).map(ConstructorTree.Constructor(tree.name, _))
+    Scott
+      .traversed(tree.subtrees)(decodedOf)
+      .map(ConstructorTree.Constructor(tree.name, _))
 
 /** The Scott data types the problems are read at, by the names the problems
   * state (`boolean`, `unary`, `binary`), and the canonical terms of their
@@ -60,40 +61,62 @@ object Scott:
   /** The constructor of no field. */
   def leaf(name: String): ScottTree = ScottTree(name, Vector.empty)
 
-  /** The tree of a binary natural, least significant bit outermost:
-    * zero, `even(h)` or `odd(h)` (`ScottDecoding.binaryTree`).
+  /** The tree of a binary natural, least significant bit outermost: zero,
+    * `even(h)` or `odd(h)` (`ScottDecoding.binaryTree`).
     */
-  def binaryTree(number: BigInt): ScottTree = fromDecoded(ScottDecoding.binaryTree(number))
+  def binaryTree(number: BigInt): ScottTree = fromDecoded(
+    ScottDecoding.binaryTree(number)
+  )
 
   /** The tree of a unary natural: zero, or `successor(p)`. */
   def unaryTree(number: Int): ScottTree =
     require(number >= 0, s"a unary natural is not negative: $number")
-    (1 to number).foldLeft(leaf("zero"))((tree, _) => ScottTree("successor", Vector(tree)))
+    (1 to number).foldLeft(leaf("zero"))((tree, _) =>
+      ScottTree("successor", Vector(tree))
+    )
 
   /** The tree of a Boolean. */
-  def booleanTree(value: Boolean): ScottTree = leaf(if value then "true" else "false")
+  def booleanTree(value: Boolean): ScottTree = leaf(
+    if value then "true" else "false"
+  )
 
-  /** The decoded tree as a problem's tree. Throws for an ill-formed node,
-    * which no expected answer holds.
+  /** The decoded tree as a problem's tree. Throws for an ill-formed node, which
+    * no expected answer holds.
     */
   def fromDecoded(tree: ConstructorTree): ScottTree = fromDecodedOf(tree).result
 
-  private def fromDecodedOf(tree: ConstructorTree): TailRec[ScottTree] = tree match
-    case ConstructorTree.Constructor(name, subtrees) => traversed(subtrees)(fromDecodedOf).map(ScottTree(name, _))
-    case ConstructorTree.IllFormed => throw IllegalArgumentException("an ill-formed tree is no expected answer")
+  private def fromDecodedOf(tree: ConstructorTree): TailRec[ScottTree] =
+    tree match
+      case ConstructorTree.Constructor(name, subtrees) =>
+        traversed(subtrees)(fromDecodedOf).map(ScottTree(name, _))
+      case ConstructorTree.IllFormed =>
+        throw IllegalArgumentException(
+          "an ill-formed tree is no expected answer"
+        )
 
   /** The step on each item, in order, each a trampolined call. */
-  private[reductions] def traversed[Item, Result](items: Vector[Item])(step: Item => TailRec[Result]): TailRec[Vector[Result]] =
-    TailRecFolds.folded(items, Vector.empty[Result])((before, item) => step(item).map(before :+ _))
+  private[reductions] def traversed[Item, Result](
+      items: Vector[Item]
+  )(step: Item => TailRec[Result]): TailRec[Vector[Result]] =
+    TailRecFolds.folded(items, Vector.empty[Result])((before, item) =>
+      step(item).map(before :+ _)
+    )
 
 /** Reading trees from facts. */
 object ScottTrees:
 
-  /** The tree a datum writes, the plain pair `λtuple. tuple Name Subtrees`
-    * of the constructor's name and the list of its subtrees, read as the one
+  /** The tree a datum writes, the plain pair `λtuple. tuple Name Subtrees` of
+    * the constructor's name and the list of its subtrees, read as the one
     * alternative of one handler (`ProblemData.alternative`).
     */
-  def treeOf(field: ProblemField): ScottTree = ProblemData.alternative(field, 1) match
-    case (0, Vector(name, subtrees)) => ScottTree(ProblemData.text(name), ProblemData.list(subtrees).map(treeOf))
-    case (position, fields) =>
-      throw IllegalArgumentException(s"a tree is a pair of a name and subtrees, not alternative $position of ${fields.size}")
+  def treeOf(field: ProblemField): ScottTree =
+    ProblemData.alternative(field, 1) match
+      case (0, Vector(name, subtrees)) =>
+        ScottTree(
+          ProblemData.text(name),
+          ProblemData.list(subtrees).map(treeOf)
+        )
+      case (position, fields) =>
+        throw IllegalArgumentException(
+          s"a tree is a pair of a name and subtrees, not alternative $position of ${fields.size}"
+        )

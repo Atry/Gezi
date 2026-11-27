@@ -15,11 +15,16 @@ import gezi.generatedinputs.GeneratedProperties
 class LongestCommonSubsequenceLawTest extends GeneratedProperties:
 
   /** The definition, read as written, with no table. */
-  private def byDefinition(first: List[Int], second: List[Int]): Int = (first, second) match
-    case (Nil, _) | (_, Nil) => 0
-    case (character :: firstRest, other :: secondRest) =>
-      if character == other then 1 + byDefinition(firstRest, secondRest)
-      else math.max(byDefinition(firstRest, second), byDefinition(first, secondRest))
+  private def byDefinition(first: List[Int], second: List[Int]): Int =
+    (first, second) match
+      case (Nil, _) | (_, Nil)                           => 0
+      case (character :: firstRest, other :: secondRest) =>
+        if character == other then 1 + byDefinition(firstRest, secondRest)
+        else
+          math.max(
+            byDefinition(firstRest, second),
+            byDefinition(first, secondRest)
+          )
 
   property("the length is the value of the recursion on the two suffixes") {
     val strings = Gen.list(Gen.int(Range.linear(0, 3)), Range.linear(0, 7))
@@ -28,6 +33,12 @@ class LongestCommonSubsequenceLawTest extends GeneratedProperties:
       second <- strings.forAll
     yield
       // Each item a new object, so that a comparison by reference would find no equal characters.
-      val items = (values: List[Int]) => values.toVector.map(value => new BigInteger(value.toString))
-      Result.diff(LongestCommonSubsequence.length(items(first), items(second)).intValueExact, byDefinition(first, second))(_ == _)
+      val items = (values: List[Int]) =>
+        values.toVector.map(value => new BigInteger(value.toString))
+      Result.diff(
+        LongestCommonSubsequence
+          .length(items(first), items(second))
+          .intValueExact,
+        byDefinition(first, second)
+      )(_ == _)
   }

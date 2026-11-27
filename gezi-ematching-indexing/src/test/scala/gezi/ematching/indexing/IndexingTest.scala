@@ -31,9 +31,13 @@ class IndexingTest extends gezi.generatedinputs.FailFastSuite:
 
   private def metavariable(index: Int): Pattern[C] = Pattern.Metavariable(index)
 
-  private def instruction(name: Configured[C]): Pattern[C] = Pattern.InstructionReference(name)
+  private def instruction(name: Configured[C]): Pattern[C] =
+    Pattern.InstructionReference(name)
 
-  private def application(function: Pattern[C], argument: Pattern[C]): Pattern[C] =
+  private def application(
+      function: Pattern[C],
+      argument: Pattern[C]
+  ): Pattern[C] =
     Pattern.Apply(function, argument)
 
   private def orientation(
@@ -60,7 +64,9 @@ class IndexingTest extends gezi.generatedinputs.FailFastSuite:
 
   test("a matched instruction is its own seed, filed under the instruction") {
     assertEquals(
-      seeds(orientation(0, 1, instruction(head), instruction(other), Vector.empty)),
+      seeds(
+        orientation(0, 1, instruction(head), instruction(other), Vector.empty)
+      ),
       Map(
         (SeedKind.Add, SeedKey.InstructionNode(head)) -> Vector(
           Seed[C](0, Vector(Step.Root[C](0, 1)), 1, Vector(None))
@@ -98,11 +104,22 @@ class IndexingTest extends gezi.generatedinputs.FailFastSuite:
     )
   }
 
-  test("every compound position is a seed, climbing to the root by signature where the siblings are determined") {
+  test(
+    "every compound position is a seed, climbing to the root by signature where the siblings are determined"
+  ) {
     val matched =
-      application(instruction(head), Pattern.Parallel(metavariable(0), metavariable(1)))
+      application(
+        instruction(head),
+        Pattern.Parallel(metavariable(0), metavariable(1))
+      )
     val program = seeds(
-      orientation(0, 2, matched, application(instruction(other), metavariable(1)), Vector(0, 1))
+      orientation(
+        0,
+        2,
+        matched,
+        application(instruction(other), metavariable(1)),
+        Vector(0, 1)
+      )
     )
     assertEquals(
       program((SeedKind.Add, SeedKey.Headed(Head(head, 1)))),
@@ -147,8 +164,13 @@ class IndexingTest extends gezi.generatedinputs.FailFastSuite:
     assertEquals(program.size, 2)
   }
 
-  test("a witness is matched once, and no seed stands inside a shallow witness") {
-    val matched = application(instruction(head), application(instruction(other), metavariable(0)))
+  test(
+    "a witness is matched once, and no seed stands inside a shallow witness"
+  ) {
+    val matched = application(
+      instruction(head),
+      application(instruction(other), metavariable(0))
+    )
     val program =
       seeds(orientation(0, 1, matched, instruction(third), Vector.empty))
     assertEquals(
@@ -181,7 +203,9 @@ class IndexingTest extends gezi.generatedinputs.FailFastSuite:
     )
   }
 
-  test("copies of a witness share its metavariables: the first is matched once, the later looked up by signature and checked against its class") {
+  test(
+    "copies of a witness share its metavariables: the first is matched once, the later looked up by signature and checked against its class"
+  ) {
     val copy = application(instruction(other), metavariable(0))
     val matched = Pattern.Parallel(copy, copy)
     assertEquals(
@@ -218,9 +242,12 @@ class IndexingTest extends gezi.generatedinputs.FailFastSuite:
     )
   }
 
-  test("a lambda position is a seed under Closure, binding its metavariable to the class") {
+  test(
+    "a lambda position is a seed under Closure, binding its metavariable to the class"
+  ) {
     val matched = Pattern.Parallel(Pattern.Closure[C](0), metavariable(1))
-    val program = seeds(orientation(0, 2, matched, instruction(other), Vector(0, 1)))
+    val program =
+      seeds(orientation(0, 2, matched, instruction(other), Vector(0, 1)))
     assertEquals(
       program((SeedKind.Add, SeedKey.Closure[C]())),
       Vector(
@@ -257,12 +284,15 @@ class IndexingTest extends gezi.generatedinputs.FailFastSuite:
       Vector(0)
     )
     assertEquals(
-      seeds(first, second)((SeedKind.Add, SeedKey.Parallel[C]())).map(_.orientation),
+      seeds(first, second)((SeedKind.Add, SeedKey.Parallel[C]()))
+        .map(_.orientation),
       Vector(0, 1)
     )
   }
 
-  test("an added side reads the applications of function metavariables and of lambdas") {
+  test(
+    "an added side reads the applications of function metavariables and of lambdas"
+  ) {
     val identity = Code(Slot(0))
     val lambda = Pattern.Thunk[C](identity, Vector(Hole.Bound(0)), Vector.empty)
     val added = application(
@@ -275,7 +305,8 @@ class IndexingTest extends gezi.generatedinputs.FailFastSuite:
         Building.Apply(Building.Value[C](0), Building.Value[C](1), read = true),
         Building.Apply(
           Building.Thunk[C](identity, Vector(Hole.Bound(0)), Vector.empty),
-          Building.Apply(Building.Value[C](1), Building.Value[C](0), read = false),
+          Building
+            .Apply(Building.Value[C](1), Building.Value[C](0), read = false),
           read = true
         ),
         read = true
@@ -284,10 +315,12 @@ class IndexingTest extends gezi.generatedinputs.FailFastSuite:
     assertEquals(
       Indexing.building(added, Vector.empty),
       Building.Apply(
-        Building.Apply(Building.Value[C](0), Building.Value[C](1), read = false),
+        Building
+          .Apply(Building.Value[C](0), Building.Value[C](1), read = false),
         Building.Apply(
           Building.Thunk[C](identity, Vector(Hole.Bound(0)), Vector.empty),
-          Building.Apply(Building.Value[C](1), Building.Value[C](0), read = false),
+          Building
+            .Apply(Building.Value[C](1), Building.Value[C](0), read = false),
           read = true
         ),
         read = false

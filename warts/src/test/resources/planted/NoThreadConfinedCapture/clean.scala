@@ -7,5 +7,8 @@ object Clean:
     guard.getOrElseUpdate(1, computed)
   )
   val ownGuard = List(1, 2).map(key => Guard().get(key))
-  inline def twice(inline step: Int => Int, inline start: => Int): Int = step(step(start))
-  val throughInline = locked(guard => twice(key => guard.get(key), guard.get(0)))
+  inline def twice(inline step: Int => Int, inline start: => Int): Int = step(
+    step(start)
+  )
+  val throughInline =
+    locked(guard => twice(key => guard.get(key), guard.get(0)))

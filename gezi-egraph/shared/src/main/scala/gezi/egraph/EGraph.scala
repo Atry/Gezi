@@ -16,27 +16,28 @@ import gezi.ir.{Configured, NativeSpecializer}
   *
   * It holds the nodes (numbered by creation), the data of each class in its
   * root, the signature table (the node of each layer over class roots), the
-  * instance keys applied, the instruction table and the instructions in filing order,
-  * the unions that joined two classes, the agenda (a queue of unions and a
-  * queue of β steps, both first in first out, and the deltas of the two
-  * kinds of orientation, two stacks, last in first out) and the counts of
-  * instances, matches, β steps and the entries the matching read. The
-  * union-find is by size, without path compression, which changes no
-  * result.
+  * instance keys applied, the instruction table and the instructions in filing
+  * order, the unions that joined two classes, the agenda (a queue of unions and
+  * a queue of β steps, both first in first out, and the deltas of the two kinds
+  * of orientation, two stacks, last in first out) and the counts of instances,
+  * matches, β steps and the entries the matching read. The union-find is by
+  * size, without path compression, which changes no result.
   *
   * The order of every operation is the Prolog baseline's, since the node
   * numbers and the union sequence must come out the same: the name of the
   * baseline's predicate is given at each operation.
   *
-  * FIXME: the agenda's first in first out order, the deltas' https://github.com/Atry/private-overlay/issues/2032
-  * last in first out order, the union by size and the numbering of nodes by creation are fixed in this implementation
-  * and not chosen by configuration. They decide which unions and instances a saturation that a budget cuts has made
-  * when it stops, that is, what a cut saturation keeps.
+  * FIXME: the agenda's first in first out order, the deltas'
+  * https://github.com/Atry/private-overlay/issues/2032 last in first out order,
+  * the union by size and the numbering of nodes by creation are fixed in this
+  * implementation and not chosen by configuration. They decide which unions and
+  * instances a saturation that a budget cuts has made when it stops, that is,
+  * what a cut saturation keeps.
   *
   * @param headArityBounds
-  *   the largest number of arguments a matched side of the orientations
-  *   applies each instruction to, for the instructions that head an application's
-  *   spine in a matched side (the baseline's `head_arity_bound/3`)
+  *   the largest number of arguments a matched side of the orientations applies
+  *   each instruction to, for the instructions that head an application's spine
+  *   in a matched side (the baseline's `head_arity_bound/3`)
   * @param analyses
   *   the product of the analyses the graph keeps, each slot the value of each
   *   class under one analysis, independent of the others, kept up to date by
@@ -44,17 +45,17 @@ import gezi.ir.{Configured, NativeSpecializer}
   *   only, and change no node number, union or order
   * @param respellings
   *   the memo of the front end's spelling of a thunk layer, by its code and
-  *   holes ([[Respelling]]):
-  *   every thunk node is made in that spelling, so that a node's layer
-  *   depends on its λ-term and not on the derivation that made it. A pure
-  *   function's results, keyed by all its inputs (`CONTRIBUTING.md`, "Tables", kind 2): emptying it changes only time. It grows with the distinct
-  *   (code, holes) pairs the graph's thunk layers have, for as long as the
-  *   graph value lives, over every round that graph serves, under
-  *   `MemoRetention.Kept`; under `NotKept` it stays empty and every spelling
-  *   is computed again (`respellingRetention`).
+  *   holes ([[Respelling]]): every thunk node is made in that spelling, so that
+  *   a node's layer depends on its λ-term and not on the derivation that made
+  *   it. A pure function's results, keyed by all its inputs (`CONTRIBUTING.md`,
+  *   "Tables", kind 2): emptying it changes only time. It grows with the
+  *   distinct (code, holes) pairs the graph's thunk layers have, for as long as
+  *   the graph value lives, over every round that graph serves, under
+  *   `MemoRetention.Kept`; under `NotKept` it stays empty and every spelling is
+  *   computed again (`respellingRetention`).
   * @param respellingCounts
-  *   the memo's readings: the spellings computed, the spellings read back
-  *   from the memo, and the thunk layers the spelling changed
+  *   the memo's readings: the spellings computed, the spellings read back from
+  *   the memo, and the thunk layers the spelling changed
   * @param respellingRetention
   *   whether the memo keeps what it computed, a round's choice
   *   ([[MemoRetention]])
@@ -67,26 +68,25 @@ import gezi.ir.{Configured, NativeSpecializer}
   *   (`gezi.extraction.Extraction.productions`). Only the expansion of an
   *   instruction adds a storage leaf, and it adds its pattern view with it.
   * @param storageViewQueue
-  *   the storage leaves whose views wait to be added, in the order the
-  *   leaves were made: the expansion direction of the built-in rule "the
-  *   storage's view" (`gezi.ir.BuiltInRule.StorageView`), which a round that
-  *   enables it works (`storageViewAdded`); a round that does not leaves the
-  *   queue as it is, so that a later round that enables it expands the leaves
-  *   an earlier round made.
+  *   the storage leaves whose views wait to be added, in the order the leaves
+  *   were made: the expansion direction of the built-in rule "the storage's
+  *   view" (`gezi.ir.BuiltInRule.StorageView`), which a round that enables it
+  *   works (`storageViewAdded`); a round that does not leaves the queue as it
+  *   is, so that a later round that enables it expands the leaves an earlier
+  *   round made.
   * @param constructionQueue
   *   the parallels `C x̄ ∥ T` that may have become the view of a storage the
   *   graph keeps as a leaf, one layer up from the storage leaves of their
   *   fields' classes, under the store's construction
-  *   (`gezi.ir.TermConstruction.storageBuilt`): a parallel when it is made,
-  *   and the parallels a class reaches through applications when it gains a
-  *   storage leaf; empty when the construction builds no storage. The
-  *   saturation takes them (`storageConstructed`).
+  *   (`gezi.ir.TermConstruction.storageBuilt`): a parallel when it is made, and
+  *   the parallels a class reaches through applications when it gains a storage
+  *   leaf; empty when the construction builds no storage. The saturation takes
+  *   them (`storageConstructed`).
   * @param constantStorageStop
-  *   whether the round stops lemma matching at the classes that hold a
-  *   storage of constant size: a round's choice the saturation's matchers
-  *   read (`gezi.saturation.ConstantStorageStop`), never this graph's own
-  *   readers, so that congruence, the construction and folding go on below
-  *   such a class
+  *   whether the round stops lemma matching at the classes that hold a storage
+  *   of constant size: a round's choice the saturation's matchers read
+  *   (`gezi.saturation.ConstantStorageStop`), never this graph's own readers,
+  *   so that congruence, the construction and folding go on below such a class
   */
 final case class EGraph[C <: NativeSpecializer & Singleton](
     store: Store[C],
@@ -120,8 +120,9 @@ final case class EGraph[C <: NativeSpecializer & Singleton](
     constantStorageStop: Boolean
 ) extends GraphBuilding[C, EGraph[C]]:
 
-  /** The native specializer of the graph's configuration, the store's construction's: what the graph builds and reads
-    * a storage's criterion and view with.
+  /** The native specializer of the graph's configuration, the store's
+    * construction's: what the graph builds and reads a storage's criterion and
+    * view with.
     */
   private given specializer: C = store.construction.specializer
 
@@ -129,9 +130,8 @@ final case class EGraph[C <: NativeSpecializer & Singleton](
 
   def layer(node: Int): LayerWith[Int, Configured[C]] = nodes(node).layer
 
-  /** The layer the node was made over, its children the nodes its maker
-    * passed (`NodeRecord.made`): its term is this layer over its children's
-    * terms.
+  /** The layer the node was made over, its children the nodes its maker passed
+    * (`NodeRecord.made`): its term is this layer over its children's terms.
     */
   def madeLayer(node: Int): LayerWith[Int, Configured[C]] = nodes(node).made
 
@@ -161,54 +161,60 @@ final case class EGraph[C <: NativeSpecializer & Singleton](
         PositionRole.values.toVector.flatMap(positionUsers(root, _).map(_.user))
     ).distinct
 
-  /** The graph with the analysis's value of every class computed from
-    * scratch and kept up to date from then on, beside the analyses it keeps,
-    * replacing the slot of the same analysis object if it keeps one.
+  /** The graph with the analysis's value of every class computed from scratch
+    * and kept up to date from then on, beside the analyses it keeps, replacing
+    * the slot of the same analysis object if it keeps one.
     */
   def analysed[Value](analysis: ClassAnalysis[C, Value]): EGraph[C] =
     val slot = AnalysisSlot.computed(this, analysis)
     copy(analyses =
-      if analyses.exists(_.analysis eq analysis) then analyses.map(kept => if kept.analysis eq analysis then slot else kept)
+      if analyses.exists(_.analysis eq analysis) then
+        analyses.map(kept => if kept.analysis eq analysis then slot else kept)
       else analyses :+ slot
     )
 
   /** The value of the class of the root under the analysis, when the graph
     * keeps that analysis (the same object).
     */
-  def analysisValue[Value](analysis: ClassAnalysis[C, Value], root: Int): Option[Value] =
+  def analysisValue[Value](
+      analysis: ClassAnalysis[C, Value],
+      root: Int
+  ): Option[Value] =
     analyses.find(_.analysis eq analysis).flatMap(_.valueOf(analysis.key, root))
 
-  def instructionNode(instruction: Configured[C]): Option[Int] = instructionTable.get(instruction)
+  def instructionNode(instruction: Configured[C]): Option[Int] =
+    instructionTable.get(instruction)
 
   def hasClosure(root: Int): Boolean = classes(root).closures.isDefined
 
   // ---- reading, beyond what a program reads ----
 
-  /** Every node, the made duplicates included: the nodes a proof's terms
-    * are read from.
+  /** Every node, the made duplicates included: the nodes a proof's terms are
+    * read from.
     */
   def nodeCount: Int = nodes.size
 
-  /** Every union of the log, the congruences of the made duplicates
-    * included.
+  /** Every union of the log, the congruences of the made duplicates included.
     */
   def unionCount: Int = unions.size
 
-  /** The nodes that are no made duplicate: what a saturation measures as
-    * the graph growing (a made duplicate is explanation, not a new term of
-    * any class).
+  /** The nodes that are no made duplicate: what a saturation measures as the
+    * graph growing (a made duplicate is explanation, not a new term of any
+    * class).
     */
   def canonicalNodeCount: Int = nodes.size - madeDuplicates
 
-  /** The unions that joined two classes: the log without the congruences of
-    * the made duplicates.
+  /** The unions that joined two classes: the log without the congruences of the
+    * made duplicates.
     */
   def joiningUnionCount: Int = unions.size - madeDuplicates
 
   def nodeHeads(node: Int): Vector[Head[C]] = nodes(node).heads
 
   /** The first instruction filed onto the node. */
-  def nodeInstruction(node: Int): Option[Configured[C]] = nodes(node).instruction
+  def nodeInstruction(node: Int): Option[Configured[C]] = nodes(
+    node
+  ).instruction
 
   def readable(node: Int): Boolean = nodes(node).readable
 
@@ -216,44 +222,59 @@ final case class EGraph[C <: NativeSpecializer & Singleton](
 
   /** The node of the layer, a layer over nodes of any class read over their
     * roots, when the graph has one of that signature; nothing is made (the
-    * baseline's `fixpoint_egraph_layer_node/3`). A thunk with holes is
-    * looked up in the spelling `layerMade` makes it in, its respelling where
-    * it is not its own ([[Respelling]]),
-    * so that a layer the graph was given in another spelling, such as a
-    * lemma's side as stated, is found at the node made for it (measured
-    * 2026-11-17: `GraphProof` found no node for a lemma's stated side
-    * `λz. k a`, whose node the graph holds respelled).
+    * baseline's `fixpoint_egraph_layer_node/3`). A thunk with holes is looked
+    * up in the spelling `layerMade` makes it in, its respelling where it is not
+    * its own ([[Respelling]]), so that a layer the graph was given in another
+    * spelling, such as a lemma's side as stated, is found at the node made for
+    * it (measured 2026-11-17: `GraphProof` found no node for a lemma's stated
+    * side `λz. k a`, whose node the graph holds respelled).
     */
   def layerNode(layer: LayerWith[Int, Configured[C]]): Option[Int] = layer match
     case Thunk(code, holes, fillings) if holes.nonEmpty =>
       val key = Respelling.Key(code, holes, fillings.size)
       respellings.getOrElse(key, Respelling.of(key)) match
         case Respelling.Canonical => spelledLayerNode(layer)
-        case Respelling.Respelled(respelledCode, respelledHoles, respelledFillings) =>
+        case Respelling.Respelled(
+              respelledCode,
+              respelledHoles,
+              respelledFillings
+            ) =>
           val fillingNodes = respelledFillings.map(filling =>
-            gezi.ir.BindingNormalForm.fillingMapped[Option[Int]](filling, fillings.map(Some(_)))(spelled =>
-              spelled.children
-                .foldLeft(Option(Vector.empty[Int]))((found, child) => found.zip(child).map(_ :+ _))
-                .flatMap(children => layerNode(spelled.over(children)))
-            )
+            gezi.ir.BindingNormalForm
+              .fillingMapped[Option[Int]](filling, fillings.map(Some(_)))(
+                spelled =>
+                  spelled.children
+                    .foldLeft(Option(Vector.empty[Int]))((found, child) =>
+                      found.zip(child).map(_ :+ _)
+                    )
+                    .flatMap(children => layerNode(spelled.over(children)))
+              )
           )
           fillingNodes
-            .foldLeft(Option(Vector.empty[Int]))((found, node) => found.zip(node).map(_ :+ _))
-            .flatMap(nodes => spelledLayerNode(Thunk(respelledCode, respelledHoles, nodes)))
+            .foldLeft(Option(Vector.empty[Int]))((found, node) =>
+              found.zip(node).map(_ :+ _)
+            )
+            .flatMap(nodes =>
+              spelledLayerNode(Thunk(respelledCode, respelledHoles, nodes))
+            )
     case _ => spelledLayerNode(layer)
 
   /** `layerNode` of a layer in the front end's spelling. */
-  private def spelledLayerNode(layer: LayerWith[Int, Configured[C]]): Option[Int] = signatures.get(rootedKey(layer))
+  private def spelledLayerNode(
+      layer: LayerWith[Int, Configured[C]]
+  ): Option[Int] = signatures.get(rootedKey(layer))
 
-  /** The congruence table's key of a layer: its children read over their
-    * roots, the layer interned, so that the table's keys are canonical
-    * objects as every layer is.
+  /** The congruence table's key of a layer: its children read over their roots,
+    * the layer interned, so that the table's keys are canonical objects as
+    * every layer is.
     */
-  private def rootedKey(layer: LayerWith[Int, Configured[C]]): LayerWith[Int, Configured[C]] = Interned.canonicalLayer(layer.map(root))
+  private def rootedKey(
+      layer: LayerWith[Int, Configured[C]]
+  ): LayerWith[Int, Configured[C]] = Interned.canonicalLayer(layer.map(root))
 
-  /** The nodes that are not duplicates, in creation order, each with the
-    * root of its class and its layer over the roots of its children's
-    * classes now (the baseline's `fixpoint_egraph_live_node/4`).
+  /** The nodes that are not duplicates, in creation order, each with the root
+    * of its class and its layer over the roots of its children's classes now
+    * (the baseline's `fixpoint_egraph_live_node/4`).
     */
   def liveNodes: Vector[LiveNode[C]] =
     nodes.indices.toVector
@@ -286,8 +307,8 @@ final case class EGraph[C <: NativeSpecializer & Singleton](
     classes(classRoot).closures.fold(Vector.empty)(_.items.filter(liveState))
 
   /** A closure state is dead when its thunk is a duplicate: the thunk's twin
-    * has its layer over the same classes, so that the twin's state, in the
-    * same class, gives every application the same body (the baseline's
+    * has its layer over the same classes, so that the twin's state, in the same
+    * class, gives every application the same body (the baseline's
     * `entry_live/1`).
     */
   private def liveState(state: ClosureState): Boolean = live(state.thunk)
@@ -302,7 +323,9 @@ final case class EGraph[C <: NativeSpecializer & Singleton](
 
   // ---- primitive updates ----
 
-  private def nodeUpdated(node: Int)(update: NodeRecord[C] => NodeRecord[C]): EGraph[C] =
+  private def nodeUpdated(node: Int)(
+      update: NodeRecord[C] => NodeRecord[C]
+  ): EGraph[C] =
     copy(nodes = nodes.updated(node, update(nodes(node))))
 
   private def classUpdated(classRoot: Int)(
@@ -334,7 +357,11 @@ final case class EGraph[C <: NativeSpecializer & Singleton](
     )
 
   /** The baseline's `class_head_member_added/3`. */
-  private def headMemberAdded(classRoot: Int, head: Head[C], node: Int): EGraph[C] =
+  private def headMemberAdded(
+      classRoot: Int,
+      head: Head[C],
+      node: Int
+  ): EGraph[C] =
     classUpdated(classRoot)(data =>
       data.copy(headMembers =
         data.headMembers.updated(head, data.headEntries(head).added(node))
@@ -362,19 +389,22 @@ final case class EGraph[C <: NativeSpecializer & Singleton](
 
   // ---- the agenda and the counts ----
 
-  /** The baseline's `delta_pushed/3`: the node matched again, by both kinds
-    * of orientation, before the deltas pushed earlier.
+  /** The baseline's `delta_pushed/3`: the node matched again, by both kinds of
+    * orientation, before the deltas pushed earlier.
     */
   def deltaPushed(node: Int): EGraph[C] =
     copy(merges = node :: merges, deltas = node :: deltas)
 
-  /** Every live node pushed as a delta of both kinds, the first node on top,
-    * so that a saturation under another program matches the whole graph
-    * again: a later lemma round on a graph an earlier round saturated
-    * (rounds on one shared graph). No baseline predicate: the baseline runs one program.
+  /** Every live node pushed as a delta of both kinds, the first node on top, so
+    * that a saturation under another program matches the whole graph again: a
+    * later lemma round on a graph an earlier round saturated (rounds on one
+    * shared graph). No baseline predicate: the baseline runs one program.
     */
   def everyNodeRedone: EGraph[C] =
-    liveNodes.map(_.node).reverse.foldLeft(this)((graph, node) => graph.deltaPushed(node))
+    liveNodes
+      .map(_.node)
+      .reverse
+      .foldLeft(this)((graph, node) => graph.deltaPushed(node))
 
   /** The baseline's `merge_taken/3`. */
   def mergeTaken: Option[(Int, EGraph[C])] = merges match
@@ -386,10 +416,10 @@ final case class EGraph[C <: NativeSpecializer & Singleton](
     case node :: rest => Some((node, copy(deltas = rest)))
     case Nil          => None
 
-  /** The delta taken by `mergeTaken` put back on top of its stack, so
-    * that it is matched again: the budget ended a saturation before every
-    * match of the delta was applied, and a resumed saturation takes it
-    * first. No baseline predicate: the baseline's run never resumes.
+  /** The delta taken by `mergeTaken` put back on top of its stack, so that it
+    * is matched again: the budget ended a saturation before every match of the
+    * delta was applied, and a resumed saturation takes it first. No baseline
+    * predicate: the baseline's run never resumes.
     */
   def mergeRestored(node: Int): EGraph[C] =
     copy(merges = node :: merges)
@@ -429,11 +459,13 @@ final case class EGraph[C <: NativeSpecializer & Singleton](
       (pending, copy(betaQueue = rest, betaSteps = betaSteps + 1))
     )
 
-  /** The next storage leaf whose view waits to be added, and the graph with
-    * it taken off the queue; none when no leaf waits.
+  /** The next storage leaf whose view waits to be added, and the graph with it
+    * taken off the queue; none when no leaf waits.
     */
   def storageViewTaken: Option[(Int, EGraph[C])] =
-    storageViewQueue.dequeueOption.map((leaf, rest) => (leaf, copy(storageViewQueue = rest)))
+    storageViewQueue.dequeueOption.map((leaf, rest) =>
+      (leaf, copy(storageViewQueue = rest))
+    )
 
   /** The expansion direction of the built-in rule "the storage's view"
     * (`gezi.ir.BuiltInRule.StorageView`) on one storage leaf: the storage's
@@ -448,24 +480,40 @@ final case class EGraph[C <: NativeSpecializer & Singleton](
       case NoinlineLeaf(instruction) =>
         instruction.layer match
           case storage: NativeStorage if storage.leafInEGraph =>
-            val view = (specializer: C).viewOf(storage)(using store.storageAccess)
+            val view =
+              (specializer: C).viewOf(storage)(using store.storageAccess)
             val (withValue, valueNode) = instructionAdded(view.value)
-            val (withCriterion, criterionNode) = withValue.instructionAdded(view.criterion)
-            val (withView, viewNode) = withCriterion.layerAdded(Parallel(valueNode, criterionNode))
-            val made = Option.when(withView.nodeCount > nodeCount)(MadeNodes(nodeCount, withView.nodeCount - 1))
-            withView.unionQueued(leaf, viewNode, Justification.StorageView(leaf), made)
-          case other => throw IllegalArgumentException(s"the node $leaf is no storage leaf: $other")
-      case other => throw IllegalArgumentException(s"the node $leaf is no storage leaf: $other")
+            val (withCriterion, criterionNode) =
+              withValue.instructionAdded(view.criterion)
+            val (withView, viewNode) =
+              withCriterion.layerAdded(Parallel(valueNode, criterionNode))
+            val made = Option.when(withView.nodeCount > nodeCount)(
+              MadeNodes(nodeCount, withView.nodeCount - 1)
+            )
+            withView.unionQueued(
+              leaf,
+              viewNode,
+              Justification.StorageView(leaf),
+              made
+            )
+          case other =>
+            throw IllegalArgumentException(
+              s"the node $leaf is no storage leaf: $other"
+            )
+      case other =>
+        throw IllegalArgumentException(
+          s"the node $leaf is no storage leaf: $other"
+        )
 
   /** The graph with its next pending β step taken off the queue and not
-    * counted, nothing when none is pending: a round that does not enable
-    * the β rule (`gezi.ir.BuiltInRule.Beta`) takes no β step.
+    * counted, nothing when none is pending: a round that does not enable the β
+    * rule (`gezi.ir.BuiltInRule.Beta`) takes no β step.
     */
   def betaDiscarded: Option[EGraph[C]] =
     betaQueue.dequeueOption.map((_, rest) => copy(betaQueue = rest))
 
-  /** The baseline's `instance_key_added/3`: the graph with the key, or
-    * nothing when the key is there.
+  /** The baseline's `instance_key_added/3`: the graph with the key, or nothing
+    * when the key is there.
     */
   def instanceKeyAdded(key: InstanceKey): Option[EGraph[C]] =
     if instanceKeys.contains(key) then None
@@ -484,34 +532,46 @@ final case class EGraph[C <: NativeSpecializer & Singleton](
 
   // ---- nodes (GraphBuilding) ----
 
-  /** The baseline's `handle_added/4`. An instruction's term is expanded children
-    * first through a stack of visits rather than the JVM's stack, since an
-    * input may be as deep as it is large.
+  /** The baseline's `handle_added/4`. An instruction's term is expanded
+    * children first through a stack of visits rather than the JVM's stack,
+    * since an input may be as deep as it is large.
     */
   def instructionAdded(instruction: Configured[C]): (EGraph[C], Int) =
     instructionTable.get(instruction) match
       case Some(node) => (this, node)
-      case None =>
-        EGraph.instructionsExpanded(this, List(InstructionVisit.Enter(instruction)), Nil)
+      case None       =>
+        EGraph.instructionsExpanded(
+          this,
+          List(InstructionVisit.Enter(instruction)),
+          Nil
+        )
 
   /** The baseline's `handle_filed/4`: the instruction's node, and the node's
     * instruction when it has none.
     */
-  private def instructionFiled(instruction: Configured[C], node: Int): EGraph[C] =
+  private def instructionFiled(
+      instruction: Configured[C],
+      node: Int
+  ): EGraph[C] =
     val filed = copy(
       instructionTable = instructionTable.updated(instruction, node),
       instructionFilings = instructionFilings :+ (instruction, node)
     )
     if filed.nodes(node).instruction.isEmpty then
-      filed.nodeUpdated(node)(record => record.copy(instruction = Some(instruction)))
+      filed.nodeUpdated(node)(record =>
+        record.copy(instruction = Some(instruction))
+      )
     else filed
 
-  /** The baseline's `handle_head_filed/4`: the class of the instruction's node has
-    * the head of arity 0 when a matched side has a spine headed by the
+  /** The baseline's `handle_head_filed/4`: the class of the instruction's node
+    * has the head of arity 0 when a matched side has a spine headed by the
     * instruction; a class that gains it has its users matched again. The node
     * may be an older node of the same layer.
     */
-  private def instructionHeadFiled(instruction: Configured[C], node: Int): EGraph[C] =
+  private def instructionHeadFiled(
+      instruction: Configured[C],
+      node: Int
+  ): EGraph[C] =
     if headArityBounds.contains(instruction) then
       val classRoot = root(node)
       val head = Head(instruction, 0)
@@ -520,12 +580,13 @@ final case class EGraph[C <: NativeSpecializer & Singleton](
     else this
 
   /** The baseline's `layer_added/4`. */
-  def layerAdded(layer: LayerWith[Int, Configured[C]]): (EGraph[C], Int) = layerMade(layer, closures = true)
+  def layerAdded(layer: LayerWith[Int, Configured[C]]): (EGraph[C], Int) =
+    layerMade(layer, closures = true)
 
-  /** The layer added as `layerAdded` adds it, but a new thunk with a hole
-    * gets no closure state of its own: the residual thunk of a partial
-    * application, whose class has the application's closure state, which
-    * holds the same arguments (`gezi.saturation.Saturation.residualThunk`).
+  /** The layer added as `layerAdded` adds it, but a new thunk with a hole gets
+    * no closure state of its own: the residual thunk of a partial application,
+    * whose class has the application's closure state, which holds the same
+    * arguments (`gezi.saturation.Saturation.residualThunk`).
     */
   def residualAdded(layer: LayerWith[Int, Configured[C]]): (EGraph[C], Int) =
     require(layer.isInstanceOf[Thunk[?]], s"a residual is a thunk: $layer")
@@ -533,53 +594,65 @@ final case class EGraph[C <: NativeSpecializer & Singleton](
 
   /** The graph that records the terms made from now on (explanation mode,
     * `explained`): every node's made layer filed, so that a layer made again
-    * over the same nodes is that node. Only a graph with no union yet can
-    * turn it on, since a node's made layer is its layer over roots only
-    * while no union has moved a root (a compiled round's graph of pattern
-    * instructions, which runs with or without a proof, turns it on for a run
-    * whose proof is wanted). Throws `IllegalArgumentException` for a graph
-    * with a union or one that records already.
+    * over the same nodes is that node. Only a graph with no union yet can turn
+    * it on, since a node's made layer is its layer over roots only while no
+    * union has moved a root (a compiled round's graph of pattern instructions,
+    * which runs with or without a proof, turns it on for a run whose proof is
+    * wanted). Throws `IllegalArgumentException` for a graph with a union or one
+    * that records already.
     */
   def explaining: EGraph[C] =
     require(!explained, "the graph records the terms made already")
-    require(unions.isEmpty, s"a graph with ${unions.size} unions cannot start recording the terms made")
-    copy(explained = true, madeNodes = HashMap.from(nodes.indices.map(node => nodes(node).made -> node)))
+    require(
+      unions.isEmpty,
+      s"a graph with ${unions.size} unions cannot start recording the terms made"
+    )
+    copy(
+      explained = true,
+      madeNodes =
+        HashMap.from(nodes.indices.map(node => nodes(node).made -> node))
+    )
 
   /** The graph with the round's choice of stopping lemma matching at the
     * classes that hold a storage of constant size
-    * (`gezi.ir.NativeStorage.constantSize`); the saturation's matchers read
-    * the choice (`gezi.saturation.ConstantStorageStop`), the graph's own
-    * readers never do. A round's choice kept on the graph, as the
-    * respellings' retention is.
+    * (`gezi.ir.NativeStorage.constantSize`); the saturation's matchers read the
+    * choice (`gezi.saturation.ConstantStorageStop`), the graph's own readers
+    * never do. A round's choice kept on the graph, as the respellings'
+    * retention is.
     */
-  def withConstantStorageStop(stopped: Boolean): EGraph[C] = copy(constantStorageStop = stopped)
+  def withConstantStorageStop(stopped: Boolean): EGraph[C] =
+    copy(constantStorageStop = stopped)
 
-  /** The graph whose respelling memo keeps as the retention says from now
-    * on, emptied under `MemoRetention.NotKept`, which changes only time.
+  /** The graph whose respelling memo keeps as the retention says from now on,
+    * emptied under `MemoRetention.NotKept`, which changes only time.
     */
   def withRespellingRetention(retention: MemoRetention): EGraph[C] =
     retention match
       case MemoRetention.Kept    => copy(respellingRetention = retention)
-      case MemoRetention.NotKept => copy(respellingRetention = retention, respellings = HashMap.empty)
+      case MemoRetention.NotKept =>
+        copy(respellingRetention = retention, respellings = HashMap.empty)
 
-  /** The node of the layer over the nodes given. Without explanation mode,
-    * the node of its signature (the layer over their roots) when the graph
-    * has one, else a new node. In explanation mode, the node made over
-    * exactly these nodes before; else, when the graph has a node of its
-    * signature, a made duplicate of it; else a new node. A made duplicate
-    * is born in the found node's class with its congruence only recorded,
-    * not a union queued, so that the graph's classes, their sizes and every
-    * choice that reads them are exactly those of the graph without it (a
-    * queued union would leave it a class of its own, over which new
-    * canonical nodes would be made, matched and later merged).
+  /** The node of the layer over the nodes given. Without explanation mode, the
+    * node of its signature (the layer over their roots) when the graph has one,
+    * else a new node. In explanation mode, the node made over exactly these
+    * nodes before; else, when the graph has a node of its signature, a made
+    * duplicate of it; else a new node. A made duplicate is born in the found
+    * node's class with its congruence only recorded, not a union queued, so
+    * that the graph's classes, their sizes and every choice that reads them are
+    * exactly those of the graph without it (a queued union would leave it a
+    * class of its own, over which new canonical nodes would be made, matched
+    * and later merged).
     *
     * A thunk with holes is made in the front end's spelling, its respelling
-    * where it is not ([[Respelling]]).
-    * The graph's input contract: every thunk is well-formed, its fillings
-    * exactly the code's slots that no hole binds (`Code.fillingCount`).
-    * Throws `IllegalArgumentException` for a thunk that is not.
+    * where it is not ([[Respelling]]). The graph's input contract: every thunk
+    * is well-formed, its fillings exactly the code's slots that no hole binds
+    * (`Code.fillingCount`). Throws `IllegalArgumentException` for a thunk that
+    * is not.
     */
-  private def layerMade(layer: LayerWith[Int, Configured[C]], closures: Boolean): (EGraph[C], Int) =
+  private def layerMade(
+      layer: LayerWith[Int, Configured[C]],
+      closures: Boolean
+  ): (EGraph[C], Int) =
     layer match
       case Thunk(code, holes, fillings) =>
         require(
@@ -590,38 +663,64 @@ final case class EGraph[C <: NativeSpecializer & Singleton](
       case _ => ()
     layer match
       case Thunk(code, holes, fillings) if holes.nonEmpty =>
-        val (read, respelling) = respellingRead(Respelling.Key(code, holes, fillings.size))
+        val (read, respelling) = respellingRead(
+          Respelling.Key(code, holes, fillings.size)
+        )
         respelling match
           case Respelling.Canonical => read.spelledLayerMade(layer, closures)
-          case Respelling.Respelled(respelledCode, respelledHoles, respelledFillings) =>
-            val (withFillings, fillingNodes) = respelledFillings.foldLeft((read, Vector.empty[Int])) {
-              case ((current, made), filling) =>
-                val (next, node) = gezi.ir.BindingNormalForm.fillingFolded(filling, fillings, current)(
-                  (graph, spelled) => graph.layerMade(spelled, closures = true)
-                )
-                (next, made :+ node)
-            }
+          case Respelling.Respelled(
+                respelledCode,
+                respelledHoles,
+                respelledFillings
+              ) =>
+            val (withFillings, fillingNodes) =
+              respelledFillings.foldLeft((read, Vector.empty[Int])) {
+                case ((current, made), filling) =>
+                  val (next, node) = gezi.ir.BindingNormalForm.fillingFolded(
+                    filling,
+                    fillings,
+                    current
+                  )((graph, spelled) =>
+                    graph.layerMade(spelled, closures = true)
+                  )
+                  (next, made :+ node)
+              }
             withFillings
-              .copy(respellingCounts = withFillings.respellingCounts.withRespelled)
-              .spelledLayerMade(Thunk(respelledCode, respelledHoles, fillingNodes), closures)
+              .copy(respellingCounts =
+                withFillings.respellingCounts.withRespelled
+              )
+              .spelledLayerMade(
+                Thunk(respelledCode, respelledHoles, fillingNodes),
+                closures
+              )
       case _ => spelledLayerMade(layer, closures)
 
-  /** The memo's spelling of a thunk layer's code, holes and number of
-    * fillings, computed when the memo has none and kept as the retention
-    * says (`respellings`).
+  /** The memo's spelling of a thunk layer's code, holes and number of fillings,
+    * computed when the memo has none and kept as the retention says
+    * (`respellings`).
     */
   private def respellingRead(key: Respelling.Key): (EGraph[C], Respelling) =
     respellings.get(key) match
-      case Some(found) => (copy(respellingCounts = respellingCounts.withRead), found)
+      case Some(found) =>
+        (copy(respellingCounts = respellingCounts.withRead), found)
       case None =>
         val computed = Respelling.of(key)
         val kept = respellingRetention match
           case MemoRetention.Kept    => respellings.updated(key, computed)
           case MemoRetention.NotKept => respellings
-        (copy(respellings = kept, respellingCounts = respellingCounts.withComputed), computed)
+        (
+          copy(
+            respellings = kept,
+            respellingCounts = respellingCounts.withComputed
+          ),
+          computed
+        )
 
   /** `layerMade` of a layer in the front end's spelling. */
-  private def spelledLayerMade(spelled: LayerWith[Int, Configured[C]], closures: Boolean): (EGraph[C], Int) =
+  private def spelledLayerMade(
+      spelled: LayerWith[Int, Configured[C]],
+      closures: Boolean
+  ): (EGraph[C], Int) =
     val layer = Interned.canonicalLayer(spelled)
     if !explained then
       val rooted = rootedKey(layer)
@@ -631,22 +730,25 @@ final case class EGraph[C <: NativeSpecializer & Singleton](
     else
       madeNodes.get(layer) match
         case Some(node) => (this, node)
-        case None =>
+        case None       =>
           val rooted = rootedKey(layer)
           signatures.get(rooted) match
             case Some(found) => madeDuplicated(layer, found)
             case None        => layerNewlyMade(layer, rooted, closures)
 
-  /** A made duplicate of the node of the signature, the layer over other
-    * nodes of the same classes: a node of the found node's class from birth
-    * (its parent the found node), a duplicate, never filed as a member or a
-    * user, never pushed, priced or matched, and its congruence with the
-    * found node recorded in the log (its children and the found node's are
-    * pairwise in one class now, which the log's earlier unions explain). It
-    * joins no class, so the classes, their sizes and every choice that reads
-    * them are those of the graph without it.
+  /** A made duplicate of the node of the signature, the layer over other nodes
+    * of the same classes: a node of the found node's class from birth (its
+    * parent the found node), a duplicate, never filed as a member or a user,
+    * never pushed, priced or matched, and its congruence with the found node
+    * recorded in the log (its children and the found node's are pairwise in one
+    * class now, which the log's earlier unions explain). It joins no class, so
+    * the classes, their sizes and every choice that reads them are those of the
+    * graph without it.
     */
-  private def madeDuplicated(layer: LayerWith[Int, Configured[C]], found: Int): (EGraph[C], Int) =
+  private def madeDuplicated(
+      layer: LayerWith[Int, Configured[C]],
+      found: Int
+  ): (EGraph[C], Int) =
     val node = nodes.size
     val made = copy(
       nodes = nodes :+ NodeRecord[C](
@@ -665,12 +767,16 @@ final case class EGraph[C <: NativeSpecializer & Singleton](
     )
     (made.unionRecorded(node, found, Justification.Congruence, None), node)
 
-  /** A new node of the signature, filed, pushed and priced; its made layer
-    * is the layer given (the signature itself without explanation mode, so
-    * that the record holds one layer object), filed when the graph records
-    * the terms made.
+  /** A new node of the signature, filed, pushed and priced; its made layer is
+    * the layer given (the signature itself without explanation mode, so that
+    * the record holds one layer object), filed when the graph records the terms
+    * made.
     */
-  private def layerNewlyMade(layer: LayerWith[Int, Configured[C]], rooted: LayerWith[Int, Configured[C]], closures: Boolean): (EGraph[C], Int) =
+  private def layerNewlyMade(
+      layer: LayerWith[Int, Configured[C]],
+      rooted: LayerWith[Int, Configured[C]],
+      closures: Boolean
+  ): (EGraph[C], Int) =
     val node = nodes.size
     val made = copy(
       nodes = nodes :+ NodeRecord[C](
@@ -684,45 +790,67 @@ final case class EGraph[C <: NativeSpecializer & Singleton](
       ),
       classes = classes :+ ClassData.single[C],
       signatures = signatures.updated(rooted, node),
-      madeNodes = if explained then madeNodes.updated(layer, node) else madeNodes
+      madeNodes =
+        if explained then madeNodes.updated(layer, node) else madeNodes
     )
     val filed = made.layerFiled(rooted, node).deltaPushed(node)
-    ((if closures then filed.layerClosures(rooted, node) else filed).nodePriced(node), node)
+    (
+      (if closures then filed.layerClosures(rooted, node) else filed)
+        .nodePriced(node),
+      node
+    )
 
   /** The new node's class valued by each analysis the graph keeps, and the
-    * nodes it may let the construction build or fold at queued: a parallel;
-    * an application whose argument's class holds a storage leaf, when the
+    * nodes it may let the construction build or fold at queued: a parallel; an
+    * application whose argument's class holds a storage leaf, when the
     * construction folds; the nodes above a new storage leaf.
     */
   private def nodePriced(node: Int): EGraph[C] =
-    val priced = if analyses.isEmpty then this else copy(analyses = analyses.map(_.nodeMade(this, node)))
+    val priced = if analyses.isEmpty then this
+    else copy(analyses = analyses.map(_.nodeMade(this, node)))
     if !priced.constructs then priced
     else
       priced.layer(node) match
-        case Parallel(_, _) => priced.copy(constructionQueue = priced.constructionQueue.enqueue(node))
-        case Apply(_, argument) if priced.folds && priced.storagesHeld(argument) =>
-          priced.copy(constructionQueue = priced.constructionQueue.enqueue(node))
-        case NoinlineLeaf(instruction) if EGraph.storageOf(instruction).isDefined => priced.constructionsQueued(priced.root(node))
+        case Parallel(_, _) =>
+          priced.copy(constructionQueue =
+            priced.constructionQueue.enqueue(node)
+          )
+        case Apply(_, argument)
+            if priced.folds && priced.storagesHeld(argument) =>
+          priced.copy(constructionQueue =
+            priced.constructionQueue.enqueue(node)
+          )
+        case NoinlineLeaf(instruction)
+            if EGraph.storageOf(instruction).isDefined =>
+          priced.constructionsQueued(priced.root(node))
         case _ => priced
 
   /** Each analysis's values after a union made `big` the root of `small`'s
-    * class, and the nodes the joined class reaches queued when the union
-    * gave either side a storage leaf it did not hold, or, when the
-    * construction folds, joined a class holding a define it folds to
-    * another: only a new leaf can let the construction build or fold above
-    * it, and only a new define in a function's class can let it fold an
-    * application of that class.
+    * class, and the nodes the joined class reaches queued when the union gave
+    * either side a storage leaf it did not hold, or, when the construction
+    * folds, joined a class holding a define it folds to another: only a new
+    * leaf can let the construction build or fold above it, and only a new
+    * define in a function's class can let it fold an application of that class.
     */
   private def classesPriced(small: Int, big: Int): EGraph[C] =
-    val priced = if analyses.isEmpty then this else copy(analyses = analyses.map(_.classesJoined(this, small, big)))
+    val priced = if analyses.isEmpty then this
+    else copy(analyses = analyses.map(_.classesJoined(this, small, big)))
     if !priced.constructs then priced
     else
       val joined = priced.analysisValue(storageLeaves, big)
-      val gained = joined != analysisValue(storageLeaves, big) || joined != analysisValue(storageLeaves, small)
-      val defineJoined = priced.folds && store.construction.foldingDefines.exists(define =>
-        instructionNode(define).exists(found => root(found) == small || root(found) == big)
-      )
-      if (gained && joined.exists(_.storages.nonEmpty)) || defineJoined then priced.constructionsQueued(big) else priced
+      val gained = joined != analysisValue(
+        storageLeaves,
+        big
+      ) || joined != analysisValue(storageLeaves, small)
+      val defineJoined =
+        priced.folds && store.construction.foldingDefines.exists(define =>
+          instructionNode(define).exists(found =>
+            root(found) == small || root(found) == big
+          )
+        )
+      if (gained && joined.exists(_.storages.nonEmpty)) || defineJoined then
+        priced.constructionsQueued(big)
+      else priced
 
   /** Whether the class holds a storage leaf (`StorageLeafAnalysis`). */
   private def storagesHeld(node: Int): Boolean =
@@ -731,21 +859,27 @@ final case class EGraph[C <: NativeSpecializer & Singleton](
   /** Whether the store's construction builds storages one layer up or folds
     * natives.
     */
-  private def constructs: Boolean = store.construction.storageCriteria.nonEmpty || folds
+  private def constructs: Boolean =
+    store.construction.storageCriteria.nonEmpty || folds
 
   /** Whether the store's construction folds applications of natives. */
   private def folds: Boolean = store.construction.foldingDefines.nonEmpty
 
-  /** The nodes reached from the class upward through at most the
-    * construction's arity of applications, as the function or the argument,
-    * queued: each parallel whose left side is a class reached, and, when the
-    * construction folds, each application of a class reached.
+  /** The nodes reached from the class upward through at most the construction's
+    * arity of applications, as the function or the argument, queued: each
+    * parallel whose left side is a class reached, and, when the construction
+    * folds, each application of a class reached.
     */
   private def constructionsQueued(root: Int): EGraph[C] =
     @tailrec
-    def walked(pending: List[(Int, Int)], seen: Set[Int], found: Vector[Int]): Vector[Int] = pending match
-      case Nil => found
-      case (classRoot, _) :: rest if seen(classRoot) => walked(rest, seen, found)
+    def walked(
+        pending: List[(Int, Int)],
+        seen: Set[Int],
+        found: Vector[Int]
+    ): Vector[Int] = pending match
+      case Nil                                       => found
+      case (classRoot, _) :: rest if seen(classRoot) =>
+        walked(rest, seen, found)
       case (classRoot, depth) :: rest =>
         val users = classUsers(classRoot)
         val parallels = users.filter(user =>
@@ -756,20 +890,36 @@ final case class EGraph[C <: NativeSpecializer & Singleton](
         )
         val above =
           if depth <= 0 then Nil
-          else users.toList.collect(Function.unlift(user =>
-            layer(user) match
-              case Apply(_, _) => Some((this.root(user), depth - 1))
-              case _           => None
-          ))
+          else
+            users.toList.collect(
+              Function.unlift(user =>
+                layer(user) match
+                  case Apply(_, _) => Some((this.root(user), depth - 1))
+                  case _           => None
+              )
+            )
         walked(above ::: rest, seen + classRoot, found ++ parallels)
-    val parallels = walked(List((root, store.construction.storageArity max store.construction.foldingArity)), Set.empty, Vector.empty)
-    copy(constructionQueue = parallels.foldLeft(constructionQueue)(_.enqueue(_)))
+    val parallels = walked(
+      List(
+        (
+          root,
+          store.construction.storageArity max store.construction.foldingArity
+        )
+      ),
+      Set.empty,
+      Vector.empty
+    )
+    copy(constructionQueue =
+      parallels.foldLeft(constructionQueue)(_.enqueue(_))
+    )
 
-  /** The next node the construction may build a storage or fold a native
-    * at, and the graph with it taken off the queue; none when none waits.
+  /** The next node the construction may build a storage or fold a native at,
+    * and the graph with it taken off the queue; none when none waits.
     */
   def constructionTaken: Option[(Int, EGraph[C])] =
-    constructionQueue.dequeueOption.map((node, rest) => (node, copy(constructionQueue = rest)))
+    constructionQueue.dequeueOption.map((node, rest) =>
+      (node, copy(constructionQueue = rest))
+    )
 
   /** What the store's construction does at the node, a queued parallel or
     * application: at `Parallel(c, t)`, the storage it builds
@@ -777,33 +927,70 @@ final case class EGraph[C <: NativeSpecializer & Singleton](
     * criteria K (the criterion's node, `instructionNode`, read by its root),
     * c's class holds an application of one of its constructors' defines
     * (likewise) to field classes each holding a storage leaf
-    * (`StorageLeafAnalysis`), and it builds the storage of `C s1 … sk ∥ K`
-    * from those leaves (`gezi.ir.TermConstruction.storageBuilt`); at an
-    * application `f a1 … an`, the native's result (`StorageStep.Folded`) when
-    * f's class is the class of a define bound to a native it folds and each
-    * argument's class holds a storage leaf the native takes
-    * (`gezi.ir.TermConstruction.folded`); none otherwise. It reads the
-    * classes' member nodes and the storages they are, never a type of a value.
+    * (`StorageLeafAnalysis`), and it builds the storage of `C s1 … sk ∥ K` from
+    * those leaves (`gezi.ir.TermConstruction.storageBuilt`); at an application
+    * `f a1 … an`, the native's result (`StorageStep.Folded`) when f's class is
+    * the class of a define bound to a native it folds and each argument's class
+    * holds a storage leaf the native takes (`gezi.ir.TermConstruction.folded`);
+    * none otherwise. It reads the classes' member nodes and the storages they
+    * are, never a type of a value.
     */
   def storageConstructed(node: Int): Option[StorageStep[C]] =
     val construction = store.construction
-    def spines(classRoot: Int, fields: List[Int], depth: Int, heads: Map[Int, Configured[C]]): Vector[(Configured[C], Int, Vector[Int])] =
-      heads.get(classRoot).map(define => (define, classRoot, fields.toVector)).toVector ++
+    def spines(
+        classRoot: Int,
+        fields: List[Int],
+        depth: Int,
+        heads: Map[Int, Configured[C]]
+    ): Vector[(Configured[C], Int, Vector[Int])] =
+      heads
+        .get(classRoot)
+        .map(define => (define, classRoot, fields.toVector))
+        .toVector ++
         (if depth <= 0 then Vector.empty
-         else classMembers(classRoot).map(_.layer).collect { case Apply(function, argument) => (root(function), root(argument)) }
-           .flatMap((function, argument) => spines(function, argument :: fields, depth - 1, heads)))
+         else
+           classMembers(classRoot)
+             .map(_.layer)
+             .collect { case Apply(function, argument) =>
+               (root(function), root(argument))
+             }
+             .flatMap((function, argument) =>
+               spines(function, argument :: fields, depth - 1, heads)
+             ))
     def headsOf(defines: Vector[Configured[C]]): Map[Int, Configured[C]] =
-      defines.flatMap(define => instructionNode(define).map(found => root(found) -> define)).toMap
-    val storagesOf = (classRoot: Int) => analysisValue(storageLeaves, classRoot).map(_.storages).getOrElse(Vector.empty)
-    def combinations(fieldClasses: Vector[Int]): LazyList[Vector[NativeStorage]] =
-      fieldClasses.foldLeft(Vector(Vector.empty[NativeStorage]))((sofar, field) => sofar.flatMap(chosen => storagesOf(field).map(chosen :+ _))).to(LazyList)
+      defines
+        .flatMap(define =>
+          instructionNode(define).map(found => root(found) -> define)
+        )
+        .toMap
+    val storagesOf = (classRoot: Int) =>
+      analysisValue(storageLeaves, classRoot)
+        .map(_.storages)
+        .getOrElse(Vector.empty)
+    def combinations(
+        fieldClasses: Vector[Int]
+    ): LazyList[Vector[NativeStorage]] =
+      fieldClasses
+        .foldLeft(Vector(Vector.empty[NativeStorage]))((sofar, field) =>
+          sofar.flatMap(chosen => storagesOf(field).map(chosen :+ _))
+        )
+        .to(LazyList)
     layer(node) match
       case Parallel(value, criterionClass) =>
-        val criteria = construction.storageCriteria.filter(criterion => instructionNode(criterion).exists(found => root(found) == root(criterionClass)))
+        val criteria = construction.storageCriteria.filter(criterion =>
+          instructionNode(criterion).exists(found =>
+            root(found) == root(criterionClass)
+          )
+        )
         val heads = headsOf(construction.storageConstructors)
         val built = for
           criterion <- criteria.to(LazyList)
-          (define, _, fieldClasses) <- spines(root(value), Nil, construction.storageArity, heads).to(LazyList)
+          (define, _, fieldClasses) <- spines(
+            root(value),
+            Nil,
+            construction.storageArity,
+            heads
+          ).to(LazyList)
           fields <- combinations(fieldClasses)
           term <- construction.storageBuilt(define, fields, criterion)
         yield StorageStep.Constructed(term)
@@ -811,7 +998,12 @@ final case class EGraph[C <: NativeSpecializer & Singleton](
       case Apply(function, argument) if construction.foldingDefines.nonEmpty =>
         val heads = headsOf(construction.foldingDefines)
         val folded = for
-          (define, defineRoot, argumentClasses) <- spines(root(function), List(root(argument)), construction.foldingArity - 1, heads).to(LazyList)
+          (define, defineRoot, argumentClasses) <- spines(
+            root(function),
+            List(root(argument)),
+            construction.foldingArity - 1,
+            heads
+          ).to(LazyList)
           arguments <- combinations(argumentClasses)
           (term, native) <- construction.folded(define, arguments)
         yield StorageStep.Folded(
@@ -824,11 +1016,17 @@ final case class EGraph[C <: NativeSpecializer & Singleton](
       case _ => None
 
   /** The baseline's `layer_filed/3`: the new node filed as a member of its
-    * class and as a user of its children's classes, an application under
-    * the heads its function's class gives it.
+    * class and as a user of its children's classes, an application under the
+    * heads its function's class gives it.
     */
-  private def layerFiled(layer: LayerWith[Int, Configured[C]], node: Int): EGraph[C] = layer match
-    case view: gezi.ir.StorageView[?] => throw IllegalStateException(s"a node's layer is never a storage's view: $view")
+  private def layerFiled(
+      layer: LayerWith[Int, Configured[C]],
+      node: Int
+  ): EGraph[C] = layer match
+    case view: gezi.ir.StorageView[?] =>
+      throw IllegalStateException(
+        s"a node's layer is never a storage's view: $view"
+      )
     case Apply(function, argument) =>
       val filed = memberAdded(node, MemberShape.Apply, node)
       functionHeads(function)
@@ -870,22 +1068,26 @@ final case class EGraph[C <: NativeSpecializer & Singleton](
   /** The baseline's `layer_closures/2`: a new thunk with a hole is the first
     * closure state of its class.
     */
-  private def layerClosures(layer: LayerWith[Int, Configured[C]], node: Int): EGraph[C] =
+  private def layerClosures(
+      layer: LayerWith[Int, Configured[C]],
+      node: Int
+  ): EGraph[C] =
     layer match
       case Thunk(_, holes, _) if holes.nonEmpty =>
         closureAdded(node, ClosureState(node, Nil, holes.size))
       case _ => this
 
-  /** The baseline's `function_heads/3`: the heads an application of the
-    * class has, one more argument than each head of the class within the
+  /** The baseline's `function_heads/3`: the heads an application of the class
+    * has, one more argument than each head of the class within the
     * instruction's bound, in the order the class gained them.
     */
   private def functionHeads(function: Int): Vector[Head[C]] =
     classes(function).heads.flatMap(head =>
       val arity = head.arity + 1
       headArityBounds.get(head.instruction) match
-        case Some(bound) if arity <= bound => Some(Head(head.instruction, arity))
-        case _                             => None
+        case Some(bound) if arity <= bound =>
+          Some(Head(head.instruction, arity))
+        case _ => None
     )
 
   /** The baseline's `class_users_pushed/3`: every user of the class matched
@@ -904,15 +1106,14 @@ final case class EGraph[C <: NativeSpecializer & Singleton](
           .liveNodes(graph.classes(classRoot).users(role).items)
           .foldLeft(graph)((inner, user) => inner.deltaPushed(user))
       )
-    PositionRole.values.toVector.foldLeft(afterRoles)(
-      (graph, role) =>
-        graph
-          .livePositionUsers(graph.classes(classRoot).positionUsers(role).items)
-          .foldLeft(graph)((inner, entry) => inner.deltaPushed(entry.user))
+    PositionRole.values.toVector.foldLeft(afterRoles)((graph, role) =>
+      graph
+        .livePositionUsers(graph.classes(classRoot).positionUsers(role).items)
+        .foldLeft(graph)((inner, entry) => inner.deltaPushed(entry.user))
     )
 
-  /** The baseline's `user_heads_filed/3`: an application filed under each
-    * head its function's class has now.
+  /** The baseline's `user_heads_filed/3`: an application filed under each head
+    * its function's class has now.
     */
   private def userHeadsFiled(user: Int): EGraph[C] = nodes(user).layer match
     case Apply(function, _) =>
@@ -924,7 +1125,11 @@ final case class EGraph[C <: NativeSpecializer & Singleton](
     case _ => this
 
   /** The baseline's `user_head_filed/5`. */
-  private def userHeadFiled(user: Int, userRoot: Int, head: Head[C]): EGraph[C] =
+  private def userHeadFiled(
+      user: Int,
+      userRoot: Int,
+      head: Head[C]
+  ): EGraph[C] =
     if nodes(user).heads.contains(head) then this
     else
       val filed = nodeHeadAdded(user, head)
@@ -935,9 +1140,9 @@ final case class EGraph[C <: NativeSpecializer & Singleton](
 
   // ---- the β rule ----
 
-  /** The baseline's `application_read/3`: the application takes a β step
-    * with every live closure state of its function's class, now and when the
-    * class gains one. Only the node given is marked.
+  /** The baseline's `application_read/3`: the application takes a β step with
+    * every live closure state of its function's class, now and when the class
+    * gains one. Only the node given is marked.
     */
   def applicationRead(node: Int): EGraph[C] =
     val record = nodes(node)
@@ -946,18 +1151,17 @@ final case class EGraph[C <: NativeSpecializer & Singleton](
       record.layer match
         case Apply(function, _) =>
           val marked = nodeUpdated(node)(_.copy(readable = true))
-          marked.closureStates(marked.root(function)).foldLeft(marked)(
-            (graph, state) => graph.betaQueued(node, state)
-          )
+          marked
+            .closureStates(marked.root(function))
+            .foldLeft(marked)((graph, state) => graph.betaQueued(node, state))
         case other =>
           throw IllegalArgumentException(
             s"node $node read by the β rule is not an application: $other"
           )
 
-  /** The branch of the baseline's `beta_worked/4` with a hole left: the
-    * state is a new closure state of the application's class, which meets
-    * every readable application of the class, and the application is
-    * matched again.
+  /** The branch of the baseline's `beta_worked/4` with a hole left: the state
+    * is a new closure state of the application's class, which meets every
+    * readable application of the class, and the application is matched again.
     */
   def closureStateExtended(application: Int, state: ClosureState): EGraph[C] =
     val applicationRoot = root(application)
@@ -1024,9 +1228,9 @@ final case class EGraph[C <: NativeSpecializer & Singleton](
   ): EGraph[C] =
     copy(unions = unions :+ UnionRecord(first, second, justification, made))
 
-  /** The baseline's `closures_joined/4`: every live closure state of one
-    * class meets every readable application of the other, the small class's
-    * states added to the big one's.
+  /** The baseline's `closures_joined/4`: every live closure state of one class
+    * meets every readable application of the other, the small class's states
+    * added to the big one's.
     */
   private def closuresJoined(small: Int, big: Int): EGraph[C] =
     val smallStates = closureStates(small)
@@ -1095,19 +1299,18 @@ final case class EGraph[C <: NativeSpecializer & Singleton](
           inner.userAdded(big, role, user).userReadAgain(user)
         )
     )
-    PositionRole.values.toVector.foldLeft(afterRoles)(
-      (graph, role) =>
-        graph
-          .livePositionUsers(graph.classes(small).positionUsers(role).items)
-          .foldLeft(graph)((inner, entry) =>
-            inner.positionUserAdded(big, role, entry).userReadAgain(entry.user)
-          )
+    PositionRole.values.toVector.foldLeft(afterRoles)((graph, role) =>
+      graph
+        .livePositionUsers(graph.classes(small).positionUsers(role).items)
+        .foldLeft(graph)((inner, entry) =>
+          inner.positionUserAdded(big, role, entry).userReadAgain(entry.user)
+        )
     )
 
-  /** The baseline's `user_read_again/3`: a user of a class that a union
-    * moved, read over the roots: united with the node that has its
-    * signature, itself marked a duplicate, or filed under the signature, and
-    * matched again. A duplicate is not read again.
+  /** The baseline's `user_read_again/3`: a user of a class that a union moved,
+    * read over the roots: united with the node that has its signature, itself
+    * marked a duplicate, or filed under the signature, and matched again. A
+    * duplicate is not read again.
     */
   private def userReadAgain(user: Int): EGraph[C] =
     val record = nodes(user)
@@ -1118,7 +1321,12 @@ final case class EGraph[C <: NativeSpecializer & Singleton](
         case Some(found) if found == user =>
           userHeadsFiled(user).deltaPushed(user)
         case Some(found) =>
-          duplicateMarked(user).unionQueued(user, found, Justification.Congruence, None)
+          duplicateMarked(user).unionQueued(
+            user,
+            found,
+            Justification.Congruence,
+            None
+          )
         case None =>
           copy(signatures = signatures.updated(key, user))
             .userHeadsFiled(user)
@@ -1126,8 +1334,8 @@ final case class EGraph[C <: NativeSpecializer & Singleton](
 
   /** The baseline's `duplicate_marked/1`: the node marked a duplicate, which
     * every reader skips, and counted dead in the entries that hold it: of its
-    * class as a member, by shape and by head, a thunk's first closure state
-    * in its class, and of its children's classes as a user.
+    * class as a member, by shape and by head, a thunk's first closure state in
+    * its class, and of its children's classes as a user.
     */
   private def duplicateMarked(node: Int): EGraph[C] =
     val marked = nodeUpdated(node)(_.copy(duplicate = true))
@@ -1144,11 +1352,14 @@ final case class EGraph[C <: NativeSpecializer & Singleton](
       .layerUsersDead(record.layer)
 
   /** The baseline's `layer_closures_dead/2`: a thunk with a hole holds the
-    * first closure state of its class, dead with it. The states made from it
-    * by β steps, in the classes of the applications that took them, are
-    * skipped as dead and not counted.
+    * first closure state of its class, dead with it. The states made from it by
+    * β steps, in the classes of the applications that took them, are skipped as
+    * dead and not counted.
     */
-  private def closureStateDead(classRoot: Int, layer: LayerWith[Int, Configured[C]]): EGraph[C] =
+  private def closureStateDead(
+      classRoot: Int,
+      layer: LayerWith[Int, Configured[C]]
+  ): EGraph[C] =
     layer match
       case Thunk(_, holes, _) if holes.nonEmpty =>
         classUpdated(classRoot)(data =>
@@ -1166,21 +1377,25 @@ final case class EGraph[C <: NativeSpecializer & Singleton](
         )
       case None => this
 
-  private def layerUsersDead(layer: LayerWith[Int, Configured[C]]): EGraph[C] = layer match
-    case view: gezi.ir.StorageView[?] => throw IllegalStateException(s"a node's layer is never a storage's view: $view")
-    case Apply(function, argument) =>
-      childUserDead(UserRole.Function, function)
-        .childUserDead(UserRole.Argument, argument)
-    case Parallel(left, right) =>
-      childUserDead(UserRole.Left, left).childUserDead(UserRole.Right, right)
-    case Choice(left, right) =>
-      childPositionUserDead(PositionRole.Member, left)
-        .childPositionUserDead(PositionRole.Member, right)
-    case Thunk(_, _, fillings) =>
-      fillings.foldLeft(this)((graph, filling) =>
-        graph.childPositionUserDead(PositionRole.Filling, filling)
-      )
-    case NoinlineLeaf(_) => this
+  private def layerUsersDead(layer: LayerWith[Int, Configured[C]]): EGraph[C] =
+    layer match
+      case view: gezi.ir.StorageView[?] =>
+        throw IllegalStateException(
+          s"a node's layer is never a storage's view: $view"
+        )
+      case Apply(function, argument) =>
+        childUserDead(UserRole.Function, function)
+          .childUserDead(UserRole.Argument, argument)
+      case Parallel(left, right) =>
+        childUserDead(UserRole.Left, left).childUserDead(UserRole.Right, right)
+      case Choice(left, right) =>
+        childPositionUserDead(PositionRole.Member, left)
+          .childPositionUserDead(PositionRole.Member, right)
+      case Thunk(_, _, fillings) =>
+        fillings.foldLeft(this)((graph, filling) =>
+          graph.childPositionUserDead(PositionRole.Filling, filling)
+        )
+      case NoinlineLeaf(_) => this
 
   private def childUserDead(role: UserRole, child: Int): EGraph[C] =
     classUpdated(root(child))(data =>
@@ -1196,34 +1411,48 @@ final case class EGraph[C <: NativeSpecializer & Singleton](
     )
 
 /** What the store's construction does at a queued node
-  * (`EGraph.storageConstructed`): a storage built one layer up from its
-  * fields' storage leaves, to be united with its view; or the result of a
-  * native folded at an application, to be united with the application, with
-  * the define and the argument storages the fold read.
+  * (`EGraph.storageConstructed`): a storage built one layer up from its fields'
+  * storage leaves, to be united with its view; or the result of a native folded
+  * at an application, to be united with the application, with the define and
+  * the argument storages the fold read.
   */
 enum StorageStep[C <: NativeSpecializer & Singleton]:
   case Constructed(term: Configured[C])
-  case Folded(term: Configured[C], native: String, defineNode: Int, argumentClasses: Vector[Int])
+  case Folded(
+      term: Configured[C],
+      native: String,
+      defineNode: Int,
+      argumentClasses: Vector[Int]
+  )
 
-/** A step of the expansion of an instruction: enter it (find its node, or expand
-  * its children), or leave it once its children have their nodes.
+/** A step of the expansion of an instruction: enter it (find its node, or
+  * expand its children), or leave it once its children have their nodes.
   */
 private enum InstructionVisit[C <: NativeSpecializer & Singleton]:
   case Enter(instruction: Configured[C])
-  case Leave(instruction: Configured[C], layer: LayerWith[Configured[C], Configured[C]])
+  case Leave(
+      instruction: Configured[C],
+      layer: LayerWith[Configured[C], Configured[C]]
+  )
+
   /** Once the criterion of the storage leaf has its node: make the leaf's
     * pattern view and unite it with the leaf.
     */
-  case PatternView[C <: NativeSpecializer & Singleton](leaf: Int) extends InstructionVisit[C]
+  case PatternView[C <: NativeSpecializer & Singleton](leaf: Int)
+      extends InstructionVisit[C]
 
 object EGraph:
 
   /** The graph of no node, over the store, filing heads within the bounds,
-    * recording the terms made when `explained` (a run whose proof or trace
-    * is wanted; `explaining`), its respelling memo keeping what it computes
+    * recording the terms made when `explained` (a run whose proof or trace is
+    * wanted; `explaining`), its respelling memo keeping what it computes
     * (`withRespellingRetention` chooses otherwise).
     */
-  def empty[C <: NativeSpecializer & Singleton](store: Store[C], headArityBounds: Map[Configured[C], Int], explained: Boolean): EGraph[C] = EGraph(
+  def empty[C <: NativeSpecializer & Singleton](
+      store: Store[C],
+      headArityBounds: Map[Configured[C], Int],
+      explained: Boolean
+  ): EGraph[C] = EGraph(
     store = store,
     headArityBounds = headArityBounds,
     nodes = Vector.empty,
@@ -1255,8 +1484,8 @@ object EGraph:
     constantStorageStop = false
   )
 
-  /** The visits of the baseline's recursive `handle_added/4`, run off a
-    * stack: an instruction entered is found, or its children are entered in order
+  /** The visits of the baseline's recursive `handle_added/4`, run off a stack:
+    * an instruction entered is found, or its children are entered in order
     * before it is left; leaving it adds its layer over its children's nodes,
     * files the instruction and its head. `results` holds the nodes of the
     * instructions left, the latest first.
@@ -1270,14 +1499,14 @@ object EGraph:
     case Nil =>
       results match
         case List(node) => (graph, node)
-        case other =>
+        case other      =>
           throw IllegalStateException(
             s"the expansion of an instruction ended with the nodes $other"
           )
     case InstructionVisit.Enter(instruction) :: rest =>
       graph.instructionTable.get(instruction) match
         case Some(node) => instructionsExpanded(graph, rest, node :: results)
-        case None =>
+        case None       =>
           val layer = graph.store.expanded(instruction)
           instructionsExpanded(
             graph,
@@ -1289,10 +1518,17 @@ object EGraph:
       val (childrenReversed, others) = results.splitAt(layer.children.size)
       val (added, node) =
         graph.layerAdded(layerOver(layer, childrenReversed.reverse.toVector))
-      val filed = added.instructionFiled(instruction, node).instructionHeadFiled(instruction, node)
+      val filed = added
+        .instructionFiled(instruction, node)
+        .instructionHeadFiled(instruction, node)
       storedLeafCriterion(graph.store, layer) match
         case Some(criterion) =>
-          instructionsExpanded(filed, InstructionVisit.Enter(criterion) :: InstructionVisit.PatternView[C](node) :: rest, others)
+          instructionsExpanded(
+            filed,
+            InstructionVisit.Enter(criterion) :: InstructionVisit
+              .PatternView[C](node) :: rest,
+            others
+          )
         case None => instructionsExpanded(filed, rest, node :: others)
     case InstructionVisit.PatternView(leaf) :: rest =>
       results match
@@ -1300,28 +1536,41 @@ object EGraph:
           val (added, view) = graph.layerAdded(Parallel(leaf, criterion))
           instructionsExpanded(
             added
-              .copy(patternViews = added.patternViews + view, storageViewQueue = added.storageViewQueue.enqueue(leaf))
+              .copy(
+                patternViews = added.patternViews + view,
+                storageViewQueue = added.storageViewQueue.enqueue(leaf)
+              )
               .unionQueued(view, leaf, Justification.PatternView(leaf), None),
             rest,
             leaf :: others
           )
-        case Nil => throw IllegalStateException(s"the pattern view of the leaf $leaf has no criterion's node")
+        case Nil =>
+          throw IllegalStateException(
+            s"the pattern view of the leaf $leaf has no criterion's node"
+          )
 
-  /** The native storage a term is, when it is one: its layer's one class test (`IrLayer` has the storage as a leaf). */
-  private[egraph] def storageOf[C <: NativeSpecializer & Singleton](term: Configured[C]): Option[NativeStorage] =
+  /** The native storage a term is, when it is one: its layer's one class test
+    * (`IrLayer` has the storage as a leaf).
+    */
+  private[egraph] def storageOf[C <: NativeSpecializer & Singleton](
+      term: Configured[C]
+  ): Option[NativeStorage] =
     term.layer match
       case storage: NativeStorage => Some(storage)
       case _                      => None
 
-  /** The criterion of the native storage the layer keeps as a leaf, read by the store's specializer (a storage the
-    * e-graph keeps as a leaf is one); none for any other layer.
+  /** The criterion of the native storage the layer keeps as a leaf, read by the
+    * store's specializer (a storage the e-graph keeps as a leaf is one); none
+    * for any other layer.
     */
   private def storedLeafCriterion[C <: NativeSpecializer & Singleton](
       store: Store[C],
       layer: LayerWith[Configured[C], Configured[C]]
   ): Option[Configured[C]] = layer match
     case NoinlineLeaf(instruction) =>
-      storageOf(instruction).filter(_.leafInEGraph).map((store.construction.specializer: C).criterionOf)
+      storageOf(instruction)
+        .filter(_.leafInEGraph)
+        .map((store.construction.specializer: C).criterionOf)
     case _ => None
 
   /** The layer with its children replaced, in child order. */
@@ -1335,12 +1584,13 @@ object EGraph:
       case (Parallel(_, _), Vector(left, right)) =>
         Parallel(left, right)
       case (Choice(_, _), Vector(left, right)) => Choice(left, right)
-      case (Thunk(code, holes, _), fillings) =>
+      case (Thunk(code, holes, _), fillings)   =>
         Thunk(code, holes, fillings)
       case (NoinlineLeaf(instruction), Vector()) => NoinlineLeaf(instruction)
       // A storage's view enters as a parallel node over the classes of its value and its criterion; the node is over
       // class numbers, not terms, so it is no unspecialized object of a term.
-      case (gezi.ir.StorageView(_, _), Vector(value, criterion)) => Parallel(value, criterion)
+      case (gezi.ir.StorageView(_, _), Vector(value, criterion)) =>
+        Parallel(value, criterion)
       case (other, nodes) =>
         throw IllegalStateException(
           s"the layer $other cannot take the children $nodes"

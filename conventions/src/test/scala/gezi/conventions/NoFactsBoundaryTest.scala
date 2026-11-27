@@ -1,16 +1,21 @@
 package gezi.conventions
 
-/** The places of the main sources that name `NoFacts`, the native specializer of no facts, each listed with its reason.
+/** The places of the main sources that name `NoFacts`, the native specializer
+  * of no facts, each listed with its reason.
   *
-  * Purpose: a term of `NoFacts` holds no storage, so code that builds or reads terms under `NoFacts` where an entry's
-  * configuration is meant reads a program as if its backend declared no representation: it neither builds the
-  * storages the entry's facts declare nor reads those the program holds. The types keep two configurations' terms
-  * apart, but nothing in the types says which configuration a piece of code should work in; this list does, and an
+  * Purpose: a term of `NoFacts` holds no storage, so code that builds or reads
+  * terms under `NoFacts` where an entry's configuration is meant reads a
+  * program as if its backend declared no representation: it neither builds the
+  * storages the entry's facts declare nor reads those the program holds. The
+  * types keep two configurations' terms apart, but nothing in the types says
+  * which configuration a piece of code should work in; this list does, and an
   * unlisted place fails.
   */
 object NoFactsBoundaryCheck:
 
-  /** The main sources allowed to name `NoFacts`, by a path prefix (a project, or a file), each with its reason. */
+  /** The main sources allowed to name `NoFacts`, by a path prefix (a project,
+    * or a file), each with its reason.
+    */
   val allowed: Map[String, String] =
     Map(
       "ir/src/main/" -> "the IR defines NoFacts, crosses the library from it (crossedAllFromNoFacts) and spells a thunk over placeholders of no facts",
@@ -50,29 +55,51 @@ object NoFactsBoundaryCheck:
 
   private val named = """\bNoFacts\b""".r
 
-  /** The main sources that name `NoFacts` and are not listed, each `path:number: text`. */
+  /** The main sources that name `NoFacts` and are not listed, each
+    * `path:number: text`.
+    */
   def unlisted(sources: Vector[(String, String)]): Vector[String] =
     sources
-      .filter((path, _) => path.contains("/src/main/") && !allowed.keys.exists(path.startsWith))
+      .filter((path, _) =>
+        path.contains("/src/main/") && !allowed.keys.exists(path.startsWith)
+      )
       .flatMap((path, text) =>
         val code = ScalaSources.commentsBlanked(text).split('\n').toVector
         val lines = text.split('\n').toVector
-        lines.zipWithIndex.collect { case (line, index) if named.findFirstIn(code(index)).isDefined => s"$path:${index + 1}: ${line.trim}" }
+        lines.zipWithIndex.collect {
+          case (line, index) if named.findFirstIn(code(index)).isDefined =>
+            s"$path:${index + 1}: ${line.trim}"
+        }
       )
 
-  /** The listed places that no main source names `NoFacts` in any longer: their entries are deleted. */
+  /** The listed places that no main source names `NoFacts` in any longer: their
+    * entries are deleted.
+    */
   def stale(sources: Vector[(String, String)]): Vector[String] =
-    val naming = sources.filter((path, text) => path.contains("/src/main/") && named.findFirstIn(ScalaSources.commentsBlanked(text)).isDefined)
-    allowed.keys.filterNot(prefix => naming.exists((path, _) => path.startsWith(prefix))).toVector.sorted
+    val naming = sources.filter((path, text) =>
+      path.contains("/src/main/") && named
+        .findFirstIn(ScalaSources.commentsBlanked(text))
+        .isDefined
+    )
+    allowed.keys
+      .filterNot(prefix => naming.exists((path, _) => path.startsWith(prefix)))
+      .toVector
+      .sorted
 
 class NoFactsBoundaryTest extends gezi.generatedinputs.FailFastSuite:
 
-  override def sharedFixtures: Vector[scala.concurrent.Future[Unit] => Any] = Vector(_ => ScalaSources.texts)
+  override def sharedFixtures: Vector[scala.concurrent.Future[Unit] => Any] =
+    Vector(_ => ScalaSources.texts)
 
-  test("NoFacts stands in the main sources only where it is listed, and every listed place names it") {
+  test(
+    "NoFacts stands in the main sources only where it is listed, and every listed place names it"
+  ) {
     val sources = ScalaSources.texts
     assert(sources.nonEmpty, "no Scala source found")
     val unlisted = NoFactsBoundaryCheck.unlisted(sources)
     val stale = NoFactsBoundaryCheck.stale(sources)
-    assert(unlisted.isEmpty && stale.isEmpty, s"unlisted:\n${unlisted.mkString("\n")}\nstale:\n${stale.mkString("\n")}")
+    assert(
+      unlisted.isEmpty && stale.isEmpty,
+      s"unlisted:\n${unlisted.mkString("\n")}\nstale:\n${stale.mkString("\n")}"
+    )
   }

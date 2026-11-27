@@ -5,12 +5,12 @@ import gezi.ir.Code
 import gezi.ir.Hole
 
 /** The front end's spelling of a thunk layer with holes, a function of its
-  * code, holes and number of fillings alone
-  * (`BindingNormalForm.respelled`): the layer itself (`Canonical`), or a
-  * code, holes and fillings that are codes over the slots of the layer's
-  * fillings, slot p standing for the filling of position p (`Respelled`). A subterm a code kept inline that reads no
-  * binder, which a β residual leaves once the arguments fill the binders it
-  * read, becomes a filling.
+  * code, holes and number of fillings alone (`BindingNormalForm.respelled`):
+  * the layer itself (`Canonical`), or a code, holes and fillings that are codes
+  * over the slots of the layer's fillings, slot p standing for the filling of
+  * position p (`Respelled`). A subterm a code kept inline that reads no binder,
+  * which a β residual leaves once the arguments fill the binders it read,
+  * becomes a filling.
   */
 enum Respelling:
   case Canonical
@@ -30,10 +30,16 @@ object Respelling:
       case Some((code, holes, fillings)) => Respelled(code, holes, fillings)
 
 /** The respelling memo's readings (`EGraph.respellings`): the spellings
-  * computed, the spellings read back from the memo, and the thunk layers
-  * whose spelling differed from the layer.
+  * computed, the spellings read back from the memo, and the thunk layers whose
+  * spelling differed from the layer.
   */
-final case class RespellingCounts(spellingsComputed: Int, spellingsRead: Long, layersRespelled: Long):
-  def withComputed: RespellingCounts = copy(spellingsComputed = spellingsComputed + 1)
+final case class RespellingCounts(
+    spellingsComputed: Int,
+    spellingsRead: Long,
+    layersRespelled: Long
+):
+  def withComputed: RespellingCounts =
+    copy(spellingsComputed = spellingsComputed + 1)
   def withRead: RespellingCounts = copy(spellingsRead = spellingsRead + 1)
-  def withRespelled: RespellingCounts = copy(layersRespelled = layersRespelled + 1)
+  def withRespelled: RespellingCounts =
+    copy(layersRespelled = layersRespelled + 1)

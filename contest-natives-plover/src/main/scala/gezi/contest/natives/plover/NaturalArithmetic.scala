@@ -3,11 +3,11 @@ package gezi.contest.natives.plover
 import java.math.BigInteger
 
 /** The remainder and the difference of canonical naturals, the values of the
-  * recursions `plover_binary_modulo` and `binary_subtract minuend subtrahend false`
-  * that the typed versions `plover_typed_natural_modulo` and
-  * `plover_typed_natural_difference` carry. The operands are what the natives'
-  * places declare, and a native does not check them (`CONTRIBUTING.md`, "Types
-  * live only in the term").
+  * recursions `plover_binary_modulo` and
+  * `binary_subtract minuend subtrahend false` that the typed versions
+  * `plover_typed_natural_modulo` and `plover_typed_natural_difference` carry.
+  * The operands are what the natives' places declare, and a native does not
+  * check them (`CONTRIBUTING.md`, "Types live only in the term").
   */
 object NaturalArithmetic:
 
@@ -25,4 +25,6 @@ object NaturalArithmetic:
     * larger than the minuend.
     */
   def difference(minuend: BigInteger, subtrahend: BigInteger): BigInteger =
-    minuend.subtract(subtrahend).mod(BigInteger.ONE.shiftLeft(minuend.bitLength))
+    minuend
+      .subtract(subtrahend)
+      .mod(BigInteger.ONE.shiftLeft(minuend.bitLength))

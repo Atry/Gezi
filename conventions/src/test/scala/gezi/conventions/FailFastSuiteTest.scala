@@ -19,21 +19,30 @@ object FailFastSuiteCheck:
     * directly, each `path:number: text`.
     */
   def problems(sources: Vector[(String, String)]): Vector[String] =
-    sources.filterNot((path, _) => path.endsWith(baseSuiteSource)).flatMap((path, text) =>
-      val lines = text.split('\n').toVector
-      val code = ScalaSources.commentsBlanked(text).split('\n').toVector
-      lines.zipWithIndex.collect {
-        case (line, index) if directFunSuite.findFirstIn(code(index)).isDefined =>
-          s"$path:${index + 1}: ${line.trim}"
-      }
-    )
+    sources
+      .filterNot((path, _) => path.endsWith(baseSuiteSource))
+      .flatMap((path, text) =>
+        val lines = text.split('\n').toVector
+        val code = ScalaSources.commentsBlanked(text).split('\n').toVector
+        lines.zipWithIndex.collect {
+          case (line, index)
+              if directFunSuite.findFirstIn(code(index)).isDefined =>
+            s"$path:${index + 1}: ${line.trim}"
+        }
+      )
 
 class FailFastSuiteTest extends gezi.generatedinputs.FailFastSuite:
 
-  override def sharedFixtures: Vector[scala.concurrent.Future[Unit] => Any] = Vector(_ => ScalaSources.texts)
+  override def sharedFixtures: Vector[scala.concurrent.Future[Unit] => Any] =
+    Vector(_ => ScalaSources.texts)
 
-  test("every test suite of the Scala sources extends FailFastSuite, not munit.FunSuite") {
-    assert(ScalaSources.texts.nonEmpty, s"no Scala source found under ${ScalaSources.root}")
+  test(
+    "every test suite of the Scala sources extends FailFastSuite, not munit.FunSuite"
+  ) {
+    assert(
+      ScalaSources.texts.nonEmpty,
+      s"no Scala source found under ${ScalaSources.root}"
+    )
     val found = FailFastSuiteCheck.problems(ScalaSources.texts)
     assert(found.isEmpty, found.mkString("\n"))
   }

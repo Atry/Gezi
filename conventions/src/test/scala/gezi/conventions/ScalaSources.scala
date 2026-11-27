@@ -36,18 +36,20 @@ object ScalaSources:
     )
 
   /** The Scala sources under the build root (`sources`), each with its path
-    * relative to the root and its text, read once per test JVM: the suites
-    * that check every source list it as their shared fixture
+    * relative to the root and its text, read once per test JVM: the suites that
+    * check every source list it as their shared fixture
     * (`FailFastSuite.sharedFixtures`), so that the walk of the root, whose
-    * build outputs hold most of its files, is made once and charged to no
-    * test (WartSuppressionTest, which walked and read every source in its
-    * test, overran its 3 s deadline twice beside the other conventions suites
-    * doing the same at the 1-minute load 5, 2026-11-19, and passed alone in
-    * 0.76 to 0.87 s).
+    * build outputs hold most of its files, is made once and charged to no test
+    * (WartSuppressionTest, which walked and read every source in its test,
+    * overran its 3 s deadline twice beside the other conventions suites doing
+    * the same at the 1-minute load 5, 2026-11-19, and passed alone in 0.76 to
+    * 0.87 s).
     */
   lazy val texts: Vector[(String, String)] =
     val found = root
-    sources(found).map(source => (found.relativize(source).toString, Files.readString(source)))
+    sources(found).map(source =>
+      (found.relativize(source).toString, Files.readString(source))
+    )
 
   private val commentPattern: Regex = """(?s)/\*.*?\*/|//[^\n]*""".r
 

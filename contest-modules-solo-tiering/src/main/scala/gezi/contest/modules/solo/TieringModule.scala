@@ -11,38 +11,49 @@ import gezi.knowledgereading.KnowledgeReading
 import gezi.knowledgereading.KnowledgeReadingError
 import gezi.narrowblocks.ProgramCompiler
 
-/** The executor module of the tiered executor: the framework's
-  * reading executor of the entry's JIT (`Defaults.executor`) for both tiers,
-  * the program compiler of the entry's lemma rounds (`ProgramCompiler` of
+/** The executor module of the tiered executor: the framework's reading executor
+  * of the entry's JIT (`Defaults.executor`) for both tiers, the program
+  * compiler of the entry's lemma rounds (`ProgramCompiler` of
   * `ExecutorModuleInputs.compilation`), and the policy `InterpretFirst` with
   * the interpretation's steps the entry writes. An entry selects it together
-  * with the option that has the executor, not the entry, compile its
-  * programs; under the entry's compilation the executor would only ever see
-  * compiled programs.
+  * with the option that has the executor, not the entry, compile its programs;
+  * under the entry's compilation the executor would only ever see compiled
+  * programs.
   */
 final class TieringModule extends ExecutorModule:
 
-  def selectorFile: Path = Path.of("corpora", "modules", "solo_tiering.lambdalattice")
+  def selectorFile: Path =
+    Path.of("corpora", "modules", "solo_tiering.lambdalattice")
 
   /** The tiered executor of the inputs. The parameters are a tuple of one
-    * field, the interpretation's steps, a non-negative integer of 64 bits
-    * (`λs. s n`, n written by the library's integer `from_cbor`). Throws
+    * field, the interpretation's steps, a non-negative integer of 64 bits (`λs.
+    * s n`, n written by the library's integer `from_cbor`). Throws
     * `EntryDataError` for other parameters.
     */
-  def executor[C <: NativeSpecializer & Singleton](parameters: Configured[NoFacts.type], inputs: ExecutorModuleInputs[C]): Executor[C, ?] =
+  def executor[C <: NativeSpecializer & Singleton](
+      parameters: Configured[NoFacts.type],
+      inputs: ExecutorModuleInputs[C]
+  ): Executor[C, ?] =
     given NoFacts.type = NoFacts
     val steps =
       try
         KnowledgeReading.run(
           KnowledgeReading.fields(Value.of(parameters), 1).flatMap {
             case Vector(steps) => KnowledgeReading.integer(steps)
-            case fields        => throw EntryDataError(s"solo's tiering module's parameters have ${fields.size} fields, not 1")
+            case fields        =>
+              throw EntryDataError(
+                s"solo's tiering module's parameters have ${fields.size} fields, not 1"
+              )
           },
           TieringModule.parametersReadingLimit
         )
-      catch case KnowledgeReadingError(reason) => throw EntryDataError(s"solo's tiering module's parameters: $reason")
+      catch
+        case KnowledgeReadingError(reason) =>
+          throw EntryDataError(s"solo's tiering module's parameters: $reason")
     if steps < 0 || !steps.isValidLong then
-      throw EntryDataError(s"solo's tiering module's interpretation steps are $steps, not a non-negative integer of 64 bits")
+      throw EntryDataError(
+        s"solo's tiering module's interpretation steps are $steps, not a non-negative integer of 64 bits"
+      )
     TieredExecutor[C](
       inputs.jit.configuration.specializer,
       Defaults.executor(inputs.jit, inputs.reading),

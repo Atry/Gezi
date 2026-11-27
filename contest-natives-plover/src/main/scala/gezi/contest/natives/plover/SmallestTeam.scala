@@ -29,20 +29,36 @@ object SmallestTeam:
   /** A count above any count of people, whose increment does not overflow. */
   private val unreachable: Int = Int.MaxValue / 2
 
-  /** The value of the definition on the people, the full set and the cost of
-    * a set left uncovered.
+  /** The value of the definition on the people, the full set and the cost of a
+    * set left uncovered.
     */
-  def size(people: Vector[BigInteger], full: BigInteger, uncovered: BigInteger): BigInteger =
+  def size(
+      people: Vector[BigInteger],
+      full: BigInteger,
+      uncovered: BigInteger
+  ): BigInteger =
     val skills = (0 until full.bitLength).filter(full.testBit).toVector
     if skills.size > largestSkillCount then
-      throw ArithmeticException(s"a full set of ${skills.size} skills is more than $largestSkillCount")
-    val masks = people.filter(_.andNot(full).signum == 0).map(person =>
-      skills.indices.foldLeft(0)((mask, position) => if person.testBit(skills(position)) then mask | (1 << position) else mask)
-    )
+      throw ArithmeticException(
+        s"a full set of ${skills.size} skills is more than $largestSkillCount"
+      )
+    val masks = people
+      .filter(_.andNot(full).signum == 0)
+      .map(person =>
+        skills.indices.foldLeft(0)((mask, position) =>
+          if person.testBit(skills(position)) then mask | (1 << position)
+          else mask
+        )
+      )
     val cells = 1 << skills.size
-    val noOne = IArray.tabulate(cells)(required => if required == 0 then 0 else unreachable)
+    val noOne = IArray.tabulate(cells)(required =>
+      if required == 0 then 0 else unreachable
+    )
     val everyone = masks.foldLeft(noOne) { (before, mask) =>
-      IArray.tabulate(cells)(required => math.min(before(required), 1 + before(required & ~mask)))
+      IArray.tabulate(cells)(required =>
+        math.min(before(required), 1 + before(required & ~mask))
+      )
     }
     val smallest = everyone(cells - 1)
-    if smallest == unreachable then uncovered else uncovered.min(BigInteger.valueOf(smallest.toLong))
+    if smallest == unreachable then uncovered
+    else uncovered.min(BigInteger.valueOf(smallest.toLong))

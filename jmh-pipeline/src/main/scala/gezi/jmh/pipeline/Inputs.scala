@@ -41,18 +41,27 @@ import scala.compiletime.uninitialized
 class LibraryInput:
 
   /** The configuration's name, which JMH assigns. */
-  @SuppressWarnings(Array("org.wartremover.warts.Var")) // the JMH protocol's exception (the user, 2026-10-31: "好的，用sbt-jmh，需要配合JMH协议时，必要时可以作为例外使用可变数据结构")
-  @Param(Array("hindley_milner_baseline", "cost_comparison")) // the JMH protocol's exception (the user, 2026-10-31: "好的，用sbt-jmh，需要配合JMH协议时，必要时可以作为例外使用可变数据结构")
-  var configurationName: String = uninitialized // the JMH protocol's exception (the user, 2026-10-31: "好的，用sbt-jmh，需要配合JMH协议时，必要时可以作为例外使用可变数据结构")
+  @SuppressWarnings(
+    Array("org.wartremover.warts.Var")
+  ) // the JMH protocol's exception (the user, 2026-10-31: "好的，用sbt-jmh，需要配合JMH协议时，必要时可以作为例外使用可变数据结构")
+  @Param(
+    Array("hindley_milner_baseline", "cost_comparison")
+  ) // the JMH protocol's exception (the user, 2026-10-31: "好的，用sbt-jmh，需要配合JMH协议时，必要时可以作为例外使用可变数据结构")
+  var configurationName: String =
+    uninitialized // the JMH protocol's exception (the user, 2026-10-31: "好的，用sbt-jmh，需要配合JMH协议时，必要时可以作为例外使用可变数据结构")
 
   /** The configuration named. */
   lazy val configuration: Configuration =
     Configurations.all
       .find(_.name == configurationName)
-      .getOrElse(throw IllegalArgumentException(s"no configuration is named $configurationName"))
+      .getOrElse(
+        throw IllegalArgumentException(
+          s"no configuration is named $configurationName"
+        )
+      )
 
-  /** The root of Gezi's build, off which the configuration's fixture
-    * file is read.
+  /** The root of Gezi's build, off which the configuration's fixture file is
+    * read.
     */
   lazy val buildRoot: Path = FixedPointLines.buildRoot
 
@@ -62,62 +71,94 @@ class LibraryInput:
   @Setup(Level.Trial)
   def built(): Unit =
     val knowledgeFile = buildRoot.resolve(configuration.knowledgeFile)
-    assert(knowledgeFile.toFile.isFile, s"$configurationName's fixture $knowledgeFile is no file")
+    assert(
+      knowledgeFile.toFile.isFile,
+      s"$configurationName's fixture $knowledgeFile is no file"
+    )
 
-/** The input of the stages after the library and of the classic reference:
-  * an item of a size family, and the values the earlier stages give for it,
-  * each built once before the trial.
+/** The input of the stages after the library and of the classic reference: an
+  * item of a size family, and the values the earlier stages give for it, each
+  * built once before the trial.
   */
 @State(Scope.Benchmark)
 class ItemInput:
 
   /** The size family's name, which JMH assigns. */
-  @SuppressWarnings(Array("org.wartremover.warts.Var")) // the JMH protocol's exception (the user, 2026-10-31: "好的，用sbt-jmh，需要配合JMH协议时，必要时可以作为例外使用可变数据结构")
-  @Param(Array("numeral", "list", "chain", "nested", "tuple", "numerals", "lists", "folds")) // the JMH protocol's exception (the user, 2026-10-31: "好的，用sbt-jmh，需要配合JMH协议时，必要时可以作为例外使用可变数据结构")
-  var family: String = uninitialized // the JMH protocol's exception (the user, 2026-10-31: "好的，用sbt-jmh，需要配合JMH协议时，必要时可以作为例外使用可变数据结构")
+  @SuppressWarnings(
+    Array("org.wartremover.warts.Var")
+  ) // the JMH protocol's exception (the user, 2026-10-31: "好的，用sbt-jmh，需要配合JMH协议时，必要时可以作为例外使用可变数据结构")
+  @Param(
+    Array(
+      "numeral",
+      "list",
+      "chain",
+      "nested",
+      "tuple",
+      "numerals",
+      "lists",
+      "folds"
+    )
+  ) // the JMH protocol's exception (the user, 2026-10-31: "好的，用sbt-jmh，需要配合JMH协议时，必要时可以作为例外使用可变数据结构")
+  var family: String =
+    uninitialized // the JMH protocol's exception (the user, 2026-10-31: "好的，用sbt-jmh，需要配合JMH协议时，必要时可以作为例外使用可变数据结构")
 
   /** The size `n`, which JMH assigns, `Pipeline.countedSizes`.
     */
-  @SuppressWarnings(Array("org.wartremover.warts.Var")) // the JMH protocol's exception (the user, 2026-10-31: "好的，用sbt-jmh，需要配合JMH协议时，必要时可以作为例外使用可变数据结构")
-  @Param(Array("64", "128", "512", "1024")) // the JMH protocol's exception (the user, 2026-10-31: "好的，用sbt-jmh，需要配合JMH协议时，必要时可以作为例外使用可变数据结构")
-  var size: Int = uninitialized // the JMH protocol's exception (the user, 2026-10-31: "好的，用sbt-jmh，需要配合JMH协议时，必要时可以作为例外使用可变数据结构")
+  @SuppressWarnings(
+    Array("org.wartremover.warts.Var")
+  ) // the JMH protocol's exception (the user, 2026-10-31: "好的，用sbt-jmh，需要配合JMH协议时，必要时可以作为例外使用可变数据结构")
+  @Param(
+    Array("64", "128", "512", "1024")
+  ) // the JMH protocol's exception (the user, 2026-10-31: "好的，用sbt-jmh，需要配合JMH协议时，必要时可以作为例外使用可变数据结构")
+  var size: Int =
+    uninitialized // the JMH protocol's exception (the user, 2026-10-31: "好的，用sbt-jmh，需要配合JMH协议时，必要时可以作为例外使用可变数据结构")
 
   /** The size family named. */
   lazy val sizeFamily: SizeFamily =
     Pipeline.sizeFamilies
       .find(_.family == family)
-      .getOrElse(throw IllegalArgumentException(s"no size family is named $family"))
+      .getOrElse(
+        throw IllegalArgumentException(s"no size family is named $family")
+      )
 
   /** The family's item of the size. */
   lazy val item: Item = sizeFamily.item(size)
 
   /** The family's configuration with its library and orientations compiled. */
   lazy val compiled: CompiledConfiguration =
-    Pipeline.libraryCompiled(sizeFamily.configuration, FixedPointLines.buildRoot)
+    Pipeline.libraryCompiled(
+      sizeFamily.configuration,
+      FixedPointLines.buildRoot
+    )
 
   /** The item's program after the front end. */
   lazy val afterFrontEnd: FrontEnd = Pipeline.frontEnd(compiled, item.program)
 
   /** The item's run input compiled by the index and the closure backend. */
-  lazy val indexed: Compiled[NoFacts.type] = Pipeline.indexCompiled(compiled, afterFrontEnd)
+  lazy val indexed: Compiled[NoFacts.type] =
+    Pipeline.indexCompiled(compiled, afterFrontEnd)
 
   /** Every input built before the trial, so that no iteration builds one. */
   @Setup(Level.Trial)
   def built(): Unit =
     assert(item.size == size.toString, s"${item.name} is not of size $size")
-    assert(indexed.input.inputs == Vector(afterFrontEnd.inputInstruction), s"${item.name}'s run has another input")
+    assert(
+      indexed.input.inputs == Vector(afterFrontEnd.inputInstruction),
+      s"${item.name}'s run has another input"
+    )
 
-/** The type schemes of the classic reference, read before the trial: a state
-  * of its own, taken by `ClassicHindleyMilnerBenchmark` alone, so that the
-  * other benchmarks of an item do not read them (their reading is broken
-  * under the FIXME of `ClassicHindleyMilner.namedSchemes`, and when they were
-  * part of `ItemInput` every benchmark of an item failed in its setup).
+/** The type schemes of the classic reference, read before the trial: a state of
+  * its own, taken by `ClassicHindleyMilnerBenchmark` alone, so that the other
+  * benchmarks of an item do not read them (their reading is broken under the
+  * FIXME of `ClassicHindleyMilner.namedSchemes`, and when they were part of
+  * `ItemInput` every benchmark of an item failed in its setup).
   */
 @State(Scope.Benchmark)
 class SchemesInput:
 
   /** The type schemes of the classic reference. */
-  lazy val schemes: Map[String, TypeScheme] = ClassicHindleyMilner.schemes(ClassicHindleyMilner.libraryTypes)
+  lazy val schemes: Map[String, TypeScheme] =
+    ClassicHindleyMilner.schemes(ClassicHindleyMilner.libraryTypes)
 
   /** The schemes read before the trial. */
   @Setup(Level.Trial)

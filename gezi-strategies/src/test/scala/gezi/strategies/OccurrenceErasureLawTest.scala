@@ -17,19 +17,18 @@ import gezi.rewritetrace.OccurrenceErasure
 import gezi.rewritetrace.TraceLemma
 
 /** The certificate of the occurrence tagging (`OccurrenceErasure.trace`):
-  * replayed from the
-  * program the front end tagged, its erasures end at a term whose readback
-  * is the untagged program's. The programs are `HoasGenerators`' closed
-  * terms over three library terms, which the tagging tags at each
-  * occurrence; the markers are terms that behave as the library's `$name`
-  * and `$closure` do (`corpora/library/native_types/markers.lambdalattice`),
-  * the identity on what they wrap by the β rule, and the erasure lemmas are
-  * given in either orientation.
+  * replayed from the program the front end tagged, its erasures end at a term
+  * whose readback is the untagged program's. The programs are `HoasGenerators`'
+  * closed terms over three library terms, which the tagging tags at each
+  * occurrence; the markers are terms that behave as the library's `$name` and
+  * `$closure` do (`corpora/library/native_types/markers.lambdalattice`), the
+  * identity on what they wrap by the β rule, and the erasure lemmas are given
+  * in either orientation.
   *
-  * Purpose: catch an erasure at a wrong position (the replay refuses a
-  * subterm that is no instance of the lemma's side), a tag left in place
-  * (the readback keeps it), and above all a closure tag in a code, which
-  * only an opened thunk reaches.
+  * Purpose: catch an erasure at a wrong position (the replay refuses a subterm
+  * that is no instance of the lemma's side), a tag left in place (the readback
+  * keeps it), and above all a closure tag in a code, which only an opened thunk
+  * reaches.
   */
 class OccurrenceErasureLawTest extends GeneratedProperties:
 
@@ -37,13 +36,17 @@ class OccurrenceErasureLawTest extends GeneratedProperties:
 
   private given gezi.ir.StorageAccess = gezi.ir.StorageAccess.granted()
 
-  private def closed(text: String): Configured[NoFacts.type] = Defunctionalization.thunkInstruction[gezi.ir.NoFacts.type](Lambdalattice.term(text))(using gezi.ir.NoFacts)
+  private def closed(text: String): Configured[NoFacts.type] =
+    Defunctionalization.thunkInstruction[gezi.ir.NoFacts.type](
+      Lambdalattice.term(text)
+    )(using gezi.ir.NoFacts)
 
-  /** Two markers that behave as the library's `$name` and `$closure` do,
-    * each the identity on its second argument by the β rule, spelled without
-    * the literal the library's markers read, and two tag constructors.
+  /** Two markers that behave as the library's `$name` and `$closure` do, each
+    * the identity on its second argument by the β rule, spelled without the
+    * literal the library's markers read, and two tag constructors.
     */
-  private def pure(text: String): Pure = Defunctionalization.pure(Lambdalattice.term(text))
+  private def pure(text: String): Pure =
+    Defunctionalization.pure(Lambdalattice.term(text))
 
   private val markers: OccurrenceMarkers = OccurrenceMarkers(
     pure("λt. λx. (λy. λz. z) t x"),
@@ -53,29 +56,48 @@ class OccurrenceErasureLawTest extends GeneratedProperties:
   )
 
   private val libraryTerms: Vector[StrategyTesting.ProgramTerm] =
-    Vector("λx. x", "λx. λy. x", "λf. λx. f (f x)").map(text => Term.closed(closed(text)))
+    Vector("λx. x", "λx. λy. x", "λf. λx. f (f x)").map(text =>
+      Term.closed(closed(text))
+    )
 
   /** The two erasure lemmas, `λt. λx. M t x = λt. λx. x` for each marker M,
     * each in the orientation drawn.
     */
   private val lemmas: Gen[Vector[TraceLemma[NoFacts.type]]] =
-    val sides = Vector(markers.name, markers.closure).map(marker => (OccurrenceMarkers.erasing[NoFacts.type](marker), OccurrenceMarkers.erased[NoFacts.type]))
+    val sides = Vector(markers.name, markers.closure).map(marker =>
+      (
+        OccurrenceMarkers.erasing[NoFacts.type](marker),
+        OccurrenceMarkers.erased[NoFacts.type]
+      )
+    )
     Gen
       .list(Gen.boolean, hedgehog.Range.singleton(sides.size))
       .map(turned =>
         sides.zip(turned).map { case ((erasing, erased), backward) =>
-          if backward then TraceLemma(erased, erasing) else TraceLemma(erasing, erased)
+          if backward then TraceLemma(erased, erasing)
+          else TraceLemma(erasing, erased)
         }
       )
 
-  property("the erasure trace replayed from the tagged program ends at the untagged program, up to respelling") {
+  property(
+    "the erasure trace replayed from the tagged program ends at the untagged program, up to respelling"
+  ) {
     for
-      program <- HoasGenerators.closedTermOver(libraryTerms).forAllWithLog(term => LambdalatticeText.text(term))
+      program <- HoasGenerators
+        .closedTermOver(libraryTerms)
+        .forAllWithLog(term => LambdalatticeText.text(term))
       erasureLemmas <- lemmas.forAll
     yield
       val term = program.deBruijnTerm(Map.empty)
-      val encoded = Defunctionalization.thunkInstruction[gezi.ir.NoFacts.type](term)(using gezi.ir.NoFacts)
-      val tagged = Defunctionalization.thunkInstruction[gezi.ir.NoFacts.type](Occurrences.tagged(term, markers))(using gezi.ir.NoFacts)
-      val end = OccurrenceErasure.trace(tagged, markers, erasureLemmas).output(tagged)
-      Result.diff(Defunctionalization.instructionTerm(end), Defunctionalization.instructionTerm(encoded))(_ == _)
+      val encoded = Defunctionalization
+        .thunkInstruction[gezi.ir.NoFacts.type](term)(using gezi.ir.NoFacts)
+      val tagged = Defunctionalization.thunkInstruction[gezi.ir.NoFacts.type](
+        Occurrences.tagged(term, markers)
+      )(using gezi.ir.NoFacts)
+      val end =
+        OccurrenceErasure.trace(tagged, markers, erasureLemmas).output(tagged)
+      Result.diff(
+        Defunctionalization.instructionTerm(end),
+        Defunctionalization.instructionTerm(encoded)
+      )(_ == _)
   }

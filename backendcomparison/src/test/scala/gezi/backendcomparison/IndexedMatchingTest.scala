@@ -22,20 +22,22 @@ import gezi.generatedinputs.OrientationGenerators
 import gezi.generatedinputs.StoreGenerators
 import gezi.ir.{Apply, Choice, Parallel, Thunk}
 
-/** The matches the index's program finds, against a naive matching that
-  * tries every pattern at every class.
+/** The matches the index's program finds, against a naive matching that tries
+  * every pattern at every class.
   */
-class IndexedMatchingTest extends gezi.generatedinputs.FailFastSuite with GeneratedProperties:
+class IndexedMatchingTest
+    extends gezi.generatedinputs.FailFastSuite
+    with GeneratedProperties:
 
   private type C = StandInStorages.type
 
   private given StandInStorages.type = StandInStorages
 
-  /** Catches a seed, a witness, a shared step of a tree or a signature
-    * lookup that loses a match or finds a false one:
-    * on a saturated graph, the instances (orientation, root class, classes of
-    * the essential metavariables) the program finds from every node under
-    * every key are those the naive matching finds, as sets.
+  /** Catches a seed, a witness, a shared step of a tree or a signature lookup
+    * that loses a match or finds a false one: on a saturated graph, the
+    * instances (orientation, root class, classes of the essential
+    * metavariables) the program finds from every node under every key are those
+    * the naive matching finds, as sets.
     */
   stoppableProperty(
     "the program finds exactly the instances a naive matching finds",
@@ -48,22 +50,42 @@ class IndexedMatchingTest extends gezi.generatedinputs.FailFastSuite with Genera
     for
       generated <- StoreGenerators.store.forAll
       orientations <- OrientationGenerators.orientationsOver(generated).forAll
-    yield instancesAgree(generated, orientations, StopSignal.completedWith(stopped))
+    yield instancesAgree(
+      generated,
+      orientations,
+      StopSignal.completedWith(stopped)
+    )
   }
 
   /** On the graph saturated from every instruction of the store, the instances
     * (orientation, root class, classes of the essential metavariables) the
-    * program finds from every node under every key are those the naive
-    * matching finds, as sets.
+    * program finds from every node under every key are those the naive matching
+    * finds, as sets.
     */
-  private def instancesAgree(generated: GeneratedStore, orientations: Vector[Orientation[C]], stop: StopSignal): Result =
+  private def instancesAgree(
+      generated: GeneratedStore,
+      orientations: Vector[Orientation[C]],
+      stop: StopSignal
+  ): Result =
     val store = generated.store
     val program = Indexing.program(orientations, generated.codes)
     val instructions = generated.instructions
-    val initial = Saturation.initialGraph(store, Orientations.headArityBounds(orientations), Vector.empty, explained = false)
+    val initial = Saturation.initialGraph(
+      store,
+      Orientations.headArityBounds(orientations),
+      Vector.empty,
+      explained = false
+    )
     val (withInstructions, _) = Saturation.inputsAdded(initial, instructions)
     val compiled = ClosureCompilation.compiled(program)
-    val (graph, _) = Saturation.saturated(program, compiled, BuiltInRule.beforeOptIn, withInstructions, budget = 40, stop)
+    val (graph, _) = Saturation.saturated(
+      program,
+      compiled,
+      BuiltInRule.beforeOptIn,
+      withInstructions,
+      budget = 40,
+      stop
+    )
     val nodes = graph.liveNodes
     val found = (for
       (kind, key) <- program.seeds.keySet.toVector
@@ -79,7 +101,15 @@ class IndexedMatchingTest extends gezi.generatedinputs.FailFastSuite with Genera
     val naive = (for
       orientation <- orientations
       root <- nodes.map(_.root).distinct
-      bindings <- NaiveMatching.matches(graph, orientation.matched, root, Map.empty)
-    yield (orientation.index, root, orientation.essential.map(bindings.get))).toSet
+      bindings <- NaiveMatching.matches(
+        graph,
+        orientation.matched,
+        root,
+        Map.empty
+      )
+    yield (
+      orientation.index,
+      root,
+      orientation.essential.map(bindings.get)
+    )).toSet
     Result.diff(found, naive)(_ == _)
-

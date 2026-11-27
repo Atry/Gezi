@@ -3,9 +3,8 @@ package gezi.contest.judge
 import scala.annotation.tailrec
 
 /** The order the seed draws, a pure function of the seed: SplitMix64 as a
-  * function from a state to the next state and an output, and the
-  * Fisher–Yates shuffle over an immutable `Vector`, the state folded through
-  * the draws.
+  * function from a state to the next state and an output, and the Fisher–Yates
+  * shuffle over an immutable `Vector`, the state folded through the draws.
   *
   * SplitMix64 (Steele, Lea and Flood, "Fast splittable pseudorandom number
   * generators", OOPSLA 2014): the state advances by the odd constant
@@ -29,14 +28,23 @@ object SeededOrder:
     (advanced, second ^ (second >>> 31))
 
   /** The elements shuffled from the state, and the state after. */
-  def shuffled[Element](elements: Vector[Element], state: Long): (Vector[Element], Long) =
+  def shuffled[Element](
+      elements: Vector[Element],
+      state: Long
+  ): (Vector[Element], Long) =
     shuffledFrom(elements, elements.size - 1, state)
 
   @tailrec
-  private def shuffledFrom[Element](elements: Vector[Element], position: Int, state: Long): (Vector[Element], Long) =
+  private def shuffledFrom[Element](
+      elements: Vector[Element],
+      position: Int,
+      state: Long
+  ): (Vector[Element], Long) =
     if position < 1 then (elements, state)
     else
       val (after, output) = next(state)
       val chosen = java.lang.Long.remainderUnsigned(output, position + 1L).toInt
-      val exchanged = elements.updated(position, elements(chosen)).updated(chosen, elements(position))
+      val exchanged = elements
+        .updated(position, elements(chosen))
+        .updated(chosen, elements(position))
       shuffledFrom(exchanged, position - 1, after)

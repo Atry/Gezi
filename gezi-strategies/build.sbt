@@ -23,10 +23,16 @@ Test / javaOptions += s"-Dgezi.buildRoot=${baseDirectory.value.getParentFile}"
 // A suite runs lake in the Lean package (RoundCertificateCheckTest's round
 // certificates, `gezi.proofs.CertificateChecks`): one such test group at
 // a time (project/LeanTests.scala).
-Test / test / testGrouping := Def.uncached(LeanTests.tagged((Test / test / testGrouping).value))
+Test / test / testGrouping := Def.uncached(
+  LeanTests.tagged((Test / test / testGrouping).value)
+)
 
-Test / testSelected / testGrouping := Def.uncached(LeanTests.tagged((Test / testSelected / testGrouping).value))
+Test / testSelected / testGrouping := Def.uncached(
+  LeanTests.tagged((Test / testSelected / testGrouping).value)
+)
 
-Test / testQuick / testGrouping := Def.uncached(LeanTests.tagged((Test / testQuick / testGrouping).value))
+Test / testQuick / testGrouping := Def.uncached(
+  LeanTests.tagged((Test / testQuick / testGrouping).value)
+)
 moduleName := "gezi-strategies"
 publish / skip := false

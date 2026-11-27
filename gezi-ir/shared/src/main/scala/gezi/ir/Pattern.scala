@@ -3,12 +3,15 @@ package gezi.ir
 import gezi.ir.Interned.Interned
 
 /** An instruction inside a pattern, whose node must be in the class. The
-  * pattern's own constructor, kept beside the instruction's layers: matching it asks
-  * for that instruction's node, which is not matching its layers part by
-  * part, so merging the two would change the programs the orientations
-  * compile to.
+  * pattern's own constructor, kept beside the instruction's layers: matching it
+  * asks for that instruction's node, which is not matching its layers part by
+  * part, so merging the two would change the programs the orientations compile
+  * to.
   */
-final case class InstructionReference[C <: NativeSpecializer & Singleton] private (instruction: Configured[C]) extends InternedConstructor:
+final case class InstructionReference[
+    C <: NativeSpecializer & Singleton
+] private (instruction: Configured[C])
+    extends InternedConstructor:
   override def toString: String = ConstructorIdentity.shown(this)
 
 /** The operations of a pattern, as extensions in the companion of
@@ -17,10 +20,13 @@ final case class InstructionReference[C <: NativeSpecializer & Singleton] privat
   */
 object InstructionReference:
 
-  /** The canonical InstructionReference: a layer that no construction site converts is interned when it is made. */
-  def apply[C <: NativeSpecializer & Singleton](instruction: Configured[C]): InstructionReference[C] =
+  /** The canonical InstructionReference: a layer that no construction site
+    * converts is interned when it is made.
+    */
+  def apply[C <: NativeSpecializer & Singleton](
+      instruction: Configured[C]
+  ): InstructionReference[C] =
     Interned.canonicalLayer(new InstructionReference(instruction))
-
 
   extension [C <: NativeSpecializer & Singleton](pattern: Pattern[C])
     /** The patterns one layer below, in child order: function then argument,
@@ -31,7 +37,8 @@ object InstructionReference:
       case Parallel(left, right)     => Vector(left, right)
       case Choice(left, right)       => Vector(left, right)
       case Thunk(_, _, fillings)     => fillings
-      case Metavariable(_) | ClosureMetavariable(_) | InstructionReference(_) => Vector.empty
+      case Metavariable(_) | ClosureMetavariable(_) | InstructionReference(_) =>
+        Vector.empty
 
     /** The code of a pattern that is a thunk (`Pattern.Thunk`). Throws
       * `IllegalStateException` for any other pattern.
@@ -44,9 +51,11 @@ object InstructionReference:
     /** The fillings of a pattern that is a thunk; throws for any other. */
     def fillings: Vector[Pattern[C]] = thunkLayer(pattern).fillings
 
-  private def thunkLayer[C <: NativeSpecializer & Singleton](pattern: Pattern[C]): Thunk[Pattern[C]] = pattern.layer match
+  private def thunkLayer[C <: NativeSpecializer & Singleton](
+      pattern: Pattern[C]
+  ): Thunk[Pattern[C]] = pattern.layer match
     case thunk @ Thunk(_, _, _) => thunk
-    case other                  => throw IllegalStateException(s"the pattern $other is no thunk")
+    case other => throw IllegalStateException(s"the pattern $other is no thunk")
 
 /** One layer of a pattern of a lemma's side: a metavariable; the eta-shaped
   * lambda `\x. M x`, read as the class of M holding a closure state; an
@@ -54,18 +63,21 @@ object InstructionReference:
   * patterns.
   */
 type PatternLayer[C <: NativeSpecializer & Singleton, +Child] =
-  Metavariable | ClosureMetavariable | InstructionReference[C] | Apply[Child] | Parallel[Child] | Choice[Child] |
-    Thunk[Child]
+  Metavariable | ClosureMetavariable | InstructionReference[C] | Apply[Child] |
+    Parallel[Child] | Choice[Child] | Thunk[Child]
 
 /** A pattern of a lemma's side: an interned term ([[Interned]]) of
   * `PatternLayer`.
   */
-type Pattern[C <: NativeSpecializer & Singleton] = Interned[[Child] =>> PatternLayer[C, Child]]
+type Pattern[C <: NativeSpecializer & Singleton] =
+  Interned[[Child] =>> PatternLayer[C, Child]]
 
 /** The constructions and the parts of patterns, each made through the pool. */
 object Pattern:
 
-  private def of[C <: NativeSpecializer & Singleton](layer: PatternLayer[C, Pattern[C]]): Pattern[C] =
+  private def of[C <: NativeSpecializer & Singleton](
+      layer: PatternLayer[C, Pattern[C]]
+  ): Pattern[C] =
     Interned[[Child] =>> PatternLayer[C, Child]](layer)
 
   /** A pattern whose layer is a thunk, as its callers name it: the type does
@@ -75,67 +87,104 @@ object Pattern:
 
   /** A metavariable, by its index. */
   object Metavariable:
-    def apply[C <: NativeSpecializer & Singleton](index: Int): Pattern[C] = of(gezi.ir.Metavariable(index))
+    def apply[C <: NativeSpecializer & Singleton](index: Int): Pattern[C] = of(
+      gezi.ir.Metavariable(index)
+    )
 
-    def unapply[C <: NativeSpecializer & Singleton](pattern: Pattern[C]): Option[Int] = pattern.layer match
+    def unapply[C <: NativeSpecializer & Singleton](
+        pattern: Pattern[C]
+    ): Option[Int] = pattern.layer match
       case gezi.ir.Metavariable(index) => Some(index)
-      case _                                => None
+      case _                           => None
 
   /** The eta-shaped lambda over the metavariable of the index. */
   object Closure:
-    def apply[C <: NativeSpecializer & Singleton](index: Int): Pattern[C] = of(ClosureMetavariable(index))
+    def apply[C <: NativeSpecializer & Singleton](index: Int): Pattern[C] = of(
+      ClosureMetavariable(index)
+    )
 
-    def unapply[C <: NativeSpecializer & Singleton](pattern: Pattern[C]): Option[Int] = pattern.layer match
+    def unapply[C <: NativeSpecializer & Singleton](
+        pattern: Pattern[C]
+    ): Option[Int] = pattern.layer match
       case ClosureMetavariable(index) => Some(index)
       case _                          => None
 
   /** An instruction whose node must be in the class. */
   object InstructionReference:
-    def apply[C <: NativeSpecializer & Singleton](instruction: Configured[C]): Pattern[C] = of(gezi.ir.InstructionReference(instruction))
+    def apply[C <: NativeSpecializer & Singleton](
+        instruction: Configured[C]
+    ): Pattern[C] = of(gezi.ir.InstructionReference(instruction))
 
-    def unapply[C <: NativeSpecializer & Singleton](pattern: Pattern[C]): Option[Configured[C]] = pattern.layer match
+    def unapply[C <: NativeSpecializer & Singleton](
+        pattern: Pattern[C]
+    ): Option[Configured[C]] = pattern.layer match
       case gezi.ir.InstructionReference(instruction) => Some(instruction)
-      case _                                              => None
+      case _                                         => None
 
   /** An application of patterns. */
   object Apply:
-    def apply[C <: NativeSpecializer & Singleton](function: Pattern[C], argument: Pattern[C]): Pattern[C] = of(gezi.ir.Apply(function, argument))
+    def apply[C <: NativeSpecializer & Singleton](
+        function: Pattern[C],
+        argument: Pattern[C]
+    ): Pattern[C] = of(gezi.ir.Apply(function, argument))
 
-    def unapply[C <: NativeSpecializer & Singleton](pattern: Pattern[C]): Option[(Pattern[C], Pattern[C])] = pattern.layer match
+    def unapply[C <: NativeSpecializer & Singleton](
+        pattern: Pattern[C]
+    ): Option[(Pattern[C], Pattern[C])] = pattern.layer match
       case gezi.ir.Apply(function, argument) => Some((function, argument))
-      case _                                     => None
+      case _                                 => None
 
   /** A parallel of patterns. */
   object Parallel:
-    def apply[C <: NativeSpecializer & Singleton](left: Pattern[C], right: Pattern[C]): Pattern[C] = of(gezi.ir.Parallel(left, right))
+    def apply[C <: NativeSpecializer & Singleton](
+        left: Pattern[C],
+        right: Pattern[C]
+    ): Pattern[C] = of(gezi.ir.Parallel(left, right))
 
-    def unapply[C <: NativeSpecializer & Singleton](pattern: Pattern[C]): Option[(Pattern[C], Pattern[C])] = pattern.layer match
+    def unapply[C <: NativeSpecializer & Singleton](
+        pattern: Pattern[C]
+    ): Option[(Pattern[C], Pattern[C])] = pattern.layer match
       case gezi.ir.Parallel(left, right) => Some((left, right))
-      case _                                 => None
+      case _                             => None
 
   /** A binary choice of patterns. */
   object Choice:
-    def apply[C <: NativeSpecializer & Singleton](left: Pattern[C], right: Pattern[C]): Pattern[C] = of(gezi.ir.Choice(left, right))
+    def apply[C <: NativeSpecializer & Singleton](
+        left: Pattern[C],
+        right: Pattern[C]
+    ): Pattern[C] = of(gezi.ir.Choice(left, right))
 
-    def unapply[C <: NativeSpecializer & Singleton](pattern: Pattern[C]): Option[(Pattern[C], Pattern[C])] = pattern.layer match
+    def unapply[C <: NativeSpecializer & Singleton](
+        pattern: Pattern[C]
+    ): Option[(Pattern[C], Pattern[C])] = pattern.layer match
       case gezi.ir.Choice(left, right) => Some((left, right))
-      case _                               => None
+      case _                           => None
 
   /** A thunk over patterns. */
   object Thunk:
-    def apply[C <: NativeSpecializer & Singleton](code: Code, holes: Vector[Hole], fillings: Vector[Pattern[C]]): Pattern[C] =
+    def apply[C <: NativeSpecializer & Singleton](
+        code: Code,
+        holes: Vector[Hole],
+        fillings: Vector[Pattern[C]]
+    ): Pattern[C] =
       of(gezi.ir.Thunk(code, holes, fillings))
 
-    def unapply[C <: NativeSpecializer & Singleton](pattern: Pattern[C]): Option[(Code, Vector[Hole], Vector[Pattern[C]])] = pattern.layer match
+    def unapply[C <: NativeSpecializer & Singleton](
+        pattern: Pattern[C]
+    ): Option[(Code, Vector[Hole], Vector[Pattern[C]])] = pattern.layer match
       case gezi.ir.Thunk(code, holes, fillings) => Some((code, holes, fillings))
-      case _                                        => None
+      case _                                    => None
 
   /** The members of a pattern's right `+` spine ([[ChoiceSpine.members]]). */
-  def choiceMembers[C <: NativeSpecializer & Singleton](pattern: Pattern[C]): Vector[Pattern[C]] =
+  def choiceMembers[C <: NativeSpecializer & Singleton](
+      pattern: Pattern[C]
+  ): Vector[Pattern[C]] =
     ChoiceSpine.members[Pattern[C]](pattern, Choice.unapply)
 
   /** The members nested to the right ([[ChoiceSpine.nested]]); none throws. */
-  def nestedChoice[C <: NativeSpecializer & Singleton](members: Vector[Pattern[C]]): Pattern[C] =
+  def nestedChoice[C <: NativeSpecializer & Singleton](
+      members: Vector[Pattern[C]]
+  ): Pattern[C] =
     ChoiceSpine.nested[Pattern[C]](members, Choice(_, _))
 
 /** Which side of a lemma an orientation matches: the left (forward) or the

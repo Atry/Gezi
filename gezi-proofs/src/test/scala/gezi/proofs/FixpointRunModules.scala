@@ -4,17 +4,16 @@ import gezi.standardlibrary.LeanFiniteTerms
 import gezi.ir.Configured
 import gezi.ir.NoFacts
 
-/** A fixpoint run of `gezi/tests/opentheory_article.plt`: a program over
-  * the library's names and the round of the native route that writes its
-  * article: `type_check`, the HM baseline's type check, or `beta`, the beta
-  * rule on the program's closures. `programText` is the program as the
-  * module FixpointRunFixtures documents it, the deleted Prolog test's
-  * surface as SWI-Prolog writes it with `~W` and `numbervars(true),
-  * quoted(true), spacing(next_argument)` after `numbervars/3`: its variables
-  * A, B, ... in the order they occur, `^` at 200 xfy and `@` at 100 yfx,
-  * with no space around an operator. The texts are those the deleted
-  * printer of the Prolog reader gave, taken from the module it generated
-  * (`git show
+/** A fixpoint run of `gezi/tests/opentheory_article.plt`: a program over the
+  * library's names and the round of the native route that writes its article:
+  * `type_check`, the HM baseline's type check, or `beta`, the beta rule on the
+  * program's closures. `programText` is the program as the module
+  * FixpointRunFixtures documents it, the deleted Prolog test's surface as
+  * SWI-Prolog writes it with `~W` and `numbervars(true), quoted(true),
+  * spacing(next_argument)` after `numbervars/3`: its variables A, B, ... in the
+  * order they occur, `^` at 200 xfy and `@` at 100 yfx, with no space around an
+  * operator. The texts are those the deleted printer of the Prolog reader gave,
+  * taken from the module it generated (`git show
   * 81b99e659:gezi/proofs/src/test/scala/gezi/proofs/FixpointRunModules.scala`,
   * `programText`).
   */
@@ -28,58 +27,66 @@ final case class FixpointRun(name: String, round: String, programText: String):
 /** The sides of a run as module FixpointRunSides holds them: their finite
   * terms, named after the run's expected article.
   */
-final case class EncodedRun(base: String, inputFinite: Configured[NoFacts.type], outputFinite: Configured[NoFacts.type])
+final case class EncodedRun(
+    base: String,
+    inputFinite: Configured[NoFacts.type],
+    outputFinite: Configured[NoFacts.type]
+)
 
-/** A run with the lemmas whose statements its expected article imports, by
-  * name in the order of the index.
+/** A run with the lemmas whose statements its expected article imports, by name
+  * in the order of the index.
   */
 final case class FixpointFixture(run: FixpointRun, lemmas: Vector[String])
 
 /** The Lean modules of the fixpoint runs, the port of the section "the Lean
   * modules of the fixpoint runs" of `gezi/tests/opentheory_article.plt`.
   *
-  * The package's module FixpointRunFixtures takes the expected article of
-  * every fixpoint run through the end-to-end theorem
-  * (EndToEnd.endToEndOfChecked) with the statements of the lemmas it
-  * imports, which the package's module NativeRouteLibraryStatements exports
-  * from the native route's library and proves sound
-  * (`LeanStatementsNativeRouteTest`), and states it on the readbacks of the
-  * run's input and output (Encoding.endToEndEncodedOfChecked); the kernel
-  * checks there that the article's exported equation is the pair of the
-  * encodings of the two IR terms (`Encoding.encode`), which the module
+  * The package's module FixpointRunFixtures takes the expected article of every
+  * fixpoint run through the end-to-end theorem (EndToEnd.endToEndOfChecked)
+  * with the statements of the lemmas it imports, which the package's module
+  * NativeRouteLibraryStatements exports from the native route's library and
+  * proves sound (`LeanStatementsNativeRouteTest`), and states it on the
+  * readbacks of the run's input and output (Encoding.endToEndEncodedOfChecked);
+  * the kernel checks there that the article's exported equation is the pair of
+  * the encodings of the two IR terms (`Encoding.encode`), which the module
   * FixpointRunSides holds as finite terms, named after the run's expected
   * article in lower camel case with `Input` and `Output` appended. The module
   * FixpointRunFixturesAxioms prints the axioms of the theorems of
-  * FixpointRunFixtures. The three modules are generated; their texts name
-  * the functions of this object that write them.
+  * FixpointRunFixtures. The three modules are generated; their texts name the
+  * functions of this object that write them.
   *
-  * `gezi.strategies.OpentheoryArticleFixpointRunsTest` makes the runs,
-  * checks that each writes its expected article, and that the three modules
-  * are their regeneration; with the environment variable
-  * `GEZI_WRITE_FIXPOINT_RUNS` set, it writes them first. It replaces the test
-  * deleted when the library became files reached by paths (`git show
+  * `gezi.strategies.OpentheoryArticleFixpointRunsTest` makes the runs, checks
+  * that each writes its expected article, and that the three modules are their
+  * regeneration; with the environment variable `GEZI_WRITE_FIXPOINT_RUNS` set,
+  * it writes them first. It replaces the test deleted when the library became
+  * files reached by paths (`git show
   * 2908bffd5:lambda_jit/strategies/src/test/scala/lambdajit/strategies/OpentheoryArticleFixpointRunsTest.scala`):
   * a run's library terms are members of a fixture file, its program HOAS over
-  * them, its knowledge `libraryFile`, and the lemmas of a fixture are those
-  * its article's derivation names (`RewriteTrace.lemmas`), no longer read back
-  * from the article.
+  * them, its knowledge `libraryFile`, and the lemmas of a fixture are those its
+  * article's derivation names (`RewriteTrace.lemmas`), no longer read back from
+  * the article.
   */
 object FixpointRunModules:
 
   private given NoFacts.type = NoFacts
 
-  /** The knowledge of the runs of the baseline's search strategy, the one
-    * field of the file: the Prolog backend's preset, through which native
-    * typing is enabled with its backend, as one preset, with the beta rule on a program's closures and
-    * the erasure of the occurrence markers the preset declares.
+  /** The knowledge of the runs of the baseline's search strategy, the one field
+    * of the file: the Prolog backend's preset, through which native typing is
+    * enabled with its backend, as one preset, with the beta rule on a program's
+    * closures and the erasure of the occurrence markers the preset declares.
     */
-  val libraryFile: String = "tests/library_fixtures/prolog_backend_closure_application.lambdalattice"
+  val libraryFile: String =
+    "tests/library_fixtures/prolog_backend_closure_application.lambdalattice"
 
   /** The runs, in the order of `fixpoint_run/3`. */
   val runs: Vector[FixpointRun] = Vector(
     FixpointRun("successor_zero", "type_check", "successor@zero"),
     FixpointRun("identity_zero", "type_check", "identity@zero"),
-    FixpointRun("compose_redex", "type_check", "compose@successor@successor@zero"),
+    FixpointRun(
+      "compose_redex",
+      "type_check",
+      "compose@successor@successor@zero"
+    ),
     FixpointRun("identity_closure", "type_check", "(A^A)@zero"),
     FixpointRun("twice_closure", "type_check", "(A^B^A@(A@B))@successor@zero"),
     FixpointRun("identity_closure", "beta", "(A^A)@zero"),
@@ -87,8 +94,8 @@ object FixpointRunModules:
   )
 
   /** The key of the tests' round whose knowledge the round's strategy takes
-    * (`gezi.strategies.StrategyTesting.round`): the type check is the
-    * Prolog backend's preset's, the beta rule's round closure_application.
+    * (`gezi.strategies.StrategyTesting.round`): the type check is the Prolog
+    * backend's preset's, the beta rule's round closure_application.
     */
   def roundKey(round: String): String = round match
     case "type_check" => "prolog_backend_type_check"
@@ -129,8 +136,20 @@ object FixpointRunModules:
       "namespace LambdaJit.FixpointRunSides\n\n" +
       encoded.map { run =>
         val lowerCamelName = LeanFiniteTerms.lowerCamelCase(run.base)
-        finiteTermDefinition(run.base, lowerCamelName, "Input", "input", run.inputFinite) +
-          finiteTermDefinition(run.base, lowerCamelName, "Output", "output", run.outputFinite)
+        finiteTermDefinition(
+          run.base,
+          lowerCamelName,
+          "Input",
+          "input",
+          run.inputFinite
+        ) +
+          finiteTermDefinition(
+            run.base,
+            lowerCamelName,
+            "Output",
+            "output",
+            run.outputFinite
+          )
       }.mkString +
       "end LambdaJit.FixpointRunSides\n"
 
@@ -144,47 +163,49 @@ object FixpointRunModules:
     val tokens = LeanFiniteTerms.finiteLeanText(term).split(" ", -1).toList
     s"/-- The $which of the run of `$base.art`. -/\n" +
       s"def $lowerCamelName$suffix : FiniteTerm :=\n" +
-      ProofTestFiles.tokensFilled(tokens, "  ", Vector.empty).map(_ + "\n").mkString +
+      ProofTestFiles
+        .tokensFilled(tokens, "  ", Vector.empty)
+        .map(_ + "\n")
+        .mkString +
       "\n"
 
   /** The heartbeats the kernel's check of one article (`…LinesChecked`,
     * `decide +kernel`) may take, above Lean's default of 200,000. MEASURED
     * 2026-11-17 (`OpentheoryArticleFixpointRunsTest`, `lake build`): the
-    * default was exceeded (`(kernel) deterministic timeout`) by the article
-    * of compose_redex_type_check, 10,030 lines once regenerated under the
-    * Prolog backend's preset rounds (8,247 before); 300,000 passes every
-    * article. The kernel's work grows with the article, an expected cost of
-    * checking it.
+    * default was exceeded (`(kernel) deterministic timeout`) by the article of
+    * compose_redex_type_check, 10,030 lines once regenerated under the Prolog
+    * backend's preset rounds (8,247 before); 300,000 passes every article. The
+    * kernel's work grows with the article, an expected cost of checking it.
     */
   val kernelCheckHeartbeats: Int = 300000
 
   /** The module FixpointRunFixtures of the fixtures.
     *
-    * FIXME (https://github.com/Atry/private-overlay/issues/1561, D6, "定理与一次运行的源程序相连"):
-    * no theorem is linked to the source program of a run. The theorems this
-    * module states stop at the readbacks of the run's input and output, the
-    * IR terms of module FixpointRunSides (`…Readbacks`), and that those finite
-    * terms are what the front end made of the run's program rests on this
-    * Scala test alone. Missing: for each run, a theorem that the readback of
-    * its input is δ of its source program (link (i), Lean's
-    * `Defunctionalization.readbackThunkInstruction`), joined to `…Readbacks`
-    * so that the theorem reads δ(program) ≃_O readback(output). Two things
-    * stand between: the source program is not in Lean (the run's program is
-    * HOAS over library terms read off a fixture file as closed instructions,
+    * FIXME (https://github.com/Atry/private-overlay/issues/1561, D6,
+    * "定理与一次运行的源程序相连"): no theorem is linked to the source program of a run. The
+    * theorems this module states stop at the readbacks of the run's input and
+    * output, the IR terms of module FixpointRunSides (`…Readbacks`), and that
+    * those finite terms are what the front end made of the run's program rests
+    * on this Scala test alone. Missing: for each run, a theorem that the
+    * readback of its input is δ of its source program (link (i), Lean's
+    * `Defunctionalization.readbackThunkInstruction`), joined to `…Readbacks` so
+    * that the theorem reads δ(program) ≃_O readback(output). Two things stand
+    * between: the source program is not in Lean (the run's program is HOAS over
+    * library terms read off a fixture file as closed instructions,
     * `Term.Closed`, whose de Bruijn terms the run does not keep;
     * `StrategyTesting.programInput`), and the input is the program with its
-    * occurrences tagged (`Occurrences.tagged`), whose markers are identities
-    * by the β rule only, so the input reads back to δ(program) up to the
-    * lemmas of occurrence_erasure, not syntactically. An entry's articles
+    * occurrences tagged (`Occurrences.tagged`), whose markers are identities by
+    * the β rule only, so the input reads back to δ(program) up to the lemmas of
+    * occurrence_erasure, not syntactically. An entry's articles
     * (`GenericEntry.evidenceWritten`) have the same gap and no Lean module at
     * all. Candidate fixes: the run carries its source program, the library
     * terms' de Bruijn terms and the markers into a generated Lean module, as
     * `Defunctionalization.Program` with constants, and the kernel checks that
-    * `thunkInstruction` of the tagged program is the input's finite term,
-    * a theorem then closing the gap from the tagged to the untagged program
-    * by the soundness of occurrence_erasure's statements; or Lean's
-    * `thunkInstruction` compiled and run as the front end, so that the input
-    * is its output by construction (the FIXME of `Defunctionalization.lean`,
+    * `thunkInstruction` of the tagged program is the input's finite term, a
+    * theorem then closing the gap from the tagged to the untagged program by
+    * the soundness of occurrence_erasure's statements; or Lean's
+    * `thunkInstruction` compiled and run as the front end, so that the input is
+    * its output by construction (the FIXME of `Defunctionalization.lean`,
     * "Agreement with the Prolog").
     */
   def fixturesText(fixtures: Vector[FixpointFixture]): String =
@@ -241,8 +262,8 @@ object FixpointRunModules:
       fixtures.map(fixtureText).mkString +
       "end LambdaJit.FixpointRunFixtures\n"
 
-  /** The paragraph of the module's documentation that records the measured
-    * cost of its build.
+  /** The paragraph of the module's documentation that records the measured cost
+    * of its build.
     */
   private val measurement: Vector[String] = Vector(
     "",
@@ -413,10 +434,13 @@ object FixpointRunModules:
       s"    ${lowerCamelName}OutputEncoded ${lowerCamelName}LeftRead\n" +
       s"    ${lowerCamelName}RightRead\n\n"
 
-  /** The definition of the lemma statements of an article and the theorem
-    * of their soundness.
+  /** The definition of the lemma statements of an article and the theorem of
+    * their soundness.
     */
-  private def lemmasText(lowerCamelName: String, lemmas: Vector[String]): String =
+  private def lemmasText(
+      lowerCamelName: String,
+      lemmas: Vector[String]
+  ): String =
     if lemmas.isEmpty then
       "/-- The statements of the lemmas the article imports: none. -/\n" +
         s"def ${lowerCamelName}Lemmas : List EndToEnd.Statement := []\n\n" +
@@ -443,7 +467,15 @@ object FixpointRunModules:
   def axiomsTheorems(fixtures: Vector[FixpointFixture]): Vector[String] =
     for
       fixture <- fixtures
-      suffix <- Vector("LemmasSound", "Checked", "Sound", "ContextualEquivalence", "InputEncoded", "OutputEncoded", "Readbacks")
+      suffix <- Vector(
+        "LemmasSound",
+        "Checked",
+        "Sound",
+        "ContextualEquivalence",
+        "InputEncoded",
+        "OutputEncoded",
+        "Readbacks"
+      )
     yield s"LambdaJit.FixpointRunFixtures.${LeanFiniteTerms.lowerCamelCase(fixture.run.base)}$suffix"
 
   /** The module FixpointRunFixturesAxioms of the fixtures. */
@@ -460,4 +492,6 @@ object FixpointRunModules:
       "`Classical.choice` and `Quot.sound`: the kernel checks each article (`decide +kernel`), and no\n" +
       "lemma statement an article imports is a named axiom.\n" +
       "-/\n\n" +
-      axiomsTheorems(fixtures).map(theorem => s"#print axioms $theorem\n").mkString
+      axiomsTheorems(fixtures)
+        .map(theorem => s"#print axioms $theorem\n")
+        .mkString
