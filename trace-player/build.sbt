@@ -58,7 +58,7 @@ enablePlugins(Snapshot4sPlugin)
 enablePlugins(com.typesafe.sbt.web.SbtWeb)
 
 libraryDependencies ++= Seq(
-  "org.webjars.npm" % "bootstrap" % "5.3.8",
+  "org.webjars.npm" % "bootstrap" % "5.3.9",
   "org.webjars.npm" % "bootstrap-icons" % "1.13.2"
 )
 
