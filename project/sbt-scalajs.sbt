@@ -4,4 +4,4 @@
 // Central, 2026-11-09). sbt-crossproject 1.4.0 supports sbt 2.0.6+ and this
 // Scala.js plugin version.
 addSbtPlugin("org.portable-scala" % "sbt-scalajs-crossproject" % "1.4.0")
-addSbtPlugin("org.scala-js" % "sbt-scalajs" % "1.22.0")
+addSbtPlugin("org.scala-js" % "sbt-scalajs" % "1.23.0")
