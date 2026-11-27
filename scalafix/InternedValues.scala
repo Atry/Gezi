@@ -1,5 +1,5 @@
 // The migration of the weak-head evaluator's values to interned terms: an
-// instruction is a value as it is (gezi.weakhead.Value is
+// instruction is a value as it is (com.yang_bo.gezi.weakhead.Value is
 // Interned[WeakHeadLayer], which the IR's layers are among), so the old
 // wrapper `Value.Reference(instruction)` is the instruction. A syntactic rule
 // for scalafix 0.14.9's Scala 2.13 runner, run from source:

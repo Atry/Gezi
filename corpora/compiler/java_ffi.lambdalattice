@@ -11,7 +11,7 @@
 # Scott lists of prelude/list, nil of no field and cons of a tuple and the rest, under the criteria of
 # java_ffi/literals; the runner finds each by its fields, a tuple's criterion and the recursion.
 #
-# A tuple of w bits is the family of the codec jvm_bits_w (gezi.jit.JvmBitsFamily), of one constructor, its tuple maker,
+# A tuple of w bits is the family of the codec jvm_bits_w (com.yang_bo.gezi.jit.JvmBitsFamily), of one constructor, its tuple maker,
 # whose w fields are booleans, held as a JVM value, so that a value the FFI passes on costs no encoding.
 #
 # The Moore machine state, its output, the expressions of a computation graph, their argument lists and a method's

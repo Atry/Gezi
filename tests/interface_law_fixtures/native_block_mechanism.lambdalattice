@@ -1,5 +1,5 @@
 # The library of the native block mechanism's laws
-# (gezi.interfacelaws.NativeBlockMechanismLaws): the one field of its tuple,
+# (com.yang_bo.gezi.interfacelaws.NativeBlockMechanismLaws): the one field of its tuple,
 # the knowledge the library is compiled from with the backend's checks: the
 # Prolog backend's preset (its backend and the native typing of the types it
 # represents, corpora/compiler/prolog_backend_preset.lambdalattice) with

@@ -5,7 +5,7 @@
 # Scott integer of corpora/library/integer/cbor; double, whose one field is
 # an expression; plus, whose two fields are expressions; and successor,
 # whose one field is an expression. Read by its position
-# (gezi.contest.corpora.reductions.ReductionMixinTheorems).
+# (com.yang_bo.gezi.contest.corpora.reductions.ReductionMixinTheorems).
 λ export
 . export
   (λself_number literal double plus successor. self_number)

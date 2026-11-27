@@ -2,6 +2,6 @@
 # constructors, in order: subtask, the string as drawn, and trap, the string
 # with the middle bit of a matching window flipped until no window matches.
 # Read by its position
-# (gezi.contest.corpora.reductions.Hidden37Concatenation, kind, into
+# (com.yang_bo.gezi.contest.corpora.reductions.Hidden37Concatenation, kind, into
 # Hidden37Concatenation.Kind).
 λ export. export (λsubtask trap. subtask) λsubtask trap. trap

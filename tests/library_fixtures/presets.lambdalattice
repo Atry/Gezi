@@ -1,5 +1,5 @@
 # The native route's knowledge the tests compile their library from
-# (gezi.standardlibrary.LibraryFiles.compiled): the Prolog backend's
+# (com.yang_bo.gezi.standardlibrary.LibraryFiles.compiled): the Prolog backend's
 # preset with the knowledge files of the rounds before and after its type
 # check, imported here as their one field each (the preset's first), their
 # choice the one field of this file's tuple, a term of this file and not a

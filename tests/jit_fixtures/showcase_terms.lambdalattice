@@ -1,10 +1,10 @@
 # The terms of the trace showcase's Hindley-Milner page
-# (gezi.traceshowcase.ShowcasePages):
+# (com.yang_bo.gezi.traceshowcase.ShowcasePages):
 # the judgment type_of, and the type the page's trace proves its program
 # compose boolean_not boolean_not has, a function from bool to bool, bool
 # being the zero universe's structure of two alternatives with no field; each
 # exported at its position of the file's Scott tuple, whose names the host
-# keeps in gezi.standardlibrary.TermTables.showcaseTerms. Only the showcase's
+# keeps in com.yang_bo.gezi.standardlibrary.TermTables.showcaseTerms. Only the showcase's
 # generator reads these terms; no framework code reads them.
 # FIXME: the imports project "corpora" off the variable gezi, the name https://github.com/Atry/private-overlay/issues/1924
 # of the project root's own directory; they break if that directory is renamed.

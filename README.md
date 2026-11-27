@@ -41,7 +41,7 @@ To run an entry of your own, build and load `.#gezi-jupyter-base` the same
 way, copy an entry into a directory of its own (run from this directory),
 
 ```bash
-mkdir my-entry && cp contest-entries-wren/entry.lambdalattice my-entry/
+mkdir my-entry && cp gezi-contest-entries-wren/entry.lambdalattice my-entry/
 ```
 
 and mount the directory, not the file, at `/gezi/entry`, so that an edit saved
@@ -72,7 +72,7 @@ run in the image's working directory `/env`, as `jupyter run` and `jupyter conso
 ```
 
 and in a notebook it ends with the notebook's file name without `.ipynb` (for `/env/demo.ipynb`, `"demo" demo`).
-Each self is named after its key, a key that is no name written with `$` escapes (`gezi.frontend.NameSpelling`).
+Each self is named after its key, a key that is no name written with `$` escapes (`com.yang_bo.gezi.frontend.NameSpelling`).
 A cell is any closed term under that prefix, and every cell joins the notebook by choice, but only a cell that is
 a chain of `+` of partial functions, abstractions whose first binders are literals, has an output: the kernel
 shows the notebook's member at each partial function's key path, as `"key" = value`, its binders renamed `x_0`,
@@ -84,7 +84,7 @@ A key path that starts with `"io"` is the one the kernel reserves: its member is
 `λk. k output transition` (`corpora/library/java_ffi/moore`). The
 output either ends the branch with an answer or runs a Java call, and the transition takes each reply to the next
 state. How a state runs is the entry's: an entry runs one when
-its data selects the executor module `contest-modules-moore` and enables the knowledge `corpora/compiler/java_ffi`, as
+its data selects the executor module `gezi-contest-modules-moore` and enables the knowledge `corpora/compiler/java_ffi`, as
 `tests/moore_fixtures/entry_with_moore.lambdalattice` does, and any other entry shows `this entry's executor runs no
 FFI program`. Under such an entry, a state that only answers:
 
@@ -192,7 +192,7 @@ read is no lambdalattice text:` and the reason. A file is read only when a cell'
 ### Where the language is described
 
 The grammar is the Scaladoc of
-`gezi-frontend/shared/src/main/scala/gezi/frontend/Lambdalattice.scala`; the layout of a
+`gezi-frontend/shared/src/main/scala/com/yang_bo/gezi/frontend/Lambdalattice.scala`; the layout of a
 text is `CONTRIBUTING.md`, "lambdalattice layout: no right-associative parentheses, CPS one step per line"; the library is
 `corpora/library/`, and `corpora/library/prelude/` is the place to start
 reading real files.
@@ -233,7 +233,7 @@ The Jupyter kernel of lambdalattice cells (`jupyter-kernel`) is installed by
 a task of the build, the way almond installs its own kernels:
 
 ```
-direnv exec .. sbt --client "jupyter-kernel/jupyterKernelInstall $PWD/contest-entries-wren"
+direnv exec .. sbt --client "gezi-jupyter-kernel/jupyterKernelInstall $PWD/gezi-contest-entries-wren"
 ```
 
 Its argument is the directory of the data entry whose `entry.lambdalattice`
@@ -248,7 +248,7 @@ the install: install again after a change, and restart the kernel.
 An optional second argument, a directory relative to the notebook's (such as
 `gezi-traces`), makes the kernel write the trace of every point its cells
 extract there and show each in the cell's output with the trace player, in
-JupyterLab (`gezi.jupyter.kernel.CellTraces`). Each trace's page holds the
+JupyterLab (`com.yang_bo.gezi.jupyter.kernel.CellTraces`). Each trace's page holds the
 player, about 4.8 MB.
 
 The [trace showcase](https://atry.github.io/Gezi/) plays example traces.
@@ -294,13 +294,13 @@ at the top of `build.sbt`):
   strategy.
 - `contest-entry`, `contest-runner`, `contest-judge`: the interface of a
   contest entry, the runner in an entry's JVM, and the judge; each entry is
-  a directory `contest-entries-<entry>`, and `contest-in-tree-entries`
+  a directory `gezi-contest-entries-<entry>`, and `gezi-contest-in-tree-entries`
   holds the tests that read the in-tree entries on a classpath that sees
   every module.
 - `programfamilies`: the classic HM reference, the program families and the
   pipeline split into its stages; no pipeline project depends on it.
 - `jmh-pipeline`: the JMH benchmarks of those stages and of the classic
-  HM reference (`jmh-pipeline/Jmh/run`), and nothing else.
+  HM reference (`gezi-jmh-pipeline/Jmh/run`), and nothing else.
 - `conventions`: tests over the sources of the others.
 
 ## Data and the rest
@@ -314,7 +314,7 @@ at the top of `build.sbt`):
   `check_opentheory_article.sh`.
 - `lean/`: the Lean package that checks the exported traces; `modules/`: the
   nix modules of Lean and of the OpenTheory tool.
-- `doc/proofs/`: paper proofs of the problems' claims and of earlier library
+- `doc/gezi-proofs/`: paper proofs of the problems' claims and of earlier library
   lemmas. The paper proofs of the current library's lemmas are not in this
   repository; each lemma's declaration names its proof.
 

@@ -3,7 +3,7 @@
 # isolated, whose one field is the inner graph; then direct_first, diamond,
 # two_rings, chord_ring, lasso and double_successor_ring, the graphs of
 # contest_mixin_claims of those names. Read by its position
-# (gezi.contest.corpora.merges.MixinTraps, graphName).
+# (com.yang_bo.gezi.contest.corpora.merges.MixinTraps, graphName).
 λ export
 . export
   (λsize ring isolated direct_first diamond two_rings chord_ring lasso double_successor_ring. ring size)

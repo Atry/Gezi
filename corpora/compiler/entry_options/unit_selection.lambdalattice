@@ -1,8 +1,8 @@
-# The published list of the units the upfront compilation compiles (UnitSelectionOption), the field of entry_options/compilation_place's upfront: whole_program, the program as one unit, its rounds run on each point; let_bound_closure, the function a program's top-level let binds (gezi.narrowblocks.BoundFunctionUnit), compiled once per configuration into the cache service and replaced in each point by its artifact (gezi.narrowblocks.ClosureUnits), a program with no such let compiled whole.
+# The published list of the units the upfront compilation compiles (UnitSelectionOption), the field of entry_options/compilation_place's upfront: whole_program, the program as one unit, its rounds run on each point; let_bound_closure, the function a program's top-level let binds (com.yang_bo.gezi.narrowblocks.BoundFunctionUnit), compiled once per configuration into the cache service and replaced in each point by its artifact (com.yang_bo.gezi.narrowblocks.ClosureUnits), a program with no such let compiled whole.
 # A Scott sum whose constructors are the tuple's fields, in the order of the
 # enum's cases; an entry.lambdalattice imports this file and writes a
 # constructor, and EntryData reads which alternative it takes by structure
-# (gezi.contest.entry.EntryData, THE OPTIONS AS SCOTT CONSTRUCTORS).
+# (com.yang_bo.gezi.contest.entry.EntryData, THE OPTIONS AS SCOTT CONSTRUCTORS).
 λ export
 . (λtuple. tuple λwhole_program let_bound_closure. whole_program)
 λ whole_program

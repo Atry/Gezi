@@ -1,5 +1,5 @@
 # The knowledge JvmIntStorageLawTest compiles its library from
-# (gezi.standardlibrary.LibraryFiles.compiled): native_types, fixed_width, prolog_backend,
+# (com.yang_bo.gezi.standardlibrary.LibraryFiles.compiled): native_types, fixed_width, prolog_backend,
 # fixed_width_prolog_backend and the 32-bit words' module jvm_int, their choice the one field
 # of this file's tuple.
 # FIXME: the imports project "corpora" off the variable gezi, the name https://github.com/Atry/private-overlay/issues/1924

@@ -1,7 +1,7 @@
 # An entry, read as the generic entry reads entry.lambdalattice
-# (gezi.contest.entry.EntryData.at), whose one round chooses the test
+# (com.yang_bo.gezi.contest.entry.EntryData.at), whose one round chooses the test
 # extractor module of contest-entry's tests
-# (gezi.contest.entry.TestExtractorModule, ExtractorModuleLawTest) by
+# (com.yang_bo.gezi.contest.entry.TestExtractorModule, ExtractorModuleLawTest) by
 # importing its selector file, test_extractor, and writing the term it gives
 # as the extractor's selector: the selector the entry imports and the one the module registers
 # are to be one interned instruction. Its parameters are a tuple of one

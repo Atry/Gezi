@@ -109,19 +109,19 @@
 //                           compiler of a program unit by the lemma rounds;
 //                           one of the baseline's public projects, which
 //                           every entry and module depends on)
-//   contest-entries-<entry> -> contest-entry and the baseline's public
-//                           projects (each directory contest-entries-<entry>/
+//   gezi-contest-entries-<entry> -> contest-entry and the baseline's public
+//                           projects (each directory gezi-contest-entries-<entry>/
 //                           with a build.sbt or a src/, found by
 //                           project/EntryProjects.scala) and every
-//                           contest-modules-<name>, never contest-corpora or
+//                           gezi-contest-modules-<name>, never contest-corpora or
 //                           contest-judge
-//   contest-modules-<name> -> contest-entry, whose replaceable interfaces
+//   gezi-contest-modules-<name> -> contest-entry, whose replaceable interfaces
 //                           it implements (ExecutorModule, ExtractorModule),
 //                           and the baseline's public projects (a
 //                           reusable module with no EntryProvider, found by
 //                           project/EntryProjects.scala)
-//   contest-in-tree-entries -> every contest-entries-<entry>, through them
-//                           every contest-modules-<name>, and
+//   contest-in-tree-entries -> every gezi-contest-entries-<entry>, through them
+//                           every gezi-contest-modules-<name>, and
 //                           contest-entry-generic (tests only: the suites
 //                           that read the in-tree entries, InTreeEntriesTest,
 //                           CancelGraceLawTest and CompilationPlaceLawTest,
@@ -228,7 +228,7 @@ ThisBuild / wartremoverErrors ++= Seq(
   "NoUnsafe",
   "NoVarHandle",
   "NoVolatile"
-).map(name => Wart.custom(s"gezi.warts.$name"))
+).map(name => Wart.custom(s"com.yang_bo.gezi.warts.$name"))
 
 // A match the compiler cannot prove exhaustive (E029) is an error: each match
 // is total, a case that cannot occur ending in a throw that names the
@@ -256,7 +256,7 @@ ThisBuild / wartremoverClasspaths ++= {
 // the compiler plugin loads while it compiles every other project, so this
 // project's classes depend on nothing of the build and hold warts only; its
 // tests depend on generatedinputs (FailFastSuite).
-lazy val warts = project.dependsOn(generatedinputs % Test)
+lazy val warts = project.in(file("gezi-warts")).dependsOn(generatedinputs % Test)
 
 // Generated inputs (CONTRIBUTING.md, "Tests": every test's inputs are
 // generated, whether it checks a law or records a snapshot). The
@@ -264,13 +264,13 @@ lazy val warts = project.dependsOn(generatedinputs % Test)
 // munit suites, seeded samples and snapshots, and state machine tests. It
 // depends on no module, so that the tests of every module can depend on it;
 // a generator of a module's own data lives in that module's test sources, in
-// the package `gezi.generatedinputs`, and the modules above reach them
+// the package `com.yang_bo.gezi.generatedinputs`, and the modules above reach them
 // with `test->test`, since a project the module's tests depend on cannot
 // depend on the module (sbt rejects the cycle: "Cyclic reference involving",
 // 2026-10-31).
 lazy val generatedinputsCross =
   sbtcrossproject
-    .CrossProject("generatedinputs", file("generatedinputs"))(
+    .CrossProject("generatedinputs", file("gezi-generatedinputs"))(
       JSPlatform,
       JVMPlatform
     )
@@ -337,7 +337,7 @@ lazy val extraction = project
 
 // The source locations of an e-graph's nodes, from its union log
 // outside the framework, and no choice reads a location.
-lazy val provenance = project.dependsOn(
+lazy val provenance = project.in(file("gezi-provenance")).dependsOn(
   egraph,
   extraction,
   locations,
@@ -348,7 +348,7 @@ lazy val provenance = project.dependsOn(
 
 // Migrations of lambdalattice texts checked by reading them again, a
 // lemma's instances found by the e-graph's matching; outside the framework.
-lazy val migration = project.dependsOn(
+lazy val migration = project.in(file("gezi-migration")).dependsOn(
   frontend % "compile->compile;test->test",
   `directory-sugar`,
   `knowledge-reading`,
@@ -360,6 +360,7 @@ lazy val migration = project.dependsOn(
 )
 
 lazy val backendcomparison = project
+  .in(file("gezi-backendcomparison"))
   .dependsOn(
     `ematching-indexing`,
     saturation,
@@ -461,16 +462,17 @@ lazy val `lemma-encoding-baseline` = project
     `ematching-closures` % Test
   )
 
-// The program families of the two configurations (gezi.programfamilies.Configurations),
+// The program families of the two configurations (com.yang_bo.gezi.programfamilies.Configurations),
 // written in the HOAS, and their runs: the configuration's library and orientations
 // compiled, the program put through the front end, the graph saturated and
 // the form of its fixed point computed by backendcomparison
-// (`gezi.programfamilies.FixedPoints`). Its tests record the forms of
+// (`com.yang_bo.gezi.programfamilies.FixedPoints`). Its tests record the forms of
 // generated items' fixed points as a snapshot and compare the inputs with
 // snapshots of their digests. The pipeline whose stages it counts
-// (`gezi.programfamilies.Pipeline`) runs, after the saturation, the
+// (`com.yang_bo.gezi.programfamilies.Pipeline`) runs, after the saturation, the
 // extraction of the baseline's round with the strategies' cost model.
 lazy val programfamilies = project
+  .in(file("gezi-programfamilies"))
   .dependsOn(
     standardlibrary % "compile->compile;test->test",
     strategies,
@@ -488,7 +490,7 @@ lazy val programfamilies = project
 // (`NativeSolverBenchmark`, `ContestWorkloadBenchmarks`) and the JIT's
 // reading of contest programs under its instance table
 // (`InstanceTableBenchmarks`) and as the framework's fixture entry,
-// contest-entries-fixture/entry.lambdalattice, compiles it under the generic
+// gezi-contest-entries-fixture/entry.lambdalattice, compiles it under the generic
 // entry (`CompiledRunBenchmark`), and what reading a text with its locations
 // and computing a saturated graph's provenance cost (`LocationBenchmarks`).
 // The benchmarks' knowledge is generated from a fixed seed by
@@ -496,7 +498,7 @@ lazy val programfamilies = project
 // as every module's generators do; the benchmarks, which are this project's
 // main sources, depend on those test sources and on generatedinputs for it.
 lazy val `jmh-pipeline` =
-  project.dependsOn(
+  project.in(file("gezi-jmh-pipeline")).dependsOn(
     programfamilies,
     `contest-corpora`,
     jit,
@@ -516,7 +518,7 @@ lazy val `jmh-pipeline` =
 // combinator (CONTRIBUTING.md, "Types live only in the term"). A round that
 // writes an article writes the OpenTheory article of its strategy's proof
 // with the writer of `proofs`, as schedule.pl does with
-// opentheory_article.pl; the proof is `gezi.proofs.StrategyProof`. The
+// opentheory_article.pl; the proof is `com.yang_bo.gezi.proofs.StrategyProof`. The
 // tests of the fixpoint runs of opentheory_article.plt are here, since they
 // run the schedule: they read proofs' test helpers and run the opentheory
 // tool and Lean's lake. The saturation of fixpoint_egraph runs on a backend
@@ -547,7 +549,7 @@ lazy val strategies = project
 // the immutable tabling that decides the second, the readings within a
 // budget of evaluator steps and the normal-form reader. It depends on no
 // knowledge, so that the reader of knowledge files can evaluate them. The
-// package gezi.weakhead spans it and weakhead, whose package object
+// package com.yang_bo.gezi.weakhead spans it and weakhead, whose package object
 // documents both.
 lazy val weakheadCoreCross =
   sbtcrossproject
@@ -597,7 +599,7 @@ lazy val `directory-sugar-js` = directorySugarCross.js
 
 // The codecs of the Prolog backend's representations, which read the
 // library's index, and the Scott decoder of the problem corpora
-// (gezi.weakhead.oldcorpora), over weakhead-core. The port of
+// (com.yang_bo.gezi.weakhead.oldcorpora), over weakhead-core. The port of
 // weak_head.pl, evaluators.pl, reading.pl, normal_forms.pl, the three codecs
 // and old_corpora/scott_decoding.pl. Its
 // tests draw random terms with standardlibrary's test helper SplitMix.
@@ -628,6 +630,7 @@ lazy val ffi =
 // (`JitReadingLawTest`), so the tests also depend on jit and its test
 // helpers: the corpora stand above jit, and nothing of jit reads the corpora.
 lazy val `contest-corpora` = project
+  .in(file("gezi-contest-corpora"))
   .dependsOn(
     standardlibrary % "compile->compile;test->test",
     `directory-sugar`,
@@ -639,7 +642,7 @@ lazy val `contest-corpora` = project
 
 // The proof outputs: the OpenTheory article of a search strategy's proof
 // and the Lean module of the library's lemma statements. A search strategy
-// gives its proof as data (`gezi.proofs.StrategyProof`); the module
+// gives its proof as data (`com.yang_bo.gezi.proofs.StrategyProof`); the module
 // `strategies`, whose schedule asks a round for its article, depends on this
 // one. Its tests run
 // the opentheory tool (tests/check_opentheory_article.sh) and `lake` of
@@ -703,7 +706,9 @@ lazy val jit = project
 // test helpers of jit and strategies; its tests run the laws on the
 // baseline's implementations, and every entry's and module's tests depend
 // on it (project/EntryProjects.scala).
-lazy val `interface-laws` = project.dependsOn(
+lazy val `interface-laws` = project
+  .in(file("gezi-interface-laws"))
+  .dependsOn(
   jit % "compile->compile;compile->test",
   strategies % "compile->compile;compile->test",
   generatedinputs
@@ -733,9 +738,9 @@ lazy val `narrow-blocks` =
 // lemma-encoding-baseline's encoding, narrow-blocks' lemma compilation, the
 // e-matching backends a round may choose). An entry's project,
 // contest-entries-<entry>, is defined by project/EntryProjects.scala for
-// every directory contest-entries-<entry>/ that holds a build.sbt or a src/.
+// every directory gezi-contest-entries-<entry>/ that holds a build.sbt or a src/.
 lazy val `contest-entry` =
-  project.dependsOn(
+  project.in(file("gezi-contest-entry")).dependsOn(
     jit,
     frontend,
     hotspot,
@@ -754,7 +759,7 @@ lazy val `contest-entry` =
 // entry.pl and no Scala depends on it (project/EntryProjects.scala); a
 // second provider on an entry's classpath would be refused by the runner.
 lazy val `contest-entry-generic` =
-  project.dependsOn(
+  project.in(file("gezi-contest-entry-generic")).dependsOn(
     `contest-entry`,
     `narrow-blocks`,
     standardlibrary,
@@ -770,7 +775,7 @@ lazy val `contest-entry-generic` =
 // generators and the references) nor contest-judge. Its tests use the front
 // end's test helpers.
 lazy val `contest-runner` =
-  project.dependsOn(
+  project.in(file("gezi-contest-runner")).dependsOn(
     `contest-entry`,
     frontend % "test->test",
     generatedinputs % Test
@@ -782,6 +787,7 @@ lazy val `contest-runner` =
 // knows each entry's classpath and the runner's. An entry's JVM gets the
 // small heap of -Xmx256m as every reader's does.
 lazy val `contest-judge` = project
+  .in(file("gezi-contest-judge"))
   .dependsOn(
     `contest-entry`,
     `contest-runner`,
@@ -798,7 +804,7 @@ lazy val `contest-judge` = project
 // default: every preset is opt-in). The executor module of FFI programs is on its classpath
 // so that an entry's data may select it. The whole module, an adapter on
 // almond, is a local exception to the immutability rule.
-lazy val `jupyter-kernel` = project.dependsOn(
+lazy val `jupyter-kernel` = project.in(file("gezi-jupyter-kernel")).dependsOn(
   `contest-runner`,
   `contest-entry-generic`,
   LocalProject("contest-modules-moore"),
@@ -812,7 +818,7 @@ lazy val `jupyter-kernel` = project.dependsOn(
 // replays it with `rewrite-trace-js` to the terms it draws. Its tests run on
 // Node.js and draw their inputs with frontend's generators.
 lazy val `trace-player` =
-  project.dependsOn(
+  project.in(file("gezi-trace-player")).dependsOn(
     `frontend-js` % "compile->compile;test->test",
     `weakhead-core-js`,
     `rewrite-trace-js`,
@@ -823,7 +829,7 @@ lazy val `trace-player` =
 // trace-showcase that `trace-showcase/regenerate` writes: its program is in its
 // test sources, where the strategies' and the standard library's test
 // helpers it uses are on its classpath.
-lazy val `trace-showcase` = (project in file("trace-showcase-generator"))
+lazy val `trace-showcase` = (project in file("gezi-trace-showcase-generator"))
   .dependsOn(
     strategies % "compile->compile;test->test",
     standardlibrary % "compile->compile;test->test",
@@ -834,7 +840,8 @@ lazy val `trace-showcase` = (project in file("trace-showcase-generator"))
 
 // The immutability test and the package documentation test, run on this
 // build's sources (tests only).
-lazy val conventions = project.dependsOn(generatedinputs % Test)
+lazy val conventions =
+  project.in(file("gezi-conventions")).dependsOn(generatedinputs % Test)
 
 lazy val `lambda-jit` = (project in file("."))
   .aggregate(

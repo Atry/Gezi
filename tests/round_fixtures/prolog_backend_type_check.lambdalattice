@@ -1,5 +1,5 @@
 # The round prolog_backend_type_check the strategies' and the JIT's tests
-# saturate with (gezi.strategies.StrategyTesting.round): the Prolog
+# saturate with (com.yang_bo.gezi.strategies.StrategyTesting.round): the Prolog
 # backend's preset's type-check round, the preset's field
 # prolog_backend_type_check (corpora/compiler/prolog_backend_preset.lambdalattice),
 # whose candidacies write the typed versions (JitNativesTest,

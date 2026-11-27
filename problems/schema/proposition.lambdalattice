@@ -8,7 +8,7 @@
 # propositions; and stepped, whose two fields are a Scott integer of
 # corpora/library/integer/cbor, the step the search takes, and a
 # proposition. Read by its position
-# (gezi.contest.corpora.reductions.ReductionMixinTheorems).
+# (com.yang_bo.gezi.contest.corpora.reductions.ReductionMixinTheorems).
 λ export
 . export
   (λleft right equal periodic not_periodic both stepped. equal left right)

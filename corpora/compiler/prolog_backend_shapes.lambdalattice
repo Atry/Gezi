@@ -111,7 +111,7 @@
       # so that contract_at g is a node of the graph, where these lemmas write its
       # closures, and a filling of the closure: applied to contract_at g, the
       # thunk of two holes is united with its residual thunk λy. … whose k is
-      # filled (`gezi.saturation.Saturation.residualThunk`). Written inside
+      # filled (`com.yang_bo.gezi.saturation.Saturation.residualThunk`). Written inside
       # the closure's body, contract_at, function_type and candidate were fillings
       # of their own and g's term was built in the code, which no lemma reads
       # (measured 2026-10-29: the type check of list_fold nil (λh. λt. cons

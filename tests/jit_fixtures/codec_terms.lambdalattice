@@ -1,7 +1,7 @@
 # The library terms CodecLiteralLawTest builds its literals and programs
-# from (gezi.jit.CodecLiteralLawTest), each imported from its own file
+# from (com.yang_bo.gezi.jit.CodecLiteralLawTest), each imported from its own file
 # of corpora/library and exported at its position of the file's Scott tuple,
-# whose names the host keeps in gezi.standardlibrary.TermTables.codecTerms.
+# whose names the host keeps in com.yang_bo.gezi.standardlibrary.TermTables.codecTerms.
 # FIXME: the imports project "corpora" off the variable gezi, the name https://github.com/Atry/private-overlay/issues/1924
 # of the project root's own directory; they break if that directory is renamed.
 λ export

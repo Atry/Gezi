@@ -1,9 +1,9 @@
 # The library terms the JIT's tests build their programs from
-# (gezi.jit.JitTesting.libraryTerm), each imported from its own file of
+# (com.yang_bo.gezi.jit.JitTesting.libraryTerm), each imported from its own file of
 # corpora/library and exported at its position of the file's Scott tuple,
-# whose names the host keeps in gezi.standardlibrary.TermTables.jitLibraryTerms.
+# whose names the host keeps in com.yang_bo.gezi.standardlibrary.TermTables.jitLibraryTerms.
 # Only the JIT's tests and the fixpoint runs
-# (gezi.strategies.OpentheoryArticleFixpointRunsTest) read these terms; no
+# (com.yang_bo.gezi.strategies.OpentheoryArticleFixpointRunsTest) read these terms; no
 # framework code reads them.
 # FIXME: the imports project "corpora" off the variable gezi, the name https://github.com/Atry/private-overlay/issues/1924
 # of the project root's own directory; they break if that directory is renamed.

@@ -2,7 +2,7 @@
 # A Scott sum whose constructors are the tuple's fields, in the order of the
 # enum's cases; an entry.lambdalattice imports this file and writes a
 # constructor, and EntryData reads which alternative it takes by structure
-# (gezi.contest.entry.EntryData, THE OPTIONS AS SCOTT CONSTRUCTORS).
+# (com.yang_bo.gezi.contest.entry.EntryData, THE OPTIONS AS SCOTT CONSTRUCTORS).
 λ export
 . (λtuple. tuple λcalls_a_head calls_a_head_with_matching_arguments. calls_a_head)
 λ calls_a_head

@@ -192,7 +192,7 @@ The toolchain is the one `lean-toolchain` names.
 - `LambdaJit/ExpectedArticles.lean`: the lines of the thirteen expected articles of
   `gezi/tests/opentheory_article_expected/`, six of runs made by hand and seven of the
   fixpoint runs, generated from the files by `ExpectedArticlesModule.text` of the proofs tests
-  (`proofs/Test/runMain gezi.proofs.writeExpectedArticlesModule`), and
+  (`proofs/Test/runMain com.yang_bo.gezi.proofs.writeExpectedArticlesModule`), and
   `ExpectedArticlesModuleTest` checks that regenerating the module gives it byte for byte; not
   edited.
 - `LambdaJit/EndToEndFixtures.lean`: four of the six expected articles of the runs made by hand,

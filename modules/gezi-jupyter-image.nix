@@ -20,7 +20,7 @@
   #   mounted there;
   # - `gezi-jupyter-<player>`, the image
   #   `gezi-jupyter:<player>`, for each in-tree entry written as data
-  #   (contest-entries-<player>/entry.lambdalattice), whose entry.lambdalattice it holds at
+  #   (gezi-contest-entries-<player>/entry.lambdalattice), whose entry.lambdalattice it holds at
   #   /gezi/entry. That name has no `latest` tag, so that a bare
   #   `docker run gezi-jupyter` finds no image instead of choosing an
   #   entry.
@@ -147,7 +147,7 @@
       # The tree an entry is read in, copied to the image's root: /gezi, the visible
       # subtree of the entry's reading (EntryData.read takes the entry directory's
       # parent), holding `corpora`, a symbolic link to the kernel's copy, which the tree's
-      # reader follows (gezi.directorysugar.DirectoryTree reads with
+      # reader follows (com.yang_bo.gezi.directorysugar.DirectoryTree reads with
       # Files.isDirectory and Files.list), the entry directory, empty in the base
       # image and holding the entry's file in an entry's image, and REVISION, the commit
       # the image was built from (a file without the .lambdalattice extension, which the
@@ -174,14 +174,14 @@
       revision = self.rev or self.dirtyRev;
 
       # The in-tree entries written as data, by the rule of project/EntryProjects.scala
-      # (`writtenAsData`): a directory contest-entries-<player> that holds an
+      # (`writtenAsData`): a directory gezi-contest-entries-<player> that holds an
       # entry.lambdalattice and no Scala of its own.
       dataEntries = lib.pipe (builtins.readDir ../.) [
-        (lib.filterAttrs (name: type: type == "directory" && lib.hasPrefix "contest-entries-" name))
+        (lib.filterAttrs (name: type: type == "directory" && lib.hasPrefix "gezi-contest-entries-" name))
         builtins.attrNames
         (builtins.filter (name: builtins.pathExists (../. + "/${name}/entry.lambdalattice")
           && !builtins.pathExists (../. + "/${name}/src/main/scala")))
-        (map (name: lib.removePrefix "contest-entries-" name))
+        (map (name: lib.removePrefix "gezi-contest-entries-" name))
       ];
 
       python = pkgs.python3.withPackages (pythonPackages: [ pythonPackages.jupyter-console pythonPackages.notebook ]);
@@ -243,7 +243,7 @@
             }
             // lib.genAttrs dataEntries (player:
               container "gezi-jupyter" player
-                (lambdaJitTree player (../. + "/contest-entries-${player}/entry.lambdalattice")));
+                (lambdaJitTree player (../. + "/gezi-contest-entries-${player}/entry.lambdalattice")));
         };
 
       packages =

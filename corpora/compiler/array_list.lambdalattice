@@ -1,7 +1,7 @@
 # The array lists' backend facts and their conversion lemma, a knowledge module an entry
 # imports when it holds lists of scalars as arrays (the group blocks read only array lists).
 # array_list e is represented natively in the framework's codec array_list (a list of one
-# vector shared by its suffixes, gezi.jit.ArrayListStorage); its constructors are the lists'
+# vector shared by its suffixes, com.yang_bo.gezi.jit.ArrayListStorage); its constructors are the lists'
 # nil and cons, of the fields the element and the array list itself; the conversion lemma
 # l ∥ list_type e = l ∥ array_list e is a theorem of the β rule
 # (docs/design/gezi-set-equations-proofs.md, section 24), so the e-graph may merge the two

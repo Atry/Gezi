@@ -1,6 +1,6 @@
 # The problem a twin of the twin table respells: a Scott sum of three
 # constructors, grid paths first, then Fibonacci, then the binary product,
-# read by its position (gezi.contest.corpora.merges.MergeTwins,
+# read by its position (com.yang_bo.gezi.contest.corpora.merges.MergeTwins,
 # TwinProblem).
 λ export
 . export (λgrid fibonacci product. grid) (λgrid fibonacci product. fibonacci) λgrid fibonacci product. product

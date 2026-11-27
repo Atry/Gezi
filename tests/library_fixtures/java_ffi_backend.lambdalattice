@@ -1,5 +1,5 @@
 # The knowledge StorageViewOracleLawTest compiles its library from
-# (gezi.standardlibrary.LibraryFiles.compiled): native_types, prolog_backend and
+# (com.yang_bo.gezi.standardlibrary.LibraryFiles.compiled): native_types, prolog_backend and
 # java_ffi, whose facts declare the families of the JVM's bit tuples (the codecs
 # jvm_bits_w), their choice the one field of this file's tuple.
 λ export

@@ -1,4 +1,4 @@
-# The parameters of the executor module that runs FFI programs (gezi.contest.modules.moore.MooreModule), which an entry writes after the module's selector: a tuple read
+# The parameters of the executor module that runs FFI programs (com.yang_bo.gezi.contest.modules.moore.MooreModule), which an entry writes after the module's selector: a tuple read
 # by position, the criterion of a state, the function that reads a method's symbols, their criterion, and the criteria
 # of the JVM's value types by width.
 λ export

@@ -1,7 +1,8 @@
 import sbt._
 import sbt.Keys._
 
-/** The contest entries of the build: every directory `contest-entries-<name>/`
+/** The contest entries of the build: every directory
+  * `gezi-contest-entries-<name>/`
   * of the build's root that holds a `build.sbt` or a `src/` is the project of
   * the same name, which depends on `contest-entry` and on the baseline's public
   * projects (`jit`, `strategies`, `lemma-encoding-baseline`, `weakhead`,
@@ -22,11 +23,11 @@ import sbt.Keys._
   * build.sbt aggregates them through the project `contest-entries`, and
   * contest-judge/build.sbt passes their classpaths to the judge.
   *
-  * A reusable module lives in a directory `contest-modules-<name>/` of the
+  * A reusable module lives in a directory `gezi-contest-modules-<name>/` of the
   * build's root that holds a `build.sbt` or a `src/`, the project of the same
   * name. It depends on the baseline's public projects above and on
   * `contest-entry`, whose replaceable interfaces it implements, such as an
-  * executor module (`gezi.contest.entry.ExecutorModule`), registered with
+  * executor module (`com.yang_bo.gezi.contest.entry.ExecutorModule`), registered with
   * `java.util.ServiceLoader` in its own `META-INF/services`. It registers no
   * `EntryProvider`: the conventions' `EntrySourcesTest` checks that no module's
   * `META-INF/services` names one, so that an entry's JVM still finds exactly
@@ -42,16 +43,19 @@ import sbt.Keys._
 object EntryProjects extends AutoPlugin {
 
   /** The prefix of an entry's directory, and of its project's name. */
-  private val entryPrefix = "contest-entries-"
+  private val entryDirectoryPrefix = "gezi-contest-entries-"
+  private val entryProjectPrefix = "contest-entries-"
 
   /** The prefix of a reusable module's directory, and of its project's name.
     */
-  private val modulePrefix = "contest-modules-"
+  private val moduleDirectoryPrefix = "gezi-contest-modules-"
+  private val moduleProjectPrefix = "contest-modules-"
 
   /** The prefix of an entry's natives project's directory, and of its project's
     * name.
     */
-  private val nativesPrefix = "contest-natives-"
+  private val nativesDirectoryPrefix = "gezi-contest-natives-"
+  private val nativesProjectPrefix = "contest-natives-"
 
   /** The names after `prefix`, sorted, of the directories of the build's root
     * whose names start with `prefix` and that hold a `build.sbt`, a `src/`, or
@@ -80,11 +84,11 @@ object EntryProjects extends AutoPlugin {
   val entryDataFiles: Seq[String] = Seq("entry.lambdalattice", "entry.pl")
 
   /** The entries' names, sorted: the suffixes of the directories
-    * `contest-entries-<name>` of the build's root that hold a `build.sbt`, a
+    * `gezi-contest-entries-<name>` of the build's root that hold a `build.sbt`, a
     * `src/` or an entry data file.
     */
   def players(buildRoot: File): Seq[String] =
-    suffixes(buildRoot, entryPrefix, entryDataFiles)
+    suffixes(buildRoot, entryDirectoryPrefix, entryDataFiles)
 
   /** Whether the entry is written as data: its directory holds an entry data
     * file and no Scala source, and its project then depends on the framework's
@@ -92,30 +96,31 @@ object EntryProjects extends AutoPlugin {
     * provider.
     */
   def writtenAsData(buildRoot: File, player: String): Boolean = {
-    val directory = buildRoot / projectName(player)
+    val directory = buildRoot / s"$entryDirectoryPrefix$player"
     entryDataFiles.exists(file =>
       (directory / file).isFile
     ) && !(directory / "src" / "main" / "scala").isDirectory
   }
 
   /** The entries' natives projects, sorted: the directories
-    * `contest-natives-<name>` that hold a `build.sbt` or a `src/`. Each depends
+    * `gezi-contest-natives-<name>` that hold a `build.sbt` or a `src/`. Each depends
     * on `jit` alone, whose `NativesProvider` it implements; the conventions
     * check that it holds native implementations only.
     */
   def nativesProjects(buildRoot: File): Seq[String] =
-    suffixes(buildRoot, nativesPrefix)
+    suffixes(buildRoot, nativesDirectoryPrefix)
 
-  /** The project of an entry's natives, which is also its directory's name. */
-  def nativesProjectName(player: String): String = s"$nativesPrefix$player"
+  /** The project ID of an entry's natives. */
+  def nativesProjectName(player: String): String = s"$nativesProjectPrefix$player"
 
-  /** The reusable modules, sorted: the directories `contest-modules-<name>` of
+  /** The reusable modules, sorted: the directories `gezi-contest-modules-<name>` of
     * the build's root that hold a `build.sbt` or a `src/`.
     */
-  def modules(buildRoot: File): Seq[String] = suffixes(buildRoot, modulePrefix)
+  def modules(buildRoot: File): Seq[String] =
+    suffixes(buildRoot, moduleDirectoryPrefix)
 
-  /** The project of the module, which is also the name of its directory. */
-  def moduleProjectName(module: String): String = s"$modulePrefix$module"
+  /** The project ID of the module. */
+  def moduleProjectName(module: String): String = s"$moduleProjectPrefix$module"
 
   /** The baseline's public projects, which entries and modules depend on. */
   private val publicProjects: Seq[ClasspathDep[ProjectReference]] = Seq(
@@ -130,8 +135,8 @@ object EntryProjects extends AutoPlugin {
     LocalProject("interface-laws") % Test
   )
 
-  /** The project of the entry, which is also the name of its directory. */
-  def projectName(player: String): String = s"$entryPrefix$player"
+  /** The sbt project ID of an entry; its directory has `entryDirectoryPrefix`. */
+  def projectName(player: String): String = s"$entryProjectPrefix$player"
 
   /** The project that aggregates every entry's, every module's and the in-tree
     * entries' checks (`inTreeEntriesProjectName`), which the build's root
@@ -159,7 +164,7 @@ object EntryProjects extends AutoPlugin {
     * entry's JVM holds its own alone, so an entry whose library binds a native
     * that only another entry's project implements reads here and fails in the
     * judge, and two entries that implement one native make
-    * `NativesProvider.loaded` throw here. No `contest-natives-*` project exists
+    * `NativesProvider.loaded` throw here. No `gezi-contest-natives-*` project exists
     * on 2026-11-21; candidates: read each entry with the natives of its own
     * project only, or run the check in a JVM per entry on the entry's own
     * classpath, as the judge does.
@@ -181,7 +186,10 @@ object EntryProjects extends AutoPlugin {
       s"sbt handed derivedProjects the root project ${root.id} with a relative base $buildRoot; the entries would be listed under the JVM's working directory"
     )
     val moduleProjects = modules(buildRoot).map(module =>
-      Project(moduleProjectName(module), buildRoot / moduleProjectName(module))
+      Project(
+        moduleProjectName(module),
+        buildRoot / s"$moduleDirectoryPrefix$module"
+      )
         .dependsOn((LocalProject("contest-entry") +: publicProjects)*)
     )
     val moduleDependencies: Seq[ClasspathDep[ProjectReference]] =
@@ -191,7 +199,7 @@ object EntryProjects extends AutoPlugin {
     val nativesProjectsMade = nativesProjects(buildRoot).map(player =>
       Project(
         nativesProjectName(player),
-        buildRoot / nativesProjectName(player)
+        buildRoot / s"$nativesDirectoryPrefix$player"
       ).dependsOn(LocalProject("jit"))
     )
     val entryProjects = players(buildRoot).map { player =>
@@ -206,12 +214,12 @@ object EntryProjects extends AutoPlugin {
             LocalProject("contest-entry-generic")
           ) ++ moduleDependencies
         else LocalProject("contest-entry") +: moduleDependencies
-      Project(projectName(player), buildRoot / projectName(player))
+      Project(projectName(player), buildRoot / s"$entryDirectoryPrefix$player")
         .dependsOn((entry ++ publicProjects ++ ownNatives)*)
     }
     val inTreeEntriesProject = Project(
       inTreeEntriesProjectName,
-      buildRoot / inTreeEntriesProjectName
+      buildRoot / "gezi-contest-in-tree-entries"
     )
       .dependsOn(
         (entryProjects.map(project =>
@@ -235,7 +243,7 @@ object EntryProjects extends AutoPlugin {
         )
       )
     val aggregateProject =
-      Project(aggregateProjectName, buildRoot / aggregateProjectName)
+      Project(aggregateProjectName, buildRoot / "gezi-contest-entries")
         .aggregate(
           (entryProjects ++ moduleProjects :+ inTreeEntriesProject).map(
             project => LocalProject(project.id): ProjectReference

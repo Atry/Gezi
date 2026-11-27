@@ -3,6 +3,6 @@
 # same graph with the edge taken out after which the target is not
 # reachable from the start. Each has two fields, the shape (a constructor of
 # schema/graph_shape) and the size (a decimal text). Read by its position
-# (gezi.contest.corpora.reductions.ReachableSet, pointGraph, into
+# (com.yang_bo.gezi.contest.corpora.reductions.ReachableSet, pointGraph, into
 # ReachableSet.PointGraph).
 λ export. export (λshape size whole cut. whole shape size) λshape size whole cut. cut shape size

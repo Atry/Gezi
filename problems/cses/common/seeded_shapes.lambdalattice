@@ -4,7 +4,7 @@
 # generators of ../common/seeded_input, whose group is closed, and drawing from
 # the same stream of states in the same order as the generator each is built
 # on, so that the native reference solutions generate the same inputs
-# (gezi.contest.corpora.reductions.SeededInput and its mirrors).
+# (com.yang_bo.gezi.contest.corpora.reductions.SeededInput and its mirrors).
 #
 # seeded_ranges seed count low high: the pairs of seeded_pairs seed count low
 #   high, each pair x y given as pair (min x y) (max x y), so that

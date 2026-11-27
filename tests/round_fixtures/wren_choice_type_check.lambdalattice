@@ -1,5 +1,5 @@
 # The round wren_choice_type_check the strategies' tests saturate with
-# (gezi.strategies.StrategyTesting.round): the type-check round of
+# (com.yang_bo.gezi.strategies.StrategyTesting.round): the type-check round of
 # corpora/compiler/wren_choice_preset.lambdalattice, the second field of its
 # tuple (ChoiceTypingTest).
 λ export

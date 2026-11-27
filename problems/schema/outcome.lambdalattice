@@ -1,5 +1,5 @@
 # The outcome of an intended answer (answers/intended,
 # hard_answers/hard_intended): a Scott sum of two constructors, in order:
 # head, the program has a weak head, and failed, it has none. Read by its
-# position (gezi.contest.corpora.claims.IntendedOutcome).
+# position (com.yang_bo.gezi.contest.corpora.claims.IntendedOutcome).
 λ export. export (λhead failed. head) λhead failed. failed

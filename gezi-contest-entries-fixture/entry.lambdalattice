@@ -1,0 +1,193 @@
+# The framework's own test entry, written as data for the framework's generic
+# entry (com.yang_bo.gezi.contest.entry.generic.GenericEntryProvider). The judge's
+# tests (contest-judge) and the benchmarks of jmh-pipeline
+# (CompiledRunBenchmark) read it, so that a framework test does not break
+# when a player changes an entry. It is never a competitor: no contest round
+# reads it. It replaces the deleted baseline entry
+# (https://github.com/Atry/private-overlay/issues/1642), whose knowledge and
+# three rounds it keeps.
+#
+# Its knowledge is the native route's that the strategies' and the JIT's
+# tests saturate with (the rounds of tests/round_fixtures), small and stable:
+# the Prolog backend's preset, its backend and the native typing of the types
+# it represents, with the knowledge files of the two other rounds. The rounds,
+# in order: closure_application, the type check of the Prolog backend's
+# preset (its member prolog_backend_type_check), and occurrence_erasure. The
+# files are imported from corpora/compiler, as tests/round_fixtures imports
+# them, and not through tests/round_fixtures: the judge's sandbox binds
+# corpora and the entry's directory only, so an entry run by the judge reads
+# nothing under tests.
+#
+# Each round enables every built-in rule (`rules`), closes no closure
+# (`opening` false), and its leaves are those of every knowledge file of the
+# entry (a contribution to the slot leaves that reads every file's leaves). The JIT's options are solo's: fallback dispatch,
+# the closure backend, the instance table with trial 1024 and a young
+# generation of 2^19, and the rest of solo's options; each round's
+# implementations are solo's too. The executor that reads the programs is
+# the framework's JIT (the executor jit of
+# corpora/compiler/entry_options/executor).
+#
+# The file is read by projection off the tree whose visible subtree is
+# Gezi's directory (StandardLibrary.entryTerm), in the scope of
+# gezi.
+# FIXME: the imports project "corpora" off the variable gezi, the name https://github.com/Atry/private-overlay/issues/1924
+# of the project root's own directory; they break if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "rules")
+λ beta _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "indexer")
+λ standard
+. omega
+  (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "orientation_compiler")
+λ standard_orientations
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "saturator")
+λ higher_order
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "extractor")
+λ narrow_block _ _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "lemma_encoding")
+λ baseline
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "ematching")
+λ closures _ _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "memo_retention")
+λ memo_kept _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "write_back_spellings")
+λ kept_within_a_pass _ _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "opening_criterion")
+λ calls_a_head _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "checkpoints")
+λ profitable _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "lookahead")
+λ lazily _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "instance_reuse")
+λ within_version _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "native_blocks")
+λ no_native_blocks
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "application")
+λ by_layer _ _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "continuation")
+λ substituted_continuations _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "parallel")
+λ both_sides _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "table_sharing")
+λ local_tables _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "table_retention")
+λ _ no_tables_kept _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "instance_retention")
+λ generations _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "dispatch")
+λ fallback
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "implementation")
+λ closure
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "granularity")
+λ predicate_per_code
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "executor")
+λ framework_jit _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "compilation_place")
+λ upfront_compilation _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "unit_selection")
+λ whole_program _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "occurrence_tagging")
+λ untagged _
+. omega (omega (omega (omega (omega gezi "corpora") "compiler") "entry_options") "group_blocks")
+λ no_group_blocks _
+. omega (omega (omega (omega gezi "corpora") "library") "top")
+λ top
+. omega (omega (omega (omega (omega gezi "corpora") "library") "integer") "cbor")
+λ integer_from_cbor _
+. (λtuple. tuple λ. integer_from_cbor λx. x)
+λ integer_literal
+. omega (omega (omega (omega gezi "corpora") "compiler") "prolog_backend_preset")
+λ prolog_backend_preset _
+. omega (omega (omega (omega gezi "corpora") "compiler") "prolog_backend_preset")
+λ _ prolog_backend_type_check
+. omega (omega (omega (omega gezi "corpora") "compiler") "closure_application")
+λ closure_application
+. omega (omega (omega (omega gezi "corpora") "compiler") "occurrence_erasure")
+λ occurrence_erasure
+. export
+λ
+. ( λ every
+    . ( λ round s
+        . s
+          ( λ
+            . cons (round (λt f. f) closure_application)
+            λ
+            . cons (round (λt f. f) prolog_backend_type_check)
+            λ
+            . cons (round (λt f. f) occurrence_erasure) nil
+          )
+        λ s
+        . s every
+        λ jit instances reading execution
+        . ( λ
+            . jit
+            λ dispatch implementation granularity native_blocks budget trial
+            . ( dispatch fallback
+              + implementation closure
+              + granularity predicate_per_code
+              + native_blocks no_native_blocks
+              + budget λ. integer_literal 10000
+              + trial λ. integer_literal 1024
+              )
+          + λ
+            . instances
+            λ instance_table instance_retention checkpoints lookahead instance_reuse
+            . ( instance_table λt f. t
+              + instance_retention λ. generations λ. integer_literal 524288
+              + checkpoints profitable
+              + lookahead lazily
+              + instance_reuse within_version
+              )
+          + λ
+            . reading
+            λ application table_sharing table_retention continuation parallel
+            . ( application by_layer
+              + table_sharing local_tables
+              + table_retention no_tables_kept
+              + continuation substituted_continuations
+              + parallel both_sides
+              )
+          + λ
+            . execution
+            λ executor compilation_place occurrence_tagging group_blocks
+            . ( executor framework_jit
+              + compilation_place (upfront_compilation whole_program)
+              + occurrence_tagging untagged
+              + group_blocks no_group_blocks
+              )
+          )
+      )
+    λ opening knowledge s
+    . s
+      ( λ_ rewriting _ _. rewriting λ_ _ leaves. leaves λ. every every (λr. r r top λl. l) top top
+      + knowledge
+      )
+    λ implementations behaviour
+    . ( λ
+        . implementations
+        λ indexer orientation_compiler saturator extractor lemma_encoding ematching
+        . ( indexer standard
+          + orientation_compiler standard_orientations
+          + saturator higher_order
+          + extractor λ. narrow_block (integer_literal 256) λ. integer_literal 1
+          + lemma_encoding baseline
+          + ematching closures
+          )
+      + λ
+        . behaviour
+        λ opened rules respellings write_back_spellings opening_criterion constant_storage_stop
+        . ( opened opening
+          + rules beta
+          + respellings memo_kept
+          + write_back_spellings kept_within_a_pass
+          + opening_criterion calls_a_head
+          + constant_storage_stop λt f. f
+          )
+      )
+  )
+  ( occurrence_erasure + closure_application + prolog_backend_preset
+  )

@@ -1,6 +1,6 @@
 # The search of a point of ladder_point: a Scott sum of two constructors,
 # in order: depth_first, the attractor's depth-first search, and
 # leaves_only, the near miss that tests the goal at leaves only. Read by
-# its position (gezi.contest.corpora.reductions.SetFreeSearch, search,
+# its position (com.yang_bo.gezi.contest.corpora.reductions.SetFreeSearch, search,
 # into SetFreeSearch.Search).
 λ export. export (λdepth_first leaves_only. depth_first) λdepth_first leaves_only. leaves_only

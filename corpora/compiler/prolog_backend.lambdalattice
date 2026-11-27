@@ -7,15 +7,15 @@
 # The naturals of native_types are the Prolog backend's integers, and its booleans are the
 # Prolog backend's atoms true and false: nat_type's and boolean_type's members are
 # represented natively (the vocabulary entry native_specialization; the codecs
-# gezi.weakhead.BigIntegerCodec and gezi.weakhead.BooleanCodec), and the
+# com.yang_bo.gezi.weakhead.BigIntegerCodec and com.yang_bo.gezi.weakhead.BooleanCodec), and the
 # constructors each codec decodes into and encodes from are the terms each type's
 # data_family lists, a constructor being its type's representation and its position in
 # that list, never a name: a type and a constructor are identified by the interned value
 # of their definition. A filter `x ∥ nat_type` or
 # `x ∥ boolean_type` in a term is then a decode point of the JIT. The declarations are
-# trusted, as the natives are, and vouched for by the comparison of gezi.jit.JitNativesTest
+# trusted, as the natives are, and vouched for by the comparison of com.yang_bo.gezi.jit.JitNativesTest
 # (specializationVouched). The lists are Prolog lists: list_type e's members are
-# represented natively in the representation list(e) (gezi.weakhead.ListCodec), and a
+# represented natively in the representation list(e) (com.yang_bo.gezi.weakhead.ListCodec), and a
 # filter `x ∥ list_type e` is a decode point, so that a cooperative problem uses the native
 # representations everywhere.
 λ export

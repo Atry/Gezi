@@ -3,7 +3,7 @@
 # and multiply (their two operands), variable (its de Bruijn index, a
 # decimal text), let (the bound expression and the body) and amb (its two
 # operands, both values). Read by its position
-# (gezi.contest.corpora.reductions.ReductionInterpreter, expressionOf,
+# (com.yang_bo.gezi.contest.corpora.reductions.ReductionInterpreter, expressionOf,
 # into Expression, whose cases are in this order).
 λ export
 . export

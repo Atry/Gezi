@@ -31,7 +31,7 @@ sides, ≃_O gives the same consistent normal forms in every closed context
 - `endToEndRead`, the corollary for exported sides that read as terms of the calculus (the reading
   ⟦·⟧ of D10, `Interpretation.read`): the two readings are contextually equivalent.
 
-The import set of an article written by `gezi.proofs.OpentheoryArticle` has five kinds of
+The import set of an article written by `com.yang_bo.gezi.proofs.OpentheoryArticle` has five kinds of
 equations; `importChecked` recognises those of the first four kinds and takes those of the fifth
 from a list of statements the caller proves sound:
 
@@ -753,7 +753,7 @@ def etaChecked (signature : Signature) (left right : Article.Term) : Bool :=
   | _ => false
 
 /-- Whether `left = right` is the writer's equation of a thunk constant and its spelling by the
-front end (`gezi.rewritetrace.Statements.respell`), with any terms as the fillings:
+front end (`com.yang_bo.gezi.rewritetrace.Statements.respell`), with any terms as the fillings:
 `c f₀ … fₙ₋₁ = c′ g₀ … gₘ₋₁`, each `gⱼ` the instance of a code `Dⱼ` over the fillings
 (`codeInstanceListMatches`, the codes found by `instanceCode`), where the thunk of `c` and the thunk
 of `c′` over the interpretations of the codes `D` are one term under the bound variables of `n`
@@ -773,7 +773,7 @@ def respellChecked (signature : Signature) (left right : Article.Term) : Bool :=
   | _, _ => false
 
 /-- Whether `left = right` is the writer's equation of a union the e-graph made by β conversion
-(`gezi.egraph.Justification.BetaConversion`):
+(`com.yang_bo.gezi.egraph.Justification.BetaConversion`):
 both sides read as terms of the calculus (`read`, so neither has a variable), and the left reading
 reduces to the right by β steps within the fuel the size of the readings gives
 by iterative deepening (`Semantics.betaReducesDeepening`, `Semantics.conversionFuel`). -/

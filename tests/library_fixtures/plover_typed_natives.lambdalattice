@@ -1,5 +1,5 @@
 # The knowledge TypedNativesLawTest compiles its library from
-# (gezi.standardlibrary.StandardLibrary.compiledAt): the backends of the unary
+# (com.yang_bo.gezi.standardlibrary.StandardLibrary.compiledAt): the backends of the unary
 # and the binary naturals and the two modules of typed branches over the
 # standard set's natives, their choice the one field of this file's tuple. The
 # modules that bind the same natives to the bare defines are left out, so that

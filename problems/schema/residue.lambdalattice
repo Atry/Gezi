@@ -1,7 +1,7 @@
 # A residue modulo 3 of a periodic proposition (the type proposition): a
 # Scott sum of three constructors, in order: residue_zero, residue_one and
 # residue_two. Read by its position; the host names the mixin slot of each
-# (gezi.contest.corpora.reductions.ReductionMixinTheorems).
+# (com.yang_bo.gezi.contest.corpora.reductions.ReductionMixinTheorems).
 λ export
 . export
   (λresidue_zero residue_one residue_two. residue_zero)

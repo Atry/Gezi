@@ -1,4 +1,4 @@
-# The published list of the criteria of a constructor's field (gezi.standardlibrary.FieldCriterion): parameter, the
+# The published list of the criteria of a constructor's field (com.yang_bo.gezi.standardlibrary.FieldCriterion): parameter, the
 # criterion's parameter of its one field, an integer; recursive, the family itself, of no field; closed, the closed
 # criterion of its one field, the list of the head term and its arguments.
 # A Scott sum whose constructors are the tuple's fields, in the order of the enum's cases, read by position. A

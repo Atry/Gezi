@@ -1,6 +1,6 @@
 # The order of the branches of a tree of empty_set_reachability/graph: a
 # Scott sum of two constructors, in order: zero_first, the branch of bit 0
 # before the branch of bit 1, and one_first, the reverse. Read by its
-# position (gezi.contest.corpora.reductions.EmptySetReachability,
+# position (com.yang_bo.gezi.contest.corpora.reductions.EmptySetReachability,
 # treeOrder, into TreeOrder).
 λ export. export (λzero_first one_first. zero_first) λzero_first one_first. one_first

@@ -15,7 +15,7 @@
 //   - the type `CodeLayer` written without arguments to `CodeLayer[Code]`;
 //   - `Layer[?]` to `Layer[Any]`, since a type lambda's alias takes no
 //     wildcard argument;
-//   - outside the package `gezi.ir`, adds one import of the classes the
+//   - outside the package `com.yang_bo.gezi.ir`, adds one import of the classes the
 //     file now names, and of `Code` where `CodeLayer[Code]` was written into
 //     a file that does not import it; a file with a wildcard import instead
 //     names them `ir.Apply` and imports the package, so that no wildcard
@@ -65,7 +65,7 @@ class InternedConstructors extends SyntacticRule("InternedConstructors") {
   }
 
   override def fix(implicit document: SyntacticDocument): Patch = {
-    val inside = insidePackage(document.tree, "gezi.ir")
+    val inside = insidePackage(document.tree, "com.yang_bo.gezi.ir")
     // A wildcard import (`import DeBruijnTerm.*`) may bring another `Apply`
     // into scope, which an explicit import of the class would make ambiguous:
     // such a file names the classes through the package, `ir.Apply`.
@@ -74,7 +74,7 @@ class InternedConstructors extends SyntacticRule("InternedConstructors") {
     val classNames = renamed.values.flatMap(_.values).toSet
     val qualified = !inside && (document.tree
       .collect {
-        case Importer(reference, importees) if reference.syntax != "gezi.ir" =>
+        case Importer(reference, importees) if reference.syntax != "com.yang_bo.gezi.ir" =>
           importees.exists(_.isInstanceOf[Importee.Wildcard])
       }
       .contains(true) || document.tree.collect {
@@ -90,7 +90,7 @@ class InternedConstructors extends SyntacticRule("InternedConstructors") {
     }.nonEmpty)
     val alreadyImported: Set[String] = document.tree
       .collect {
-        case Importer(reference, importees) if reference.syntax == "gezi.ir" =>
+        case Importer(reference, importees) if reference.syntax == "com.yang_bo.gezi.ir" =>
           importees.collect { case Importee.Name(Name(name)) => name }
       }
       .flatten
@@ -112,7 +112,7 @@ class InternedConstructors extends SyntacticRule("InternedConstructors") {
           if renaming(qualifier, name).isDefined =>
         val target = renaming(qualifier, name).get
         (Patch.replaceTree(selected, spelled(target)), Some(target))
-      // Not inside the package gezi.ir, whose CodeLayer is the new
+      // Not inside the package com.yang_bo.gezi.ir, whose CodeLayer is the new
       // alias, defined and used there unapplied (`Interned[CodeLayer]`), so
       // that the rule can run again on a tree it has run on.
       case named @ Type.Name("CodeLayer") if !inside && !named.parent.exists {

@@ -1,8 +1,8 @@
 # The library terms the repeated problem families of contest-corpora build
-# their programs from (gezi.contest.corpora.reductions.StandardLibraryTerms),
+# their programs from (com.yang_bo.gezi.contest.corpora.reductions.StandardLibraryTerms),
 # each imported from its own file of corpora/library and exported at its
 # position of the file's Scott tuple, whose names the host keeps in
-# gezi.standardlibrary.TermTables.problemLibraryTerms. Only the problem
+# com.yang_bo.gezi.standardlibrary.TermTables.problemLibraryTerms. Only the problem
 # generators read these terms, to build problems; no framework code reads them.
 # FIXME: the imports project "corpora" off the variable gezi, the name https://github.com/Atry/private-overlay/issues/1923
 # of the project root's own directory; they break if that directory is renamed.

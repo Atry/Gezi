@@ -1,5 +1,5 @@
 # The knowledge LoadingTest compiles from the opacity fixture tree
-# (gezi.standardlibrary.LibraryFiles.compiled): opacity_terms with
+# (com.yang_bo.gezi.standardlibrary.LibraryFiles.compiled): opacity_terms with
 # opacity_noinline, their choice the one field of this file's tuple, a term of
 # this file and not a choice the host assembles from paths.
 # FIXME: the imports project "tests" off the variable gezi, the name https://github.com/Atry/private-overlay/issues/1924

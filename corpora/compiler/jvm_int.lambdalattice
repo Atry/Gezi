@@ -1,12 +1,12 @@
 # The 32-bit words' backend facts as the JVM's int and their conversion lemma, a knowledge
 # module an entry imports beside fixed_width_prolog_backend when it holds 32-bit words as
-# ints. jvm_int_type is represented natively in the codec jvm_int (gezi.jit.JvmIntFamily),
-# whose storage is one int (gezi.jit.IntStorage); its one constructor is word_type's
+# ints. jvm_int_type is represented natively in the codec jvm_int (com.yang_bo.gezi.jit.JvmIntFamily),
+# whose storage is one int (com.yang_bo.gezi.jit.IntStorage); its one constructor is word_type's
 # word_cell, of the fields a boolean and the word of 31 bits above it, so a stored int reads
 # as word_cell (b ∥ boolean_type) (w ∥ word_type 31) ∥ jvm_int_type. The codec registers no
 # native of that constructor: word_cell in the head position is word's, which builds the
 # 32-bit word. The thin defines of int32_arithmetic and int32_comparison are bound to the
-# natives of gezi.jit.JvmIntNatives, which compute them on operands held as ints: the JVM's
+# natives of com.yang_bo.gezi.jit.JvmIntNatives, which compute them on operands held as ints: the JVM's
 # int arithmetic, wrapping modulo 2^32, is word_add, word_subtract, word_multiply and
 # word_negate at the width 32, and word_less_than compares two's complement words; a native
 # fires only on operands already in the representation, and its result r ∥ jvm_int_type is r

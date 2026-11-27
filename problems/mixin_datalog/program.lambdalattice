@@ -2,7 +2,7 @@
 # constructors, in order: composition, three_way, intersection,
 # constant_join, then closure and symmetric, whose one field is the shape
 # of their edges (a constructor of mixin_datalog/shape). Read by its
-# position (gezi.contest.corpora.merges.MixinDatalog, ProgramKind).
+# position (com.yang_bo.gezi.contest.corpora.merges.MixinDatalog, ProgramKind).
 λ export
 . export
   (λcomposition three_way intersection constant_join closure symmetric. composition)

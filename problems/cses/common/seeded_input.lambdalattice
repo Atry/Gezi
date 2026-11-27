@@ -16,7 +16,7 @@
 # low <= high, is low + s_k mod (high - low + 1). Each generator below names
 # its draws in the order they consume the stream. The native reference
 # solutions generate the same inputs
-# (gezi.contest.corpora.reductions.CsesSolutions.seededNumbers and its
+# (com.yang_bo.gezi.contest.corpora.reductions.CsesSolutions.seededNumbers and its
 # mirrors).
 #
 # next_state state: the Lehmer generator of Park and Miller's "minimal standard"

@@ -2,7 +2,7 @@
 # certificate_cycles and easy_terms): a Scott sum of two constructors, in
 # order: proved, whose one field is the argument's name, and conjecture,
 # whose one field is the conjecture's class. Read by its position
-# (gezi.contest.corpora.claims.Proof).
+# (com.yang_bo.gezi.contest.corpora.claims.Proof).
 λ export
 . export
   (λargument proved conjecture. proved argument) λclass proved conjecture. conjecture class

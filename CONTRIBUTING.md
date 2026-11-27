@@ -46,10 +46,10 @@ FFI states for them). An exception to what follows is recorded where it stands, 
 
 The main line every run takes. Whoever moves it updates this section in the same commit.
 
-- An entry (`gezi.contest.entry.Entry`, built by `EntryProvider.initial`) is one configured approximation. The judge
+- An entry (`com.yang_bo.gezi.contest.entry.Entry`, built by `EntryProvider.initial`) is one configured approximation. The judge
   (`contest-judge`, through `contest-runner` in the entry's JVM) and the Jupyter kernel (`jupyter-kernel`) are
   adapters: each hands an entry its cells (`Entry.run(cell, source, stop)`) and decides nothing about how they are
-  evaluated. The source (`gezi.hotspot.ExpansionSource`) is the version of the files the cell's URI nodes expand to,
+  evaluated. The source (`com.yang_bo.gezi.hotspot.ExpansionSource`) is the version of the files the cell's URI nodes expand to,
   which only the adapter knows: the judge gives one for its run, the kernel one for each cell, and nothing an executor
   kept under one source answers under another.
 - An entry's configuration is its data, `entry.lambdalattice`, read by the same interpreter (`EntryData`): its lemma
@@ -62,17 +62,17 @@ The main line every run takes. Whoever moves it updates this section in the same
   reads no string key, except for the exception in "lambdalattice coding conventions" below, a native's implementation
   name and a representation's codec name. `Defaults` is the one place the framework chooses the default implementation
   of each replaceable interface.
-- Executors share `gezi.hotspot.Executor`, whose calls take and return `gezi.hotspot.ExecutionDependencies`, the cache
+- Executors share `com.yang_bo.gezi.hotspot.Executor`, whose calls take and return `com.yang_bo.gezi.hotspot.ExecutionDependencies`, the cache
   service and the expansion source an execution runs against. `ReadingExecutor(mode, jitState)` runs the tabled weak head or the JIT
   (`Mode.Jit`). An entry's data chooses the executor that reads its programs by its `executor`
   (`ExecutorOption`, `Defaults.executor`): `jit`, the framework's, or `module selector parameters`, the executor of a
   module registered with `java.util.ServiceLoader` (`ExecutorModule`), found by the interned instruction of its
   selector, the term its selector file gives, never by a name (`ExecutorModules`). A round's `extractor` opens its list
   the same way: `module selector parameters` is the extraction of a module registered with `java.util.ServiceLoader`
-  (`ExtractorModule`), together with the narrow blocks' route it pairs with, `gezi.narrowblocks.LemmaRoute` for a
+  (`ExtractorModule`), together with the narrow blocks' route it pairs with, `com.yang_bo.gezi.narrowblocks.LemmaRoute` for a
   module that changes only the extraction, both built from its parameters and `ExtractorModuleInputs` and found by its
   selector's interned instruction (`ExtractorModules`, `Defaults.route`, `Defaults.extractor`). A module of either kind
-  lives in a project `contest-modules-<name>` that depends on contest-entry and registers itself in its own
+  lives in a project `gezi-contest-modules-<name>` that depends on contest-entry and registers itself in its own
   `META-INF/services`; every entry's project depends on every module's, and the suites that read the in-tree entries
   (`InTreeEntriesTest`, `CancelGraceLawTest`, `CompilationPlaceLawTest`) are in the test-only project
   `contest-in-tree-entries`, which depends on every entry's, since the framework's `contest-entry-generic` sees no
@@ -81,14 +81,14 @@ The main line every run takes. Whoever moves it updates this section in the same
   `compilation_place` (`CompilationPlaceOption`, `Defaults.compilationPlace`) says: `upfront`, the generic entry runs
   them (`ProgramCompiler.compiledProgram`) before the executor reads the program; `by_executor`, the generic entry runs
   none and hands the executor the program uncompiled, the entry's prepared compilation
-  (`gezi.narrowblocks.ProgramCompilation`, built once at the entry's setup whatever the option says) a field of
+  (`com.yang_bo.gezi.narrowblocks.ProgramCompilation`, built once at the entry's setup whatever the option says) a field of
   `ExecutorModuleInputs`, so that a module may interpret within a small budget and compile only what does not finish,
-  as the tiered module `contest-modules-solo-tiering` does; the framework's executor reads the uncompiled program as it
+  as the tiered module `gezi-contest-modules-solo-tiering` does; the framework's executor reads the uncompiled program as it
   is. Under `by_executor` no round's reports, article or trace are written (a FIXME in `GenericEntry.answered`).
   Before the rounds, the generic entry tags the program as occurrences as its data's `occurrence_tagging` says
   (`OccurrenceTaggingOption`, `Defaults.occurrencesTagged`): `untagged`, the program as the cell gives it, or
   `names_and_closures`, its lambda chains and shared parts marked with the library's occurrence markers
-  (`gezi.frontend.ProgramOccurrences`), so that a library whose lemmas type each occurrence on its own, the HM
+  (`com.yang_bo.gezi.frontend.ProgramOccurrences`), so that a library whose lemmas type each occurrence on its own, the HM
   baseline's, has occurrences to start from on a point whose library terms are inlined.
 - The tabled weak head applies a function to a continuation as its `ReadingState.continuations` says
   (`ContinuationReading`): `Substituted`, the β rule as it is, the reference reading's; or `Packed`, a head that uses
@@ -109,7 +109,7 @@ The main line every run takes. Whoever moves it updates this section in the same
 - What an executor keeps between calls is in the executor it returns: the JIT's `JitState`, whose instance table the
   entry's `JitOptions` configure, and the readings' tables as its `TableRetention` says, chosen by the entry's data's
   `table_retention` (none kept, all kept, or all until a share of the table limit). What executors share is
-  `gezi.hotspot.Cache`, whose `CacheProvider` an adapter builds (`Defaults.caches`) and sends `LifecycleEvent`s. A
+  `com.yang_bo.gezi.hotspot.Cache`, whose `CacheProvider` an adapter builds (`Defaults.caches`) and sends `LifecycleEvent`s. A
   reading keeps its complete tables there, the tabled weak head's and the JIT instance table's, and the JIT its
   compiled codes, when its `ReadingState.sharing` says so (`TableSharing`): the tables in progress stay in the state,
   the namespace declares the references' strength (`Retention`), and the adapter's lifecycle events clear it. The JIT's
@@ -117,16 +117,16 @@ The main line every run takes. Whoever moves it updates this section in the same
   corpora read so (`ProblemFamilies`); an entry chooses it by its data's `table_sharing`, which `Defaults.executor`
   passes to its `ReadingExecutor`.
 - The default semantics of the Vision is the entry this section names, the best approximation so far by the scored
-  benchmark: `contest-entries-plover`, which selects the narrow list block and whose knowledge recognises dynamic
+  benchmark: `gezi-contest-entries-plover`, which selects the narrow list block and whose knowledge recognises dynamic
   programs written by their definition (counting dice sums and coin combinations, removing digits, modular
   exponentiation) and replaces them through lemmas by native algorithms. Naming it runs nothing: the kernel and the judge run the entry they are given, and there is no
   default entry; every preset is opt-in.
 - An FFI program is a closed term, a Moore machine state (section "Terms"), and how it runs is the configured entry's,
   so that a type once recognised costs no encoding and the call can compile with the Gezi code around it. The Jupyter
-  kernel only injects the JVM service (`gezi.hotspot.ForeignService`, in the execution's dependencies, as the cache
-  service is) and calls `Entry.interacted`. An entry's data selects the executor module `contest-modules-moore`, which
+  kernel only injects the JVM service (`com.yang_bo.gezi.hotspot.ForeignService`, in the execution's dependencies, as the cache
+  service is) and calls `Entry.interacted`. An entry's data selects the executor module `gezi-contest-modules-moore`, which
   reads `x ∥ moore_state_type` at the JIT's decode point with no normal form, calls the service, and applies each
-  reply, a native value (a bit tuple is a JVM value, `gezi.jit.JvmBits`), to the transition it kept unread; an executor
+  reply, a native value (a bit tuple is a JVM value, `com.yang_bo.gezi.jit.JvmBits`), to the transition it kept unread; an executor
   that runs no FFI program has no answer for one. A choice is read as lanes: the states of a round are read together
   and their calls go to the service in one batch, and choices in different argument positions multiply.
   The kernel reads no term by an evaluator of its own, its value members shown by the entry as well.
@@ -202,7 +202,7 @@ The main line every run takes. Whoever moves it updates this section in the same
 - **Interface.** The standard library meets the host (Scala) only through `lemma`, `native` and `combinator_property`
   over library files reached by paths. There is no `define`. Type information lives only in the term, as assertion
   combinators; the host holds no type and no rule.
-- **Text.** The grammar is the Scaladoc of `gezi-frontend/shared/src/main/scala/gezi/frontend/Lambdalattice.scala`: no `=`, not
+- **Text.** The grammar is the Scaladoc of `gezi-frontend/shared/src/main/scala/com/yang_bo/gezi/frontend/Lambdalattice.scala`: no `=`, not
   even in pseudo-code, no free name, and `null` is a keyword only inside a literal. Read real files
   (`corpora/library/prelude/`) and the layout rules below before writing lambdalattice text, and write none you have
   not checked against the reader; `README.md`, "Getting started", says how.
@@ -231,7 +231,7 @@ The main line every run takes. Whoever moves it updates this section in the same
 - Free variables are rejected: the front end treats a free name as an error by default (`FreeNames.Rejected`), and
   allows one only where a call names `FreeNames.Allowed`. A name is bound by the context its text is read in: a file of
   a directory tree is never read alone, and a text read with no context is a closed term. The neutral value a reader
-  puts in place of a binder it opens (`gezi.weakhead.Value.Neutral`) is a free variable too, used only where its
+  puts in place of a binder it opens (`com.yang_bo.gezi.weakhead.Value.Neutral`) is a free variable too, used only where its
   declaration argues the exception.
 
 ### Ordinary programs compile as a native typed compiler compiles them
@@ -356,7 +356,7 @@ direct call instead of a function value called from many sites. A memoized funct
 showing it, and unfriendly to the JVM's inliner. The cache service follows Rust's lock: a caller first acquires the
 table's lock, a thread-unsafe guard, and then calls `getOrElseUpdate(key, value)` on the guard as often as it likes; no
 signature takes the computation as a function to memoize. The custom wart `NoThreadConfinedCapture` (project `warts`)
-forbids a thread-unsafe value, one of a type extending `gezi.hotspot.ThreadConfined`, inside any closure (a lambda, a
+forbids a thread-unsafe value, one of a type extending `com.yang_bo.gezi.hotspot.ThreadConfined`, inside any closure (a lambda, a
 partial application, an eta-expansion, an anonymous class, a by-name argument) that it is not defined in, except an
 argument of an `inline` method, which is inlined at the call.
 
@@ -426,24 +426,24 @@ native representation, a new module starving HM's steps):
   through values.
 - The implementations of the JVM and of the libraries are not under the rule; only the code of this repository is.
 - WartRemover (`build.sbt`, `wartremoverErrors`) checks the sources of every module, tests included, on every compile;
-  `conventions/src/test/scala/gezi/conventions/WartSuppressionTest.scala` checks that every suppression carries the
+  `gezi-conventions/src/test/scala/com/yang_bo/gezi/conventions/WartSuppressionTest.scala` checks that every suppression carries the
   quoted justification of its exception.
 - JVM bytecode is the JIT's target, generated with `java.lang.classfile`, which any module may use.
 - Exceptions, each at its sites with `@SuppressWarnings` for the wart it breaks and the justification quoted:
   - the classfile builders: `java.lang.classfile` is driven by mutable builders, used only inside the call that turns
     one program into a defined class; nothing it builds is kept but the class or its instance;
   - the JMH protocol: a `@Param` field, which JMH assigns, is a `var`, as in
-    `jmh-pipeline/src/main/scala/gezi/jmh/pipeline/KnowledgeReadingBenchmark.scala`;
+    `gezi-jmh-pipeline/src/main/scala/com/yang_bo/gezi/jmh/pipeline/KnowledgeReadingBenchmark.scala`;
   - the local mutable exceptions of hotspot compilation: a cache provider adapts to a mutable store underneath, and the
     fork and join primitive confines the JDK's virtual thread executor to one call. Each site names its framework and
-    monitor, under the synchronized convention in the Scaladoc of the package `gezi.hotspot`: the map of
+    monitor, under the synchronized convention in the Scaladoc of the package `com.yang_bo.gezi.hotspot`: the map of
     `hotspot-baselines`' `ConcurrentMapCacheProvider` and the executor of `hotspot`'s `Forks`;
   - arrays exchanged with an external library: where a library's interface takes an `Array` the code must make, such as
     the `Array[Byte]` of borer's `Dom.ByteArrayElem`, the array is made at that site and passed to the library, and the
     code's own data stays `IArray` (`frontend`'s `DiagnosticNotation.hexadecimalBytes`);
   - the executor of `FailFastSuite` (section "Tests fail fast").
 - Exception without a wart, since it is generated bytecode and no Scala source: the kernels of the JVM array group
-  backend (`gezi.narrowblocks.groups.JvmArrayKernels`) allocate an `int[]` or a `long[]` and write it in a counting
+  backend (`com.yang_bo.gezi.narrowblocks.groups.JvmArrayKernels`) allocate an `int[]` or a `long[]` and write it in a counting
   loop, the most efficient structure and one HotSpot's C2 vectorizes: cell by cell, by increments at the cells its
   input names (a histogram), or by `java.util.Arrays.sort` in place on its own copy of the input. A kernel writes only
   the array it allocated, before it returns it; the Scala code holds the result as an `IArray` and never writes it.
@@ -470,7 +470,7 @@ native representation, a new module starving HM's steps):
 | `migration` | `frontend`, `directory-sugar`, `knowledge-reading`, `provenance`, `saturation`, `ematching-indexing`, `ematching-closures` | migrations of lambdalattice texts checked by reading them again: parentheses removed on the reader's spans, a lemma's instances rewritten where the e-graph's matching finds them and the formatter of a tree's files read in their scope, the conversion of a file's export to its first binder `export`; outside the framework |
 | `locations` | `ir` | source locations for people and tools, never for a choice: spans, locations, the source map of an occurrence |
 | `conventions` | nothing (tests only) | the checks of this file's rules |
-| `generatedinputs` | nothing (test support) | properties checked by Hedgehog in munit suites, seeded samples and snapshots, state machine tests; a module's own generators are in its test sources, package `gezi.generatedinputs` |
+| `generatedinputs` | nothing (test support) | properties checked by Hedgehog in munit suites, seeded samples and snapshots, state machine tests; a module's own generators are in its test sources, package `com.yang_bo.gezi.generatedinputs` |
 
 A backend is one more module that depends on `ematching` alone and is named in `backendcomparison`'s `Backends`; adding
 one changes no other module. The backends the interface is designed for are interpretation, closure compilation, TASTy
@@ -720,7 +720,7 @@ gezi/
 ├── build.sbt                  the projects and their dependencies
 ├── project/                   sbt plugins and the sbt version
 ├── CONTRIBUTING.md            this guide
-├── backendcomparison/         the backends by name, a run compiled, the form of a fixed point
+├── gezi-backendcomparison/         the backends by name, a run compiled, the form of a fixed point
 ├── gezi-orientation/          lemma sides compiled into orientations
 ├── gezi-ematching-indexing/   orientations compiled into a program (the inverted index)
 ├── gezi-ematching/            the backend interface: programs as first-order data
@@ -731,8 +731,8 @@ gezi/
 ├── gezi-egraph/               the persistent e-graph
 ├── gezi-extraction/           the greedy extraction of best terms by a cost model
 ├── gezi-ir/                   instructions, codes, layers, patterns: the IR's vocabulary
-├── generatedinputs/           generated test inputs: properties, snapshots, state machines
-└── conventions/               tests that check the rules of this guide over all sources
+├── gezi-generatedinputs/           generated test inputs: properties, snapshots, state machines
+└── gezi-conventions/               tests that check the rules of this guide over all sources
 ```
 
 The list runs from the top of the dependency order to the bottom: a module depends only on modules below it in the list,
@@ -797,7 +797,7 @@ static method per key's seed tree, with the registers in JVM locals, each `Each`
 another, and a static method per building; `GeneratedCodeSupport` makes the Scala values the generated code needs. The
 package documentation states the discipline of the generated code.
 
-`backendcomparison/src/test/.../BackendAgreementTest.scala` checks on generated programs that the three backends give the
+`gezi-backendcomparison/src/test/.../BackendAgreementTest.scala` checks on generated programs that the three backends give the
 same runs and the same matchings.
 
 #### `saturation`: the fixed-point loop
@@ -848,8 +848,8 @@ module can use it:
   snapshots;
 - `StateMachine.scala`: state machine tests, commands generated against a model.
 
-A generator of one module's own data lives in that module's test sources, in the package `gezi.generatedinputs` (for
-example `gezi-ir/shared/src/test/scala/gezi/generatedinputs/StoreGenerators.scala`), because `generatedinputs` cannot depend on the
+A generator of one module's own data lives in that module's test sources, in the package `com.yang_bo.gezi.generatedinputs` (for
+example `gezi-ir/shared/src/test/scala/com/yang_bo/gezi/generatedinputs/StoreGenerators.scala`), because `generatedinputs` cannot depend on the
 modules whose tests depend on it.
 
 #### `conventions`: the rules, checked
@@ -884,9 +884,9 @@ suppression that lacks its quoted justification; the constructs this guide forbi
   not even reported until it returns (scalameta/munit#730).
 - The test suites handle munit's timeout themselves and cancel the body by portable cooperative cancellation, never
   `Thread.interrupt`: on the timeout the suite requests a stop on a signal the body's computations read
-  (`gezi.saturation.StopSignal`), and the CPU-intensive computations check that signal at chosen points. Nothing kills
+  (`com.yang_bo.gezi.saturation.StopSignal`), and the CPU-intensive computations check that signal at chosen points. Nothing kills
   the test process behind munit's back.
-- Every suite extends `gezi.generatedinputs.FailFastSuite` (project `generatedinputs`, which every project with tests
+- Every suite extends `com.yang_bo.gezi.generatedinputs.FailFastSuite` (project `generatedinputs`, which every project with tests
   depends on at test scope), never `munit.FunSuite`; `FailFastSuiteTest` in `conventions` fails otherwise. Its default
   `munitTimeout` is 3 s (measured over 1191 tests with every body running and every deadline raised to 600 s: median
   0.16 s, 90th percentile 3.17 s, 95th 7.5 s, 99th 38 s; its Scaladoc has the distribution). It runs each body on a

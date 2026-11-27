@@ -2,7 +2,7 @@
 # set of backend facts per backend, as fixed_width_prolog_backend.pl is for
 # fixed_width): the canonical binary naturals of binary_set P are
 # represented natively, each as one integer (the family binary_natural,
-# gezi.jit.BinaryNaturalFamily), and the three constructors the codec
+# com.yang_bo.gezi.jit.BinaryNaturalFamily), and the three constructors the codec
 # decodes into and encodes from are binary_set's data_family, binary_zero at
 # 0, binary_even at 1 and binary_odd at 2, of no criterion parameter (P is a
 # value the family reads from the filter, not a criterion), and are leaves,

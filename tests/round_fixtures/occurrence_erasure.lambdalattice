@@ -1,5 +1,5 @@
 # The round occurrence_erasure the strategies' and the JIT's tests saturate
-# with (gezi.strategies.StrategyTesting.round), the native route's
+# with (com.yang_bo.gezi.strategies.StrategyTesting.round), the native route's
 # erasure: the one field of its tuple, the round's knowledge, the knowledge
 # file it imports, a term of this file and not a choice the
 # host assembles from paths. One round a file, so that a test reads only its round's

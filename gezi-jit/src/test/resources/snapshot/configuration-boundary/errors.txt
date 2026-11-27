@@ -1,61 +1,61 @@
 == another configuration's term
 error:
-Found:    gezi.irboundary.ConfigurationBoundaryTest.First.Configured
-Required: gezi.irboundary.ConfigurationBoundaryTest.Second.Configured
+Found:    com.yang_bo.gezi.irboundary.ConfigurationBoundaryTest.First.Configured
+Required: com.yang_bo.gezi.irboundary.ConfigurationBoundaryTest.Second.Configured
 ConfigurationBoundaryTest.Second.parallel(ConfigurationBoundaryTest.First.opaque("a"), ConfigurationBoundaryTest.First.opaque("a"))
                                                                                                                             ^
 error:
-Found:    gezi.irboundary.ConfigurationBoundaryTest.First.Configured
-Required: gezi.irboundary.ConfigurationBoundaryTest.Second.Configured
+Found:    com.yang_bo.gezi.irboundary.ConfigurationBoundaryTest.First.Configured
+Required: com.yang_bo.gezi.irboundary.ConfigurationBoundaryTest.Second.Configured
 ConfigurationBoundaryTest.Second.parallel(ConfigurationBoundaryTest.First.opaque("a"), ConfigurationBoundaryTest.First.opaque("a"))
                                                                                ^
 == a storage into the pool through Interned
 error:
-method stored cannot be accessed as a member of gezi.ir.Interned.type from class ConfigurationBoundaryTest.
-  private[ir] method stored can only be accessed from package gezi.ir in package gezi.
-gezi.ir.Interned.stored[gezi.ir.IrLayer](null.asInstanceOf[gezi.ir.NativeStorage])
+method stored cannot be accessed as a member of com.yang_bo.gezi.ir.Interned.type from class ConfigurationBoundaryTest.
+  private[ir] method stored can only be accessed from package com.yang_bo.gezi.ir in package com.yang_bo.gezi.
+com.yang_bo.gezi.ir.Interned.stored[com.yang_bo.gezi.ir.IrLayer](null.asInstanceOf[com.yang_bo.gezi.ir.NativeStorage])
                 ^
 == a storage into the pool through a native specializer's protected entry
 error:
-method storedTerm in class NativeSpecializer cannot be accessed as a member of gezi.irboundary.ConfigurationBoundaryTest.First.type from class ConfigurationBoundaryTest.
-  protected method storedTerm can only be accessed from class NativeSpecializer in package gezi.ir or one of its subclasses.
-ConfigurationBoundaryTest.First.storedTerm(null.asInstanceOf[gezi.ir.NativeStorage])
+method storedTerm in class NativeSpecializer cannot be accessed as a member of com.yang_bo.gezi.irboundary.ConfigurationBoundaryTest.First.type from class ConfigurationBoundaryTest.
+  protected method storedTerm can only be accessed from class NativeSpecializer in package com.yang_bo.gezi.ir or one of its subclasses.
+ConfigurationBoundaryTest.First.storedTerm(null.asInstanceOf[com.yang_bo.gezi.ir.NativeStorage])
                                ^
 == a storage's view without the capability
-error: No given instance of type gezi.ir.StorageAccess was found for parameter x$1 of method view in trait NativeStorage
-null.asInstanceOf[gezi.ir.NativeStorage].view
+error: No given instance of type com.yang_bo.gezi.ir.StorageAccess was found for parameter x$1 of method view in trait NativeStorage
+null.asInstanceOf[com.yang_bo.gezi.ir.NativeStorage].view
                                             ^
 == a parallel of terms as a layer
 error:
-No given instance of type scala.util.NotGiven[gezi.ir.Instruction <:<
-  gezi.ir.Interned.Interned[gezi.ir.IrLayer]] was found for parameter x$3 of method apply in object Parallel
-gezi.ir.Parallel(gezi.ir.Instruction.opaque("a"), gezi.ir.Instruction.opaque("b"))
+No given instance of type scala.util.NotGiven[com.yang_bo.gezi.ir.Instruction <:<
+  com.yang_bo.gezi.ir.Interned.Interned[com.yang_bo.gezi.ir.IrLayer]] was found for parameter x$3 of method apply in object Parallel
+com.yang_bo.gezi.ir.Parallel(com.yang_bo.gezi.ir.Instruction.opaque("a"), com.yang_bo.gezi.ir.Instruction.opaque("b"))
                                                                                  ^
 == a parallel of terms through the layer pool
 error:
-No given instance of type scala.util.NotGiven[gezi.ir.Instruction <:<
-  gezi.ir.Interned.Interned[gezi.ir.IrLayer]] was found for parameter x$3 of method apply in object Parallel
-gezi.ir.Interned.canonicalLayer(gezi.ir.Parallel(gezi.ir.Instruction.opaque("a"), gezi.ir.Instruction.opaque("b")))
+No given instance of type scala.util.NotGiven[com.yang_bo.gezi.ir.Instruction <:<
+  com.yang_bo.gezi.ir.Interned.Interned[com.yang_bo.gezi.ir.IrLayer]] was found for parameter x$3 of method apply in object Parallel
+com.yang_bo.gezi.ir.Interned.canonicalLayer(com.yang_bo.gezi.ir.Parallel(com.yang_bo.gezi.ir.Instruction.opaque("a"), com.yang_bo.gezi.ir.Instruction.opaque("b")))
                                                                                                                  ^
 == a parallel of terms through Instruction.Parallel
 error: object Parallel in object Instruction does not take parameters
-gezi.ir.Instruction.Parallel(gezi.ir.Instruction.opaque("a"), gezi.ir.Instruction.opaque("b"))
+com.yang_bo.gezi.ir.Instruction.Parallel(com.yang_bo.gezi.ir.Instruction.opaque("a"), com.yang_bo.gezi.ir.Instruction.opaque("b"))
                    ^
 == a parallel of terms through the unchecked constructor
 error:
-method ofTerms cannot be accessed as a member of gezi.ir.Parallel.type from class ConfigurationBoundaryTest.
-  private[ir] method ofTerms can only be accessed from package gezi.ir in package gezi.
-gezi.ir.Parallel.ofTerms(gezi.ir.Instruction.opaque("a"), gezi.ir.Instruction.opaque("b"))
+method ofTerms cannot be accessed as a member of com.yang_bo.gezi.ir.Parallel.type from class ConfigurationBoundaryTest.
+  private[ir] method ofTerms can only be accessed from package com.yang_bo.gezi.ir in package com.yang_bo.gezi.
+com.yang_bo.gezi.ir.Parallel.ofTerms(com.yang_bo.gezi.ir.Instruction.opaque("a"), com.yang_bo.gezi.ir.Instruction.opaque("b"))
                 ^
 == a parallel of terms interned as written
 error:
-method parallelOfTerms cannot be accessed as a member of gezi.ir.Interned.type from class ConfigurationBoundaryTest.
-  private[ir] method parallelOfTerms can only be accessed from package gezi.ir in package gezi.
-gezi.ir.Interned.parallelOfTerms(gezi.ir.Instruction.opaque("a"), gezi.ir.Instruction.opaque("b"))
+method parallelOfTerms cannot be accessed as a member of com.yang_bo.gezi.ir.Interned.type from class ConfigurationBoundaryTest.
+  private[ir] method parallelOfTerms can only be accessed from package com.yang_bo.gezi.ir in package com.yang_bo.gezi.
+com.yang_bo.gezi.ir.Interned.parallelOfTerms(com.yang_bo.gezi.ir.Instruction.opaque("a"), com.yang_bo.gezi.ir.Instruction.opaque("b"))
                 ^
 == a storage's view as a node
 error:
-Found:    gezi.ir.StorageView[gezi.ir.Interned.Interned[gezi.ir.IrLayer]]
-Required: gezi.ir.IrLayer[gezi.ir.Interned.Interned[gezi.ir.IrLayer]]
-gezi.ir.Interned[gezi.ir.IrLayer](gezi.ir.StorageView(gezi.ir.Instruction.opaque("a"), gezi.ir.Instruction.opaque("b")))
+Found:    com.yang_bo.gezi.ir.StorageView[com.yang_bo.gezi.ir.Interned.Interned[com.yang_bo.gezi.ir.IrLayer]]
+Required: com.yang_bo.gezi.ir.IrLayer[com.yang_bo.gezi.ir.Interned.Interned[com.yang_bo.gezi.ir.IrLayer]]
+com.yang_bo.gezi.ir.Interned[com.yang_bo.gezi.ir.IrLayer](com.yang_bo.gezi.ir.StorageView(com.yang_bo.gezi.ir.Instruction.opaque("a"), com.yang_bo.gezi.ir.Instruction.opaque("b")))
                                                     ^
