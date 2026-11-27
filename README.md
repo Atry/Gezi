@@ -192,7 +192,7 @@ read is no lambdalattice text:` and the reason. A file is read only when a cell'
 ### Where the language is described
 
 The grammar is the Scaladoc of
-`frontend/src/main/scala/gezi/frontend/Lambdalattice.scala`; the layout of a
+`gezi-frontend/shared/src/main/scala/gezi/frontend/Lambdalattice.scala`; the layout of a
 text is `CONTRIBUTING.md`, "lambdalattice layout: no right-associative parentheses, CPS one step per line"; the library is
 `corpora/library/`, and `corpora/library/prelude/` is the place to start
 reading real files.

@@ -1,0 +1,2 @@
+nil_filtered_bottom: filter_by (list_type top) nil = nil
+successor_filtered_applied: λx_0. filter_nat λ. successor λ. filter_nat x_0 = λx_0. successor λ. filter_nat x_0

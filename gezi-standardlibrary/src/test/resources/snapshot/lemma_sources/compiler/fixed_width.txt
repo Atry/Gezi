@@ -1,0 +1,22 @@
+word_add_scheme: λx_0. word_add x_0 = λ x_0
+            . (word_add x_0 ∥ arrow (word_type x_0) λ. arrow (word_type x_0) λ. word_type x_0 + word_add x_0)
+word_subtract_scheme: λx_0. word_subtract x_0 = λ x_0
+            . ( word_subtract x_0
+              ∥ arrow (word_type x_0) λ. arrow (word_type x_0) λ. word_type x_0
+              + word_subtract x_0
+              )
+word_multiply_scheme: λx_0. word_multiply x_0 = λ x_0
+            . ( word_multiply x_0
+              ∥ arrow (word_type x_0) λ. arrow (word_type x_0) λ. word_type x_0
+              + word_multiply x_0
+              )
+word_negate_scheme: λx_0. word_negate x_0 = λx_0. (word_negate x_0 ∥ arrow (word_type x_0) λ. word_type x_0 + word_negate x_0)
+word_less_than_scheme: λx_0. word_less_than x_0 = λ x_0
+            . ( word_less_than x_0
+              ∥ arrow (word_type x_0) λ. arrow (word_type x_0) boolean_type
+              + word_less_than x_0
+              )
+word_equal_scheme: λx_0. word_equal x_0 = λ x_0
+            . (word_equal x_0 ∥ arrow (word_type x_0) λ. arrow (word_type x_0) boolean_type + word_equal x_0)
+word_to_natural_scheme: λx_0. word_to_natural x_0 = λx_0. (word_to_natural x_0 ∥ arrow (word_type x_0) nat_type + word_to_natural x_0)
+word_of_natural_scheme: λx_0. word_of_natural x_0 = λx_0. (word_of_natural x_0 ∥ arrow nat_type λ. word_type x_0 + word_of_natural x_0)

@@ -1,8 +1,9 @@
 // Gezi's Scala code and the framework it is built on, the generic e-graph, in one build.
-// Every project is a top-level directory of this one whose name is its
-// package below `gezi`, the segments joined by `-`; each directory's
-// build.sbt holds all of that project's settings, and this file holds the
-// projects and their dependencies only.
+// Each library project has a top-level directory named for its package
+// below `gezi`, the segments joined by `-`. Shared JVM/Scala.js sources use
+// the sbt-crossproject CrossType.Full layout; each platform directory's
+// build.sbt holds its settings, and this file holds the projects and their
+// dependencies.
 //
 // The module graph. Each arrow is the only kind of dependency a module may
 // have (CONTRIBUTING.md, "The module graph" and "The framework", gives the
@@ -144,14 +145,12 @@
 //                        loaded by the compiler plugin into every other project)
 //   conventions          (tests only: reads the sources of the others)
 //
-// Scala.js (the trace player; no JVM project depends on these):
+// Scala.js variants (the trace player; no JVM project depends on these):
 //
-//   generatedinputs-js, ir-js, frontend-js, hotspot-js,
-//   weakhead-core-js     (the sources of the JVM project of the name without
-//                        `-js`, but those its build.sbt lists as needing the
-//                        JVM, depending as that project does)
-//   trace-player         -> frontend-js, weakhead-core-js (the player, a
-//                           script with no module system)
+//   The JVM/Scala.js crossprojects below also publish their JS variants.
+//   trace-player         -> frontend-js, weakhead-core-js, rewrite-trace-js,
+//                           generatedinputs-js (the player, a script with no
+//                           module system)
 
 // An sbt server started in the background exits after 15 minutes without a
 // command; under sbt 2 plain `sbt` is the thin client and starts such a server,
@@ -164,7 +163,7 @@
 // root when the server starts.
 LocalRootProject / serverIdleTimeout := Some(scala.concurrent.duration.FiniteDuration(15, java.util.concurrent.TimeUnit.MINUTES))
 
-LocalRootProject / publish / skip := true
+ThisBuild / publish / skip := true
 
 // One test group at a time among those that run lake in the Lean package
 // (project/LeanTests.scala; proofs/build.sbt, standardlibrary/build.sbt and strategies/build.sbt tag
@@ -260,27 +259,49 @@ lazy val warts = project.dependsOn(generatedinputs % Test)
 // with `test->test`, since a project the module's tests depend on cannot
 // depend on the module (sbt rejects the cycle: "Cyclic reference involving",
 // 2026-10-31).
-lazy val generatedinputs = project
+lazy val generatedinputsCross =
+  sbtcrossproject.CrossProject("generatedinputs", file("generatedinputs"))(JSPlatform, JVMPlatform)
+    .withoutSuffixFor(JVMPlatform)
+lazy val generatedinputs = generatedinputsCross.jvm
+lazy val `generatedinputs-js` = generatedinputsCross.js
 
-lazy val ir = project.dependsOn(generatedinputs % Test)
+lazy val irCross =
+  sbtcrossproject.CrossProject("ir", file("gezi-ir"))(JSPlatform, JVMPlatform)
+    .withoutSuffixFor(JVMPlatform)
+    .configurePlatform(JVMPlatform)(_.dependsOn(generatedinputs % Test))
+    .configurePlatform(JSPlatform)(_.dependsOn(`generatedinputs-js` % Test))
+lazy val ir = irCross.jvm
+lazy val `ir-js` = irCross.js
 
-lazy val orientation = project.dependsOn(ir, generatedinputs % Test)
+lazy val orientation = project.in(file("gezi-orientation")).dependsOn(ir, generatedinputs % Test)
 
-lazy val egraph = project.dependsOn(ir % "compile->compile;test->test", generatedinputs % Test)
+lazy val egraphCross =
+  sbtcrossproject.CrossProject("egraph", file("gezi-egraph"))(JSPlatform, JVMPlatform)
+    .withoutSuffixFor(JVMPlatform)
+    .dependsOn(irCross)
+    .configurePlatform(JVMPlatform)(_.dependsOn(ir % "test->test", generatedinputs % Test))
+lazy val egraph = egraphCross.jvm
+lazy val `egraph-js` = egraphCross.js
 
-lazy val ematching = project.dependsOn(ir, egraph)
+lazy val ematching = project.in(file("gezi-ematching")).dependsOn(ir, egraph)
 
-lazy val `ematching-indexing` = project.dependsOn(ematching, orientation, generatedinputs % Test)
+lazy val `ematching-indexing` = project.in(file("gezi-ematching-indexing")).dependsOn(ematching, orientation, generatedinputs % Test)
 
-lazy val `ematching-interpretation` = project.dependsOn(ematching)
+lazy val `ematching-interpretation` = project.in(file("gezi-ematching-interpretation")).dependsOn(ematching)
 
-lazy val `ematching-closures` = project.dependsOn(ematching, generatedinputs % Test)
+lazy val `ematching-closures` = project.in(file("gezi-ematching-closures")).dependsOn(ematching, generatedinputs % Test)
 
-lazy val `ematching-bytecode` = project.dependsOn(ematching)
+lazy val `ematching-bytecode` = project.in(file("gezi-ematching-bytecode")).dependsOn(ematching)
 
-lazy val saturation = project.dependsOn(ematching, generatedinputs % Test, ir % "test->test")
+lazy val saturationCross =
+  sbtcrossproject.CrossProject("saturation", file("gezi-saturation"))(JSPlatform, JVMPlatform)
+    .withoutSuffixFor(JVMPlatform)
+    .configurePlatform(JSPlatform)(_.dependsOn(egraphCross.js, irCross.js))
+    .configurePlatform(JVMPlatform)(_.dependsOn(ematching, generatedinputs % Test, ir % "test->test"))
+lazy val saturation = saturationCross.jvm
+lazy val `saturation-js` = saturationCross.js
 
-lazy val extraction = project.dependsOn(egraph, saturation, generatedinputs % Test)
+lazy val extraction = project.in(file("gezi-extraction")).dependsOn(egraph, saturation, generatedinputs % Test)
 
 // The source locations of an e-graph's nodes, from its union log
 // outside the framework, and no choice reads a location.
@@ -324,11 +345,24 @@ lazy val backendcomparison = project
 // that holds benchmarks only, where the project `jmh-ematching` stood.
 
 // Source locations for people and tools; no choice reads one (`conventions`' dependency check).
-lazy val locations = project.dependsOn(ir, generatedinputs % Test)
+lazy val locationsCross =
+  sbtcrossproject.CrossProject("locations", file("gezi-locations"))(JSPlatform, JVMPlatform)
+    .withoutSuffixFor(JVMPlatform)
+    .dependsOn(irCross)
+    .configurePlatform(JVMPlatform)(_.dependsOn(generatedinputs % Test))
+lazy val locations = locationsCross.jvm
+lazy val `locations-js` = locationsCross.js
 
 // The front end: the object language as written (Scala HOAS, lambdalattice
 // text) to de Bruijn terms, and those to the IR, hash-consed by an interner threaded through as a value.
-lazy val frontend = project.dependsOn(ir, locations, generatedinputs % Test)
+lazy val frontendCross =
+  sbtcrossproject.CrossProject("frontend", file("gezi-frontend"))(JSPlatform, JVMPlatform)
+    .withoutSuffixFor(JVMPlatform)
+    .dependsOn(irCross, locationsCross)
+    .configurePlatform(JVMPlatform)(_.dependsOn(generatedinputs % Test))
+    .configurePlatform(JSPlatform)(_.dependsOn(`generatedinputs-js` % Test))
+lazy val frontend = frontendCross.jvm
+lazy val `frontend-js` = frontendCross.js
 
 // The interfaces of hotspot compilation:
 // executors, compilation units and compilers, the tiering policy's
@@ -337,20 +371,27 @@ lazy val frontend = project.dependsOn(ir, locations, generatedinputs % Test)
 // Interfaces only, and the fork and join primitive; every
 // other implementation is elsewhere. It depends on `ir` for instructions and
 // codes and on `frontend` for instructions.
-lazy val hotspot = project.dependsOn(ir, frontend, saturation, generatedinputs % Test)
+lazy val hotspotCross =
+  sbtcrossproject.CrossProject("hotspot", file("gezi-hotspot"))(JSPlatform, JVMPlatform)
+    .withoutSuffixFor(JVMPlatform)
+    .dependsOn(irCross, frontendCross, saturationCross)
+    .configurePlatform(JVMPlatform)(_.dependsOn(generatedinputs % Test))
+    .configurePlatform(JSPlatform)(_.dependsOn(`generatedinputs-js` % Test))
+lazy val hotspot = hotspotCross.jvm
+lazy val `hotspot-js` = hotspotCross.js
 
 // The baselines of the cache and of the tiering policy: a thread safe cache provider in the process over a concurrent map,
 // cleared when a round starts, and a tiering policy that always
 // interprets with the whole budget. The executors and the compiler of the
 // baseline are in `weakhead` and `jit`, beside what they wrap.
-lazy val `hotspot-baselines` = project.dependsOn(hotspot, generatedinputs % Test)
+lazy val `hotspot-baselines` = project.in(file("gezi-hotspot-baselines")).dependsOn(hotspot, generatedinputs % Test)
 
 // The loader of the standard library: the source trees read by the
 // directory loader, the knowledge files and the library files they reach,
 // and the declarations (lemma, native
 // and combinator_property) read with knowledge-reading into the five facts
 // of its index.
-lazy val standardlibrary = project
+lazy val standardlibrary = project.in(file("gezi-standardlibrary"))
   .dependsOn(
     frontend % "compile->compile;test->test",
     `knowledge-reading`,
@@ -363,13 +404,13 @@ lazy val standardlibrary = project
 // (the arity of a pattern is how an entry writes it): `LemmaEncoding` and
 // `EncodedLemma`.
 // `strategies` and `proofs` depend on it and on no implementation.
-lazy val `lemma-encoding` = project.dependsOn(standardlibrary)
+lazy val `lemma-encoding` = project.in(file("gezi-lemma-encoding")).dependsOn(standardlibrary)
 
 // The baseline's lemma encoding, `BaselineLemmaEncoding`. The
 // top-level composers choose it: programfamilies, the contest entries, and
 // the tests of proofs, strategies and jit. Its tests compile orientations
 // and saturate with them.
-lazy val `lemma-encoding-baseline` = project
+lazy val `lemma-encoding-baseline` = project.in(file("gezi-lemma-encoding-baseline"))
   .dependsOn(
     `lemma-encoding`,
     standardlibrary % "test->test",
@@ -443,7 +484,7 @@ lazy val `jmh-pipeline` =
 // an entry chooses interpretation or bytecode compilation; the three are
 // compile dependencies, so that every project above, the entries included,
 // reaches them.
-lazy val strategies = project
+lazy val strategies = project.in(file("gezi-strategies"))
   .dependsOn(
     standardlibrary % "compile->compile;test->test",
     proofs % "compile->compile;test->test",
@@ -467,13 +508,23 @@ lazy val strategies = project
 // knowledge, so that the reader of knowledge files can evaluate them. The
 // package gezi.weakhead spans it and weakhead, whose package object
 // documents both.
-lazy val `weakhead-core` = project.dependsOn(frontend, hotspot, `directory-sugar`)
+lazy val weakheadCoreCross =
+  sbtcrossproject.CrossProject("weakhead-core", file("gezi-weakhead-core"))(JSPlatform, JVMPlatform)
+    .withoutSuffixFor(JVMPlatform)
+    .dependsOn(frontendCross, hotspotCross, directorySugarCross)
+lazy val `weakhead-core` = weakheadCoreCross.jvm
+lazy val `weakhead-core-js` = weakheadCoreCross.js
 
 // The generic reader of knowledge written in lambdalattice: the
 // slots of a top-level mixin, Scott constructors, lists and strings, read
 // under weak head. It knows no knowledge; standardlibrary depends on it.
-lazy val `knowledge-reading` =
-  project.dependsOn(`weakhead-core`, frontend % "compile->compile;test->test", generatedinputs % Test)
+lazy val knowledgeReadingCross =
+  sbtcrossproject.CrossProject("knowledge-reading", file("gezi-knowledge-reading"))(JSPlatform, JVMPlatform)
+    .withoutSuffixFor(JVMPlatform)
+    .dependsOn(weakheadCoreCross, frontendCross)
+    .configurePlatform(JVMPlatform)(_.dependsOn(frontend % "test->test", generatedinputs % Test))
+lazy val `knowledge-reading` = knowledgeReadingCross.jvm
+lazy val `knowledge-reading-js` = knowledgeReadingCross.js
 
 // The sugar of a directory tree: the tree read as one term, each directory and
 // each file a mixin, its entries URI nodes of the IR whose expansions it
@@ -481,8 +532,13 @@ lazy val `knowledge-reading` =
 // it. It resolves no name: a reader applies the root to keys and evaluates.
 // The evaluator (weakhead-core) calls its expansion, so its laws, which read
 // under the evaluator, are knowledge-reading's tests.
-lazy val `directory-sugar` =
-  project.dependsOn(frontend, generatedinputs % Test)
+lazy val directorySugarCross =
+  sbtcrossproject.CrossProject("directory-sugar", file("gezi-directory-sugar"))(JSPlatform, JVMPlatform)
+    .withoutSuffixFor(JVMPlatform)
+    .dependsOn(frontendCross)
+    .configurePlatform(JVMPlatform)(_.dependsOn(generatedinputs % Test))
+lazy val `directory-sugar` = directorySugarCross.jvm
+lazy val `directory-sugar-js` = directorySugarCross.js
 
 // The codecs of the Prolog backend's representations, which read the
 // library's index, and the Scott decoder of the problem corpora
@@ -490,7 +546,7 @@ lazy val `directory-sugar` =
 // weak_head.pl, evaluators.pl, reading.pl, normal_forms.pl, the three codecs
 // and old_corpora/scott_decoding.pl. Its
 // tests draw random terms with standardlibrary's test helper SplitMix.
-lazy val weakhead = project
+lazy val weakhead = project.in(file("gezi-weakhead"))
   .dependsOn(
     `weakhead-core`,
     standardlibrary % "compile->compile;test->test",
@@ -504,7 +560,7 @@ lazy val weakhead = project
 // the computation graph a program's Moore machine state asks to run, decoded
 // from a normal form the adapter's entry read, and the calls it makes. It
 // depends on the front end alone and on no evaluator.
-lazy val ffi = project.dependsOn(hotspot, generatedinputs % Test)
+lazy val ffi = project.in(file("gezi-ffi")).dependsOn(hotspot, generatedinputs % Test)
 
 // The problem corpora: the generators of gezi/corpora's programs,
 // ported from the clauses with bodies of its .pl files, whose facts stay in those files as data, and the judges that read
@@ -536,10 +592,15 @@ lazy val `contest-corpora` = project
 // they make, and the trace's text, Scott data read under weak head. It needs
 // no proof, no library and no strategy, so that the animation player depends
 // on it alone; `proofs` flattens an article's proof into its commands.
-lazy val `rewrite-trace` =
-  project.dependsOn(frontend, `knowledge-reading`, saturation, generatedinputs % Test)
+lazy val rewriteTraceCross =
+  sbtcrossproject.CrossProject("rewrite-trace", file("gezi-rewrite-trace"))(JSPlatform, JVMPlatform)
+    .withoutSuffixFor(JVMPlatform)
+    .dependsOn(frontendCross, knowledgeReadingCross, saturationCross)
+    .configurePlatform(JVMPlatform)(_.dependsOn(generatedinputs % Test))
+lazy val `rewrite-trace` = rewriteTraceCross.jvm
+lazy val `rewrite-trace-js` = rewriteTraceCross.js
 
-lazy val proofs = project
+lazy val proofs = project.in(file("gezi-proofs"))
   .dependsOn(
     standardlibrary % "compile->compile;test->test",
     frontend,
@@ -561,7 +622,7 @@ lazy val proofs = project
 // tests use standardlibrary's, weakhead's and strategies' test helpers;
 // the tests of the native route's compilation, which run the schedules and
 // the JIT, are here.
-lazy val jit = project
+lazy val jit = project.in(file("gezi-jit"))
   .dependsOn(
     weakhead % "compile->compile;test->test",
     hotspot,
@@ -591,7 +652,9 @@ lazy val `interface-laws` = project.dependsOn(
 // names no entry's native, an entry hands it its native backend. Every
 // entry and module depends on it (project/EntryProjects.scala).
 lazy val `narrow-blocks` =
-  project.dependsOn(jit, strategies % "compile->compile;test->test", frontend, standardlibrary, `lemma-encoding-baseline`, hotspot)
+  project
+    .in(file("gezi-narrow-blocks"))
+    .dependsOn(jit, strategies % "compile->compile;test->test", frontend, standardlibrary, `lemma-encoding-baseline`, hotspot)
 
 // The interface of a contest entry: EntryProvider, registered with java.util.ServiceLoader, and
 // Entry, and `Defaults`, the framework's default implementation of each
@@ -669,37 +732,6 @@ lazy val `jupyter-kernel` = project.dependsOn(
   frontend % "test->test",
   generatedinputs % Test
 )
-
-// The projects compiled for Scala.js, for the trace player. Each compiles the
-// sources of the JVM project its name ends in `-js` after, from that
-// project's directory, but those that need the JVM, which its build.sbt
-// lists with the reason, and depends on the projects compiled for Scala.js
-// that the JVM project's dependencies are compiled into. No JVM project
-// depends on them.
-lazy val `generatedinputs-js` = project
-
-lazy val `ir-js` = project.dependsOn(`generatedinputs-js` % Test)
-
-lazy val `locations-js` = project.dependsOn(`ir-js`)
-
-lazy val `frontend-js` = project.dependsOn(`ir-js`, `locations-js`, `generatedinputs-js` % Test)
-
-lazy val `hotspot-js` = project.dependsOn(`ir-js`, `frontend-js`, `generatedinputs-js` % Test)
-
-lazy val `directory-sugar-js` = project.dependsOn(`frontend-js`)
-
-lazy val `weakhead-core-js` = project.dependsOn(`frontend-js`, `hotspot-js`, `directory-sugar-js`)
-
-lazy val `knowledge-reading-js` = project.dependsOn(`weakhead-core-js`, `frontend-js`)
-
-// The e-graph and saturation's higher-order matching compiled for Scala.js,
-// so that the trace player replays a backward higher-order conversion with
-// the matching the saturator runs, on a graph of the replaced term alone.
-lazy val `egraph-js` = project.dependsOn(`ir-js`)
-
-lazy val `saturation-js` = project.dependsOn(`egraph-js`, `ir-js`)
-
-lazy val `rewrite-trace-js` = project.dependsOn(`frontend-js`, `knowledge-reading-js`, `saturation-js`)
 
 // The trace player: a Scala.js script with no module system, which reads the
 // trace embedded in its page, the start and the commands, and

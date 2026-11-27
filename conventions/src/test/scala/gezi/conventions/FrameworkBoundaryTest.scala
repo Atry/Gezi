@@ -30,6 +30,19 @@ class FrameworkBoundaryTest extends gezi.generatedinputs.FailFastSuite:
 
   private val allowedProjects: Set[String] = framework.toSet + "generatedinputs"
 
+  private val frameworkDirectories: Set[String] = Set(
+    "gezi-ir",
+    "gezi-orientation",
+    "gezi-egraph",
+    "gezi-ematching",
+    "gezi-ematching-indexing",
+    "gezi-ematching-interpretation",
+    "gezi-ematching-closures",
+    "gezi-ematching-bytecode",
+    "gezi-saturation",
+    "gezi-extraction"
+  )
+
   /** A project's package is `gezi.` and its directory with `-` read as
     * `.`; a package name is allowed when its first segment below `gezi`
     * is an allowed project's.
@@ -74,7 +87,7 @@ class FrameworkBoundaryTest extends gezi.generatedinputs.FailFastSuite:
     val root = ScalaSources.root
     val sources = ScalaSources
       .sources(root)
-      .filter(path => framework.exists(project => path.startsWith(root.resolve(project))))
+      .filter(path => frameworkDirectories.exists(project => path.startsWith(root.resolve(project))))
     assert(sources.nonEmpty, s"no Scala source found under the framework's directories of $root")
     val found = sources.flatMap(path =>
       packageReferencePattern

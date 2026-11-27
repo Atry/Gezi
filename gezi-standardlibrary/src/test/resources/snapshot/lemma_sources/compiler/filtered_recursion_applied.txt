@@ -1,0 +1,2 @@
+list_fold_filtered_contract_applied: λ x_0 x_1 x_2 x_3 x_4
+    . filter_by x_1 λ. list_fold_filtered x_1 x_2 x_3 λ. filter_by (list_type x_0) x_4 = λx_0 x_1 x_2 x_3 x_4. list_fold_filtered x_1 x_2 x_3 λ. filter_by (list_type x_0) x_4

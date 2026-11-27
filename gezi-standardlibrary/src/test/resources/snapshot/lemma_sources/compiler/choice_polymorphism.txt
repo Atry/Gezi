@@ -1,0 +1,2 @@
+cons_filtered_choice: λ x_0 x_1 x_2 x_3
+    . filter_by (list_type (x_1 + x_0)) λ. cons (filter_by x_0 x_2) λ. filter_by (list_type x_1) x_3 = λx_0 x_1 x_2 x_3. cons (filter_by x_0 x_2) λ. filter_by (list_type x_1) x_3

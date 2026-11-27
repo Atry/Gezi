@@ -18,13 +18,15 @@ object NeverStoppedInTestsCheck:
   val listed: Map[String, String] =
     Map(
       "conventions/src/test/scala/gezi/conventions/NeverStoppedInTestsTest.scala" -> "this check names the symbol it bans",
-      "weakhead/src/test/scala/gezi/weakhead/BudgetStopLawTest.scala" -> reasonNeverStoppedIsSubject,
-      "jit/src/test/scala/gezi/jit/JitNativesTest.scala" ->
+      "gezi-weakhead/src/test/scala/gezi/weakhead/BudgetStopLawTest.scala" -> reasonNeverStoppedIsSubject,
+      "gezi-strategies/src/test/scala/gezi/strategies/OpeningCriterionLawTest.scala" ->
+        "the eight-case seeded snapshot currently has no way to pass its suite stop signal to the matching helper",
+      "gezi-jit/src/test/scala/gezi/jit/JitNativesTest.scala" ->
         ("FIXME: `compiledFixtures` is a lazy value shared by many tests, computed once per JVM as a `sharedFixtures` entry " + // https://github.com/Atry/private-overlay/issues/2030
           "under `NeverStopped`, so the fixture's deadline does not stop it (it is to take the fixture's signal); " +
           "`nativesRunOnTheRefinedX2` is the entry of a child JVM, " +
           "a top-level owner with no test"),
-      "jit/src/test/scala/gezi/jit/NativeRouteCompilationTest.scala" ->
+      "gezi-jit/src/test/scala/gezi/jit/NativeRouteCompilationTest.scala" ->
         ("FIXME: `roundsReachTheirFixedPoints`, `dispatchedRun` and `compilationInstances` are called through eight more helpers " + // https://github.com/Atry/private-overlay/issues/2030
           "by about thirty tests; their signal is to be threaded through those helpers")
     )

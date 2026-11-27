@@ -202,7 +202,7 @@ The main line every run takes. Whoever moves it updates this section in the same
 - **Interface.** The standard library meets the host (Scala) only through `lemma`, `native` and `combinator_property`
   over library files reached by paths. There is no `define`. Type information lives only in the term, as assertion
   combinators; the host holds no type and no rule.
-- **Text.** The grammar is the Scaladoc of `frontend/src/main/scala/gezi/frontend/Lambdalattice.scala`: no `=`, not
+- **Text.** The grammar is the Scaladoc of `gezi-frontend/shared/src/main/scala/gezi/frontend/Lambdalattice.scala`: no `=`, not
   even in pseudo-code, no free name, and `null` is a keyword only inside a literal. Read real files
   (`corpora/library/prelude/`) and the layout rules below before writing lambdalattice text, and write none you have
   not checked against the reader; `README.md`, "Getting started", says how.
@@ -708,9 +708,12 @@ was called on unchanged.
 
 ### The directory structure
 
-Each top-level directory is one sbt project; `build.sbt` declares the dependencies, and the comment at its top draws the
-module graph. The sources follow sbt's layout, `<module>/src/main/scala/gezi/<package>/` for the code and
-`<module>/src/test/scala/gezi/<package>/` for its tests. The framework's projects:
+The root `build.sbt` declares the projects and dependencies, and the comment at its top draws the module graph. A
+shared-source JVM/Scala.js project uses `sbt-crossproject`'s default `CrossType.Full` layout:
+`<module>/shared/src/{main,test}/scala/`, `<module>/jvm/src/{main,test}/scala/` and
+`<module>/js/src/{main,test}/scala/`. Its `jvm/build.sbt` and `js/build.sbt` are symlinks to
+`shared/build.sbt`; platform-specific settings go in `jvm/jvm.sbt` or `js/js.sbt`. Other projects use
+`<module>/src/main/scala/` and `<module>/src/test/scala/`. The framework's projects:
 
 ```
 gezi/
@@ -718,16 +721,16 @@ gezi/
 ├── project/                   sbt plugins and the sbt version
 ├── CONTRIBUTING.md            this guide
 ├── backendcomparison/         the backends by name, a run compiled, the form of a fixed point
-├── orientation/               lemma sides compiled into orientations
-├── ematching-indexing/        orientations compiled into a program (the inverted index)
-├── ematching/                 the backend interface: programs as first-order data
-├── ematching-interpretation/  a backend: the program walked at every call
-├── ematching-closures/        a backend: a program compiled into Scala closures
-├── ematching-bytecode/        a backend: a program compiled into a hidden class
-├── saturation/                the fixed-point loop over a compiled program
-├── egraph/                    the persistent e-graph
-├── extraction/                the greedy extraction of best terms by a cost model
-├── ir/                        instructions, codes, layers, patterns: the IR's vocabulary
+├── gezi-orientation/          lemma sides compiled into orientations
+├── gezi-ematching-indexing/   orientations compiled into a program (the inverted index)
+├── gezi-ematching/            the backend interface: programs as first-order data
+├── gezi-ematching-interpretation/ a backend: the program walked at every call
+├── gezi-ematching-closures/   a backend: a program compiled into Scala closures
+├── gezi-ematching-bytecode/   a backend: a program compiled into a hidden class
+├── gezi-saturation/           the fixed-point loop over a compiled program
+├── gezi-egraph/               the persistent e-graph
+├── gezi-extraction/           the greedy extraction of best terms by a cost model
+├── gezi-ir/                   instructions, codes, layers, patterns: the IR's vocabulary
 ├── generatedinputs/           generated test inputs: properties, snapshots, state machines
 └── conventions/               tests that check the rules of this guide over all sources
 ```
@@ -846,7 +849,7 @@ module can use it:
 - `StateMachine.scala`: state machine tests, commands generated against a model.
 
 A generator of one module's own data lives in that module's test sources, in the package `gezi.generatedinputs` (for
-example `ir/src/test/scala/gezi/generatedinputs/StoreGenerators.scala`), because `generatedinputs` cannot depend on the
+example `gezi-ir/shared/src/test/scala/gezi/generatedinputs/StoreGenerators.scala`), because `generatedinputs` cannot depend on the
 modules whose tests depend on it.
 
 #### `conventions`: the rules, checked

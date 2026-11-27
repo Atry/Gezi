@@ -1,0 +1,153 @@
+unions_absorption: λx_0 x_1. (x_0 ∥ x_1 + x_0) = λx_0 x_1. x_0
+unions_parallel_idempotence: λx_0. (x_0 ∥ x_0) = λx_0. x_0
+unions_first_of_two_scheme: zero = zero
+          ∥ zero_universe_scheme λ. scheme λx_0. structure λ. alternative no_field λ. alternative x_0 no_alternative
+          + zero
+unions_second_of_two_scheme: false = false
+          ∥ zero_universe_scheme λ. scheme λx_0. structure λ. alternative x_0 λ. alternative no_field no_alternative
+          + false
+unions_second_of_two_one_field_scheme: successor = successor
+          ∥ λ
+            . zero_universe_scheme
+            λ
+            . scheme
+            λ x_0
+            . scheme
+            λ x_1
+            . function_type x_1 λ. structure λ. alternative x_0 λ. alternative (field x_1 no_field) no_alternative
+          + successor
+unions_second_of_two_two_fields_scheme: cons = cons
+          ∥ λ
+            . zero_universe_scheme
+            λ
+            . scheme
+            λ x_0
+            . scheme
+            λ x_1
+            . scheme
+            λ x_2
+            . function_type x_1
+            λ
+            . function_type x_2 λ. structure λ. alternative x_0 λ. alternative (field x_1 λ. field x_2 no_field) no_alternative
+          + cons
+unions_boolean_not_scheme: boolean_not = boolean_not
+          ∥ λ
+            . zero_universe_scheme
+            λ
+            . function_type (structure λ. alternative no_field λ. alternative no_field no_alternative) λ. structure λ. alternative no_field λ. alternative no_field no_alternative
+          + boolean_not
+unions_identity_scheme: identity = identity ∥ zero_universe_scheme λ. scheme λx_0. function_type x_0 x_0 + identity
+unions_konstant_scheme: konstant = konstant
+          ∥ zero_universe_scheme λ. scheme λx_0. scheme λx_1. function_type x_0 λ. function_type x_1 x_0
+          + konstant
+unions_compose_scheme: compose = compose
+          ∥ λ
+            . zero_universe_scheme
+            λ
+            . scheme
+            λ x_0
+            . scheme
+            λ x_1
+            . scheme
+            λ x_2
+            . function_type (function_type x_1 x_2) λ. function_type (function_type x_0 x_1) λ. function_type x_0 x_2
+          + compose
+unions_fixpoint_scheme: fixpoint = fixpoint ∥ zero_universe_scheme λ. scheme λx_0. function_type (function_type x_0 x_0) x_0 + fixpoint
+unions_nat_fold_scheme: nat_fold = nat_fold
+          ∥ λ
+            . zero_universe_scheme
+            λ
+            . scheme
+            λ x_0
+            . function_type x_0
+            λ
+            . function_type (function_type x_0 x_0)
+            λ
+            . function_type
+              ( recursive_type λx_1. structure λ. alternative no_field λ. alternative (field x_1 no_field) no_alternative
+              ) x_0
+          + nat_fold
+unions_list_fold_scheme: list_fold = list_fold
+          ∥ λ
+            . zero_universe_scheme
+            λ
+            . scheme
+            λ x_0
+            . scheme
+            λ x_1
+            . function_type x_1
+            λ
+            . function_type (function_type x_0 λ. function_type x_1 x_1)
+            λ
+            . function_type
+              ( λ
+                . recursive_type
+                λ x_2
+                . structure λ. alternative no_field λ. alternative (field x_0 λ. field x_2 no_field) no_alternative
+              ) x_1
+          + list_fold
+unions_recursive_type_unfolding: λx_0. recursive_type λx_1. x_0 x_1 = λx_0. unify (recursive_type λx_1. x_0 x_1) λ. x_0 λ. recursive_type λx_1. x_0 x_1
+unions_occurrence_typed: λx_0 x_1. $name x_0 x_1 = λx_0 x_1. ($name x_0 x_1 ∥ type_of λ. $name x_0 x_1 + $name x_0 x_1)
+unions_occurrence_candidate: λx_0 x_1 x_2. $name x_0 (x_1 ∥ zero_universe_scheme x_2 + x_1) = λ x_0 x_1 x_2
+            . ( candidate_of λ. $name x_0 (x_1 ∥ zero_universe_scheme x_2 + x_1)
+              ∥ x_2
+              + candidate_of λ. $name x_0 (x_1 ∥ zero_universe_scheme x_2 + x_1)
+              + $name x_0 (x_1 ∥ zero_universe_scheme x_2 + x_1)
+              )
+unions_candidate_instance: λx_0 x_1. (candidate_of x_0 ∥ scheme λx_2. x_1 x_2 + candidate_of x_0) = λ x_0 x_1
+            . ( candidate_of x_0
+              ∥ x_1 λ. instance_variable x_0 x_1
+              + (candidate_of x_0 ∥ scheme λx_2. x_1 x_2 + candidate_of x_0)
+              )
+unions_structure_activation: λx_0 x_1 x_2 x_3. (x_2 ∥ structure x_3 + candidate_of (x_0 ∥ x_1 + x_0)) = λx_0 x_1 x_2 x_3. (x_2 ∥ structure x_3 + candidate_of (x_0 ∥ unify x_1 λ. structure x_3 + x_0))
+unions_function_activation: λx_0 x_1 x_2 x_3 x_4. (x_2 ∥ function_type x_3 x_4 + candidate_of (x_0 ∥ x_1 + x_0)) = λ x_0 x_1 x_2 x_3 x_4
+            . (x_2 ∥ function_type x_3 x_4 + candidate_of (x_0 ∥ unify x_1 λ. function_type x_3 x_4 + x_0))
+unions_application_typed: λx_0 x_1 x_2 x_3. (x_0 ∥ x_2 + x_0) (x_1 ∥ x_3 + x_1) = λ x_0 x_1 x_2 x_3
+            . ( (x_0 ∥ x_2 + x_0) (x_1 ∥ x_3 + x_1)
+              ∥ ( unify x_2 λ. function_type x_3 λ. type_of λ. (x_0 ∥ x_2 + x_0) (x_1 ∥ x_3 + x_1)
+                + type_of λ. (x_0 ∥ x_2 + x_0) (x_1 ∥ x_3 + x_1)
+                )
+              + (x_0 ∥ x_2 + x_0) (x_1 ∥ x_3 + x_1)
+              )
+unions_type_choice: λx_0 x_1 x_2. (unify x_1 x_2 + type_of x_0) = λx_0 x_1 x_2. type_of x_0
+unions_closure_typed: λx_0 x_1. $closure x_0 λx_2. x_1 x_2 = λ x_0 x_1
+            . ( $closure x_0 λx_2. x_1 x_2
+              ∥ λ
+                . closure_type ($closure x_0 λx_2. x_1 x_2)
+                λ
+                . x_1 λ. parameter λ. instance_variable ($closure x_0 λx_2. x_1 x_2) λ. $closure x_0 λx_2. x_1 x_2
+              + $closure x_0 λx_2. x_1 x_2
+              )
+unions_closure_type: λx_0 x_1. closure_type x_0 x_1 = λx_0 x_1. type_of x_0
+unions_closure_body: λx_0 x_1 x_2. closure_type x_0 (x_1 ∥ x_2 + x_1) = λ x_0 x_1 x_2
+            . ( unify (type_of x_0) λ. function_type (instance_variable x_0 x_0) x_2
+              + closure_type x_0 (x_1 ∥ x_2 + x_1)
+              )
+unions_closure_curried: λx_0 x_1. closure_type x_0 λx_2. x_1 x_2 = λ x_0 x_1
+            . ( unify (type_of x_0) λ. function_type (instance_variable x_0 x_0) λ. type_of x_1
+              + closure_type x_1 λ. x_1 λ. parameter λ. instance_variable x_1 x_1
+              + closure_type x_0 λx_2. x_1 x_2
+              )
+unions_parameter_typed: λx_0. parameter x_0 = λx_0. (parameter x_0 ∥ x_0 + parameter x_0)
+unions_unify_type_of_left: λx_0 x_1. unify (type_of x_0) x_1 = λx_0 x_1. type_of x_0
+unions_unify_type_of_right: λx_0 x_1. unify x_0 λ. type_of x_1 = λx_0 x_1. type_of x_1
+unions_unify_structure_left: λx_0 x_1. unify (structure x_0) x_1 = λx_0 x_1. structure x_0
+unions_unify_structure_right: λx_0 x_1. unify x_0 λ. structure x_1 = λx_0 x_1. structure x_1
+unions_unify_alternative_left: λx_0 x_1 x_2. unify (alternative x_0 x_1) x_2 = λx_0 x_1 x_2. alternative x_0 x_1
+unions_unify_alternative_right: λx_0 x_1 x_2. unify x_0 λ. alternative x_1 x_2 = λx_0 x_1 x_2. alternative x_1 x_2
+unions_unify_no_alternative_left: λx_0. unify no_alternative x_0 = λx_0. no_alternative
+unions_unify_no_alternative_right: λx_0. unify x_0 no_alternative = λx_0. no_alternative
+unions_unify_field_left: λx_0 x_1 x_2. unify (field x_0 x_1) x_2 = λx_0 x_1 x_2. field x_0 x_1
+unions_unify_field_right: λx_0 x_1 x_2. unify x_0 λ. field x_1 x_2 = λx_0 x_1 x_2. field x_1 x_2
+unions_unify_no_field_left: λx_0. unify no_field x_0 = λx_0. no_field
+unions_unify_no_field_right: λx_0. unify x_0 no_field = λx_0. no_field
+unions_unify_function_left: λx_0 x_1 x_2. unify (function_type x_0 x_1) x_2 = λx_0 x_1 x_2. function_type x_0 x_1
+unions_unify_function_right: λx_0 x_1 x_2. unify x_0 λ. function_type x_1 x_2 = λx_0 x_1 x_2. function_type x_1 x_2
+unions_unify_variable_left: λx_0 x_1 x_2. unify (instance_variable x_0 x_1) x_2 = λx_0 x_1 x_2. instance_variable x_0 x_1
+unions_unify_variable_right: λx_0 x_1 x_2. unify x_0 λ. instance_variable x_1 x_2 = λx_0 x_1 x_2. instance_variable x_1 x_2
+unions_function_decomposition: λx_0 x_1 x_2 x_3. unify (function_type x_0 x_1) λ. function_type x_2 x_3 = λ x_0 x_1 x_2 x_3
+            . (unify x_1 x_3 + unify x_0 x_2 + unify (function_type x_0 x_1) λ. function_type x_2 x_3)
+unions_structure_decomposition: λx_0 x_1. unify (structure x_0) λ. structure x_1 = λx_0 x_1. (unify x_0 x_1 + unify (structure x_0) λ. structure x_1)
+unions_alternative_decomposition: λx_0 x_1 x_2 x_3. unify (alternative x_0 x_1) λ. alternative x_2 x_3 = λ x_0 x_1 x_2 x_3
+            . (unify x_1 x_3 + unify x_0 x_2 + unify (alternative x_0 x_1) λ. alternative x_2 x_3)
+unions_field_decomposition: λx_0 x_1 x_2 x_3. unify (field x_0 x_1) λ. field x_2 x_3 = λx_0 x_1 x_2 x_3. (unify x_1 x_3 + unify x_0 x_2 + unify (field x_0 x_1) λ. field x_2 x_3)
