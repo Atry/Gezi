@@ -1,5 +1,5 @@
 # The selector of the test extractor module of contest-entry's tests
-# (gezi.contest.entry.TestExtractorModule, ExtractorModuleLawTest): the one
+# (com.yang_bo.gezi.contest.entry.TestExtractorModule, ExtractorModuleLawTest): the one
 # field of this file's tuple, a closed term told apart from every other
 # module's selector by its synthetic label, which the host never reads
 # The module

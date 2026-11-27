@@ -1,8 +1,8 @@
 # The library terms the cancel law's generated hot sites are built from
-# (gezi.contest.entry.generic.CancelGraceLawTest), each imported as a field of
+# (com.yang_bo.gezi.contest.entry.generic.CancelGraceLawTest), each imported as a field of
 # its group file of corpora/library and exported at its position of the file's
 # Scott tuple, whose names the host keeps in
-# gezi.standardlibrary.TermTables.hotSiteTerms. Only that test and the
+# com.yang_bo.gezi.standardlibrary.TermTables.hotSiteTerms. Only that test and the
 # benchmarks of the cancel's stops read these terms; no framework code reads them.
 # FIXME: the imports project "corpora" off the variable gezi, the name https://github.com/Atry/private-overlay/issues/1924
 # of the project root's own directory; they break if that directory is renamed.

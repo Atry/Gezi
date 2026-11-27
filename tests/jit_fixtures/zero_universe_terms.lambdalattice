@@ -1,8 +1,8 @@
 # The heads of the zero universe (corpora/library/hindley_milner_unions) that
 # the strategies' reading of a run's types recognizes by their handles
-# (gezi.strategies.FixpointVerdicts.ZeroUniverse), each imported from its
+# (com.yang_bo.gezi.strategies.FixpointVerdicts.ZeroUniverse), each imported from its
 # own file and exported at its position of the file's Scott tuple, whose names
-# the host keeps in gezi.standardlibrary.TermTables.zeroUniverseTerms. Only
+# the host keeps in com.yang_bo.gezi.standardlibrary.TermTables.zeroUniverseTerms. Only
 # that reading reads these terms; no framework code reads them.
 # FIXME: the imports project "corpora" off the variable gezi, the name https://github.com/Atry/private-overlay/issues/1924
 # of the project root's own directory; they break if that directory is renamed.

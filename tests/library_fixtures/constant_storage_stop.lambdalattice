@@ -1,5 +1,5 @@
 # The Prolog backend's preset with two more lemmas, for the laws of the
-# constant storage stop (gezi.saturation.ConstantStorageStop). An
+# constant storage stop (com.yang_bo.gezi.saturation.ConstantStorageStop). An
 # application of double is judged by its argument's class, double x +
 # (double x ∥ x), an instance of absorption, law (6), sound for every x: its
 # left side is rooted at an application of double, so that a round that

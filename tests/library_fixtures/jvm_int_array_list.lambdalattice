@@ -1,5 +1,5 @@
 # The knowledge GroupBlockArrayListKindsTest compiles its library from
-# (gezi.standardlibrary.StandardLibrary.compiledAt): the Prolog backend, the standard types,
+# (com.yang_bo.gezi.standardlibrary.StandardLibrary.compiledAt): the Prolog backend, the standard types,
 # the binary naturals' backend, the array lists' module, and the 32-bit words' modules, so
 # that the encoding makes array lists of the canonical naturals, of the positive ones and of
 # the 32-bit words held as a JVM int; their choice the one field of this file's tuple.

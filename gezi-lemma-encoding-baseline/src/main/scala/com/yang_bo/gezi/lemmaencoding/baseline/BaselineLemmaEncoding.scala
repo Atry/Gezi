@@ -1,0 +1,235 @@
+package com.yang_bo.gezi.lemmaencoding.baseline
+
+import com.yang_bo.gezi.frontend.Defunctionalization
+import com.yang_bo.gezi.ir.Code
+import com.yang_bo.gezi.ir
+import com.yang_bo.gezi.ir.Hole
+import com.yang_bo.gezi.ir.Pattern
+import com.yang_bo.gezi.lemmaencoding.EncodedLemma
+import com.yang_bo.gezi.lemmaencoding.LemmaEncoding
+import com.yang_bo.gezi.standardlibrary.LemmaSides
+import com.yang_bo.gezi.standardlibrary.StandardLibraryIndex
+import com.yang_bo.gezi.ir.{Configured, NativeSpecializer}
+
+/** A pattern as the Prolog front end writes it: a term of the IR with
+  * metavariable leaves and the instructions of names as references.
+  */
+enum LemmaPattern[C <: NativeSpecializer & Singleton]:
+  case Metavariable[C <: NativeSpecializer & Singleton](index: Int)
+      extends LemmaPattern[C]
+  case Reference(instruction: Configured[C])
+  case Apply(function: LemmaPattern[C], argument: LemmaPattern[C])
+  case Parallel(left: LemmaPattern[C], right: LemmaPattern[C])
+  case Choice(left: LemmaPattern[C], right: LemmaPattern[C])
+  case Thunk(code: Code, holes: Vector[Hole], fillings: Vector[LemmaPattern[C]])
+
+  /** The patterns one layer below, in order. */
+  def children: Vector[LemmaPattern[C]] = this match
+    case Metavariable(_) | Reference(_) => Vector.empty
+    case Apply(function, argument)      => Vector(function, argument)
+    case Parallel(left, right)          => Vector(left, right)
+    case Choice(left, right)            => Vector(left, right)
+    case Thunk(_, _, fillings)          => fillings
+
+/** The baseline's encoding of a lemma: its two sides read as patterns, the port
+  * of `gezi/prolog/gezi/lemma_patterns.pl`.
+  *
+  * A lemma side `\x1 ... \xn. B` is the thunk layer whose holes are x1 to xn,
+  * read as the code B over the holes' metavariables, Index 0 the outermost
+  * binder, and over the fillings, which are closed instructions and so patterns
+  * themselves. The metavariables of a lemma are the binders both its sides'
+  * instructions open with (`metavariables`), whether a side was written as a
+  * name or as its term: when one side's chain of binders is longer, the longer
+  * side's other binders are an object lambda, that side's pattern being a thunk
+  * pattern. Every closed subterm of a side, the fillings of its thunk and the
+  * whole side of a lemma with no metavariable, is a reference to its
+  * instruction, its layer not read. A reference matches a class that holds a
+  * node filed under its instruction; the orientation compiler files the roots
+  * of reference sides in the initial graph
+  * (`OrientationCompilation.patternInstructions`), so a node a lemma writes
+  * with that layer is the filed node. It reads the lemma's sides only and names
+  * no lemma.
+  */
+object BaselineLemmaEncoding extends LemmaEncoding:
+
+  /** The lemma's patterns of the framework, its closed subterms references. */
+  def encoded[C <: NativeSpecializer & Singleton](
+      index: StandardLibraryIndex[C],
+      sides: LemmaSides[C]
+  ): EncodedLemma[C] =
+    val (arity, left, right) = lemmaPatterns(sides)
+    EncodedLemma(
+      sides.lemma,
+      arity,
+      subrepoPattern(left),
+      subrepoPattern(right)
+    )
+
+  /** The number of the lemma's metavariables and the patterns of its two sides,
+    * every closed subterm a reference.
+    */
+  def lemmaPatterns[C <: NativeSpecializer & Singleton](
+      sides: LemmaSides[C]
+  ): (Int, LemmaPattern[C], LemmaPattern[C]) =
+    val arity = metavariables(sides)
+    (arity, sidePattern(sides.left, arity), sidePattern(sides.right, arity))
+
+  /** The number of the lemma's metavariables: the holes both its sides'
+    * instructions open with, a side that is no thunk opening with none. The
+    * knowledge base gives a lemma its two closed terms only and no number of
+    * metavariables, which means nothing of a lemma; the count is the matcher's
+    * choice, which changes the subterms matched and never the lemma's meaning.
+    * Since the count is read off the side instructions, the eta-equal spellings
+    * `f` and `\w. f w` are different encodings the author chooses.
+    */
+  def metavariables[C <: NativeSpecializer & Singleton](
+      sides: LemmaSides[C]
+  ): Int = binders(sides.left) min binders(sides.right)
+
+  private def binders[C <: NativeSpecializer & Singleton](
+      side: Configured[C]
+  ): Int = side.layer match
+    case ir.Thunk(_, holes, _) => holes.size
+    case _                     => 0
+
+  /** What a slot of a side holds while its code is read: a pattern, or the
+    * placeholder of a binder of the object lambda.
+    */
+  private enum SlotValue[C <: NativeSpecializer & Singleton]:
+    case Value(pattern: LemmaPattern[C])
+    case LambdaHole[C <: NativeSpecializer & Singleton]() extends SlotValue[C]
+
+  /** The pattern of a side whose first `arity` binders are the lemma's
+    * metavariables: its code with each slot replaced by the metavariable or the
+    * filling that reads it; with binders left over, the thunk pattern of the
+    * object lambda they make, whose fillings are the other slots' values in
+    * slot order. A side of no metavariable is closed, the pattern of its
+    * instruction.
+    */
+  private def sidePattern[C <: NativeSpecializer & Singleton](
+      side: Configured[C],
+      arity: Int
+  ): LemmaPattern[C] =
+    if arity == 0 then LemmaPattern.Reference(side)
+    else
+      side.layer match
+        case ir.Thunk(code, holes, fillings) =>
+          val (metavariableHoles, lambdaHoles) = holes.splitAt(arity)
+          val holeValues: Vector[SlotValue[C]] =
+            metavariableHoles.indices.toVector.map(index =>
+              SlotValue.Value(LemmaPattern.Metavariable[C](index))
+            ) ++
+              lambdaHoles.map(_ => SlotValue.LambdaHole[C]())
+          val environment = Defunctionalization.slotValues(
+            holes,
+            holeValues,
+            fillings.map(filling =>
+              SlotValue.Value(LemmaPattern.Reference(filling))
+            )
+          )
+          if lambdaHoles.isEmpty then
+            codePattern(
+              code,
+              environment.map {
+                case SlotValue.Value(pattern) => pattern
+                case SlotValue.LambdaHole()   =>
+                  throw IllegalStateException(
+                    "a lambda hole with no binder left over"
+                  )
+              }
+            )
+          else
+            LemmaPattern.Thunk(
+              code,
+              lambdaHoles,
+              environment.collect { case SlotValue.Value(pattern) => pattern }
+            )
+        case other =>
+          throw IllegalArgumentException(
+            s"a side that is no thunk has no $arity metavariables: $other"
+          )
+
+  /** The code with its slots replaced; an inner thunk's fillings are slot
+    * references of the enclosing code.
+    */
+  private def codePattern[C <: NativeSpecializer & Singleton](
+      code: Code,
+      environment: Vector[LemmaPattern[C]]
+  ): LemmaPattern[C] =
+    code match
+      case Code.Slot(index)               => environment(index)
+      case Code.Apply(function, argument) =>
+        LemmaPattern.Apply(
+          codePattern(function, environment),
+          codePattern(argument, environment)
+        )
+      case Code.Parallel(left, right) =>
+        LemmaPattern.Parallel(
+          codePattern(left, environment),
+          codePattern(right, environment)
+        )
+      case Code.Choice(left, right) =>
+        LemmaPattern.Choice(
+          codePattern(left, environment),
+          codePattern(right, environment)
+        )
+      case Code.Thunk(inner, holes, fillings) =>
+        LemmaPattern.Thunk(
+          inner,
+          holes,
+          fillings.map(codePattern(_, environment))
+        )
+
+  /** The metavariable of an eta-shaped thunk pattern `\x. M x`, M the
+    * metavariable: a lambda pattern.
+    */
+  def lambdaPattern[C <: NativeSpecializer & Singleton](
+      pattern: LemmaPattern[C]
+  ): Option[Int] = pattern match
+    case LemmaPattern.Thunk(
+          Code.Apply(Code.Slot(function), Code.Slot(hole)),
+          Vector(Hole.Bound(boundHole)),
+          Vector(LemmaPattern.Metavariable(index))
+        ) if boundHole == hole && function != hole =>
+      Some(index)
+    case _ => None
+
+  /** The metavariables that occur in the pattern, each once, in the order met.
+    */
+  def mentions[C <: NativeSpecializer & Singleton](
+      pattern: LemmaPattern[C]
+  ): Vector[Int] = (pattern match
+    case LemmaPattern.Metavariable(index) => Vector(index)
+    case other                            => other.children.flatMap(mentions)
+  ).distinct
+
+  /** The pattern has a rigid symbol: an instruction, a thunk, a choice, a
+    * parallel, or an application with a rigid side. An arrangement of
+    * metavariables alone matches every application.
+    */
+  def rigid[C <: NativeSpecializer & Singleton](
+      pattern: LemmaPattern[C]
+  ): Boolean = pattern match
+    case LemmaPattern.Metavariable(_)           => false
+    case LemmaPattern.Apply(function, argument) =>
+      rigid(function) || rigid(argument)
+    case _ => true
+
+  /** The pattern of the framework, its codes interned. A lambda pattern stays a
+    * thunk pattern: the orientation compiler reads it as a closure.
+    */
+  def subrepoPattern[C <: NativeSpecializer & Singleton](
+      pattern: LemmaPattern[C]
+  ): Pattern[C] =
+    pattern match
+      case LemmaPattern.Metavariable(index)    => Pattern.Metavariable[C](index)
+      case LemmaPattern.Reference(instruction) =>
+        Pattern.InstructionReference(instruction)
+      case LemmaPattern.Apply(function, argument) =>
+        Pattern.Apply(subrepoPattern(function), subrepoPattern(argument))
+      case LemmaPattern.Parallel(left, right) =>
+        Pattern.Parallel(subrepoPattern(left), subrepoPattern(right))
+      case LemmaPattern.Choice(left, right) =>
+        Pattern.Choice(subrepoPattern(left), subrepoPattern(right))
+      case LemmaPattern.Thunk(code, holes, fillings) =>
+        Pattern.Thunk(code, holes, fillings.map(subrepoPattern))

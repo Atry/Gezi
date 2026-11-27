@@ -1,8 +1,8 @@
-# The published list of the places an entry's program is compiled by its lemma rounds (CompilationPlaceOption): upfront, the generic entry runs the rounds and hands the executor the program they give, its one field the units it compiles (a constructor of entry_options/unit_selection); by_executor, the generic entry runs no round and hands the executor the program uncompiled, the entry's prepared compilation among the executor's inputs (gezi.contest.entry.ExecutorModuleInputs). Every entry writes one; gezi.contest.entry.Defaults.compilationPlace maps it to what the entry does.
+# The published list of the places an entry's program is compiled by its lemma rounds (CompilationPlaceOption): upfront, the generic entry runs the rounds and hands the executor the program they give, its one field the units it compiles (a constructor of entry_options/unit_selection); by_executor, the generic entry runs no round and hands the executor the program uncompiled, the entry's prepared compilation among the executor's inputs (com.yang_bo.gezi.contest.entry.ExecutorModuleInputs). Every entry writes one; com.yang_bo.gezi.contest.entry.Defaults.compilationPlace maps it to what the entry does.
 # A Scott sum whose constructors are the tuple's fields, in the order of the
 # enum's cases; an entry.lambdalattice imports this file and writes a
 # constructor, and EntryData reads which alternative it takes by structure
-# (gezi.contest.entry.EntryData, THE OPTIONS AS SCOTT CONSTRUCTORS).
+# (com.yang_bo.gezi.contest.entry.EntryData, THE OPTIONS AS SCOTT CONSTRUCTORS).
 λ export
 . (λtuple. tuple λunits upfront by_executor. upfront units)
 λ upfront

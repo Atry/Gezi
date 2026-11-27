@@ -1,5 +1,5 @@
 # The knowledge of LeanStatementsTest's first unit, whose lemma statements it
-# exports to Lean (gezi.standardlibrary.LibraryFiles.compiled): prelude,
+# exports to Lean (com.yang_bo.gezi.standardlibrary.LibraryFiles.compiled): prelude,
 # guard_laws, parallel_types, filtered_recursion_naturals, lattice_types and
 # contracts, their choice the one field of this file's tuple, a term of this
 # file and not a choice the host assembles from paths.

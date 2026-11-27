@@ -1,4 +1,4 @@
-# The published list of the kinds of a lemma's proof (gezi.standardlibrary.LemmaProof): munit, the full name of a
+# The published list of the kinds of a lemma's proof (com.yang_bo.gezi.standardlibrary.LemmaProof): munit, the full name of a
 # munit suite that checks the lemma; md, a Markdown link to the document that proves it; tex, a TeX citation; each of
 # one field, a trie of a string literal.
 # A Scott sum whose constructors are the tuple's fields, in the order of the enum's cases, read by position

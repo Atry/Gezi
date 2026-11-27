@@ -1,5 +1,5 @@
 # The knowledge NarrowListCorporaLawTest compiles its library from
-# (gezi.standardlibrary.StandardLibrary.compiledAt): native_types,
+# (com.yang_bo.gezi.standardlibrary.StandardLibrary.compiledAt): native_types,
 # prolog_backend, binary_prolog_backend and binary_operations_wren_backend,
 # the backend facts of the narrow lists (the list family's representation and
 # constructors) and of the binary naturals with wren's natives on them, their

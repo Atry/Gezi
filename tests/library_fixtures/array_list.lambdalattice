@@ -1,5 +1,5 @@
 # The knowledge ArrayListStorageLawTest compiles its library from
-# (gezi.standardlibrary.StandardLibrary.compiledAt): the Prolog backend, the standard types,
+# (com.yang_bo.gezi.standardlibrary.StandardLibrary.compiledAt): the Prolog backend, the standard types,
 # the binary naturals' backend and the array lists' module, their choice the one field of
 # this file's tuple.
 # FIXME: the imports project "corpora" off the variable gezi, the name https://github.com/Atry/private-overlay/issues/1924

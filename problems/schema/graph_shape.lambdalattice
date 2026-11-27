@@ -2,5 +2,5 @@
 # path_lengths, reachable_set, empty_set_reachability): a Scott sum of two
 # constructors, two rings joined by one edge first, then a ring whose every
 # node also points back to the one before it, read by its position
-# (gezi.contest.corpora.merges.MergeGraph, GraphShape).
+# (com.yang_bo.gezi.contest.corpora.merges.MergeGraph, GraphShape).
 λ export. export (λtwo_rings chord_ring. two_rings) λtwo_rings chord_ring. chord_ring

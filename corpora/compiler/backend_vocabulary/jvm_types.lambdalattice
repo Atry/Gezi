@@ -1,5 +1,5 @@
 # The published list of the JVM types a data family's values are held as
-# (gezi.standardlibrary.JvmTypeName): generic, the framework's generic
+# (com.yang_bo.gezi.standardlibrary.JvmTypeName): generic, the framework's generic
 # constructed value; list, the framework's list codec's lists.
 # A Scott sum whose constructors are the tuple's fields, in the order of the
 # enum's cases; the order is read by position and must match

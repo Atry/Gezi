@@ -2,7 +2,7 @@
 # constructors, in order: constructor, with no field; function, whose two
 # fields are the list of the entries it depends on, the entries themselves,
 # and its recursion (a constructor of attractors/recursion). Read by its position
-# (gezi.contest.corpora.claims.Attractors, AttractorKind).
+# (com.yang_bo.gezi.contest.corpora.claims.Attractors, AttractorKind).
 λ export
 . export
   (λconstructor function. constructor) λdependencies recursion constructor function. function dependencies recursion

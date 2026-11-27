@@ -1,5 +1,5 @@
 # The selector of the program recording executor module of
-# contest-in-tree-entries' tests (gezi.contest.entry.generic.ProgramRecordingModule,
+# contest-in-tree-entries' tests (com.yang_bo.gezi.contest.entry.generic.ProgramRecordingModule,
 # CompilationPlaceLawTest): the one field of this file's tuple, a closed term
 # told apart from every other module's selector by its synthetic label, which
 # the host never reads.

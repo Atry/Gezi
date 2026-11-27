@@ -1,5 +1,5 @@
 # The knowledge NativeRouteCompilationTest compiles the native route on
-# (gezi.standardlibrary.LibraryFiles.compiled): native_types,
+# (com.yang_bo.gezi.standardlibrary.LibraryFiles.compiled): native_types,
 # native_arithmetic, hindley_milner_unions, native_arithmetic_unions,
 # closure_application, occurrence_erasure, prolog_backend,
 # native_arithmetic_prolog_backend and prolog_backend_shapes, their choice the

@@ -1,5 +1,5 @@
 # The knowledge of the configuration hindley_milner_baseline
-# (gezi.programfamilies.Configurations), the Scott tuple of its two fields,
+# (com.yang_bo.gezi.programfamilies.Configurations), the Scott tuple of its two fields,
 # each a term of this file and not a choice the host assembles from paths:
 # knowledge  the knowledge files the configuration's library is compiled from,
 #            occurrence_erasure among them: native_types declares the markers

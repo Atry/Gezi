@@ -1,5 +1,5 @@
 # The knowledge WordDecodingLawTest compiles its library from
-# (gezi.standardlibrary.LibraryFiles.compiled): native_types, fixed_width,
+# (com.yang_bo.gezi.standardlibrary.LibraryFiles.compiled): native_types, fixed_width,
 # prolog_backend and fixed_width_prolog_backend, their choice the one field of
 # this file's tuple, a term of this file and not a choice the host assembles
 # from paths.

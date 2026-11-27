@@ -1,8 +1,8 @@
-# The published list of the implementations of a round's extraction (ExtractorImplementation): narrow_block, the narrow blocks over the entry's natives first, then the size; narrow_list_block, the same with the narrow blocks with lists and booleans (#1538, sections 8.2 to 8.4), an opt-in copy; each with two fields, integers, the enumeration bound and the whole fold bound of how it reads a thunk's jointly read fillings (gezi.strategies.JointReading); module, the extraction of a module registered with java.util.ServiceLoader and the narrow blocks' route it pairs with (gezi.contest.entry.ExtractorModule), its two fields the module's selector, the term the module's selector file gives, and its parameters, a term the module reads by structure.
+# The published list of the implementations of a round's extraction (ExtractorImplementation): narrow_block, the narrow blocks over the entry's natives first, then the size; narrow_list_block, the same with the narrow blocks with lists and booleans (#1538, sections 8.2 to 8.4), an opt-in copy; each with two fields, integers, the enumeration bound and the whole fold bound of how it reads a thunk's jointly read fillings (com.yang_bo.gezi.strategies.JointReading); module, the extraction of a module registered with java.util.ServiceLoader and the narrow blocks' route it pairs with (com.yang_bo.gezi.contest.entry.ExtractorModule), its two fields the module's selector, the term the module's selector file gives, and its parameters, a term the module reads by structure.
 # A Scott sum whose constructors are the tuple's fields, in the order of the
 # enum's cases; an entry.lambdalattice imports this file and writes a
 # constructor, and EntryData reads which alternative it takes by structure
-# (gezi.contest.entry.EntryData, THE OPTIONS AS SCOTT CONSTRUCTORS). The host finds a
+# (com.yang_bo.gezi.contest.entry.EntryData, THE OPTIONS AS SCOTT CONSTRUCTORS). The host finds a
 # module by the identity of its selector's term, never by a name.
 λ export
 . (λtuple. tuple λenumeration_bound whole_fold_bound narrow_block narrow_list_block module. narrow_block enumeration_bound whole_fold_bound)

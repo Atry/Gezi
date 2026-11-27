@@ -1,5 +1,5 @@
 # The knowledge of LeanStatementsTest's second unit, whose lemmas cite the
-# design documents of the paper proofs (gezi.standardlibrary.LibraryFiles.compiled):
+# design documents of the paper proofs (com.yang_bo.gezi.standardlibrary.LibraryFiles.compiled):
 # prelude, guard_laws, parallel_types and lattice_types, their choice the one
 # field of this file's tuple, a term of this file and not a choice the host
 # assembles from paths.

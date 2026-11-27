@@ -1,5 +1,5 @@
 # The knowledge of the JMH benchmark of the instance table's checkpoints
-# (gezi.jmh.pipeline.InstanceCheckpointBenchmarks): the six knowledge
+# (com.yang_bo.gezi.jmh.pipeline.InstanceCheckpointBenchmarks): the six knowledge
 # files of solo's entry at main c983e0af7, imported here, their choice the
 # one field of this file's tuple, a term of this file and not a choice the
 # host assembles from paths.

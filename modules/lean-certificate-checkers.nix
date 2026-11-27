@@ -2,7 +2,7 @@
   # The two tools of a round certificate's check (https://github.com/Atry/private-overlay/issues/1528,
   # route B): lean4export, which writes the closure of the Lean library's constants a certificate
   # names in Lean's export format, and nanoda, an independent type checker of that format, which
-  # checks the closure followed by the certificate (`gezi.proofs.RoundCertificates`). They are
+  # checks the closure followed by the certificate (`com.yang_bo.gezi.proofs.RoundCertificates`). They are
   # in the certificate's trusted base with the scripts that call them. Surfaced via
   # modules/artifacts.nix as `nix build .#lean4export -L` and `nix build .#nanoda -L`, and put on
   # the dev shell's PATH by modules/lean-devshell.nix.

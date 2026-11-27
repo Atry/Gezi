@@ -5,7 +5,7 @@
 # empty_set_reachability/order), the branches kept (a constructor of
 # empty_set_reachability/branches) and the target's bits (a list of decimal
 # texts). Read by its position
-# (gezi.contest.corpora.reductions.EmptySetReachability, graphOf, into
+# (com.yang_bo.gezi.contest.corpora.reductions.EmptySetReachability, graphOf, into
 # ReachabilityGraph).
 λ export
 . export

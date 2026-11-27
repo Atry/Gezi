@@ -1,5 +1,5 @@
 # The knowledge FixedWidthTypingLawTest compiles its library from
-# (gezi.standardlibrary.LibraryFiles.compiled): the first field of the
+# (com.yang_bo.gezi.standardlibrary.LibraryFiles.compiled): the first field of the
 # Prolog backend's fixed-width preset with occurrence_erasure, the erasure
 # lemma of the occurrence markers the preset declares, without which reading
 # them throws (StandardLibraryIndex.occurrenceMarkers); their

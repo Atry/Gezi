@@ -3,6 +3,6 @@
 # set_free_premises, set_free_scope and set_free_search): a Scott sum of two
 # constructors, in order: direct, the attractors as they are, and respelled,
 # every application whose head is a variable written with the head wrapped.
-# Read by its position (gezi.contest.corpora.reductions.SetFree,
-# spelling, into gezi.contest.corpora.claims.Spelling).
+# Read by its position (com.yang_bo.gezi.contest.corpora.reductions.SetFree,
+# spelling, into com.yang_bo.gezi.contest.corpora.claims.Spelling).
 λ export. export (λdirect respelled. direct) λdirect respelled. respelled

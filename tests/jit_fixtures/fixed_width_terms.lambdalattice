@@ -1,6 +1,6 @@
-# The fixed-width operations FixedWidthLawTest applies (gezi.jit.FixedWidthLawTest), each
+# The fixed-width operations FixedWidthLawTest applies (com.yang_bo.gezi.jit.FixedWidthLawTest), each
 # imported from its own file of corpora/library/fixed_width and exported at its position of the
-# file's Scott tuple, whose names the host keeps in gezi.standardlibrary.TermTables.fixedWidthTerms.
+# file's Scott tuple, whose names the host keeps in com.yang_bo.gezi.standardlibrary.TermTables.fixedWidthTerms.
 # Only that test reads these terms; no framework code reads them. The naturals, booleans and word
 # constructors the test writes its operands with are fields of library_terms.lambdalattice.
 # FIXME: the imports project "corpora" off the variable gezi, the name https://github.com/Atry/private-overlay/issues/1924

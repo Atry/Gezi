@@ -34,9 +34,9 @@ object RuntimeTestInputs extends AutoPlugin:
   private val tracked: Seq[String] = Seq(
     "corpora",
     "tests",
-    "contest-entries-fixture/entry.lambdalattice",
-    "contest-entries-solo/entry.lambdalattice",
-    "contest-entries-wren/entry.lambdalattice",
+    "gezi-contest-entries-fixture/entry.lambdalattice",
+    "gezi-contest-entries-solo/entry.lambdalattice",
+    "gezi-contest-entries-wren/entry.lambdalattice",
     "lean/LambdaJit",
     "lean/LambdaJit.lean",
     "lean/lakefile.lean",

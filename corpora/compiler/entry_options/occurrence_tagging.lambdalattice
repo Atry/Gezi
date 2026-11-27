@@ -1,8 +1,8 @@
-# The published list of the occurrence taggings of an entry's program before its lemma rounds (OccurrenceTaggingOption): untagged, the program as the cell gives it; names_and_closures, each lambda chain and each shared part of the program tagged as an occurrence (gezi.frontend.ProgramOccurrences), so that a library whose lemmas type each occurrence on its own (the HM baseline's) has occurrences to start from on a point whose library terms are inlined. Every entry writes one; gezi.contest.entry.Defaults.occurrencesTagged maps it to what the entry does.
+# The published list of the occurrence taggings of an entry's program before its lemma rounds (OccurrenceTaggingOption): untagged, the program as the cell gives it; names_and_closures, each lambda chain and each shared part of the program tagged as an occurrence (com.yang_bo.gezi.frontend.ProgramOccurrences), so that a library whose lemmas type each occurrence on its own (the HM baseline's) has occurrences to start from on a point whose library terms are inlined. Every entry writes one; com.yang_bo.gezi.contest.entry.Defaults.occurrencesTagged maps it to what the entry does.
 # A Scott sum whose constructors are the tuple's fields, in the order of the
 # enum's cases; an entry.lambdalattice imports this file and writes a
 # constructor, and EntryData reads which alternative it takes by structure
-# (gezi.contest.entry.EntryData, THE OPTIONS AS SCOTT CONSTRUCTORS).
+# (com.yang_bo.gezi.contest.entry.EntryData, THE OPTIONS AS SCOTT CONSTRUCTORS).
 λ export
 . (λtuple. tuple λuntagged names_and_closures. untagged)
 λ untagged

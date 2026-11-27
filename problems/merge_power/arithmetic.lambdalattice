@@ -1,5 +1,5 @@
 # The arithmetic of a point of power_point: a Scott sum of two constructors,
 # the original arithmetic of contest_merge_dynamic first, then its twin,
-# read by its position (gezi.contest.corpora.merges.MergePower,
+# read by its position (com.yang_bo.gezi.contest.corpora.merges.MergePower,
 # PowerArithmetic).
 λ export. export (λoriginal twin. original) λoriginal twin. twin

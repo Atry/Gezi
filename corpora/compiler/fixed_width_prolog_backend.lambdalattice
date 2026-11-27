@@ -2,7 +2,7 @@
 # (one set of backend facts per backend; prolog_backend.pl has native_types',
 # native_arithmetic_prolog_backend.pl native_arithmetic's): the words of
 # word_type w are represented natively, each as one integer of w bits with its
-# width (the family word, gezi.jit.WordFamily), and the two constructors
+# width (the family word, com.yang_bo.gezi.jit.WordFamily), and the two constructors
 # the codec decodes into and encodes from are word_type's data_family, word_end
 # at 0 and word_cell at 1, of no criterion parameter (the width is a value the
 # family reads from the filter, not a criterion), and are leaves, so that no

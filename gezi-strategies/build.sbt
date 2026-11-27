@@ -21,7 +21,7 @@ Test / fork := true
 Test / javaOptions += s"-Dgezi.buildRoot=${baseDirectory.value.getParentFile}"
 
 // A suite runs lake in the Lean package (RoundCertificateCheckTest's round
-// certificates, `gezi.proofs.CertificateChecks`): one such test group at
+// certificates, `com.yang_bo.gezi.proofs.CertificateChecks`): one such test group at
 // a time (project/LeanTests.scala).
 Test / test / testGrouping := Def.uncached(
   LeanTests.tagged((Test / test / testGrouping).value)

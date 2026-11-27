@@ -1,8 +1,8 @@
 # The function of the library edit distances' family, its direct spelling
-# (gezi.contest.corpora.reductions.LibraryEditDistances.function, Spelling.Direct),
+# (com.yang_bo.gezi.contest.corpora.reductions.LibraryEditDistances.function, Spelling.Direct),
 # written out here over the library's binary naturals, so that a test outside
 # the corpora's generators compiles the closure unit a point of the family
-# binds by its top-level let (gezi.contest.entry.ClosureUnitFilterRecordSnapshotTest).
+# binds by its top-level let (com.yang_bo.gezi.contest.entry.ClosureUnitFilterRecordSnapshotTest).
 # The family's generator is the definition: a change there is a change here.
 # FIXME: the imports project "corpora" off the variable gezi, the name https://github.com/Atry/private-overlay/issues/1924
 # of the project root's own directory; they break if that directory is renamed.

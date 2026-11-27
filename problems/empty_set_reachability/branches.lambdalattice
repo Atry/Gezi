@@ -1,6 +1,6 @@
 # The branches a tree of empty_set_reachability/graph keeps: a Scott sum of
 # two constructors, in order: both, and without, whose one field is the bit
 # whose branch is dropped (a decimal text). Read by its position
-# (gezi.contest.corpora.reductions.EmptySetReachability, branches, into
+# (com.yang_bo.gezi.contest.corpora.reductions.EmptySetReachability, branches, into
 # the bit dropped if any).
 λ export. export (λboth without. both) λbit both without. without bit

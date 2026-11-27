@@ -3,6 +3,6 @@
 # least largest time grows past the budget, the least, and added, whose one
 # field is the amount added to the least to make the budget (a decimal text,
 # negative for a trap). Read by its position
-# (gezi.contest.corpora.reductions.Hidden37Workers, slack, into
+# (com.yang_bo.gezi.contest.corpora.reductions.Hidden37Workers, slack, into
 # Hidden37Workers.Slack).
 λ export. export (λnear added. near) λamount near added. added amount

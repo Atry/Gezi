@@ -1,8 +1,8 @@
-# The published list of the executors that read an entry's programs (ExecutorOption): jit, the framework's, its JIT as a reading executor (gezi.contest.entry.Defaults.executor); module, the executor of a module registered with java.util.ServiceLoader (gezi.contest.entry.ExecutorModule), its two fields the module's selector, the term the module's selector file gives, and its parameters, a term the module reads by structure.
+# The published list of the executors that read an entry's programs (ExecutorOption): jit, the framework's, its JIT as a reading executor (com.yang_bo.gezi.contest.entry.Defaults.executor); module, the executor of a module registered with java.util.ServiceLoader (com.yang_bo.gezi.contest.entry.ExecutorModule), its two fields the module's selector, the term the module's selector file gives, and its parameters, a term the module reads by structure.
 # A Scott sum whose constructors are the tuple's fields, in the order of the
 # enum's cases; an entry.lambdalattice imports this file and writes a
 # constructor, and EntryData reads which alternative it takes by structure
-# (gezi.contest.entry.EntryData, THE OPTIONS AS SCOTT CONSTRUCTORS). The host finds a
+# (com.yang_bo.gezi.contest.entry.EntryData, THE OPTIONS AS SCOTT CONSTRUCTORS). The host finds a
 # module by the identity of its selector's term, never by a name.
 λ export
 . export (λjit module. jit) λselector parameters jit module. module selector parameters

@@ -1,5 +1,5 @@
 # The knowledge CodecLiteralLawTest compiles its library from
-# (gezi.standardlibrary.LibraryFiles.compiled): the standard knowledge
+# (com.yang_bo.gezi.standardlibrary.LibraryFiles.compiled): the standard knowledge
 # files the literals need, native_types, prolog_backend, binary_prolog_backend,
 # fixed_width and fixed_width_prolog_backend, with the natives of the fixture
 # codec_literals, their choice the one field of this file's tuple, a term of

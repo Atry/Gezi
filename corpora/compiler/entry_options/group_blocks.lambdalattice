@@ -1,11 +1,11 @@
-# The published list of the JIT's group block mechanisms (GroupBlocksOption): no_group_blocks, the JIT runs no group block (gezi.jit.NoGroupBlocks); group_blocks_enabled share_percent dense_cells backend, a written closed thunk applied to enough arguments runs as a group block when its scan by the group grammar compiles it, on the group backend backend, a constructor of entry_options/group_backend (gezi.narrowblocks.groups.GroupBlockMechanism), the steps the blocks of a reading waste together, in entries that give no value, at most share_percent percent of the reading's budget (an integer literal from 1 to 100), a recursion over lists keeping its finished calls in a dense table of at most dense_cells cells (0 for none) beside the map.
+# The published list of the JIT's group block mechanisms (GroupBlocksOption): no_group_blocks, the JIT runs no group block (com.yang_bo.gezi.jit.NoGroupBlocks); group_blocks_enabled share_percent dense_cells backend, a written closed thunk applied to enough arguments runs as a group block when its scan by the group grammar compiles it, on the group backend backend, a constructor of entry_options/group_backend (com.yang_bo.gezi.narrowblocks.groups.GroupBlockMechanism), the steps the blocks of a reading waste together, in entries that give no value, at most share_percent percent of the reading's budget (an integer literal from 1 to 100), a recursion over lists keeping its finished calls in a dense table of at most dense_cells cells (0 for none) beside the map.
 # DEPRECATED: no_group_blocks loses answers a multi-valued argument has (the
 # product of a native call's arguments is taken outside any block, one value
 # per position); no new entry selects it. FIXME: https://github.com/Atry/private-overlay/issues/2221
 # A Scott sum whose constructors are the tuple's fields, in the order of the
 # enum's cases; an entry.lambdalattice imports this file and writes a
 # constructor, and EntryData reads which alternative it takes by structure
-# (gezi.contest.entry.EntryData, THE OPTIONS AS SCOTT CONSTRUCTORS).
+# (com.yang_bo.gezi.contest.entry.EntryData, THE OPTIONS AS SCOTT CONSTRUCTORS).
 λ export
 . (λtuple. tuple λno_group_blocks group_blocks_enabled. no_group_blocks)
 λ no_group_blocks

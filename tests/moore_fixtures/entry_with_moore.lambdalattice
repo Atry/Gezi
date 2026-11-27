@@ -1,4 +1,4 @@
-# An entry, read as the generic entry reads entry.lambdalattice (gezi.contest.entry.EntryData.at), that runs FFI
+# An entry, read as the generic entry reads entry.lambdalattice (com.yang_bo.gezi.contest.entry.EntryData.at), that runs FFI
 # programs: its executor is the module of corpora/modules/moore
 # with the parameters of java_ffi/moore_parameters, and its backend's knowledge is corpora/compiler/java_ffi, whose data
 # families those parameters name. It has no round, and its other options are the fixture entry's

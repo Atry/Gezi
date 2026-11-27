@@ -1,7 +1,7 @@
 # The outcome of a point of theorem_point: a Scott sum of two constructors,
 # in order: theorem, the predicate holds at every n; counterexample, whose
 # one field is the least n at which it fails. Read by its position
-# (gezi.contest.corpora.claims.ArithmeticTheorems, TheoremOutcome).
+# (com.yang_bo.gezi.contest.corpora.claims.ArithmeticTheorems, TheoremOutcome).
 λ export
 . export
   (λtheorem counterexample. theorem) λvalue theorem counterexample. counterexample value

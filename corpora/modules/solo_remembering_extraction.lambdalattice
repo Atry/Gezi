@@ -1,5 +1,5 @@
 # The selector of the extractor module of the remembering extraction
-# (gezi.contest.modules.solo.extraction.RememberingExtractionModule, project
+# (com.yang_bo.gezi.contest.modules.solo.extraction.RememberingExtractionModule, project
 # contest-modules-solo-extraction): the one field of this file's tuple, a
 # closed term told apart from every other module's selector by its synthetic
 # label, which the host never reads. The module registers this file's path

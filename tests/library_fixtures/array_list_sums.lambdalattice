@@ -1,5 +1,5 @@
 # The knowledge GroupBlocksJitListLawTest compiles its library from
-# (gezi.standardlibrary.StandardLibrary.compiledAt): the Prolog backend, the
+# (com.yang_bo.gezi.standardlibrary.StandardLibrary.compiledAt): the Prolog backend, the
 # standard types, the binary naturals' backend, the binding of
 # merge_binary_plus to wren_binary_plus and the array lists' module, their
 # choice the one field of this file's tuple.

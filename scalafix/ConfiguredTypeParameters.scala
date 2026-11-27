@@ -14,7 +14,7 @@
 //     `Value` becomes `Value[C]` and `JitValue` becomes `JitValue[C]`;
 //   - outside the front end and the IR, a method of an object, or a top-level method, whose signature names one of
 //     those three types gets the same type parameter, first, and the same rewriting of its signature.
-// A file it changes outside the package gezi.ir gets one import of `Configured` and `NativeSpecializer` it lacks.
+// A file it changes outside the package com.yang_bo.gezi.ir gets one import of `Configured` and `NativeSpecializer` it lacks.
 // It recognises the names by their spelling; a name it takes for another type of the same name, the compiler
 // reports at step 3. Method bodies, where terms are built, are the hand migration's (step 2).
 
@@ -75,7 +75,7 @@ class ConfiguredTypeParameters
     case first :: _ => Patch.addLeft(first, s"$parameter, ")
   }
 
-  // The three types where they stand in a signature, unapplied; a qualified one (`gezi.ir.Instruction`) whole.
+  // The three types where they stand in a signature, unapplied; a qualified one (`com.yang_bo.gezi.ir.Instruction`) whole.
   private def signatureRewrites(signature: Tree): List[Patch] =
     signature.collect {
       case selected @ Type.Select(_, Type.Name(name))
@@ -180,10 +180,10 @@ class ConfiguredTypeParameters
     val changes = declarations ++ methods
     val insideIr = document.tree
       .collect { case Pkg(reference, _) => reference.syntax }
-      .contains("gezi.ir")
+      .contains("com.yang_bo.gezi.ir")
     val imported: Set[String] = document.tree
       .collect {
-        case Importer(reference, importees) if reference.syntax == "gezi.ir" =>
+        case Importer(reference, importees) if reference.syntax == "com.yang_bo.gezi.ir" =>
           importees.collect {
             case Importee.Name(Name(name)) => name
             case _: Importee.Wildcard      => "*"

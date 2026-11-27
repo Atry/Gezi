@@ -6,9 +6,9 @@ import LambdaJit.LatticeEtaDerivability
 
 The e-graph unites two terms by β conversion where it reduced several β redexes at once: the
 higher-order matching's expansions and normal forms, and the higher-order saturator's root
-reverse β (`gezi.egraph.Justification.BetaConversion`, which names the node the other reduces
+reverse β (`com.yang_bo.gezi.egraph.Justification.BetaConversion`, which names the node the other reduces
 to). The steps are not recorded: the normal form is computed on values
-(`gezi.ir.BindingNormalForm`), and the redexes lie under abstractions, inside the codes of
+(`com.yang_bo.gezi.ir.BindingNormalForm`), and the redexes lie under abstractions, inside the codes of
 thunks, where the article's first-order encoding has no binder. So an article states such a union
 as one import equation, the side that reduces on the left, and the checker decides it here.
 

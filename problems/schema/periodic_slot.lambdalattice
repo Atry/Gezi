@@ -2,7 +2,7 @@
 # not_periodic proposition (the type proposition) says does not hold: a
 # Scott sum of four constructors, in order: residue_zero, residue_one,
 # residue_two and even. Read by its position; the host names the mixin slot
-# of each (gezi.contest.corpora.reductions.ReductionMixinTheorems).
+# of each (com.yang_bo.gezi.contest.corpora.reductions.ReductionMixinTheorems).
 λ export
 . export
   (λresidue_zero residue_one residue_two even. residue_zero)

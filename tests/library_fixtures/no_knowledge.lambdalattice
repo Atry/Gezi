@@ -1,5 +1,5 @@
 # The knowledge of no member, for the tests whose programs are pure λ terms
-# that use no library file (gezi.contest.entry.JudgmentsLawTest): top,
+# that use no library file (com.yang_bo.gezi.contest.entry.JudgmentsLawTest): top,
 # imported from the library's file of top, the one field of this file's tuple.
 # FIXME: the imports project "corpora" off the variable gezi, the name https://github.com/Atry/private-overlay/issues/1924
 # of the project root's own directory; they break if that directory is renamed.

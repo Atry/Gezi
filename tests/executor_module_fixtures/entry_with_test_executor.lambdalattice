@@ -1,6 +1,6 @@
 # An entry, read as the generic entry reads entry.lambdalattice
-# (gezi.contest.entry.EntryData.at), that chooses the test executor module of
-# contest-entry's tests (gezi.contest.entry.TestExecutorModule,
+# (com.yang_bo.gezi.contest.entry.EntryData.at), that chooses the test executor module of
+# contest-entry's tests (com.yang_bo.gezi.contest.entry.TestExecutorModule,
 # ExecutorModuleLawTest) by importing its selector file, test_executor, and
 # writing the term it gives as the executor's selector: the selector the
 # entry imports and the one the module registers are to be one interned
