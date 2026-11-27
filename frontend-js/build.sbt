@@ -21,7 +21,7 @@ libraryDependencies += "com.github.j-mie6" %% "parsley" % "4.6.2"
 // The Scala.js build of the CBOR encoder of literals `frontend` uses, at its
 // version (frontend/build.sbt): borer-core_sjs1_3 1.18.0 is built with
 // Scala.js 1.22.0, the version of project/sbt-scalajs.sbt.
-libraryDependencies += "io.bullet" %% "borer-core" % "1.18.0"
+libraryDependencies += "io.bullet" %% "borer-core" % "1.19.0"
 
 Compile / unmanagedSourceDirectories += baseDirectory.value.getParentFile / "frontend" / "src" / "main" / "scala"
 

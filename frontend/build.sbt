@@ -22,7 +22,7 @@ libraryDependencies += "com.github.j-mie6" %% "parsley" % "4.6.2"
 // 一个现有的库解析。"; "因为我想支持Scala.js，所以别的JVM的库不太行"): the reader of the
 // diagnostic notation builds borer's data model, and borer writes its bytes.
 // Pure Scala, for the JVM, Scala.js and Scala Native; built with Scala 3.3.8.
-libraryDependencies += "io.bullet" %% "borer-core" % "1.18.0"
+libraryDependencies += "io.bullet" %% "borer-core" % "1.19.0"
 
 // Snapshots instead of hard-coded expected values (the user, 2026-10-31:
 // "好，引入snapshot4s + munit吧。不要手写硬编码的assertion。"; CONTRIBUTING.md,
