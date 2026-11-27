@@ -23,7 +23,7 @@ libraryDependencies += ("sh.almond" %% "kernel" % "0.15.0")
 // The parser of the kernel's command line, as almond's own kernels have it
 // (almond.echo.EchoKernel); the version is the one of the case-app-annotations
 // that almond's kernel module brings.
-libraryDependencies += "com.github.alexarchambault" %% "case-app" % "2.1.0"
+libraryDependencies += "com.github.alexarchambault" %% "case-app" % "2.1.1"
 
 // `jupyterKernelInstall` installs the kernel `lambdalattice` the way almond
 // installs its own kernels (almond's docs/pages/install-other.md, the
