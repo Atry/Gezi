@@ -8,8 +8,14 @@ import gezi.ir.NativeSpecializer
   * they are used, as an opcode says how a JVM instruction reads a slot.
   */
 final case class JvmBits(width: Int, bits: Long) extends NativeValue[Nothing]:
-  require(JvmBitsFamily.widths.contains(width), s"no JVM value type has $width bits")
-  require(width == java.lang.Long.SIZE || (bits >>> width) == 0L, s"the value $bits has bits above its width $width")
+  require(
+    JvmBitsFamily.widths.contains(width),
+    s"no JVM value type has $width bits"
+  )
+  require(
+    width == java.lang.Long.SIZE || (bits >>> width) == 0L,
+    s"the value $bits has bits above its width $width"
+  )
 
 /** The family of the Java FFI's bit tuples of one width
   * (`corpora/library/java_ffi/bits`), held as the JVM value `JvmBits`, so that
@@ -29,34 +35,54 @@ final case class JvmBitsFamily(width: Int) extends DataFamily:
   val parameterFamily: Option[FamilyIdentity] = None
 
   override val jvmPrimitive: Option[JvmPrimitive] = width match
-    case 8  => Some(JvmPrimitive.Byte)
-    case 16 => Some(JvmPrimitive.Short)
-    case 32 => Some(JvmPrimitive.Int)
-    case 64 => Some(JvmPrimitive.Long)
-    case other => throw IllegalStateException(s"no JVM value type has $other bits")
+    case 8     => Some(JvmPrimitive.Byte)
+    case 16    => Some(JvmPrimitive.Short)
+    case 32    => Some(JvmPrimitive.Int)
+    case 64    => Some(JvmPrimitive.Long)
+    case other =>
+      throw IllegalStateException(s"no JVM value type has $other bits")
 
   private val constructor: DataConstructor = DataConstructor(
     NativeName.Constructor(identity, 0),
     Vector.fill(width)(DataField.unparameterised(BooleanFamily.identity))
   )
 
-  def constructors[Term](parameter: Option[FamilyParameter[Term]]): Vector[DataConstructor] = Vector(constructor)
+  def constructors[Term](
+      parameter: Option[FamilyParameter[Term]]
+  ): Vector[DataConstructor] = Vector(constructor)
 
-  def built[Term](parameter: Option[FamilyParameter[Term]], layer: DataLayer[Term]): NativeValue[Term] = layer match
+  def built[Term](
+      parameter: Option[FamilyParameter[Term]],
+      layer: DataLayer[Term]
+  ): NativeValue[Term] = layer match
     case DataLayer(0, fields) if fields.size == width =>
       JvmBits(
         width,
         fields.foldLeft(0L) {
-          case (sofar, NativeValue.Truth(bit)) => (sofar << 1) | (if bit then 1L else 0L)
-          case (_, other)                      => throw IllegalArgumentException(s"a bit of ${identity.name} is $other")
+          case (sofar, NativeValue.Truth(bit)) =>
+            (sofar << 1) | (if bit then 1L else 0L)
+          case (_, other) =>
+            throw IllegalArgumentException(
+              s"a bit of ${identity.name} is $other"
+            )
         }
       )
-    case other => throw IllegalArgumentException(s"no layer of ${identity.name}: $other")
+    case other =>
+      throw IllegalArgumentException(s"no layer of ${identity.name}: $other")
 
-  def taken[Term](parameter: Option[FamilyParameter[Term]], value: NativeValue[Term]): DataLayer[Term] = value match
+  def taken[Term](
+      parameter: Option[FamilyParameter[Term]],
+      value: NativeValue[Term]
+  ): DataLayer[Term] = value match
     case JvmBits(`width`, bits) =>
-      DataLayer(0, (width - 1 to 0 by -1).toVector.map(bit => NativeValue.Truth(((bits >>> bit) & 1L) == 1L)))
-    case other => throw IllegalArgumentException(s"no value of ${identity.name}: $other")
+      DataLayer(
+        0,
+        (width - 1 to 0 by -1).toVector.map(bit =>
+          NativeValue.Truth(((bits >>> bit) & 1L) == 1L)
+        )
+      )
+    case other =>
+      throw IllegalArgumentException(s"no value of ${identity.name}: $other")
 
 object JvmBitsFamily:
 
@@ -66,27 +92,39 @@ object JvmBitsFamily:
   /** The families of the four widths. */
   val all: Vector[JvmBitsFamily] = widths.map(JvmBitsFamily(_))
 
-  /** The bits of the value as a `JvmBits` of the width, those above it dropped. */
+  /** The bits of the value as a `JvmBits` of the width, those above it dropped.
+    */
   def masked(width: Int, value: Long): JvmBits =
-    JvmBits(width, if width == java.lang.Long.SIZE then value else value & ((1L << width) - 1L))
+    JvmBits(
+      width,
+      if width == java.lang.Long.SIZE then value
+      else value & ((1L << width) - 1L)
+    )
 
   /** The natives of the tuple makers. No native gives its result's parameter
-    * from its operands, so the JIT calls one only where a decoding point
-    * reads the family from a filter written in the
-    * term: a tuple maker of w fields is one instruction with every other
-    * library term of its shape, and a native called bottom-up on represented
-    * fields would conclude the family from the value.
+    * from its operands, so the JIT calls one only where a decoding point reads
+    * the family from a filter written in the term: a tuple maker of w fields is
+    * one instruction with every other library term of its shape, and a native
+    * called bottom-up on represented fields would conclude the family from the
+    * value.
     */
   val constructorNatives: Map[NativeName, Native] =
     all.map { family =>
       val constructor = family.constructors(None) match
         case Vector(only) => only
-        case other        => throw IllegalStateException(s"${family.identity.name} has the constructors $other")
+        case other        =>
+          throw IllegalStateException(
+            s"${family.identity.name} has the constructors $other"
+          )
       constructor.native -> new Native(
-        constructor.fields.map(field => NativePlace.OfParameter(field.representation)),
+        constructor.fields.map(field =>
+          NativePlace.OfParameter(field.representation)
+        ),
         NativePlace.Parameter(family.identity),
         new NativeImplementation:
-          def apply[C <: NativeSpecializer & Singleton](arguments: Vector[NativeArgument[JitValue[C]]])(using
+          def apply[C <: NativeSpecializer & Singleton](
+              arguments: Vector[NativeArgument[JitValue[C]]]
+          )(using
               C
           ): NativeValue[JitValue[C]] =
             family.built(
@@ -95,7 +133,10 @@ object JvmBitsFamily:
                 0,
                 arguments.map {
                   case NativeArgument.Represented(value) => value
-                  case other => throw IllegalArgumentException(s"a field of ${family.identity.name} that is not a native value: $other")
+                  case other                             =>
+                    throw IllegalArgumentException(
+                      s"a field of ${family.identity.name} that is not a native value: $other"
+                    )
                 }
               )
             )

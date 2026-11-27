@@ -16,21 +16,20 @@ import scala.util.Using
   * directories below, with its path, is added to `extraTestDigests` ("Extra
   * digests that would invalidate test caching"), so that a change of one of
   * them reruns the tests that depend on the build's root, with no need of
-  * `testFull`. Every
-  * project gets it, so that a project's tests are rerun whenever these
-  * files change; a project that reads none of them runs its tests again
-  * too, which costs time and never an answer.
+  * `testFull`. Every project gets it, so that a project's tests are rerun
+  * whenever these files change; a project that reads none of them runs its
+  * tests again too, which costs time and never an answer.
   */
 object RuntimeTestInputs extends AutoPlugin:
 
   override def trigger: PluginTrigger = allRequirements
 
-  /** The directories and files, relative to the build's root, that tests
-    * read at run time. The Lean package is listed by its sources, not as
-    * `lean`, whose `.lake` holds the build's output: the tests that run
-    * `lake` read the package (measured 2026-11-10: with
-    * `lean/LambdaJit/StatementNormalisation.lean` changed and the package
-    * not listed, `proofs/test` answered its 6 suites from the cache).
+  /** The directories and files, relative to the build's root, that tests read
+    * at run time. The Lean package is listed by its sources, not as `lean`,
+    * whose `.lake` holds the build's output: the tests that run `lake` read the
+    * package (measured 2026-11-10: with
+    * `lean/LambdaJit/StatementNormalisation.lean` changed and the package not
+    * listed, `proofs/test` answered its 6 suites from the cache).
     */
   private val tracked: Seq[String] = Seq(
     "corpora",
@@ -51,20 +50,29 @@ object RuntimeTestInputs extends AutoPlugin:
   private def files(path: Path): Seq[Path] =
     if Files.isRegularFile(path) then Seq(path)
     else if Files.isDirectory(path) then
-      Using.resource(Files.walk(path))(_.toList.asScala.toVector.filter(Files.isRegularFile(_))).sortBy(_.toString)
+      Using
+        .resource(Files.walk(path))(
+          _.toList.asScala.toVector.filter(Files.isRegularFile(_))
+        )
+        .sortBy(_.toString)
     else Seq.empty
 
   /** The digest of the files, each with its path from the root. */
   private def digest(root: Path, listed: Seq[Path]): Digest =
     Digest.sha256Hash(
-      listed.map(file => Digest.sha256Hash(root.relativize(file).toString.getBytes("UTF-8") ++ Files.readAllBytes(file)))*
+      listed.map(file =>
+        Digest.sha256Hash(
+          root.relativize(file).toString.getBytes("UTF-8") ++ Files
+            .readAllBytes(file)
+        )
+      )*
     )
 
-  /** The Scala sources of every project, which the tests of `conventions`
-    * read at run time (`ScalaSources.sources`): without them, a source that
-    * breaks a convention would pass `conventions` from the cache, as a line
-    * of `selection-elimination` did on 2026-11-09 (the word `while` in a
-    * message, which `ImmutabilityTest` reads as a loop).
+  /** The Scala sources of every project, which the tests of `conventions` read
+    * at run time (`ScalaSources.sources`): without them, a source that breaks a
+    * convention would pass `conventions` from the cache, as a line of
+    * `selection-elimination` did on 2026-11-09 (the word `while` in a message,
+    * which `ImmutabilityTest` reads as a loop).
     */
   private def scalaSources(root: Path): Seq[Path] =
     Using
@@ -73,14 +81,15 @@ object RuntimeTestInputs extends AutoPlugin:
       .flatMap(project => files(project.resolve("src")))
       .filter(path =>
         val name = root.relativize(path).toString
-        name.endsWith(".scala") && (name.contains("/src/main/scala/") || name.contains("/src/test/scala/"))
+        name.endsWith(".scala") && (name.contains("/src/main/scala/") || name
+          .contains("/src/test/scala/"))
       )
 
   /** The Markdown files under the root, outside build outputs (`target`),
     * hidden directories and `node_modules`, which `conventions`'
     * `MarkdownLinksTest` reads at run time (`MarkdownLinks.markdownFiles`):
-    * without them, a link broken by an edit of a Markdown file alone would
-    * pass from the cache.
+    * without them, a link broken by an edit of a Markdown file alone would pass
+    * from the cache.
     */
   private def markdownFiles(directory: Path): Seq[Path] =
     Using
@@ -89,7 +98,8 @@ object RuntimeTestInputs extends AutoPlugin:
       .flatMap(entry =>
         val name = entry.getFileName.toString
         if Files.isDirectory(entry) then
-          if name == "target" || name == "node_modules" || name.startsWith(".") then Seq.empty
+          if name == "target" || name == "node_modules" || name.startsWith(".")
+          then Seq.empty
           else markdownFiles(entry)
         else if name.endsWith(".md") then Seq(entry)
         else Seq.empty
@@ -103,9 +113,14 @@ object RuntimeTestInputs extends AutoPlugin:
     // cache, all 191 suites cached).
     Test / extraTestDigests ++= Def.uncached {
       val root = (LocalRootProject / baseDirectory).value.toPath
-      val runtimeData = digest(root, tracked.flatMap(relative => files(root.resolve(relative))))
+      val runtimeData =
+        digest(root, tracked.flatMap(relative => files(root.resolve(relative))))
       if name.value == "conventions" then
-        Seq(runtimeData, digest(root, scalaSources(root)), digest(root, markdownFiles(root)))
+        Seq(
+          runtimeData,
+          digest(root, scalaSources(root)),
+          digest(root, markdownFiles(root))
+        )
       else Seq(runtimeData)
     }
   )

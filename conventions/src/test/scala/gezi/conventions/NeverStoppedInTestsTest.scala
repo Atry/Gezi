@@ -6,15 +6,20 @@ import java.nio.file.Files
   *
   * Purpose: a test that hands `NeverStopped` to a computation gives the
   * deadline of `FailFastSuite` nothing to complete, so an overrunning test
-  * keeps the computation running on its thread until the JVM exits (CONTRIBUTING.md, "Tests fail fast"). A test takes its signal from `stoppableTest`. A source
-  * that still names `NeverStopped` is listed here with the reason; the list
-  * shrinks as the tests are converted, and a source not listed fails.
+  * keeps the computation running on its thread until the JVM exits
+  * (CONTRIBUTING.md, "Tests fail fast"). A test takes its signal from
+  * `stoppableTest`. A source that still names `NeverStopped` is listed here
+  * with the reason; the list shrinks as the tests are converted, and a source
+  * not listed fails.
   */
 object NeverStoppedInTestsCheck:
 
-  private val reasonNeverStoppedIsSubject = "the test is a law about the NeverStopped signal itself"
+  private val reasonNeverStoppedIsSubject =
+    "the test is a law about the NeverStopped signal itself"
 
-  /** The sources allowed to name `NeverStopped`, by path under the build's root, each with its reason. */
+  /** The sources allowed to name `NeverStopped`, by path under the build's
+    * root, each with its reason.
+    */
   val listed: Map[String, String] =
     Map(
       "conventions/src/test/scala/gezi/conventions/NeverStoppedInTestsTest.scala" -> "this check names the symbol it bans",
@@ -30,26 +35,43 @@ object NeverStoppedInTestsCheck:
     )
 
   private def isTestSupport(path: String): Boolean =
-    path.contains("/src/test/scala/") || path.startsWith("interface-laws/src/main/scala/")
-
-  /** The test sources that name `NeverStopped` and are not listed, each `path:number: text`. */
-  def problems(sources: Vector[(String, String)]): Vector[String] =
-    sources.filter((path, _) => isTestSupport(path) && !listed.contains(path)).flatMap((path, text) =>
-      val code = ScalaSources.commentsBlanked(text).split('\n').toVector
-      val lines = text.split('\n').toVector
-      lines.zipWithIndex.collect {
-        case (line, index) if code(index).contains("StopSignal.NeverStopped") => s"$path:${index + 1}: ${line.trim}"
-      }
+    path.contains("/src/test/scala/") || path.startsWith(
+      "interface-laws/src/main/scala/"
     )
 
-  /** The listed sources that no longer name `NeverStopped`: their entries are deleted. */
+  /** The test sources that name `NeverStopped` and are not listed, each
+    * `path:number: text`.
+    */
+  def problems(sources: Vector[(String, String)]): Vector[String] =
+    sources
+      .filter((path, _) => isTestSupport(path) && !listed.contains(path))
+      .flatMap((path, text) =>
+        val code = ScalaSources.commentsBlanked(text).split('\n').toVector
+        val lines = text.split('\n').toVector
+        lines.zipWithIndex.collect {
+          case (line, index)
+              if code(index).contains("StopSignal.NeverStopped") =>
+            s"$path:${index + 1}: ${line.trim}"
+        }
+      )
+
+  /** The listed sources that no longer name `NeverStopped`: their entries are
+    * deleted.
+    */
   def staleEntries(sources: Vector[(String, String)]): Vector[String] =
-    val naming = sources.collect { case (path, text) if ScalaSources.commentsBlanked(text).contains("StopSignal.NeverStopped") => path }.toSet
+    val naming = sources.collect {
+      case (path, text)
+          if ScalaSources
+            .commentsBlanked(text)
+            .contains("StopSignal.NeverStopped") =>
+        path
+    }.toSet
     listed.keys.filterNot(naming.contains).toVector.sorted
 
 class NeverStoppedInTestsTest extends gezi.generatedinputs.FailFastSuite:
 
-  override def sharedFixtures: Vector[scala.concurrent.Future[Unit] => Any] = Vector(_ => ScalaSources.texts)
+  override def sharedFixtures: Vector[scala.concurrent.Future[Unit] => Any] =
+    Vector(_ => ScalaSources.texts)
 
   private def sources = ScalaSources.texts
 

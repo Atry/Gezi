@@ -7,29 +7,34 @@ import scala.meta._
 
 class TermTypeArguments extends SyntacticRule("TermTypeArguments") {
 
-  private val applied: Set[String] = Set("NativeValue", "Representation", "NativeArgument", "FamilyParameter")
+  private val applied: Set[String] =
+    Set("NativeValue", "Representation", "NativeArgument", "FamilyParameter")
 
   private def declaresConfiguration(parameters: List[Type.Param]): Boolean =
-    parameters.exists(parameter => parameter.name.value == "C" && parameter.tbounds.hi.exists(_.syntax.contains("NativeSpecializer")))
+    parameters.exists(parameter =>
+      parameter.name.value == "C" && parameter.tbounds.hi.exists(
+        _.syntax.contains("NativeSpecializer")
+      )
+    )
 
   private def inScope(tree: Tree): Boolean = tree.parent match {
-    case None => false
+    case None         => false
     case Some(parent) =>
       val here = parent match {
         case definition: Defn.Class => declaresConfiguration(definition.tparams)
         case definition: Defn.Trait => declaresConfiguration(definition.tparams)
         case definition: Defn.Enum  => declaresConfiguration(definition.tparams)
         case definition: Defn.Def   => declaresConfiguration(definition.tparams)
-        case declaration: Decl.Def  => declaresConfiguration(declaration.tparams)
-        case definition: Defn.Type  => declaresConfiguration(definition.tparams)
-        case _                      => false
+        case declaration: Decl.Def => declaresConfiguration(declaration.tparams)
+        case definition: Defn.Type => declaresConfiguration(definition.tparams)
+        case _                     => false
       }
       here || inScope(parent)
   }
 
   // A type parameter of that name in scope (`Computation[State, Value]`) shadows the type of the list.
   private def shadowed(name: String, tree: Tree): Boolean = tree.parent match {
-    case None => false
+    case None         => false
     case Some(parent) =>
       val parameters = parent match {
         case definition: Defn.Class => definition.tparams
@@ -66,8 +71,13 @@ class TermTypeArguments extends SyntacticRule("TermTypeArguments") {
   override def fix(implicit document: SyntacticDocument): Patch =
     document.tree.collect {
       case name @ Type.Name(value)
-          if applied.contains(value) && !isApplied(name) && !name.parent.exists(_.isInstanceOf[Type.Select]) &&
-            !declaredName(name) && !insideImport(name) && !shadowed(value, name) && inScope(name) =>
+          if applied.contains(value) && !isApplied(name) && !name.parent.exists(
+            _.isInstanceOf[Type.Select]
+          ) &&
+            !declaredName(name) && !insideImport(name) && !shadowed(
+              value,
+              name
+            ) && inScope(name) =>
         Patch.addRight(name, "[JitValue[C]]")
       case selected @ Type.Select(_, Type.Name(value))
           if applied.contains(value) && !selected.parent.exists {

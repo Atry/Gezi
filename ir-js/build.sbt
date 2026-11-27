@@ -18,7 +18,10 @@ Compile / unmanagedSources := {
     baseDirectory.value.getParentFile / "ir" / "src" / "main" / "scala" / "gezi" / "ir" / "Canonicalization.scala"
   )
   val sources = (Compile / unmanagedSources).value
-  assert(jvmOnly.subsetOf(sources.toSet), s"the JVM-only sources $jvmOnly are not all sources of ir")
+  assert(
+    jvmOnly.subsetOf(sources.toSet),
+    s"the JVM-only sources $jvmOnly are not all sources of ir"
+  )
   sources.filterNot(jvmOnly.contains)
 }
 

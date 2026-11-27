@@ -7,12 +7,12 @@ import java.math.BigInteger
 import gezi.contest.natives.plover.OrderedCompositions
 import gezi.generatedinputs.GeneratedProperties
 
-/** The law of the ordered compositions: the native's count is the number
-  * of ordered sequences of the items that sum to the target, enumerated by the
+/** The law of the ordered compositions: the native's count is the number of
+  * ordered sequences of the items that sum to the target, enumerated by the
   * definition, reduced modulo the modulus. Its purpose is to catch an
-  * off-by-one in the table, an item larger than the distance read out of
-  * range, a duplicate item counted once, and a difference between the `Long`
-  * path and the `BigInteger` path, which the two moduli of the law both reach.
+  * off-by-one in the table, an item larger than the distance read out of range,
+  * a duplicate item counted once, and a difference between the `Long` path and
+  * the `BigInteger` path, which the two moduli of the law both reach.
   */
 class OrderedCompositionsLawTest extends GeneratedProperties:
 
@@ -28,7 +28,9 @@ class OrderedCompositionsLawTest extends GeneratedProperties:
   private val drawnModulus: Gen[BigInt] =
     Gen.choice1(
       Gen.int(Range.linear(1, 1000)).map(BigInt(_)),
-      Gen.int(Range.linear(0, 1000)).map(offset => BigInt(2).pow(70) + BigInt(offset))
+      Gen
+        .int(Range.linear(0, 1000))
+        .map(offset => BigInt(2).pow(70) + BigInt(offset))
     )
 
   // The enumeration makes up to 4^9 = 262,144 calls, at four items of value 1 and the target 9.

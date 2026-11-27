@@ -8,16 +8,16 @@ import gezi.frontend.Term
 import gezi.frontend.Term.*
 
 /** Depth-first search on a ladder by the attractor, the port of
-  * `problems/set_free_search`: reachable and unreachable targets
-  * in both spellings, and a near miss that tests the goal at leaves only.
+  * `problems/set_free_search`: reachable and unreachable targets in both
+  * spellings, and a near miss that tests the goal at leaves only.
   */
 object SetFreeSearch:
 
   private val family = "set_free_search"
 
-  /** The search of a point, the constructors of
-    * problems/set_free_search/search in order: the attractor's depth-first
-    * search, and the near miss that tests the goal at leaves only.
+  /** The search of a point, the constructors of problems/set_free_search/search
+    * in order: the attractor's depth-first search, and the near miss that tests
+    * the goal at leaves only.
     */
   enum Search:
     case DepthFirst, LeavesOnly
@@ -29,10 +29,19 @@ object SetFreeSearch:
   def search(field: ProblemField): Search =
     ProblemData.alternative(field, Search.values.size) match
       case (position, Vector()) => Search.fromOrdinal(position)
-      case (_, fields)          => throw IllegalArgumentException(s"the search of $family has ${fields.size} fields")
+      case (_, fields)          =>
+        throw IllegalArgumentException(
+          s"the search of $family has ${fields.size} fields"
+        )
 
   /** A point: its search, spelling, height and target (`ladder_point/5`). */
-  final case class LadderPoint(point: String, search: Search, spelling: Spelling, height: Int, target: Int)
+  final case class LadderPoint(
+      point: String,
+      search: Search,
+      spelling: Spelling,
+      height: Int,
+      target: Int
+  )
 
   /** The points: the facts read, then each size with each twin
     * (`ladder_size/2`; the twins of `ladder_twin/5`, whose target is computed:
@@ -48,36 +57,54 @@ object SetFreeSearch:
           ProblemData.small(height),
           ProblemData.small(target)
         )
-      case other => throw IllegalArgumentException(s"not a ladder point: $other")
+      case other =>
+        throw IllegalArgumentException(s"not a ladder point: $other")
     }
     val sized = for
       size <- group.problems(family).rows("ladder_size")
-      (twin, search, spelling, target) <- Vector[(String, Search, Spelling, Int => Int)](
+      (twin, search, spelling, target) <- Vector[
+        (String, Search, Spelling, Int => Int)
+      ](
         ("unreachable_direct", Search.DepthFirst, Spelling.Direct, _ + 1),
         ("unreachable_respelled", Search.DepthFirst, Spelling.Respelled, _ + 1),
         ("near_miss", Search.LeavesOnly, Spelling.Direct, _ => 3)
       )
     yield
       val height = ProblemData.small(size(1))
-      LadderPoint(s"set_free_ladder_${ProblemData.text(size(0))}_$twin", search, spelling, height, target(height))
+      LadderPoint(
+        s"set_free_ladder_${ProblemData.text(size(0))}_$twin",
+        search,
+        spelling,
+        height,
+        target(height)
+      )
     stated ++ sized
 
   /** `Search Successors Goal Stack` (`ladder_point_surface/2`). */
   def pointSurface(attractors: Attractors, point: LadderPoint): ProblemTerm =
     val search = point.search match
-      case Search.DepthFirst => attractors.functionSurface("depth_first", point.spelling)
+      case Search.DepthFirst =>
+        attractors.functionSurface("depth_first", point.spelling)
       case Search.LeavesOnly =>
-        attractors.fixpoint(leavesOnlyTemplate(attractors)(attractors.functionSurface("append", Spelling.Direct)))
-    search(successors(attractors, point.spelling, point.height))(goal(attractors, point.spelling, point.target))(
+        attractors.fixpoint(
+          leavesOnlyTemplate(attractors)(
+            attractors.functionSurface("append", Spelling.Direct)
+          )
+        )
+    search(successors(attractors, point.spelling, point.height))(
+      goal(attractors, point.spelling, point.target)
+    )(
       stack(attractors, point.spelling)
     )
 
   /** `cons 0 nil` in the spelling. */
   def stack(attractors: Attractors, spelling: Spelling): ProblemTerm =
-    attractors.functionSurface("cons", spelling)(unary(0))(attractors.functionSurface("nil", spelling))
+    attractors.functionSurface("cons", spelling)(unary(0))(
+      attractors.functionSurface("nil", spelling)
+    )
 
-  /** The body of the leaves-only search, with append as its leading
-    * parameter (`leaves_only_template/1`).
+  /** The body of the leaves-only search, with append as its leading parameter
+    * (`leaves_only_template/1`).
     */
   def leavesOnlyTemplate(attractors: Attractors): ProblemTerm =
     val falseValue = attractors.attractorSurface("false", Spelling.Direct)
@@ -87,12 +114,17 @@ object SetFreeSearch:
         λ(successors =>
           λ(goal =>
             λ(stack =>
-              stack(falseValue)(λ(node =>
-                λ(rest =>
-                  val pushed = self(successors)(goal)(append(successors(node))(rest))
-                  successors(node)(goal(node)(trueValue)(self(successors)(goal)(rest)))(λ(_ => λ(_ => pushed)))
+              stack(falseValue)(
+                λ(node =>
+                  λ(rest =>
+                    val pushed =
+                      self(successors)(goal)(append(successors(node))(rest))
+                    successors(node)(
+                      goal(node)(trueValue)(self(successors)(goal)(rest))
+                    )(λ(_ => λ(_ => pushed)))
+                  )
                 )
-              ))
+              )
             )
           )
         )
@@ -102,7 +134,11 @@ object SetFreeSearch:
   /** `\k. k = n then nil else cons (k + 1) (cons (k + 1) nil)`
     * (`successors/3`).
     */
-  def successors(attractors: Attractors, spelling: Spelling, height: Int): ProblemTerm =
+  def successors(
+      attractors: Attractors,
+      spelling: Spelling,
+      height: Int
+  ): ProblemTerm =
     def function(name: String) = attractors.functionSurface(name, spelling)
     val equal = function("natural_equal")
     val limit = unary(height)
@@ -112,10 +148,18 @@ object SetFreeSearch:
     val consTwo = function("cons")
     val successorOne = function("successor")
     val successorTwo = function("successor")
-    λ(node => equal(node)(limit)(nilOne)(consOne(successorOne(node))(consTwo(successorTwo(node))(nilTwo))))
+    λ(node =>
+      equal(node)(limit)(nilOne)(
+        consOne(successorOne(node))(consTwo(successorTwo(node))(nilTwo))
+      )
+    )
 
   /** `\k. k = target` (`goal/3`). */
-  def goal(attractors: Attractors, spelling: Spelling, target: Int): ProblemTerm =
+  def goal(
+      attractors: Attractors,
+      spelling: Spelling,
+      target: Int
+  ): ProblemTerm =
     val equal = attractors.functionSurface("natural_equal", spelling)
     λ(node => equal(node)(unary(target)))
 

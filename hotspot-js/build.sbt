@@ -20,7 +20,10 @@ Compile / unmanagedSources := {
     baseDirectory.value.getParentFile / "hotspot" / "src" / "main" / "scala" / "gezi" / "hotspot" / "Forks.scala"
   )
   val sources = (Compile / unmanagedSources).value
-  assert(jvmOnly.subsetOf(sources.toSet), s"the JVM-only sources $jvmOnly are not all sources of hotspot")
+  assert(
+    jvmOnly.subsetOf(sources.toSet),
+    s"the JVM-only sources $jvmOnly are not all sources of hotspot"
+  )
   sources.filterNot(jvmOnly.contains) :+
     (baseDirectory.value.getParentFile / "saturation" / "src" / "main" / "scala" / "gezi" / "saturation" / "StopSignal.scala")
 }

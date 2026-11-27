@@ -18,15 +18,21 @@ Test / javaOptions += s"-Dgezi.buildRoot=${baseDirectory.value.getParentFile}"
 // directory to the generator gezi.traceshowcase.ShowcasePages, which deletes
 // the directory and writes it again whole. gezi/.gitattributes marks the
 // directory generated and names this task.
-lazy val regenerate = taskKey[Unit]("writes the trace player's end-to-end showcase into gezi's directory trace-showcase")
+lazy val regenerate = taskKey[Unit](
+  "writes the trace player's end-to-end showcase into gezi's directory trace-showcase"
+)
 
 lazy val tracePlayer = LocalProject("trace-player")
 
 // Uncached: the task writes files outside sbt's view.
 regenerate := Def.uncached(Def.taskDyn {
   val _ = (tracePlayer / Compile / fullLinkJS).value
-  val script = (tracePlayer / Compile / fullLinkJS / scalaJSLinkerOutputDirectory).value / "main.js"
-  val assets = (tracePlayer / Assets / com.typesafe.sbt.web.Import.WebKeys.assets).value
+  val script =
+    (tracePlayer / Compile / fullLinkJS / scalaJSLinkerOutputDirectory).value / "main.js"
+  val assets =
+    (tracePlayer / Assets / com.typesafe.sbt.web.Import.WebKeys.assets).value
   val destination = baseDirectory.value.getParentFile / "trace-showcase"
-  (Test / runMain).toTask(s" gezi.traceshowcase.ShowcasePages $destination $script $assets")
+  (Test / runMain).toTask(
+    s" gezi.traceshowcase.ShowcasePages $destination $script $assets"
+  )
 }.value)

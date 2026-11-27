@@ -22,15 +22,28 @@ class MinimizingCoinsLawTest extends GeneratedProperties:
     else coins.flatMap(coin => lengths(coins, remaining - coin).map(_ + 1))
 
   private val drawnCoins: Gen[List[Int]] =
-    Gen.choice1(Gen.constant(Nil), Gen.int(Range.linear(2, 9)).list(Range.linear(1, 3)), Gen.int(Range.linear(1, 6)).list(Range.linear(1, 3)))
+    Gen.choice1(
+      Gen.constant(Nil),
+      Gen.int(Range.linear(2, 9)).list(Range.linear(1, 3)),
+      Gen.int(Range.linear(1, 6)).list(Range.linear(1, 3))
+    )
 
-  property("the value is the least length of a sequence that sums to the target") {
+  property(
+    "the value is the least length of a sequence that sums to the target"
+  ) {
     for
       coins <- drawnCoins.forAll
       target <- Gen.int(Range.linear(0, 13)).forAll
     yield
       val expected = lengths(coins, target).minOption match
         case None        => ConstructedNaturals(0, Vector.empty)
-        case Some(count) => ConstructedNaturals(1, Vector(BigInteger.valueOf(count.toLong)))
-      Result.diff(MinimizingCoins.fewest(coins.toVector.map(coin => BigInteger.valueOf(coin.toLong)), BigInteger.valueOf(target.toLong)), expected)(_ == _)
+        case Some(count) =>
+          ConstructedNaturals(1, Vector(BigInteger.valueOf(count.toLong)))
+      Result.diff(
+        MinimizingCoins.fewest(
+          coins.toVector.map(coin => BigInteger.valueOf(coin.toLong)),
+          BigInteger.valueOf(target.toLong)
+        ),
+        expected
+      )(_ == _)
   }

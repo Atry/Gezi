@@ -13,30 +13,32 @@ import scala.jdk.CollectionConverters.*
   * each judged program once while a judgment row refers to it by `@<name>`:
   *
   *   - a file written and read gives every point its source's program, the
-  *     judgment points made from an evaluation point the program of that
-  *     point and a judgment source its own, gives a judgment source back as
-  *     it was given, and writes each judged program once. Its purpose is to
-  *     catch a reference resolved to another point's program, which would
-  *     ask an entry about the wrong program, and a program written once per
-  *     row again, the layout whose size ran the writer out of heap;
-  *   - a judgment row whose program column is not a reference, a reference
-  *     to a program the programs file lacks, and a missing programs file are
-  *     each refused, naming the points file and the row's line. Its purpose
-  *     is to catch a file in the layout before the programs file, or a
-  *     programs file lost in a copy, read as if it were whole.
+  *     judgment points made from an evaluation point the program of that point
+  *     and a judgment source its own, gives a judgment source back as it was
+  *     given, and writes each judged program once. Its purpose is to catch a
+  *     reference resolved to another point's program, which would ask an entry
+  *     about the wrong program, and a program written once per row again, the
+  *     layout whose size ran the writer out of heap;
+  *   - a judgment row whose program column is not a reference, a reference to a
+  *     program the programs file lacks, and a missing programs file are each
+  *     refused, naming the points file and the row's line. Its purpose is to
+  *     catch a file in the layout before the programs file, or a programs file
+  *     lost in a copy, read as if it were whole.
   *
   * The sources are a repeated family drawn from a seed, with traps from a
-  * second seed, `judgmentsOnly` drawn, and one judgment source per
-  * evaluation source, its candidate the point's own program, so that every
-  * input has judgment rows of both origins. Every iteration checks the first
-  * law also on a draw of a family every point of which gets a trap by
-  * construction (`LawFamilies.trapAtEveryPoint`), and that it writes one, so
-  * that the trap rows' references are always checked. An input is logged by
-  * its draw, not by its points (`MemberJudgmentsLawTest`).
+  * second seed, `judgmentsOnly` drawn, and one judgment source per evaluation
+  * source, its candidate the point's own program, so that every input has
+  * judgment rows of both origins. Every iteration checks the first law also on
+  * a draw of a family every point of which gets a trap by construction
+  * (`LawFamilies.trapAtEveryPoint`), and that it writes one, so that the trap
+  * rows' references are always checked. An input is logged by its draw, not by
+  * its points (`MemberJudgmentsLawTest`).
   */
 class PointsProgramsLawTest extends GeneratedProperties:
 
-  /** The parts of the law families' group the draws read, built once (`LawFamilies.sharedFixtures`). */
+  /** The parts of the law families' group the draws read, built once
+    * (`LawFamilies.sharedFixtures`).
+    */
   override def sharedFixtures: Vector[scala.concurrent.Future[Unit] => Any] =
     super.sharedFixtures ++ LawFamilies.sharedFixtures
 
@@ -52,16 +54,16 @@ class PointsProgramsLawTest extends GeneratedProperties:
   // in the line: the parse, the contraction of the printer's bindings (each value converted once), the printer (at most
   // two passes); each point writes in its line the library it uses. The lexer's per-call compile, the one defect found,
   // was removed in b18f8f987.
-  override val munitTimeout: scala.concurrent.duration.Duration = scala.concurrent.duration.Duration(50, "s")
+  override val munitTimeout: scala.concurrent.duration.Duration =
+    scala.concurrent.duration.Duration(50, "s")
 
-
-  /** The tabling(weak_head) steps the writer reads a reference within: small points
-    * only.
+  /** The tabling(weak_head) steps the writer reads a reference within: small
+    * points only.
     */
   private val writerBudget: Long = 200000
 
-  /** A draw: a repeated family, its points' seed, a different trap seed,
-    * the R values, small, whether the evaluation rows are left out, and the
+  /** A draw: a repeated family, its points' seed, a different trap seed, the R
+    * values, small, whether the evaluation rows are left out, and the
     * expectation of each judgment source, by its index.
     */
   private final case class Draw(
@@ -84,17 +86,32 @@ class PointsProgramsLawTest extends GeneratedProperties:
       repetitions <- LawFamilies.repetitions(family, 3, 2)
       judgmentsOnly <- Gen.boolean
       members <- Gen.boolean.list(Range.singleton(8))
-    yield Draw(family, seed, trapSeed, repetitions, judgmentsOnly, members.toVector)
+    yield Draw(
+      family,
+      seed,
+      trapSeed,
+      repetitions,
+      judgmentsOnly,
+      members.toVector
+    )
 
-  private def evaluationSources(draw: Draw, seed: Long): Vector[PointSource.EvaluationSource] =
-    LawFamilies.sources(draw.family, seed, draw.repetitions, "test", BigDecimal(1)).collect {
-      case source: PointSource.EvaluationSource => source
-    }
+  private def evaluationSources(
+      draw: Draw,
+      seed: Long
+  ): Vector[PointSource.EvaluationSource] =
+    LawFamilies
+      .sources(draw.family, seed, draw.repetitions, "test", BigDecimal(1))
+      .collect { case source: PointSource.EvaluationSource =>
+        source
+      }
 
-  /** One judgment source per evaluation source, named `<point>/given`, in
-    * the family `<family>_given`, its candidate the point's program.
+  /** One judgment source per evaluation source, named `<point>/given`, in the
+    * family `<family>_given`, its candidate the point's program.
     */
-  private def judgmentSources(draw: Draw, evaluations: Vector[PointSource.EvaluationSource]): Vector[PointSource.JudgmentSource] =
+  private def judgmentSources(
+      draw: Draw,
+      evaluations: Vector[PointSource.EvaluationSource]
+  ): Vector[PointSource.JudgmentSource] =
     evaluations.zipWithIndex.map((source, index) =>
       PointSource.JudgmentSource(
         s"${source.name}/given",
@@ -107,10 +124,14 @@ class PointsProgramsLawTest extends GeneratedProperties:
       )
     )
 
-  /** The directory written from the draw, with its evaluation sources and
-    * its judgment sources.
+  /** The directory written from the draw, with its evaluation sources and its
+    * judgment sources.
     */
-  private def writtenDirectory(draw: Draw): (Path, Vector[PointSource.EvaluationSource], Vector[PointSource.JudgmentSource]) =
+  private def writtenDirectory(draw: Draw): (
+      Path,
+      Vector[PointSource.EvaluationSource],
+      Vector[PointSource.JudgmentSource]
+  ) =
     val evaluations = evaluationSources(draw, draw.seed)
     val judgments = judgmentSources(draw, evaluations)
     val directory = Files.createTempDirectory("points-programs")
@@ -118,7 +139,13 @@ class PointsProgramsLawTest extends GeneratedProperties:
       directory,
       evaluations ++ judgments,
       writerBudget,
-      Some(JudgmentPoints(BigDecimal(2), draw.judgmentsOnly, Some(TrapDraw(evaluationSources(draw, draw.trapSeed), 3))))
+      Some(
+        JudgmentPoints(
+          BigDecimal(2),
+          draw.judgmentsOnly,
+          Some(TrapDraw(evaluationSources(draw, draw.trapSeed), 3))
+        )
+      )
     )
     (directory, evaluations, judgments)
 
@@ -131,36 +158,53 @@ class PointsProgramsLawTest extends GeneratedProperties:
 
   /** The lines of a file of the directory. */
   private def lines(directory: Path, name: String): Vector[String] =
-    Files.readAllLines(directory.resolve(name), StandardCharsets.UTF_8).asScala.toVector
+    Files
+      .readAllLines(directory.resolve(name), StandardCharsets.UTF_8)
+      .asScala
+      .toVector
 
-  property("a file written and read gives each point its source's program, each judged program written once", _.copy(testLimit = 20)) {
+  property(
+    "a file written and read gives each point its source's program, each judged program written once",
+    _.copy(testLimit = 20)
+  ) {
     for
       draw <- draws.forAllWithLog(logged)
-      trapped <- drawsOf(Gen.constant(LawFamilies.trapAtEveryPoint)).forAllWithLog(logged)
+      trapped <- drawsOf(Gen.constant(LawFamilies.trapAtEveryPoint))
+        .forAllWithLog(logged)
     yield
       val (trappedLaw, trappedPoints) = programsLaw(trapped)
       programsLaw(draw)._1
         .and(trappedLaw)
-        .and(Result.assert(trappedPoints.exists(isTrap)).log(s"${LawFamilies.trapAtEveryPoint} writes no trap"))
+        .and(
+          Result
+            .assert(trappedPoints.exists(isTrap))
+            .log(s"${LawFamilies.trapAtEveryPoint} writes no trap")
+        )
   }
 
-  /** The first law on the directory written from the draw, with the points
-    * read back.
+  /** The first law on the directory written from the draw, with the points read
+    * back.
     */
   private def programsLaw(draw: Draw): (Result, Vector[Point]) =
     val (directory, evaluations, judgments) = writtenDirectory(draw)
     val points = PointsFile.read(directory)
     val programs: Map[String, Configured[NoFacts.type]] =
-      (evaluations.map(source => source.name -> source.program) ++ judgments.map(source => source.name -> source.program))
+      (evaluations.map(source => source.name -> source.program) ++ judgments
+        .map(source => source.name -> source.program))
         .map((name, program) => name -> PointsFile.closedTerm(program))
         .toMap
     val givenNames = judgments.map(_.name).toSet
     def owner(point: Point): String = point.question match
-      case Question.Judgment(_, _) if !givenNames.contains(point.name) => point.name.substring(0, point.name.lastIndexOf("/candidate_"))
-      case _                                                          => point.name
-    val judged = points.collect { case point @ Point(_, _, _, _, _, Question.Judgment(_, _)) => owner(point) }.distinct
+      case Question.Judgment(_, _) if !givenNames.contains(point.name) =>
+        point.name.substring(0, point.name.lastIndexOf("/candidate_"))
+      case _ => point.name
+    val judged = points.collect {
+      case point @ Point(_, _, _, _, _, Question.Judgment(_, _)) => owner(point)
+    }.distinct
     val resolved = points.map(point =>
-      Result.assert(programs.get(owner(point)).contains(point.program)).log(s"${point.name}: not the program of ${owner(point)}")
+      Result
+        .assert(programs.get(owner(point)).contains(point.program))
+        .log(s"${point.name}: not the program of ${owner(point)}")
     )
     val givenBack = judgments.map(source =>
       Result.diff(
@@ -171,36 +215,58 @@ class PointsProgramsLawTest extends GeneratedProperties:
             source.stage,
             source.family,
             source.weight,
-            gezi.frontend.ExchangeText.line(PointsFile.closedTerm(source.program)),
-            Question.Judgment(PointsFile.closedTerm(source.candidate), source.member)
+            gezi.frontend.ExchangeText
+              .line(PointsFile.closedTerm(source.program)),
+            Question.Judgment(
+              PointsFile.closedTerm(source.candidate),
+              source.member
+            )
           )
         )
       )(_ == _)
     )
     val onlyJudgments = Result
-      .assert(!draw.judgmentsOnly || points.forall(point => point.question match
-        case Question.Judgment(_, _) => true
-        case _                       => false
-      ))
+      .assert(
+        !draw.judgmentsOnly || points.forall(point =>
+          point.question match
+            case Question.Judgment(_, _) => true
+            case _                       => false
+        )
+      )
       .log("an evaluation point written with judgmentsOnly")
-    val programRows = Result.diff(lines(directory, PointsFile.programsFileName).size - 1, judged.size)(_ == _).log("programs written")
-    (Result.all((resolved ++ givenBack :+ onlyJudgments :+ programRows).toList), points)
+    val programRows = Result
+      .diff(
+        lines(directory, PointsFile.programsFileName).size - 1,
+        judged.size
+      )(_ == _)
+      .log("programs written")
+    (
+      Result.all(
+        (resolved ++ givenBack :+ onlyJudgments :+ programRows).toList
+      ),
+      points
+    )
 
   /** The tab-separated fields of a line. */
-  private def columns(line: String): Vector[String] = line.split("\t", -1).toVector
+  private def columns(line: String): Vector[String] =
+    line.split("\t", -1).toVector
 
-  /** The positions of the points file's `kind` and `program` columns and of
-    * the programs file's `term` column, from the headers.
+  /** The positions of the points file's `kind` and `program` columns and of the
+    * programs file's `term` column, from the headers.
     */
   private val kindColumn: Int = columns(PointsFile.header).indexOf("kind")
   private val programColumn: Int = columns(PointsFile.header).indexOf("program")
-  private val termColumn: Int = columns(PointsFile.programsHeader).indexOf("term")
+  private val termColumn: Int =
+    columns(PointsFile.programsHeader).indexOf("term")
 
   /** A way to spoil a written directory, each named by what it does. */
   private enum Spoiling:
     case ProgramInline, ProgramRowRemoved, ProgramsFileRemoved
 
-  property("a judgment row without its program is refused, naming the file and the line", _.copy(testLimit = 20)) {
+  property(
+    "a judgment row without its program is refused, naming the file and the line",
+    _.copy(testLimit = 20)
+  ) {
     for
       draw <- draws.forAllWithLog(logged)
       spoiling <- Gen.elementUnsafe(Spoiling.values.toList).forAll
@@ -211,27 +277,48 @@ class PointsProgramsLawTest extends GeneratedProperties:
       val programsFile = directory.resolve(PointsFile.programsFileName)
       val pointLines = lines(directory, PointsFile.fileName)
       val programLines = lines(directory, PointsFile.programsFileName)
-      val judgmentLines = pointLines.zipWithIndex.drop(1).filter((line, _) => columns(line)(kindColumn) == "judgment")
+      val judgmentLines = pointLines.zipWithIndex
+        .drop(1)
+        .filter((line, _) => columns(line)(kindColumn) == "judgment")
       val (target, targetIndex) = judgmentLines(choice % judgmentLines.size)
       val reference = columns(target)(programColumn)
-      val programRow = programLines.find(_.startsWith(s"${reference.drop(1)}\t"))
+      val programRow =
+        programLines.find(_.startsWith(s"${reference.drop(1)}\t"))
       val expectedLine = spoiling match
         case Spoiling.ProgramInline =>
-          val inline = programRow.map(row => columns(row)(termColumn)).getOrElse("")
+          val inline =
+            programRow.map(row => columns(row)(termColumn)).getOrElse("")
           Files.write(
             points,
-            pointLines.updated(targetIndex, columns(target).updated(programColumn, inline).mkString("\t")).asJava,
+            pointLines
+              .updated(
+                targetIndex,
+                columns(target).updated(programColumn, inline).mkString("\t")
+              )
+              .asJava,
             StandardCharsets.UTF_8
           )
           targetIndex + 1
         case Spoiling.ProgramRowRemoved =>
-          Files.write(programsFile, programLines.filterNot(programRow.contains).asJava, StandardCharsets.UTF_8)
-          judgmentLines.collectFirst { case (line, index) if columns(line)(programColumn) == reference => index + 1 }.getOrElse(0)
+          Files.write(
+            programsFile,
+            programLines.filterNot(programRow.contains).asJava,
+            StandardCharsets.UTF_8
+          )
+          judgmentLines
+            .collectFirst {
+              case (line, index) if columns(line)(programColumn) == reference =>
+                index + 1
+            }
+            .getOrElse(0)
         case Spoiling.ProgramsFileRemoved =>
           Files.delete(programsFile)
           judgmentLines.headOption.map(_._2 + 1).getOrElse(0)
-      val refusal = intercept[IllegalArgumentException](PointsFile.read(directory))
+      val refusal =
+        intercept[IllegalArgumentException](PointsFile.read(directory))
       Result
         .assert(refusal.getMessage.startsWith(s"$points:$expectedLine: "))
-        .log(s"$spoiling: refused with ${refusal.getMessage.take(200)}, not at $points:$expectedLine")
+        .log(
+          s"$spoiling: refused with ${refusal.getMessage.take(200)}, not at $points:$expectedLine"
+        )
   }

@@ -69,7 +69,9 @@ libraryDependencies ++= Seq(
 // TracePageText.playerPage writes looks for them); open its index.html from
 // file://. To play the pages a schedule writes, copy that trace-player/
 // directory beside them.
-lazy val demonstrationPage = taskKey[File]("the trace player's page of a generated trace, with its script and style sheets")
+lazy val demonstrationPage = taskKey[File](
+  "the trace player's page of a generated trace, with its script and style sheets"
+)
 
 // Uncached: the task copies files, and sbt 2 caches no task whose result is
 // a File.
@@ -77,11 +79,18 @@ demonstrationPage := Def.uncached {
   val report = (Compile / fastLinkJS).value.data
   val linked = (Compile / fastLinkJS / scalaJSLinkerOutputDirectory).value
   val styles = (Assets / com.typesafe.sbt.web.Import.WebKeys.assets).value
-  val page = baseDirectory.value / "src" / "test" / "resources" / "snapshot" / "trace_page" / "generated_trace.html"
+  val page =
+    baseDirectory.value / "src" / "test" / "resources" / "snapshot" / "trace_page" / "generated_trace.html"
   val destination = target.value / "demonstration"
   val scripts = report.publicModules.map(_.jsFileName).toVector
-  assert(scripts == Vector("main.js"), s"the player links to one script, main.js: $scripts")
-  assert(page.exists, s"the page $page is recorded by TracePageTextSnapshotTest")
+  assert(
+    scripts == Vector("main.js"),
+    s"the player links to one script, main.js: $scripts"
+  )
+  assert(
+    page.exists,
+    s"the page $page is recorded by TracePageTextSnapshotTest"
+  )
   IO.delete(destination)
   IO.copyDirectory(styles, destination / "trace-player")
   IO.copyFile(linked / "main.js", destination / "trace-player" / "main.js")

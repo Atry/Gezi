@@ -34,9 +34,15 @@ class ClosureCompilationTest extends gezi.generatedinputs.FailFastSuite:
   private val nameOfFirst = NoFacts.application(name, first)
   private val nameOfSecond = NoFacts.application(name, second)
 
-  private val store = Store(noinline = Set(name, first, second), gezi.ir.TermConstruction(NoFacts))
+  private val store = Store(
+    noinline = Set(name, first, second),
+    gezi.ir.TermConstruction(NoFacts)
+  )
 
-  private def added(graph: EGraph[C], instruction: Configured[C]): (EGraph[C], Int) =
+  private def added(
+      graph: EGraph[C],
+      instruction: Configured[C]
+  ): (EGraph[C], Int) =
     graph.instructionAdded(instruction)
 
   /** The seed of `X ∥ X` at its root, the index's for the orientation
@@ -70,14 +76,16 @@ class ClosureCompilationTest extends gezi.generatedinputs.FailFastSuite:
       Map.empty
     )
     val compiled = ClosureCompilation.compiled(program)
-    val (withSame, sameNode) = added(EGraph.empty(store, Map.empty, explained = false), same)
+    val (withSame, sameNode) =
+      added(EGraph.empty(store, Map.empty, explained = false), same)
     val (graph, differentNode) = added(withSame, different)
     assertEquals(
       compiled.matches(SeedKind.Merge, SeedKey.Parallel[C](), graph, sameNode),
       Matching(Vector(Match(0, sameNode, Vector(Some(0)))), 0)
     )
     assertEquals(
-      compiled.matches(SeedKind.Merge, SeedKey.Parallel[C](), graph, differentNode),
+      compiled
+        .matches(SeedKind.Merge, SeedKey.Parallel[C](), graph, differentNode),
       Matching.none
     )
     assertEquals(
@@ -86,7 +94,9 @@ class ClosureCompilationTest extends gezi.generatedinputs.FailFastSuite:
     )
   }
 
-  test("the matches of the entries an Each step reads come out in their order, and a witness once") {
+  test(
+    "the matches of the entries an Each step reads come out in their order, and a witness once"
+  ) {
     val members = Seed[C](
       0,
       Vector(
@@ -109,9 +119,15 @@ class ClosureCompilationTest extends gezi.generatedinputs.FailFastSuite:
       Vector(plan(Building.Value[C](0)), plan(Building.Value[C](0))),
       Map.empty
     )
-    val (withFirst, firstNode) = added(EGraph.empty(store, Map.empty, explained = false), nameOfFirst)
+    val (withFirst, firstNode) =
+      added(EGraph.empty(store, Map.empty, explained = false), nameOfFirst)
     val (withSecond, secondNode) = added(withFirst, nameOfSecond)
-    val graph = withSecond.unionWorked(firstNode, secondNode, Justification.Congruence, None)
+    val graph = withSecond.unionWorked(
+      firstNode,
+      secondNode,
+      Justification.Congruence,
+      None
+    )
     val firstArgument = graph.root(1)
     val secondArgument = graph.root(3)
     assertEquals(
@@ -154,8 +170,10 @@ class ClosureCompilationTest extends gezi.generatedinputs.FailFastSuite:
       )
     )
     val compiled = ClosureCompilation.compiled(program)
-    val (graph, firstNode) = added(EGraph.empty(store, Map.empty, explained = false), first)
-    val (withAdded, addedNode) = compiled.added(0, graph, Vector(Some(firstNode)))
+    val (graph, firstNode) =
+      added(EGraph.empty(store, Map.empty, explained = false), first)
+    val (withAdded, addedNode) =
+      compiled.added(0, graph, Vector(Some(firstNode)))
     assertEquals(withAdded.layer(addedNode), Apply(1, 2))
     assertEquals(withAdded.layer(1), NoinlineLeaf(name))
     assertEquals(withAdded.layer(2), Parallel(firstNode, firstNode))

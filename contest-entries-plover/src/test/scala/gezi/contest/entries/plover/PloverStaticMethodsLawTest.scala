@@ -23,7 +23,8 @@ import gezi.jit.StaticBlockMethod
   * implementation that passes its operands in the wrong order or calls another
   * method, which the laws of the static functions do not reach, and a native
   * that no longer carries its static method, which would leave its blocks
-  * silently. The natives are named, so that the law cannot hold of an empty set.
+  * silently. The natives are named, so that the law cannot hold of an empty
+  * set.
   */
 class PloverStaticMethodsLawTest extends GeneratedProperties:
 
@@ -42,9 +43,11 @@ class PloverStaticMethodsLawTest extends GeneratedProperties:
   private val greatestOperand = 40
 
   private def drawn(place: NativePlace): Gen[BigInt] = place match
-    case NativePlace.Fixed(BinaryNaturalNatives.canonical) => Gen.int(Range.linear(0, greatestOperand)).map(BigInt(_))
-    case NativePlace.Fixed(BinaryNaturalNatives.positive)  => Gen.int(Range.linear(1, greatestOperand)).map(BigInt(_))
-    case other                                             => throw AssertionError(s"a place of no binary natural: $other")
+    case NativePlace.Fixed(BinaryNaturalNatives.canonical) =>
+      Gen.int(Range.linear(0, greatestOperand)).map(BigInt(_))
+    case NativePlace.Fixed(BinaryNaturalNatives.positive) =>
+      Gen.int(Range.linear(1, greatestOperand)).map(BigInt(_))
+    case other => throw AssertionError(s"a place of no binary natural: $other")
 
   private def drawnOperands(places: List[NativePlace]): Gen[List[BigInt]] =
     places.foldRight(Gen.constant(List.empty[BigInt]))((place, rest) =>
@@ -54,29 +57,45 @@ class PloverStaticMethodsLawTest extends GeneratedProperties:
       yield operand :: others
     )
 
-  private def staticMethod(name: String, native: Native): StaticBlockMethod = native.implementation match
-    case method: StaticBlockMethod => method
-    case other                     => throw AssertionError(s"$name has no static method: $other")
+  private def staticMethod(name: String, native: Native): StaticBlockMethod =
+    native.implementation match
+      case method: StaticBlockMethod => method
+      case other => throw AssertionError(s"$name has no static method: $other")
 
-  private def calledStatically(method: StaticBlockMethod, operands: List[BigInt]) =
+  private def calledStatically(
+      method: StaticBlockMethod,
+      operands: List[BigInt]
+  ) =
     val handle = MethodHandles
       .publicLookup()
       .findStatic(
         Class.forName(method.className),
         method.methodName,
-        MethodType.methodType(classOf[BigInteger], java.util.List.of(Vector.fill(operands.size)(classOf[BigInteger])*))
+        MethodType.methodType(
+          classOf[BigInteger],
+          java.util.List.of(Vector.fill(operands.size)(classOf[BigInteger])*)
+        )
       )
     handle.invokeWithArguments(operands.map(_.bigInteger)*) match
       case result: BigInteger => BinaryNatural(BigInt(result))
-      case other              => throw AssertionError(s"${method.methodName} gave no BigInteger: $other")
+      case other              =>
+        throw AssertionError(s"${method.methodName} gave no BigInteger: $other")
 
   named.foreach { name =>
-    property(s"$name computes on an argument vector what its static method computes") {
+    property(
+      s"$name computes on an argument vector what its static method computes"
+    ) {
       val native = natives(NativeName.Function(name))
       val method = staticMethod(name, native)
       for operands <- drawnOperands(native.parameters.toList).forAll
       yield
-        val byVector = native.implementation(operands.toVector.map(operand => NativeArgument.Represented(BinaryNatural(operand))))
-        Result.diff(calledStatically(method, operands), byVector)(_ == _).log(s"the operands $operands")
+        val byVector = native.implementation(
+          operands.toVector.map(operand =>
+            NativeArgument.Represented(BinaryNatural(operand))
+          )
+        )
+        Result
+          .diff(calledStatically(method, operands), byVector)(_ == _)
+          .log(s"the operands $operands")
     }
   }

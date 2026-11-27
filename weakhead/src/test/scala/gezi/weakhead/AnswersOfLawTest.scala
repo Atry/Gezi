@@ -6,13 +6,13 @@ import hedgehog.Result
 import gezi.generatedinputs.GeneratedProperties
 import gezi.standardlibrary.SplitMix
 
-/** The law of `Answers.of`: the stream of a vector's answers, collected,
-  * is the vector, the same answers in the same order. Its purpose is to
-  * catch a construction that grows the call stack with the vector's size,
-  * which overflowed an entry's main thread on the 2,917 heads of one tabled
-  * instance of the JIT (2026-11-02), and one that drops, repeats or reorders
-  * an answer. The vectors are of random sizes up to 100,000, with random
-  * longs as answers, under the tests' default stack.
+/** The law of `Answers.of`: the stream of a vector's answers, collected, is the
+  * vector, the same answers in the same order. Its purpose is to catch a
+  * construction that grows the call stack with the vector's size, which
+  * overflowed an entry's main thread on the 2,917 heads of one tabled instance
+  * of the JIT (2026-11-02), and one that drops, repeats or reorders an answer.
+  * The vectors are of random sizes up to 100,000, with random longs as answers,
+  * under the tests' default stack.
   */
 class AnswersOfLawTest extends GeneratedProperties:
 
@@ -30,6 +30,8 @@ class AnswersOfLawTest extends GeneratedProperties:
   property("Answers.of collects to its vector", _.copy(testLimit = 20)) {
     for answers <- vectors.forAll
     yield Answers.of[Unit, Long](answers).collected.result(()) match
-      case Computed.Done(collected, _) => Result.diff(collected, answers)(_ == _)
-      case Computed.Stopped(_)         => Result.failure.log("a computation with no budget stopped")
+      case Computed.Done(collected, _) =>
+        Result.diff(collected, answers)(_ == _)
+      case Computed.Stopped(_) =>
+        Result.failure.log("a computation with no budget stopped")
   }

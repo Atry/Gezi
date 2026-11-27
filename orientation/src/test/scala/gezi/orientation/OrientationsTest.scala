@@ -8,7 +8,6 @@ import gezi.ir.Pattern
 class OrientationsTest extends gezi.generatedinputs.FailFastSuite:
   private given NoFacts.type = NoFacts
 
-
   private type C = NoFacts.type
 
   private val head = NoFacts.opaque("head")
@@ -16,10 +15,16 @@ class OrientationsTest extends gezi.generatedinputs.FailFastSuite:
 
   private def metavariable(index: Int): Pattern[C] = Pattern.Metavariable(index)
 
-  private def application(function: Pattern[C], argument: Pattern[C]): Pattern[C] =
+  private def application(
+      function: Pattern[C],
+      argument: Pattern[C]
+  ): Pattern[C] =
     Pattern.Apply(function, argument)
 
-  private def orientation(matched: Pattern[C], added: Pattern[C]): Orientation[C] = Orientation(
+  private def orientation(
+      matched: Pattern[C],
+      added: Pattern[C]
+  ): Orientation[C] = Orientation(
     index = 0,
     lemma = LemmaIdentifier(0),
     direction = Direction.Forward,
@@ -36,7 +41,9 @@ class OrientationsTest extends gezi.generatedinputs.FailFastSuite:
     Pattern.Parallel(metavariable(1), metavariable(1))
   )
 
-  test("an orientation whose added side is a metavariable or a strict subpattern only unites") {
+  test(
+    "an orientation whose added side is a metavariable or a strict subpattern only unites"
+  ) {
     assert(Orientations.onlyUnites(orientation(matched, metavariable(1))))
     assert(
       Orientations.onlyUnites(
@@ -66,12 +73,17 @@ class OrientationsTest extends gezi.generatedinputs.FailFastSuite:
     )
   }
 
-  test("the head arity bound of an instruction is the most arguments any matched side applies it to") {
+  test(
+    "the head arity bound of an instruction is the most arguments any matched side applies it to"
+  ) {
     val bounds = Orientations.headArityBounds(
       Vector(
         orientation(matched, metavariable(0)),
         orientation(
-          application(metavariable(0), application(Pattern.InstructionReference(other), metavariable(1))),
+          application(
+            metavariable(0),
+            application(Pattern.InstructionReference(other), metavariable(1))
+          ),
           metavariable(0)
         ),
         orientation(

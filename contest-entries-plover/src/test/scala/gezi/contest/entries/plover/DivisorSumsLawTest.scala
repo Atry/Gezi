@@ -26,12 +26,17 @@ class DivisorSumsLawTest extends GeneratedProperties:
       (BigInt(1) << 70) + 1
     )
 
-  property("the total is the sum of every number's divisors, modulo the modulus") {
+  property(
+    "the total is the sum of every number's divisors, modulo the modulus"
+  ) {
     for
       limit <- Gen.int(Range.linear(0, 300)).forAll
       modulus <- drawnModulus.forAll
     yield
-      val summed = (1 to limit).flatMap(number => (1 to number).filter(number % _ == 0)).foldLeft(BigInt(0))(_ + _)
-      val computed = DivisorSums.total(BigInt(limit).bigInteger, modulus.bigInteger)
+      val summed = (1 to limit)
+        .flatMap(number => (1 to number).filter(number % _ == 0))
+        .foldLeft(BigInt(0))(_ + _)
+      val computed =
+        DivisorSums.total(BigInt(limit).bigInteger, modulus.bigInteger)
       Result.diff(BigInt(computed), summed % modulus)(_ == _)
   }

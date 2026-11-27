@@ -22,9 +22,13 @@ object DivisorSums:
     * longer than `longestLimit` bits.
     */
   def total(limit: BigInteger, modulus: BigInteger): BigInteger =
-    if limit.bitLength > longestLimit then throw ArithmeticException(s"a limit of ${limit.bitLength} bits is longer than $longestLimit")
+    if limit.bitLength > longestLimit then
+      throw ArithmeticException(
+        s"a limit of ${limit.bitLength} bits is longer than $longestLimit"
+      )
     val number = limit.longValueExact
-    if modulus.bitLength <= longestWordModulus then BigInteger.valueOf(inWords(number, modulus.longValueExact))
+    if modulus.bitLength <= longestWordModulus then
+      BigInteger.valueOf(inWords(number, modulus.longValueExact))
     else inBigIntegers(number, modulus)
 
   /** The two factors of the sum of the run from first to last, the count and
@@ -55,6 +59,9 @@ object DivisorSums:
         val quotient = number / first
         val last = number / quotient
         val (left, right) = runFactors(first, last)
-        val run = BigInteger.valueOf(left).multiply(BigInteger.valueOf(right)).multiply(BigInteger.valueOf(quotient))
+        val run = BigInteger
+          .valueOf(left)
+          .multiply(BigInteger.valueOf(right))
+          .multiply(BigInteger.valueOf(quotient))
         summed(last + 1, total.add(run).mod(modulus))
     summed(1, BigInteger.ZERO)

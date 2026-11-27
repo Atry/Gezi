@@ -7,26 +7,26 @@ import scala.util.matching.Regex
 /** The rule that every Scala package has a package-level Scaladoc, read off the
   * sources of every module, tests included.
   *
-  * Scaladoc shows on a package's page the doc comment of the package's
-  * package object, and not one written on a package clause, so a package's
-  * documentation is an empty package object, in a file `package.scala` of
-  * the package's directory, with its doc comment directly above it. Every
-  * package that a source file declares by its package clauses has exactly
-  * one package object, since two package objects of one package on one
-  * classpath clash; that object carries a doc comment and nothing follows
-  * it in its file, so that it holds no member. A file that holds a package
-  * object declares the package of the object, not the package of its
-  * clause: a parent package that holds no source of its own needs no
-  * package object.
+  * Scaladoc shows on a package's page the doc comment of the package's package
+  * object, and not one written on a package clause, so a package's
+  * documentation is an empty package object, in a file `package.scala` of the
+  * package's directory, with its doc comment directly above it. Every package
+  * that a source file declares by its package clauses has exactly one package
+  * object, since two package objects of one package on one classpath clash;
+  * that object carries a doc comment and nothing follows it in its file, so
+  * that it holds no member. A file that holds a package object declares the
+  * package of the object, not the package of its clause: a parent package that
+  * holds no source of its own needs no package object.
   */
 class PackageDocumentationTest extends gezi.generatedinputs.FailFastSuite:
 
   private val packageClausePattern: Regex = """(?m)^package\s+([\w.]+)\s*$""".r
 
-  private val packageObjectPattern: Regex = """(?m)^package\s+object\s+(\w+)""".r
+  private val packageObjectPattern: Regex =
+    """(?m)^package\s+object\s+(\w+)""".r
 
-  /** A package object: the package it documents, whether a doc comment
-    * stands directly above it, whether its file ends with it, and where it is.
+  /** A package object: the package it documents, whether a doc comment stands
+    * directly above it, whether its file ends with it, and where it is.
     */
   private final case class PackageObject(
       packageName: String,
@@ -47,7 +47,10 @@ class PackageDocumentationTest extends gezi.generatedinputs.FailFastSuite:
       .map(_.group(1))
       .mkString(".")
 
-  private def packageObjects(root: Path, source: Source): Vector[PackageObject] =
+  private def packageObjects(
+      root: Path,
+      source: Source
+  ): Vector[PackageObject] =
     val enclosing = clausePackage(source)
     packageObjectPattern
       .findAllMatchIn(source.code)
@@ -67,7 +70,9 @@ class PackageDocumentationTest extends gezi.generatedinputs.FailFastSuite:
         )
       )
 
-  test("every package declared by a source file has one documented package object") {
+  test(
+    "every package declared by a source file has one documented package object"
+  ) {
     val root = ScalaSources.root
     val sources = ScalaSources
       .sources(root)

@@ -15,21 +15,27 @@ import gezi.ir.NativeStorage
 import gezi.ir.Parallel
 import gezi.ir.Store
 
-/** A native storage of the tests, kept as a leaf, whose view throws when it
-  * is read. Equal to itself only.
+/** A native storage of the tests, kept as a leaf, whose view throws when it is
+  * read. Equal to itself only.
   */
-private final class PoisonedLeafStorage(criterionTerm: StandInStorages.Term) extends StandInStorage:
+private final class PoisonedLeafStorage(criterionTerm: StandInStorages.Term)
+    extends StandInStorage:
   def standInCriterion: StandInStorages.Term = criterionTerm
   val closed: Boolean = true
   val suspensionFree: Boolean = true
   val handedOverWhole: Boolean = false
-  protected val termChildren: IArray[AnyRef] = IArray(criterionTerm.representation)
+  protected val termChildren: IArray[AnyRef] = IArray(
+    criterionTerm.representation
+  )
   protected val constructorIndex: Int = 0
   val leafInEGraph: Boolean = true
   val constantSize: Boolean = true
+
   /** False: a stand-in of the tests forms no group. */
   def precedes(other: gezi.ir.NativeStorage): Boolean = false
-  /** A stand-in is one object: equal to itself only, in the pool as outside it. */
+
+  /** A stand-in is one object: equal to itself only, in the pool as outside it.
+    */
   def contentHash: Int = System.identityHashCode(this)
   def sameContent(other: NativeStorage): Boolean = this eq other
 
@@ -50,7 +56,8 @@ class StorageLeafAbstractionLawTest extends GeneratedProperties:
   private type Term = StandInStorages.Term
 
   private val criterion = StandInStorages.opaque("criterion")
-  private val names = Vector(StandInStorages.opaque("first"), StandInStorages.opaque("second"))
+  private val names =
+    Vector(StandInStorages.opaque("first"), StandInStorages.opaque("second"))
   private val eigenvariable = StandInStorages.opaque("eigenvariable")
 
   private def body(atoms: Vector[Term], depth: Int): Gen[Term] =
@@ -58,40 +65,77 @@ class StorageLeafAbstractionLawTest extends GeneratedProperties:
     else
       Gen.frequency1(
         2 -> Gen.element(atoms.head, atoms.tail.toList),
-        3 -> (for function <- body(atoms, depth - 1); argument <- body(atoms, depth - 1) yield StandInStorages.application(function, argument)),
-        1 -> (for left <- body(atoms, depth - 1); right <- body(atoms, depth - 1) yield StandInStorages.parallel(left, right)),
-        1 -> (for left <- body(atoms, depth - 1); right <- body(atoms, depth - 1) yield StandInStorages.choice(left, right))
+        3 -> (for
+          function <- body(atoms, depth - 1); argument <- body(atoms, depth - 1)
+        yield StandInStorages.application(function, argument)),
+        1 -> (for
+          left <- body(atoms, depth - 1); right <- body(atoms, depth - 1)
+        yield StandInStorages.parallel(left, right)),
+        1 -> (for
+          left <- body(atoms, depth - 1); right <- body(atoms, depth - 1)
+        yield StandInStorages.choice(left, right))
       )
 
   /** Every subterm, each once, a storage's view not read. */
   private def subterms(root: Term): Set[Term] =
     @scala.annotation.tailrec
     def walked(pending: List[Term], seen: Set[Term]): Set[Term] = pending match
-      case Nil                                                       => seen
-      case term :: rest if seen(term)                                => walked(rest, seen)
-      case term :: rest if NativeStorage.stored(term.representation) => walked(rest, seen + term)
+      case Nil                        => seen
+      case term :: rest if seen(term) => walked(rest, seen)
+      case term :: rest if NativeStorage.stored(term.representation) =>
+        walked(rest, seen + term)
       case term :: rest =>
-        val children: List[Term] = if term.opaque then Nil else term.layer.children.toList
+        val children: List[Term] =
+          if term.opaque then Nil else term.layer.children.toList
         walked(children ::: rest, seen + term)
     walked(List(root), Set.empty)
 
-  property("a body over storage leaves is abstracted and added with no storage's view read") {
+  property(
+    "a body over storage leaves is abstracted and added with no storage's view read"
+  ) {
     for
       storageCount <- Gen.int(Range.linear(1, 3)).forAll
-      storages = (0 until storageCount).toVector.map(_ => gezi.generatedinputs.StandInStorages.stored(PoisonedLeafStorage(criterion)))
+      storages = (0 until storageCount).toVector.map(_ =>
+        gezi.generatedinputs.StandInStorages.stored(
+          PoisonedLeafStorage(criterion)
+        )
+      )
       generated <- body(names ++ storages :+ eigenvariable, 4).forAll
     yield
-      val written = StandInStorages.application(StandInStorages.application(eigenvariable, generated), storages.head)
-      val abstracted = HigherOrderMatching.abstractedInstruction(written, Vector(eigenvariable), gezi.ir.TermConstruction(StandInStorages))
-      val store = Store((names :+ eigenvariable :+ criterion).toSet, gezi.ir.TermConstruction(StandInStorages))
-      val (empty, eigenvariableNode) = EGraph.empty(store, Map.empty, explained = false).instructionAdded(eigenvariable)
+      val written = StandInStorages.application(
+        StandInStorages.application(eigenvariable, generated),
+        storages.head
+      )
+      val abstracted = HigherOrderMatching.abstractedInstruction(
+        written,
+        Vector(eigenvariable),
+        gezi.ir.TermConstruction(StandInStorages)
+      )
+      val store = Store(
+        (names :+ eigenvariable :+ criterion).toSet,
+        gezi.ir.TermConstruction(StandInStorages)
+      )
+      val (empty, eigenvariableNode) = EGraph
+        .empty(store, Map.empty, explained = false)
+        .instructionAdded(eigenvariable)
       val (graph, _) = HigherOrderMatching.termAdded(
         empty,
         ClosedTerm.InstructionTerm(written),
         Map(eigenvariable -> eigenvariableNode)
       )
-      val bodyStorages = subterms(written).filter(term => NativeStorage.stored(term.representation))
+      val bodyStorages = subterms(written).filter(term =>
+        NativeStorage.stored(term.representation)
+      )
       val inAbstraction = subterms(abstracted)
-      Result.assert(bodyStorages.forall(inAbstraction.contains)).log(s"a storage lost from the abstraction")
-        .and(Result.assert(bodyStorages.forall(storage => graph.instructionNode(storage).isDefined)).log("a storage with no leaf node"))
+      Result
+        .assert(bodyStorages.forall(inAbstraction.contains))
+        .log(s"a storage lost from the abstraction")
+        .and(
+          Result
+            .assert(
+              bodyStorages
+                .forall(storage => graph.instructionNode(storage).isDefined)
+            )
+            .log("a storage with no leaf node")
+        )
   }

@@ -47,30 +47,29 @@ final case class TieredSuspension[C <: NativeSpecializer & Singleton](
     tier: Tier[C]
 )
 
-/** The tiered executor:
-  * a program read by a reading executor, at each step as the policy decides
-  * from what was spent (`TieringPolicy.decided`): the program itself
-  * (`Decision.Interpret`), the program compiled into the cache service
-  * (`Decision.Compile`), or the compiled program read (`Decision.RunCompiled`),
-  * the compiler's artifact looked up under `ArtifactKey(program, configuration)`.
-  * Every reading takes the caller's stop, and the steps of all of them
-  * together are within the caller's budget. The framework gives the
-  * interfaces (`gezi.hotspot.Executor`, the cache service) and leaves the
-  * tiered executor to an entry.
+/** The tiered executor: a program read by a reading executor, at each step as
+  * the policy decides from what was spent (`TieringPolicy.decided`): the
+  * program itself (`Decision.Interpret`), the program compiled into the cache
+  * service (`Decision.Compile`), or the compiled program read
+  * (`Decision.RunCompiled`), the compiler's artifact looked up under
+  * `ArtifactKey(program, configuration)`. Every reading takes the caller's
+  * stop, and the steps of all of them together are within the caller's budget.
+  * The framework gives the interfaces (`gezi.hotspot.Executor`, the cache
+  * service) and leaves the tiered executor to an entry.
   *
-  * A compiled program equals the program (the compiler's lemma rounds are
-  * sound by Definition 14), so its normal forms are the program's, and the
-  * reading of it, started from its root, reads again what the
-  * interpretation had read: the normal forms already found are dropped
-  * (`TieredSuspension.seen`). The residual of a suspension is the program
-  * itself, the coarsest the residual law admits (`exported`).
+  * A compiled program equals the program (the compiler's lemma rounds are sound
+  * by Definition 14), so its normal forms are the program's, and the reading of
+  * it, started from its root, reads again what the interpretation had read: the
+  * normal forms already found are dropped (`TieredSuspension.seen`). The
+  * residual of a suspension is the program itself, the coarsest the residual
+  * law admits (`exported`).
   *
   * @param specializer
-  *   the native specializer of the configuration, which names the compiler's artifacts in the cache service
-  *   (`ProgramArtifacts`)
+  *   the native specializer of the configuration, which names the compiler's
+  *   artifacts in the cache service (`ProgramArtifacts`)
   * @param reading
-  *   the reading executor of both tiers, which carries the JIT's state and
-  *   the readings' tables from one reading to the next
+  *   the reading executor of both tiers, which carries the JIT's state and the
+  *   readings' tables from one reading to the next
   * @param compiler
   *   the compiler of program units, whose artifact is the program to read
   * @param policy
@@ -85,22 +84,46 @@ final case class TieredExecutor[C <: NativeSpecializer & Singleton](
 
   private given C = specializer
 
-  def executed(term: Configured[C], dependencies: ExecutionDependencies, budget: Budget): (Executor[C, TieredSuspension[C]], ExecutionDependencies, Progress[C, TieredSuspension[C]]) =
-    advanced(TieredSuspension[C](CompilationUnit.Program(term), Spent.none, Set.empty, Tier.Undecided()), dependencies, budget)
+  def executed(
+      term: Configured[C],
+      dependencies: ExecutionDependencies,
+      budget: Budget
+  ): (
+      Executor[C, TieredSuspension[C]],
+      ExecutionDependencies,
+      Progress[C, TieredSuspension[C]]
+  ) =
+    advanced(
+      TieredSuspension[C](
+        CompilationUnit.Program(term),
+        Spent.none,
+        Set.empty,
+        Tier.Undecided()
+      ),
+      dependencies,
+      budget
+    )
 
   def resumed(
       suspension: TieredSuspension[C],
       dependencies: ExecutionDependencies,
       budget: Budget
-  ): (Executor[C, TieredSuspension[C]], ExecutionDependencies, Progress[C, TieredSuspension[C]]) =
+  ): (
+      Executor[C, TieredSuspension[C]],
+      ExecutionDependencies,
+      Progress[C, TieredSuspension[C]]
+  ) =
     advanced(suspension, dependencies, budget)
 
   /** The program the suspension was started on, a residual by the law the
-    * reading executors' own export rests on: each normal form N found is one
-    * of the program T's, T ⊑_O N, and the choice is the meet of ⊑_O, so
-    * N + T ≃_O T.
+    * reading executors' own export rests on: each normal form N found is one of
+    * the program T's, T ⊑_O N, and the choice is the meet of ⊑_O, so N + T ≃_O
+    * T.
     */
-  def exported(suspension: TieredSuspension[C], dependencies: ExecutionDependencies): (ExecutionDependencies, Option[Configured[C]]) =
+  def exported(
+      suspension: TieredSuspension[C],
+      dependencies: ExecutionDependencies
+  ): (ExecutionDependencies, Option[Configured[C]]) =
     (dependencies, Some(suspension.program.root))
 
   /** The suspension advanced by the policy's decisions until the program is
@@ -112,7 +135,11 @@ final case class TieredExecutor[C <: NativeSpecializer & Singleton](
       start: TieredSuspension[C],
       dependencies: ExecutionDependencies,
       budget: Budget
-  ): (Executor[C, TieredSuspension[C]], ExecutionDependencies, Progress[C, TieredSuspension[C]]) =
+  ): (
+      Executor[C, TieredSuspension[C]],
+      ExecutionDependencies,
+      Progress[C, TieredSuspension[C]]
+  ) =
     val artifacts = ProgramArtifacts[C](specializer)
     @tailrec
     def loop(
@@ -121,53 +148,138 @@ final case class TieredExecutor[C <: NativeSpecializer & Singleton](
         suspension: TieredSuspension[C],
         spentInCall: Spent,
         found: Vector[Configured[C]]
-    ): (Executor[C, TieredSuspension[C]], ExecutionDependencies, Progress[C, TieredSuspension[C]]) =
-      def suspended = (executor, dependencies, Progress(found, Some(suspension), spentInCall))
+    ): (
+        Executor[C, TieredSuspension[C]],
+        ExecutionDependencies,
+        Progress[C, TieredSuspension[C]]
+    ) =
+      def suspended =
+        (executor, dependencies, Progress(found, Some(suspension), spentInCall))
       val stepsLeft = budget.steps - spentInCall.steps
       if stepsLeft <= 0 || budget.stop.stopRequested then suspended
       else
-        executor.policy.decided(suspension.program, suspension.spent, dependencies.cache) match
-          case Decision.GiveUp() => suspended
+        executor.policy.decided(
+          suspension.program,
+          suspension.spent,
+          dependencies.cache
+        ) match
+          case Decision.GiveUp()       => suspended
           case Decision.Compile(units) =>
-            val (compiler, compiled) = units.foldLeft((executor.compiler, dependencies)) { case ((compiler, before), unit) =>
-              val (next, after, _) = compiler.compiled(TieredExecutor.root(unit), unit, before, budget.stop)
-              (next, after)
-            }
+            val (compiler, compiled) =
+              units.foldLeft((executor.compiler, dependencies)) {
+                case ((compiler, before), unit) =>
+                  val (next, after, _) = compiler.compiled(
+                    TieredExecutor.root(unit),
+                    unit,
+                    before,
+                    budget.stop
+                  )
+                  (next, after)
+              }
             // A compilation the caller's stop ended wrote nothing, and a provider may drop an artifact at once
             // (`gezi.hotspot.Retention`): the call ends there rather than compile again in a loop, and the next
             // call decides afresh.
             val written = units.forall(unit =>
-              compiled.cache.locked(artifacts)(_.tryGet(ArtifactKey[C, Configured[C]](unit, compiler.configuration))).isDefined
+              compiled.cache
+                .locked(artifacts)(
+                  _.tryGet(
+                    ArtifactKey[C, Configured[C]](unit, compiler.configuration)
+                  )
+                )
+                .isDefined
             )
-            if budget.stop.stopRequested || !written then (executor.copy(compiler = compiler), compiled, Progress(found, Some(suspension), spentInCall))
-            else loop(executor.copy(compiler = compiler), compiled, suspension.copy(tier = Tier.Undecided()), spentInCall, found)
+            if budget.stop.stopRequested || !written then
+              (
+                executor.copy(compiler = compiler),
+                compiled,
+                Progress(found, Some(suspension), spentInCall)
+              )
+            else
+              loop(
+                executor.copy(compiler = compiler),
+                compiled,
+                suspension.copy(tier = Tier.Undecided()),
+                spentInCall,
+                found
+              )
           case Decision.Interpret(allowed) =>
             val started = suspension.tier match
-              case Tier.Interpreting(reading) => executor.reading.resumed(reading, dependencies, executor.capped(allowed, stepsLeft, budget))
+              case Tier.Interpreting(reading) =>
+                executor.reading.resumed(
+                  reading,
+                  dependencies,
+                  executor.capped(allowed, stepsLeft, budget)
+                )
               case Tier.Undecided() | Tier.Compiled(_) =>
-                executor.reading.executed(suspension.program.root, dependencies, executor.capped(allowed, stepsLeft, budget))
-            stepped(executor, suspension, spentInCall, found, started, Tier.Interpreting(_))
+                executor.reading.executed(
+                  suspension.program.root,
+                  dependencies,
+                  executor.capped(allowed, stepsLeft, budget)
+                )
+            stepped(
+              executor,
+              suspension,
+              spentInCall,
+              found,
+              started,
+              Tier.Interpreting(_)
+            )
           case Decision.RunCompiled(allowed) =>
             val started = suspension.tier match
-              case Tier.Compiled(reading) => executor.reading.resumed(reading, dependencies, executor.capped(allowed, stepsLeft, budget))
+              case Tier.Compiled(reading) =>
+                executor.reading.resumed(
+                  reading,
+                  dependencies,
+                  executor.capped(allowed, stepsLeft, budget)
+                )
               case Tier.Undecided() | Tier.Interpreting(_) =>
                 val artifact = dependencies.cache
-                  .locked(artifacts)(_.tryGet(ArtifactKey[C, Configured[C]](suspension.program, executor.compiler.configuration)))
-                  .getOrElse(throw AssertionError(s"the policy ran a compiled program whose artifact is not in the cache service: ${executor.policy}"))
-                executor.reading.executed(artifact, dependencies, executor.capped(allowed, stepsLeft, budget))
-            stepped(executor, suspension, spentInCall, found, started, Tier.Compiled(_))
+                  .locked(artifacts)(
+                    _.tryGet(
+                      ArtifactKey[C, Configured[C]](
+                        suspension.program,
+                        executor.compiler.configuration
+                      )
+                    )
+                  )
+                  .getOrElse(
+                    throw AssertionError(
+                      s"the policy ran a compiled program whose artifact is not in the cache service: ${executor.policy}"
+                    )
+                  )
+                executor.reading.executed(
+                  artifact,
+                  dependencies,
+                  executor.capped(allowed, stepsLeft, budget)
+                )
+            stepped(
+              executor,
+              suspension,
+              spentInCall,
+              found,
+              started,
+              Tier.Compiled(_)
+            )
 
-    /** The loop after one reading: finished when the reading finished, else
-      * on with its suspension in the tier it ran in.
+    /** The loop after one reading: finished when the reading finished, else on
+      * with its suspension in the tier it ran in.
       */
     def stepped(
         executor: TieredExecutor[C],
         suspension: TieredSuspension[C],
         spentInCall: Spent,
         found: Vector[Configured[C]],
-        result: (Executor[C, ReadingSuspension[C]], ExecutionDependencies, Progress[C, ReadingSuspension[C]]),
+        result: (
+            Executor[C, ReadingSuspension[C]],
+            ExecutionDependencies,
+            Progress[C, ReadingSuspension[C]]
+        ),
         tier: ReadingSuspension[C] => Tier[C]
-    ): (Executor[C, TieredSuspension[C]], ExecutionDependencies, Progress[C, TieredSuspension[C]]) =
+    ): (
+        Executor[C, TieredSuspension[C]],
+        ExecutionDependencies,
+        Progress[C, TieredSuspension[C]]
+    ) =
       val (reading, dependencies, progress) = result
       val fresh = progress.found.filterNot(suspension.seen).distinct
       val next = executor.copy(reading = reading)
@@ -178,16 +290,22 @@ final case class TieredExecutor[C <: NativeSpecializer & Singleton](
       )
       val nowSpent = TieredExecutor.added(spentInCall, progress.spent)
       progress.suspension match
-        case None    => (next, dependencies, Progress(found ++ fresh, None, nowSpent))
-        case Some(_) => loop(next, dependencies, advancedSuspension, nowSpent, found ++ fresh)
+        case None =>
+          (next, dependencies, Progress(found ++ fresh, None, nowSpent))
+        case Some(_) =>
+          loop(next, dependencies, advancedSuspension, nowSpent, found ++ fresh)
 
     loop(this, dependencies, start, Spent.none, Vector.empty)
 
-  /** A decision's budget with the caller's stop, and its steps capped by
-    * the caller's steps left.
+  /** A decision's budget with the caller's stop, and its steps capped by the
+    * caller's steps left.
     */
   private def capped(allowed: Budget, stepsLeft: Long, budget: Budget): Budget =
-    Budget(allowed.steps.min(stepsLeft), allowed.countedUnits || budget.countedUnits, budget.stop)
+    Budget(
+      allowed.steps.min(stepsLeft),
+      allowed.countedUnits || budget.countedUnits,
+      budget.stop
+    )
 
 object TieredExecutor:
 
@@ -195,13 +313,21 @@ object TieredExecutor:
     * `IllegalArgumentException` for a code or a closure unit, which the
     * compiler of program units refuses.
     */
-  def root[C <: NativeSpecializer & Singleton](unit: CompilationUnit[C]): Configured[C] = unit match
+  def root[C <: NativeSpecializer & Singleton](
+      unit: CompilationUnit[C]
+  ): Configured[C] = unit match
     case CompilationUnit.Program(root) => root
-    case other                         => throw IllegalArgumentException(s"solo's tiered executor compiles program units, not $other")
+    case other                         =>
+      throw IllegalArgumentException(
+        s"solo's tiered executor compiles program units, not $other"
+      )
 
   /** Two costs added: the steps, and the applications of each unit. */
   def added(first: Spent, second: Spent): Spent =
     Spent(
       first.steps + second.steps,
-      second.applications.foldLeft(first.applications) { case (sum, (unit, count)) => sum.updated(unit, sum.getOrElse(unit, 0L) + count) }
+      second.applications.foldLeft(first.applications) {
+        case (sum, (unit, count)) =>
+          sum.updated(unit, sum.getOrElse(unit, 0L) + count)
+      }
     )

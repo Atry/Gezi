@@ -6,4 +6,5 @@ package gezi.programfamilies
 object CompiledConfigurations:
 
   /** Each configuration compiled, by name. */
-  lazy val byName: Map[String, CompiledConfiguration] = FixedPointLines.compiledConfigurations
+  lazy val byName: Map[String, CompiledConfiguration] =
+    FixedPointLines.compiledConfigurations

@@ -14,22 +14,27 @@ import gezi.strategies.JointReading
 import gezi.ir.{Configured, NativeSpecializer, NoFacts, Value}
 
 /** The extractor module of the narrow blocks over declared data families: the
-  * route `DeclaredFamilyRoute` and the framework's narrow blocks' extraction
-  * of that route's modules. The parameters are a tuple of two fields,
+  * route `DeclaredFamilyRoute` and the framework's narrow blocks' extraction of
+  * that route's modules. The parameters are a tuple of two fields,
   * `λs. s enumeration whole`, the joint enumeration's bound and the whole
   * fold's bound of the thunks' candidates (`JointReading`), a positive and a
   * non-negative integer of 64 bits, the fields `narrow_list_block` takes.
   */
 final class DeclaredFamilyExtractionModule extends ExtractorModule:
 
-  def selectorFile: Path = Path.of("corpora", "modules", "plover_declared_families.lambdalattice")
+  def selectorFile: Path =
+    Path.of("corpora", "modules", "plover_declared_families.lambdalattice")
 
-  /** The extraction over the route's modules. Throws `EntryDataError` for
-    * other parameters.
+  /** The extraction over the route's modules. Throws `EntryDataError` for other
+    * parameters.
     */
-  def extractor[C <: NativeSpecializer & Singleton](parameters: Configured[NoFacts.type], inputs: ExtractorModuleInputs[C]): Extractor[C] =
+  def extractor[C <: NativeSpecializer & Singleton](
+      parameters: Configured[NoFacts.type],
+      inputs: ExtractorModuleInputs[C]
+  ): Extractor[C] =
     NarrowBlockExtractor(
-      DeclaredFamilyRoute.extractorModules(inputs.natives, inputs.configuration),
+      DeclaredFamilyRoute
+        .extractorModules(inputs.natives, inputs.configuration),
       DeclaredFamilyExtractionModule.read(parameters)
     )
 
@@ -59,11 +64,19 @@ object DeclaredFamilyExtractionModule:
                 enumerationRead <- KnowledgeReading.integer(enumeration)
                 wholeRead <- KnowledgeReading.integer(whole)
               yield (enumerationRead, wholeRead)
-            case fields => throw EntryDataError(s"the declared families' parameters have ${fields.size} fields, not 2")
+            case fields =>
+              throw EntryDataError(
+                s"the declared families' parameters have ${fields.size} fields, not 2"
+              )
           },
           parametersReadingLimit
         )
-      catch case KnowledgeReadingError(reason) => throw EntryDataError(s"the declared families' parameters: $reason")
-    if enumeration <= 0 || !enumeration.isValidLong || whole < 0 || !whole.isValidLong then
-      throw EntryDataError(s"the declared families' bounds are $enumeration and $whole, not a positive and a non-negative integer of 64 bits")
+      catch
+        case KnowledgeReadingError(reason) =>
+          throw EntryDataError(s"the declared families' parameters: $reason")
+    if enumeration <= 0 || !enumeration.isValidLong || whole < 0 || !whole.isValidLong
+    then
+      throw EntryDataError(
+        s"the declared families' bounds are $enumeration and $whole, not a positive and a non-negative integer of 64 bits"
+      )
     JointReading(enumeration.toLong, whole.toLong)

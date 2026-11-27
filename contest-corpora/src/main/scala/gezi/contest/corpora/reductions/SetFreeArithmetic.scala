@@ -8,17 +8,23 @@ import gezi.frontend.DeBruijnTerm
 import gezi.frontend.Term
 
 /** Binary sums and products by the standard library's merge_binary_plus and
-  * merge_binary_times, in both spellings of the point (the library function
-  * is the same define in both), the port of
-  * `problems/set_free_arithmetic`: direct and respelled twins, and
-  * a near miss whose times template has its even and odd cases exchanged.
+  * merge_binary_times, in both spellings of the point (the library function is
+  * the same define in both), the port of `problems/set_free_arithmetic`: direct
+  * and respelled twins, and a near miss whose times template has its even and
+  * odd cases exchanged.
   */
 object SetFreeArithmetic:
 
   private val family = "set_free_arithmetic"
 
   /** A point: its operation, spelling and operands (`arithmetic_point/5`). */
-  final case class ArithmeticPoint(point: String, operation: String, spelling: Spelling, left: BigInt, right: BigInt)
+  final case class ArithmeticPoint(
+      point: String,
+      operation: String,
+      spelling: Spelling,
+      left: BigInt,
+      right: BigInt
+  )
 
   /** The points: the facts read, then each product size with each twin
     * (`product_size/2`, `product_twin/3`), the operands `10^Digits // 7` and
@@ -34,7 +40,8 @@ object SetFreeArithmetic:
           ProblemData.integer(left),
           ProblemData.integer(right)
         )
-      case other => throw IllegalArgumentException(s"not an arithmetic point: $other")
+      case other =>
+        throw IllegalArgumentException(s"not an arithmetic point: $other")
     }
     val sized = for
       size <- group.problems(family).rows("product_size")
@@ -54,35 +61,73 @@ object SetFreeArithmetic:
     * function of a sum or a product is the standard library's define.
     */
   def pointSurface(group: ReductionGroup, point: ArithmeticPoint): ProblemTerm =
-    operationFunction(group, point.operation, point.spelling)(binary(point.left))(binary(point.right))
+    operationFunction(group, point.operation, point.spelling)(
+      binary(point.left)
+    )(binary(point.right))
 
   /** The function a point applies to its two numerals. */
-  private[reductions] def operationFunction(group: ReductionGroup, operation: String, spelling: Spelling): ProblemTerm =
-    if operation == "near_times" then nearTimesApplied(group)(nearTimesApplied(group))
+  private[reductions] def operationFunction(
+      group: ReductionGroup,
+      operation: String,
+      spelling: Spelling
+  ): ProblemTerm =
+    if operation == "near_times" then
+      nearTimesApplied(group)(nearTimesApplied(group))
     else SetFree.libraryFunction(group, operation, spelling)
 
   /** The near miss's template applied to the standard library's plus. */
   private def nearTimesApplied(group: ReductionGroup): ProblemTerm =
-    nearTimesTemplate(group.attractors)(SetFree.libraryFunction(group, "merge_binary_plus", Spelling.Direct))
+    nearTimesTemplate(group.attractors)(
+      SetFree.libraryFunction(group, "merge_binary_plus", Spelling.Direct)
+    )
 
-  /** A fresh copy of the times template with its even and odd cases
-    * exchanged, a beta eta normal form like the attractor's
-    * (`near_times_template/1`): the attractor's
-    * `\plus. \self. \a. \b. a zero (\h1. E) (\h2. plus b O)` becomes
-    * `\plus. \self. \a. \b. a zero (\h1. plus b E) (\h2. O)`. Throws when the
-    * attractor has not that shape, where the Prolog's unification fails.
+  /** A fresh copy of the times template with its even and odd cases exchanged,
+    * a beta eta normal form like the attractor's (`near_times_template/1`): the
+    * attractor's `\plus. \self. \a. \b. a zero (\h1. E) (\h2. plus b O)`
+    * becomes `\plus. \self. \a. \b. a zero (\h1. plus b E) (\h2. O)`. Throws
+    * when the attractor has not that shape, where the Prolog's unification
+    * fails.
     */
   def nearTimesTemplate(attractors: Attractors): ProblemTerm =
     import DeBruijnTerm.*
     attractors.attractorFunction("merge_binary_times") match
-      case Lambda(Lambda(Lambda(Lambda(Apply(Apply(Apply(Variable(1), zero), Lambda(evenDouble)), Lambda(
-              Apply(Apply(Variable(4), Variable(1)), oddDouble)
-            )))))) =>
-        def plusOfB(term: ProblemDeBruijnTerm) = Apply(Apply(Variable(4), Variable(1)), term)
+      case Lambda(
+            Lambda(
+              Lambda(
+                Lambda(
+                  Apply(
+                    Apply(Apply(Variable(1), zero), Lambda(evenDouble)),
+                    Lambda(
+                      Apply(Apply(Variable(4), Variable(1)), oddDouble)
+                    )
+                  )
+                )
+              )
+            )
+          ) =>
+        def plusOfB(term: ProblemDeBruijnTerm) =
+          Apply(Apply(Variable(4), Variable(1)), term)
         fromDeBruijn(
-          Lambda(Lambda(Lambda(Lambda(Apply(Apply(Apply(Variable(1), zero), Lambda(plusOfB(evenDouble))), Lambda(oddDouble))))))
+          Lambda(
+            Lambda(
+              Lambda(
+                Lambda(
+                  Apply(
+                    Apply(
+                      Apply(Variable(1), zero),
+                      Lambda(plusOfB(evenDouble))
+                    ),
+                    Lambda(oddDouble)
+                  )
+                )
+              )
+            )
+          )
         )
-      case other => throw IllegalArgumentException(s"the times attractor has not the template's shape: $other")
+      case other =>
+        throw IllegalArgumentException(
+          s"the times attractor has not the template's shape: $other"
+        )
 
   /** `0 b = 0, 2h b = b + double(h b), (2h + 1) b = double(h b)`
     * (`near_product/3`).
@@ -100,7 +145,7 @@ object SetFreeArithmetic:
     case "near_times"         => nearProduct(point.left, point.right)
     case "merge_binary_plus"  => point.left + point.right
     case "merge_binary_times" => point.left * point.right
-    case other                => throw IllegalArgumentException(s"no reference of $other")
+    case other => throw IllegalArgumentException(s"no reference of $other")
 
   /** The problems. Every near miss's reference differs from the product, so
     * each is a trap for the native product (`near_misses_differ/0`); a near
@@ -108,8 +153,10 @@ object SetFreeArithmetic:
     */
   def problems(group: ReductionGroup): Vector[ReductionProblem] =
     points(group).map(point =>
-      if point.operation == "near_times" && reference(point) == point.left * point.right then
-        throw IllegalArgumentException(s"near_miss_trap: ${point.point}")
+      if point.operation == "near_times" && reference(
+          point
+        ) == point.left * point.right
+      then throw IllegalArgumentException(s"near_miss_trap: ${point.point}")
       ReductionProblem(
         point.point,
         pointSurface(group, point),

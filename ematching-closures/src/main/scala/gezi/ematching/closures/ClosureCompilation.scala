@@ -19,67 +19,78 @@ import gezi.ir.{Configured, LayerWith, NativeSpecializer}
 import scala.annotation.tailrec
 import gezi.ir.{Apply, Choice, Parallel, Thunk}
 
-/** The backend that compiles a program once into a tree of Scala closures:
-  * the tree of each key's seeds (`Program.trees`), each node's steps from
-  * the last to the first, into nested closures, one a step, so that what a
-  * step does is chosen when the program is compiled; and each building into
-  * a closure from a graph and the caller's values to the graph after it and
-  * the node built.
+/** The backend that compiles a program once into a tree of Scala closures: the
+  * tree of each key's seeds (`Program.trees`), each node's steps from the last
+  * to the first, into nested closures, one a step, so that what a step does is
+  * chosen when the program is compiled; and each building into a closure from a
+  * graph and the caller's values to the graph after it and the node built.
   *
   * A run of a tree holds its registers in an immutable vector, written once
-  * each: a step that writes one passes on a copy. Each seed's matches come
-  * out in the order of Prolog's backtracking over the baseline's seed
-  * clause: the entries an `Each` step reads in their order, depth first; the
-  * matches of a key are handed over grouped by seed, in the seeds' order.
+  * each: a step that writes one passes on a copy. Each seed's matches come out
+  * in the order of Prolog's backtracking over the baseline's seed clause: the
+  * entries an `Each` step reads in their order, depth first; the matches of a
+  * key are handed over grouped by seed, in the seeds' order.
   */
 object ClosureCompilation extends Backend:
 
-  def compiled[C <: NativeSpecializer & Singleton](program: Program[C]): CompiledProgram[C] = CompiledClosures(program)
+  def compiled[C <: NativeSpecializer & Singleton](
+      program: Program[C]
+  ): CompiledProgram[C] = CompiledClosures(program)
 
 /** The registers of one run of a seed. */
 private type Registers = Vector[Int]
 
-/** The matching of a tree so far: the matches found, by the number of the
-  * seed that found them, each seed's in the order found; and the entries
-  * read.
+/** The matching of a tree so far: the matches found, by the number of the seed
+  * that found them, each seed's in the order found; and the entries read.
   */
-private final case class Searched(bySeed: Vector[Vector[Match]], entriesRead: Int):
+private final case class Searched(
+    bySeed: Vector[Vector[Match]],
+    entriesRead: Int
+):
   def read(count: Int): Searched = copy(entriesRead = entriesRead + count)
 
   def found(seed: Int, matched: Match): Searched =
     copy(bySeed = bySeed.updated(seed, bySeed(seed) :+ matched))
 
-/** The steps after a point, run for every way the steps before it
-  * succeeded: the matching so far, with the matches they find and the
-  * entries they read added.
+/** The steps after a point, run for every way the steps before it succeeded:
+  * the matching so far, with the matches they find and the entries they read
+  * added.
   */
-private type Continuation[C <: NativeSpecializer & Singleton] = (GraphView[C], Registers, Searched) => Searched
+private type Continuation[C <: NativeSpecializer & Singleton] =
+  (GraphView[C], Registers, Searched) => Searched
 
-/** A witness's run: the registers of its first success, if it has one, and
-  * the entries its steps read up to that success.
+/** A witness's run: the registers of its first success, if it has one, and the
+  * entries its steps read up to that success.
   */
-private final case class Witnessed(registers: Option[Registers], entriesRead: Int)
+private final case class Witnessed(
+    registers: Option[Registers],
+    entriesRead: Int
+)
 
 /** The steps after a point inside a witness: their first success and the
   * entries read on the way.
   */
-private type FirstContinuation[C <: NativeSpecializer & Singleton] = (GraphView[C], Registers) => Witnessed
+private type FirstContinuation[C <: NativeSpecializer & Singleton] =
+  (GraphView[C], Registers) => Witnessed
 
 private val noWitness: Witnessed = Witnessed(None, 0)
 
-/** A compiled building: the graph after building the node, and the node.
-  * The values are an instance's bindings (-1 for an unbound metavariable)
-  * or a β step's slot values.
+/** A compiled building: the graph after building the node, and the node. The
+  * values are an instance's bindings (-1 for an unbound metavariable) or a β
+  * step's slot values.
   */
 private type BuildingClosure[C <: NativeSpecializer & Singleton] =
   [Graph <: GraphBuilding[C, Graph]] => (Graph, Vector[Int]) => (Graph, Int)
 
-private final class CompiledClosures[C <: NativeSpecializer & Singleton](program: Program[C]) extends CompiledProgram[C]:
+private final class CompiledClosures[C <: NativeSpecializer & Singleton](
+    program: Program[C]
+) extends CompiledProgram[C]:
 
   /** The compiled tree of each kind by key, so that a lookup hashes the key
     * alone.
     */
-  private val treeRuns: Map[SeedKind, Map[SeedKey[C], (GraphView[C], Int) => Matching]] =
+  private val treeRuns
+      : Map[SeedKind, Map[SeedKey[C], (GraphView[C], Int) => Matching]] =
     SeedKind.values.toVector
       .map(kind =>
         kind -> program.trees.collect {
@@ -89,9 +100,9 @@ private final class CompiledClosures[C <: NativeSpecializer & Singleton](program
       )
       .toMap
 
-  /** The closures of the codes, resolved by a reference to a code at the
-    * time it is built, so that each code is compiled once and a body's
-    * shared subcodes are not copied.
+  /** The closures of the codes, resolved by a reference to a code at the time
+    * it is built, so that each code is compiled once and a body's shared
+    * subcodes are not copied.
     */
   private lazy val codeClosures: Map[Code, BuildingClosure[C]] =
     program.codes.map((code, building) => code -> buildingClosure(building))
@@ -175,13 +186,18 @@ private final class CompiledClosures[C <: NativeSpecializer & Singleton](program
           )
         )
       )
-      branches.foldLeft(ended)((current, branch) => branch(graph, registers, current))
+      branches.foldLeft(ended)((current, branch) =>
+        branch(graph, registers, current)
+      )
     tree.steps.foldRight(after)(stepClosure)
 
   /** The step followed by the steps after it, for every way it succeeds. An
     * `Each` step reads every entry of its collection.
     */
-  private def stepClosure(step: Step[C], next: Continuation[C]): Continuation[C] =
+  private def stepClosure(
+      step: Step[C],
+      next: Continuation[C]
+  ): Continuation[C] =
     step match
       case Step.Layer(node, LayerTemplate.Apply, Vector(function, argument)) =>
         (graph, registers, searched) =>
@@ -189,7 +205,9 @@ private final class CompiledClosures[C <: NativeSpecializer & Singleton](program
             case Apply(functionNode, argumentNode) =>
               next(
                 graph,
-                registers.updated(function, functionNode).updated(argument, argumentNode),
+                registers
+                  .updated(function, functionNode)
+                  .updated(argument, argumentNode),
                 searched
               )
             case _ => searched
@@ -211,7 +229,11 @@ private final class CompiledClosures[C <: NativeSpecializer & Singleton](program
             case None          => searched
       case Step.Root(node, target) =>
         (graph, registers, searched) =>
-          next(graph, registers.updated(target, graph.root(registers(node))), searched)
+          next(
+            graph,
+            registers.updated(target, graph.root(registers(node))),
+            searched
+          )
       case Step.Same(first, second) =>
         (graph, registers, searched) =>
           if registers(first) == registers(second) then
@@ -225,19 +247,22 @@ private final class CompiledClosures[C <: NativeSpecializer & Singleton](program
             case _ => searched
       case Step.HasClosure(root) =>
         (graph, registers, searched) =>
-          if graph.hasClosure(registers(root)) then next(graph, registers, searched)
+          if graph.hasClosure(registers(root)) then
+            next(graph, registers, searched)
           else searched
       case Step.InstructionNode(instruction, target) =>
         (graph, registers, searched) =>
           graph.instructionNode(instruction) match
-            case Some(node) => next(graph, registers.updated(target, node), searched)
-            case None       => searched
+            case Some(node) =>
+              next(graph, registers.updated(target, node), searched)
+            case None => searched
       case Step.Lookup(template, children, target) =>
         val layerOf = lookedUpLayer(template, children)
         (graph, registers, searched) =>
           graph.layerNode(layerOf(registers)) match
-            case Some(node) => next(graph, registers.updated(target, node), searched)
-            case None       => searched
+            case Some(node) =>
+              next(graph, registers.updated(target, node), searched)
+            case None => searched
       case Step.EachHeadMember(root, head, target) =>
         (graph, registers, searched) =>
           eachNode(graph.headMembers(registers(root), head), target, next)(
@@ -282,7 +307,8 @@ private final class CompiledClosures[C <: NativeSpecializer & Singleton](program
       next: Continuation[C]
   )(graph: GraphView[C], registers: Registers, searched: Searched): Searched =
     entries.foldLeft(searched.read(entries.size))((current, node) =>
-      if graph.live(node) then next(graph, registers.updated(target, node), current)
+      if graph.live(node) then
+        next(graph, registers.updated(target, node), current)
       else current
     )
 
@@ -292,9 +318,9 @@ private final class CompiledClosures[C <: NativeSpecializer & Singleton](program
   private def firstFound: FirstContinuation[C] = (_, registers) =>
     Witnessed(Some(registers), 0)
 
-  /** The step followed by the steps after it, inside a witness: the first
-    * way they succeed, and the entries read up to it. An `Each` step reads
-    * its entries up to the first that leads to a success.
+  /** The step followed by the steps after it, inside a witness: the first way
+    * they succeed, and the entries read up to it. An `Each` step reads its
+    * entries up to the first that leads to a success.
     */
   private def firstStepClosure(
       step: Step[C],
@@ -336,13 +362,37 @@ private final class CompiledClosures[C <: NativeSpecializer & Singleton](program
           case None       => noWitness
     case Step.EachHeadMember(root, head, target) =>
       (graph, registers) =>
-        firstNode(graph.headMembers(registers(root), head), 0, 0, target, next, graph, registers)
+        firstNode(
+          graph.headMembers(registers(root), head),
+          0,
+          0,
+          target,
+          next,
+          graph,
+          registers
+        )
     case Step.EachMember(root, shape, target) =>
       (graph, registers) =>
-        firstNode(graph.members(registers(root), shape), 0, 0, target, next, graph, registers)
+        firstNode(
+          graph.members(registers(root), shape),
+          0,
+          0,
+          target,
+          next,
+          graph,
+          registers
+        )
     case Step.EachUser(root, role, target) =>
       (graph, registers) =>
-        firstNode(graph.users(registers(root), role), 0, 0, target, next, graph, registers)
+        firstNode(
+          graph.users(registers(root), role),
+          0,
+          0,
+          target,
+          next,
+          graph,
+          registers
+        )
     case Step.EachPositionUser(root, role, position, target) =>
       (graph, registers) =>
         firstPositionUser(
@@ -382,8 +432,10 @@ private final class CompiledClosures[C <: NativeSpecializer & Singleton](program
         if graph.live(node) then next(graph, registers.updated(target, node))
         else noWitness
       val readSoFar = read + 1 + attempt.entriesRead
-      if attempt.registers.isDefined then Witnessed(attempt.registers, readSoFar)
-      else firstNode(entries, index + 1, readSoFar, target, next, graph, registers)
+      if attempt.registers.isDefined then
+        Witnessed(attempt.registers, readSoFar)
+      else
+        firstNode(entries, index + 1, readSoFar, target, next, graph, registers)
 
   @tailrec
   private def firstPositionUser(
@@ -404,9 +456,19 @@ private final class CompiledClosures[C <: NativeSpecializer & Singleton](program
           next(graph, registers.updated(target, entry.user))
         else noWitness
       val readSoFar = read + 1 + attempt.entriesRead
-      if attempt.registers.isDefined then Witnessed(attempt.registers, readSoFar)
+      if attempt.registers.isDefined then
+        Witnessed(attempt.registers, readSoFar)
       else
-        firstPositionUser(entries, index + 1, readSoFar, position, target, next, graph, registers)
+        firstPositionUser(
+          entries,
+          index + 1,
+          readSoFar,
+          position,
+          target,
+          next,
+          graph,
+          registers
+        )
 
   /** The reading of a `Layer` step, chosen when the step is compiled: the
     * registers with the layer's children written, when the layer has the
@@ -416,33 +478,36 @@ private final class CompiledClosures[C <: NativeSpecializer & Singleton](program
   private def layerReading(
       template: LayerTemplate,
       children: Vector[Int]
-  ): (LayerWith[Int, Configured[C]], Registers) => Option[Registers] = template match
-    case LayerTemplate.Apply =>
-      (layer, registers) =>
-        layer match
-          case Apply(function, argument) =>
-            Some(childrenWritten(registers, children, Vector(function, argument)))
-          case _ => None
-    case LayerTemplate.Parallel =>
-      (layer, registers) =>
-        layer match
-          case Parallel(left, right) =>
-            Some(childrenWritten(registers, children, Vector(left, right)))
-          case _ => None
-    case LayerTemplate.Choice =>
-      (layer, registers) =>
-        layer match
-          case Choice(left, right) =>
-            Some(childrenWritten(registers, children, Vector(left, right)))
-          case _ => None
-    case LayerTemplate.Thunk(code, holes) =>
-      (layer, registers) =>
-        layer match
-          case Thunk(layerCode, layerHoles, fillings)
-              if layerCode == code && layerHoles == holes &&
-                fillings.size == children.size =>
-            Some(childrenWritten(registers, children, fillings))
-          case _ => None
+  ): (LayerWith[Int, Configured[C]], Registers) => Option[Registers] =
+    template match
+      case LayerTemplate.Apply =>
+        (layer, registers) =>
+          layer match
+            case Apply(function, argument) =>
+              Some(
+                childrenWritten(registers, children, Vector(function, argument))
+              )
+            case _ => None
+      case LayerTemplate.Parallel =>
+        (layer, registers) =>
+          layer match
+            case Parallel(left, right) =>
+              Some(childrenWritten(registers, children, Vector(left, right)))
+            case _ => None
+      case LayerTemplate.Choice =>
+        (layer, registers) =>
+          layer match
+            case Choice(left, right) =>
+              Some(childrenWritten(registers, children, Vector(left, right)))
+            case _ => None
+      case LayerTemplate.Thunk(code, holes) =>
+        (layer, registers) =>
+          layer match
+            case Thunk(layerCode, layerHoles, fillings)
+                if layerCode == code && layerHoles == holes &&
+                  fillings.size == children.size =>
+              Some(childrenWritten(registers, children, fillings))
+            case _ => None
 
   /** The layer a `Lookup` step looks up, over the nodes at the registers,
     * chosen when the step is compiled.
@@ -535,7 +600,8 @@ private final class CompiledClosures[C <: NativeSpecializer & Singleton](program
       graph: Graph,
       values: Vector[Int]
   ): (Graph, Vector[Int]) =
-    closures.foldLeft((graph, Vector.empty[Int])) { case ((current, nodes), closure) =>
-      val (next, node) = closure[Graph](current, values)
-      (next, nodes :+ node)
+    closures.foldLeft((graph, Vector.empty[Int])) {
+      case ((current, nodes), closure) =>
+        val (next, node) = closure[Graph](current, values)
+        (next, nodes :+ node)
     }

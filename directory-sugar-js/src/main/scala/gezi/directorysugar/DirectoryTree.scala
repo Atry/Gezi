@@ -13,12 +13,23 @@ import gezi.ir.{Configured, NativeSpecializer}
 object DirectoryTree:
 
   /** A URI node's expansion, of which none is made under Scala.js. */
-  final case class ReadExpansion[C <: NativeSpecializer & Singleton](expansion: Configured[C])
+  final case class ReadExpansion[C <: NativeSpecializer & Singleton](
+      expansion: Configured[C]
+  )
 
   /** No expansion under Scala.js: throws `UnsupportedOperationException`. */
-  def expansion[C <: NativeSpecializer & Singleton](node: Configured[C])(using C): Configured[C] =
-    throw UnsupportedOperationException(s"no file system to expand the URI node $node under Scala.js")
+  def expansion[C <: NativeSpecializer & Singleton](
+      node: Configured[C]
+  )(using C): Configured[C] =
+    throw UnsupportedOperationException(
+      s"no file system to expand the URI node $node under Scala.js"
+    )
 
   /** No expansion under Scala.js: throws `UnsupportedOperationException`. */
-  def expansionRead[C <: NativeSpecializer & Singleton](node: Configured[C], earlier: Option[ReadExpansion[C]])(using C): ReadExpansion[C] =
-    throw UnsupportedOperationException(s"no file system to expand the URI node $node under Scala.js")
+  def expansionRead[C <: NativeSpecializer & Singleton](
+      node: Configured[C],
+      earlier: Option[ReadExpansion[C]]
+  )(using C): ReadExpansion[C] =
+    throw UnsupportedOperationException(
+      s"no file system to expand the URI node $node under Scala.js"
+    )

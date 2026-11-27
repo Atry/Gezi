@@ -162,7 +162,10 @@
 // The next client starts a fresh server. sbt reads the timeout in the scope of
 // the current project (sbt 2.0.12, ProjectExtra.updateCurrent), which is this
 // root when the server starts.
-LocalRootProject / serverIdleTimeout := Some(scala.concurrent.duration.FiniteDuration(15, java.util.concurrent.TimeUnit.MINUTES))
+LocalRootProject / serverIdleTimeout := Some(
+  scala.concurrent.duration
+    .FiniteDuration(15, java.util.concurrent.TimeUnit.MINUTES)
+)
 
 LocalRootProject / publish / skip := true
 
@@ -191,7 +194,9 @@ Global / workerMaxInstances := 1
 // builds attached to a server put their projects' outputs in a directory of
 // their own under it (project/BuildOutputs.scala).
 Global / rootOutputDirectory :=
-  appConfiguration.value.baseDirectory.toPath.resolve("target").resolve(sys.props.getOrElse("gezi.outputDirectory", "out"))
+  appConfiguration.value.baseDirectory.toPath
+    .resolve("target")
+    .resolve(sys.props.getOrElse("gezi.outputDirectory", "out"))
 
 // The immutability rule of CONTRIBUTING.md ("The code is 100% immutable"), enforced
 // by WartRemover on every project's Compile and Test sources: `var`, the
@@ -207,7 +212,11 @@ Global / rootOutputDirectory :=
 // `parallelSort`; and `toArray` on a collection. It does not forbid a type
 // that mentions Array, reading an array, an array that a JDK call returned,
 // or the `Array[String]` of `@main`.
-ThisBuild / wartremoverErrors ++= Seq(Wart.Var, Wart.MutableDataStructures, Wart.While) ++ Seq(
+ThisBuild / wartremoverErrors ++= Seq(
+  Wart.Var,
+  Wart.MutableDataStructures,
+  Wart.While
+) ++ Seq(
   "NoArray",
   "NoDynamicVariable",
   "NoIterator",
@@ -266,21 +275,26 @@ lazy val ir = project.dependsOn(generatedinputs % Test)
 
 lazy val orientation = project.dependsOn(ir, generatedinputs % Test)
 
-lazy val egraph = project.dependsOn(ir % "compile->compile;test->test", generatedinputs % Test)
+lazy val egraph =
+  project.dependsOn(ir % "compile->compile;test->test", generatedinputs % Test)
 
 lazy val ematching = project.dependsOn(ir, egraph)
 
-lazy val `ematching-indexing` = project.dependsOn(ematching, orientation, generatedinputs % Test)
+lazy val `ematching-indexing` =
+  project.dependsOn(ematching, orientation, generatedinputs % Test)
 
 lazy val `ematching-interpretation` = project.dependsOn(ematching)
 
-lazy val `ematching-closures` = project.dependsOn(ematching, generatedinputs % Test)
+lazy val `ematching-closures` =
+  project.dependsOn(ematching, generatedinputs % Test)
 
 lazy val `ematching-bytecode` = project.dependsOn(ematching)
 
-lazy val saturation = project.dependsOn(ematching, generatedinputs % Test, ir % "test->test")
+lazy val saturation =
+  project.dependsOn(ematching, generatedinputs % Test, ir % "test->test")
 
-lazy val extraction = project.dependsOn(egraph, saturation, generatedinputs % Test)
+lazy val extraction =
+  project.dependsOn(egraph, saturation, generatedinputs % Test)
 
 // The source locations of an e-graph's nodes, from its union log
 // outside the framework, and no choice reads a location.
@@ -337,13 +351,15 @@ lazy val frontend = project.dependsOn(ir, locations, generatedinputs % Test)
 // Interfaces only, and the fork and join primitive; every
 // other implementation is elsewhere. It depends on `ir` for instructions and
 // codes and on `frontend` for instructions.
-lazy val hotspot = project.dependsOn(ir, frontend, saturation, generatedinputs % Test)
+lazy val hotspot =
+  project.dependsOn(ir, frontend, saturation, generatedinputs % Test)
 
 // The baselines of the cache and of the tiering policy: a thread safe cache provider in the process over a concurrent map,
 // cleared when a round starts, and a tiering policy that always
 // interprets with the whole budget. The executors and the compiler of the
 // baseline are in `weakhead` and `jit`, beside what they wrap.
-lazy val `hotspot-baselines` = project.dependsOn(hotspot, generatedinputs % Test)
+lazy val `hotspot-baselines` =
+  project.dependsOn(hotspot, generatedinputs % Test)
 
 // The loader of the standard library: the source trees read by the
 // directory loader, the knowledge files and the library files they reach,
@@ -467,13 +483,18 @@ lazy val strategies = project
 // knowledge, so that the reader of knowledge files can evaluate them. The
 // package gezi.weakhead spans it and weakhead, whose package object
 // documents both.
-lazy val `weakhead-core` = project.dependsOn(frontend, hotspot, `directory-sugar`)
+lazy val `weakhead-core` =
+  project.dependsOn(frontend, hotspot, `directory-sugar`)
 
 // The generic reader of knowledge written in lambdalattice: the
 // slots of a top-level mixin, Scott constructors, lists and strings, read
 // under weak head. It knows no knowledge; standardlibrary depends on it.
 lazy val `knowledge-reading` =
-  project.dependsOn(`weakhead-core`, frontend % "compile->compile;test->test", generatedinputs % Test)
+  project.dependsOn(
+    `weakhead-core`,
+    frontend % "compile->compile;test->test",
+    generatedinputs % Test
+  )
 
 // The sugar of a directory tree: the tree read as one term, each directory and
 // each file a mixin, its entries URI nodes of the IR whose expansions it
@@ -537,7 +558,12 @@ lazy val `contest-corpora` = project
 // no proof, no library and no strategy, so that the animation player depends
 // on it alone; `proofs` flattens an article's proof into its commands.
 lazy val `rewrite-trace` =
-  project.dependsOn(frontend, `knowledge-reading`, saturation, generatedinputs % Test)
+  project.dependsOn(
+    frontend,
+    `knowledge-reading`,
+    saturation,
+    generatedinputs % Test
+  )
 
 lazy val proofs = project
   .dependsOn(
@@ -591,7 +617,14 @@ lazy val `interface-laws` = project.dependsOn(
 // names no entry's native, an entry hands it its native backend. Every
 // entry and module depends on it (project/EntryProjects.scala).
 lazy val `narrow-blocks` =
-  project.dependsOn(jit, strategies % "compile->compile;test->test", frontend, standardlibrary, `lemma-encoding-baseline`, hotspot)
+  project.dependsOn(
+    jit,
+    strategies % "compile->compile;test->test",
+    frontend,
+    standardlibrary,
+    `lemma-encoding-baseline`,
+    hotspot
+  )
 
 // The interface of a contest entry: EntryProvider, registered with java.util.ServiceLoader, and
 // Entry, and `Defaults`, the framework's default implementation of each
@@ -637,7 +670,11 @@ lazy val `contest-entry-generic` =
 // generators and the references) nor contest-judge. Its tests use the front
 // end's test helpers.
 lazy val `contest-runner` =
-  project.dependsOn(`contest-entry`, frontend % "test->test", generatedinputs % Test)
+  project.dependsOn(
+    `contest-entry`,
+    frontend % "test->test",
+    generatedinputs % Test
+  )
 
 // The judge: the
 // points file, the reference readers and the supervisor, a separate
@@ -682,15 +719,19 @@ lazy val `ir-js` = project.dependsOn(`generatedinputs-js` % Test)
 
 lazy val `locations-js` = project.dependsOn(`ir-js`)
 
-lazy val `frontend-js` = project.dependsOn(`ir-js`, `locations-js`, `generatedinputs-js` % Test)
+lazy val `frontend-js` =
+  project.dependsOn(`ir-js`, `locations-js`, `generatedinputs-js` % Test)
 
-lazy val `hotspot-js` = project.dependsOn(`ir-js`, `frontend-js`, `generatedinputs-js` % Test)
+lazy val `hotspot-js` =
+  project.dependsOn(`ir-js`, `frontend-js`, `generatedinputs-js` % Test)
 
 lazy val `directory-sugar-js` = project.dependsOn(`frontend-js`)
 
-lazy val `weakhead-core-js` = project.dependsOn(`frontend-js`, `hotspot-js`, `directory-sugar-js`)
+lazy val `weakhead-core-js` =
+  project.dependsOn(`frontend-js`, `hotspot-js`, `directory-sugar-js`)
 
-lazy val `knowledge-reading-js` = project.dependsOn(`weakhead-core-js`, `frontend-js`)
+lazy val `knowledge-reading-js` =
+  project.dependsOn(`weakhead-core-js`, `frontend-js`)
 
 // The e-graph and saturation's higher-order matching compiled for Scala.js,
 // so that the trace player replays a backward higher-order conversion with
@@ -699,7 +740,8 @@ lazy val `egraph-js` = project.dependsOn(`ir-js`)
 
 lazy val `saturation-js` = project.dependsOn(`egraph-js`, `ir-js`)
 
-lazy val `rewrite-trace-js` = project.dependsOn(`frontend-js`, `knowledge-reading-js`, `saturation-js`)
+lazy val `rewrite-trace-js` =
+  project.dependsOn(`frontend-js`, `knowledge-reading-js`, `saturation-js`)
 
 // The trace player: a Scala.js script with no module system, which reads the
 // trace embedded in its page, the start and the commands, and

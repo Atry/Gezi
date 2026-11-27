@@ -33,6 +33,9 @@ Compile / unmanagedSources := {
     baseDirectory.value.getParentFile / "generatedinputs" / "src" / "main" / "scala" / "gezi" / "generatedinputs" / "SeedLog.scala"
   )
   val sources = (Compile / unmanagedSources).value
-  assert(jvmOnly.subsetOf(sources.toSet), s"the JVM-only sources $jvmOnly are not all sources of generatedinputs")
+  assert(
+    jvmOnly.subsetOf(sources.toSet),
+    s"the JVM-only sources $jvmOnly are not all sources of generatedinputs"
+  )
   sources.filterNot(jvmOnly.contains)
 }

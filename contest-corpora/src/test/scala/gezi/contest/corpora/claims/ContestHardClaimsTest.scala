@@ -8,6 +8,9 @@ import gezi.contest.corpora.claims.ClaimsTesting.*
 class ContestHardClaimsTest extends gezi.generatedinputs.FailFastSuite:
 
   test("the expected normal form is the curried identity") {
-    val (_, expected) = claims.claimProgram("easy_constant", Template.MemberTemplate(2, "natural"))
+    val (_, expected) = claims.claimProgram(
+      "easy_constant",
+      Template.MemberTemplate(2, "natural")
+    )
     assertEquals(form(expected), "λx_0. λx_1. λx_2. x_2")
   }
