@@ -13,37 +13,53 @@ import gezi.weakhead.Expansions
 import snapshot4s.generated.snapshotConfig
 
 /** A record, not an acceptance: what the closure unit of the library edit
-  * distances' family (tests/jit_fixtures/edit_distance_unit.lambdalattice,
-  * the family's function at arity 2) gives under the elimination preset's
-  * type check (corpora/compiler/wren_elimination_preset, the round
+  * distances' family (tests/jit_fixtures/edit_distance_unit.lambdalattice, the
+  * family's function at arity 2) gives under the elimination preset's type
+  * check (corpora/compiler/wren_elimination_preset, the round
   * tests/round_fixtures/wren_elimination_type_check), the round opening the
   * closures that call a head, its rules those enabled before the opt-in ones,
   * and its extraction the narrow-block extractor. Recorded: whether the unit
   * kept F, the instances the rounds spent and how the last one ended, the
   * unions by justification, and, for every eigenvariable the graph opened, how
   * many parallels `v ∥ T` have it on their left: whether the parameters were
-  * typed in the graph, and whether the extraction kept their filters. It is
-  * the reading the native data structures plan's hypothesis H1′ asks for (the
+  * typed in the graph, and whether the extraction kept their filters. It is the
+  * reading the native data structures plan's hypothesis H1′ asks for (the
   * parameters' filters, `list_type (binary_set …)`), which no deliverable
   * depends on; its purpose is to show it, and to show a change of it in the
   * snapshot's diff.
   */
-class ClosureUnitFilterRecordSnapshotTest extends gezi.generatedinputs.FailFastSuite with snapshot4s.munit.SnapshotAssertions:
+class ClosureUnitFilterRecordSnapshotTest
+    extends gezi.generatedinputs.FailFastSuite
+    with snapshot4s.munit.SnapshotAssertions:
 
-  override val munitTimeout: scala.concurrent.duration.Duration = scala.concurrent.duration.Duration(120, "s")
+  override val munitTimeout: scala.concurrent.duration.Duration =
+    scala.concurrent.duration.Duration(120, "s")
 
   private val buildRoot = Paths.get(sys.props("gezi.buildRoot"))
 
-  stoppableTest("the edit distances' closure unit under the elimination preset") { stopped =>
+  stoppableTest(
+    "the edit distances' closure unit under the elimination preset"
+  ) { stopped =>
     val stop = StopSignal.completedWith(stopped)
     val library =
-      StandardLibrary.compiledAt(buildRoot, buildRoot.resolve("tests/library_fixtures/wren_elimination_preset.lambdalattice"), Vector.empty)
-    val StandardLibrary.EntryReading(entry, afterEntry, _, _) = StandardLibrary.entryTerm(
-      buildRoot,
-      buildRoot.resolve("tests/round_fixtures/wren_elimination_type_check.lambdalattice"),
-      KnowledgeReading.compilationState
-    )
-    val round = KnowledgeReading.run(KnowledgeReading.memberTerm(entry), 20000L, afterEntry)._1
+      StandardLibrary.compiledAt(
+        buildRoot,
+        buildRoot.resolve(
+          "tests/library_fixtures/wren_elimination_preset.lambdalattice"
+        ),
+        Vector.empty
+      )
+    val StandardLibrary.EntryReading(entry, afterEntry, _, _) =
+      StandardLibrary.entryTerm(
+        buildRoot,
+        buildRoot.resolve(
+          "tests/round_fixtures/wren_elimination_type_check.lambdalattice"
+        ),
+        KnowledgeReading.compilationState
+      )
+    val round = KnowledgeReading
+      .run(KnowledgeReading.memberTerm(entry), 20000L, afterEntry)
+      ._1
     val lemmas = library.lemmas(round, KnowledgeReading.startingState)._1
     val settings = RoundSettings(
       opening = true,
@@ -60,7 +76,8 @@ class ClosureUnitFilterRecordSnapshotTest extends gezi.generatedinputs.FailFastS
     )
     val facts = BackendFacts.of(library)
     val encoding = facts.storageEncoding
-    val crossedIndex = gezi.standardlibrary.StandardLibraryIndex.crossed(library.index, encoding)
+    val crossedIndex =
+      gezi.standardlibrary.StandardLibraryIndex.crossed(library.index, encoding)
     val prepared = Defaults
       .lemmaCompilation(
         lemmas,
@@ -69,21 +86,54 @@ class ClosureUnitFilterRecordSnapshotTest extends gezi.generatedinputs.FailFastS
         facts.nativeBackend,
         ExtractorModules(Map.empty),
         gezi.ir.TermConstruction(encoding),
-        gezi.weakhead.ReadingConfiguration(encoding, gezi.ir.StorageAccess.granted())
+        gezi.weakhead
+          .ReadingConfiguration(encoding, gezi.ir.StorageAccess.granted())
       )
       .prepared(crossedIndex)
-    val configuration = ProgramCompilation(crossedIndex, Vector(prepared), facts.nativeBackend, encoding)
+    val configuration = ProgramCompilation(
+      crossedIndex,
+      Vector(prepared),
+      facts.nativeBackend,
+      encoding
+    )
     val function = StandardLibrary
-      .entryMembers(buildRoot, TermTable("tests/jit_fixtures/edit_distance_unit.lambdalattice", Vector("edit_distance")), Expansions.none)
+      .entryMembers(
+        buildRoot,
+        TermTable(
+          "tests/jit_fixtures/edit_distance_unit.lambdalattice",
+          Vector("edit_distance")
+        ),
+        Expansions.none
+      )
       ._1("edit_distance")
-    val unit = ClosureUnits.compiledUnit(configuration, function, 2, explained = false, stop)
-    val graph = unit.graph.getOrElse(fail("a compilation that ran leaves its graph"))
-    val unions = graph.unions.map(_.justification.getClass.getSimpleName).groupBy(identity).view.mapValues(_.size).toVector.sorted
+    val unit = ClosureUnits.compiledUnit(
+      configuration,
+      function,
+      2,
+      explained = false,
+      stop
+    )
+    val graph =
+      unit.graph.getOrElse(fail("a compilation that ran leaves its graph"))
+    val unions = graph.unions
+      .map(_.justification.getClass.getSimpleName)
+      .groupBy(identity)
+      .view
+      .mapValues(_.size)
+      .toVector
+      .sorted
     val eigenvariableRoots = graph.liveNodes.collect {
-      case LiveNode(node, root, gezi.ir.NoinlineLeaf(leaf)) if leaf.toString.contains("eigenvariable") => root
+      case LiveNode(node, root, gezi.ir.NoinlineLeaf(leaf))
+          if leaf.toString.contains("eigenvariable") =>
+        root
     }
     val filtersAtEigenvariables = eigenvariableRoots
-      .map(root => graph.liveNodes.count { case LiveNode(_, _, gezi.ir.Parallel(left, _)) => left == root; case _ => false })
+      .map(root =>
+        graph.liveNodes.count {
+          case LiveNode(_, _, gezi.ir.Parallel(left, _)) => left == root;
+          case _                                         => false
+        }
+      )
       .sorted
     assertFileSnapshot(
       s"""lemmas: ${lemmas.size}
@@ -92,7 +142,8 @@ class ClosureUnitFilterRecordSnapshotTest extends gezi.generatedinputs.FailFastS
          |end: ${unit.end}
          |unions: ${unions.map((kind, count) => s"$kind $count").mkString(", ")}
          |eigenvariables: ${eigenvariableRoots.size}
-         |parallels at each eigenvariable, sorted: ${filtersAtEigenvariables.mkString(" ")}
+         |parallels at each eigenvariable, sorted: ${filtersAtEigenvariables
+          .mkString(" ")}
          |""".stripMargin,
       "closure_units/edit_distance_elimination_preset.txt"
     )

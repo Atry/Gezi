@@ -8,10 +8,10 @@ import gezi.contest.corpora.claims.OpenTest
 import gezi.frontend.Term
 import gezi.frontend.Term.λ
 
-/** The judge's ending of a program whose value is a Church Boolean, the
-  * helper `true_ending/2` of the merge family's `.plt` files: the test
-  * `\a. Term a _`, with one free variable, posed to the judge as a suite of
-  * its own (`claims_answered/4`).
+/** The judge's ending of a program whose value is a Church Boolean, the helper
+  * `true_ending/2` of the merge family's `.plt` files: the test `\a. Term a _`,
+  * with one free variable, posed to the judge as a suite of its own
+  * (`claims_answered/4`).
   *
   * The budget: the Prolog helper gave 20 seconds as an inference count
   * (`budget_inferences(20, I)`, 600,000,000 inferences at its 30 million a
@@ -33,4 +33,5 @@ object ClaimEndings:
   def ending(mode: Mode, test: OpenTest): Ending =
     ContestClaims.claimsAnswered(mode, Vector(test), limit) match
       case Vector(answer) => answer.ending
-      case answers        => throw AssertionError(s"one test gave ${answers.size} answers")
+      case answers        =>
+        throw AssertionError(s"one test gave ${answers.size} answers")

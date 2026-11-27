@@ -18,23 +18,28 @@ import org.openjdk.jmh.annotations.Mode
 import org.openjdk.jmh.annotations.OutputTimeUnit
 import org.openjdk.jmh.annotations.Warmup
 
-/** The analysis whose every cost is the same: the slot's bookkeeping with
-  * no repair, since a union never changes a class's cost.
+/** The analysis whose every cost is the same: the slot's bookkeeping with no
+  * repair, since a union never changes a class's cost.
   */
 object TrivialAnalysis extends ClassAnalysis[NoFacts.type, Unit]:
   def identity: Unit = ()
   def made(layer: LayerWith[Unit, Configured[NoFacts.type]]): Unit = ()
   def joined(left: Unit, right: Unit): Unit = ()
 
-/** The cost of keeping a cost analysis on the e-graph:
-  * the saturation of `PipelineBenchmarks.saturated`, plain and with the
-  * graph keeping the trivial analysis from the pattern instructions on, so that
-  * the difference is the slot's bookkeeping (a cost per node added, a join
-  * per union, the users of a joined class read) and not an analysis's own
-  * work. The settings are `PipelineBenchmarks`'.
+/** The cost of keeping a cost analysis on the e-graph: the saturation of
+  * `PipelineBenchmarks.saturated`, plain and with the graph keeping the trivial
+  * analysis from the pattern instructions on, so that the difference is the
+  * slot's bookkeeping (a cost per node added, a join per union, the users of a
+  * joined class read) and not an analysis's own work. The settings are
+  * `PipelineBenchmarks`'.
   */
-@BenchmarkMode(Array(Mode.AverageTime)) // the JMH protocol's exception (the user, 2026-10-31: "好的，用sbt-jmh，需要配合JMH协议时，必要时可以作为例外使用可变数据结构"), Inputs.scala
-@Fork(value = 3, jvmArgsAppend = Array("-Xmx256m", "-XX:+UseSerialGC")) // the JMH protocol's exception (the user, 2026-10-31: "好的，用sbt-jmh，需要配合JMH协议时，必要时可以作为例外使用可变数据结构"), Inputs.scala
+@BenchmarkMode(
+  Array(Mode.AverageTime)
+) // the JMH protocol's exception (the user, 2026-10-31: "好的，用sbt-jmh，需要配合JMH协议时，必要时可以作为例外使用可变数据结构"), Inputs.scala
+@Fork(
+  value = 3,
+  jvmArgsAppend = Array("-Xmx256m", "-XX:+UseSerialGC")
+) // the JMH protocol's exception (the user, 2026-10-31: "好的，用sbt-jmh，需要配合JMH协议时，必要时可以作为例外使用可变数据结构"), Inputs.scala
 @Warmup(iterations = 2, time = 3, timeUnit = TimeUnit.SECONDS)
 @Measurement(iterations = 3, time = 1, timeUnit = TimeUnit.SECONDS)
 class AnalysisSlotBenchmark:
@@ -53,6 +58,22 @@ class AnalysisSlotBenchmark:
   def trivialSlotSaturated(input: ItemInput): EGraph[NoFacts.type] =
     val item = input.indexed
     val run = item.input
-    val initial = Saturation.initialGraph(run.store, item.headArityBounds, run.patternInstructions, explained = false).analysed(TrivialAnalysis)
+    val initial = Saturation
+      .initialGraph(
+        run.store,
+        item.headArityBounds,
+        run.patternInstructions,
+        explained = false
+      )
+      .analysed(TrivialAnalysis)
     val (withInputs, _) = Saturation.inputsAdded(initial, run.inputs)
-    Saturation.saturated(item.program, item.compiled, BuiltInRule.beforeOptIn, withInputs, run.budget, StopSignal.NeverStopped)._1
+    Saturation
+      .saturated(
+        item.program,
+        item.compiled,
+        BuiltInRule.beforeOptIn,
+        withInputs,
+        run.budget,
+        StopSignal.NeverStopped
+      )
+      ._1

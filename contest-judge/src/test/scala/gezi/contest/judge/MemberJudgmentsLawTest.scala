@@ -6,21 +6,20 @@ import hedgehog.Result
 import java.nio.file.Files
 import gezi.generatedinputs.GeneratedProperties
 
-/** The law of the member judgment points (`PointsFile.written` with a
-  * weight of member judgments): in the file written from generated sources,
-  * every judgment point `E/candidate_k` has an evaluation point E written,
-  * the same program, the family `<E's family>_judgments`, member true and a
-  * candidate in E's reference, and E has one judgment point per member of
-  * its reference. Its purpose is to catch a judgment point whose candidate
-  * is not a member (it would mark a correct entry wrong), one attached to
-  * the wrong evaluation point, or a member left without its point. A name
-  * met twice is caught by the writer, which throws (`PointsFile.written`)
-  * and so fails the property. The sources are a repeated family drawn from
-  * a seed, or a window of a corpus family's problems starting within the
-  * family, read within a small budget. An input whose points are all
-  * stopped by the budget yields no judgment point, and the law holds on it
-  * vacuously, so every iteration checks the law also on a draw of a family
-  * whose references are computed, one normal form each
+/** The law of the member judgment points (`PointsFile.written` with a weight of
+  * member judgments): in the file written from generated sources, every
+  * judgment point `E/candidate_k` has an evaluation point E written, the same
+  * program, the family `<E's family>_judgments`, member true and a candidate in
+  * E's reference, and E has one judgment point per member of its reference. Its
+  * purpose is to catch a judgment point whose candidate is not a member (it
+  * would mark a correct entry wrong), one attached to the wrong evaluation
+  * point, or a member left without its point. A name met twice is caught by the
+  * writer, which throws (`PointsFile.written`) and so fails the property. The
+  * sources are a repeated family drawn from a seed, or a window of a corpus
+  * family's problems starting within the family, read within a small budget. An
+  * input whose points are all stopped by the budget yields no judgment point,
+  * and the law holds on it vacuously, so every iteration checks the law also on
+  * a draw of a family whose references are computed, one normal form each
   * (`LawFamilies.trapAtEveryPoint`), every point of which yields a judgment
   * point by construction, and that it yields one.
   *
@@ -42,18 +41,23 @@ class MemberJudgmentsLawTest extends GeneratedProperties:
   // in the line: the parse, the contraction of the printer's bindings (each value converted once), the printer (at most
   // two passes); each point writes in its line the library it uses. The lexer's per-call compile, the one defect found,
   // was removed in b18f8f987.
-  override val munitTimeout: scala.concurrent.duration.Duration = scala.concurrent.duration.Duration(40, "s")
+  override val munitTimeout: scala.concurrent.duration.Duration =
+    scala.concurrent.duration.Duration(40, "s")
 
-  /** The parts of the law families' group the draws read, built once (`LawFamilies.sharedFixtures`). */
+  /** The parts of the law families' group the draws read, built once
+    * (`LawFamilies.sharedFixtures`).
+    */
   override def sharedFixtures: Vector[scala.concurrent.Future[Unit] => Any] =
     super.sharedFixtures ++ LawFamilies.sharedFixtures
 
-  /** The tabling(weak_head) steps the writer reads a reference within: small points
-    * only.
+  /** The tabling(weak_head) steps the writer reads a reference within: small
+    * points only.
     */
   private val writerBudget: Long = 200000
 
-  private val seeded: Gen[Vector[PointSource]] = seededOf(Gen.elementUnsafe(LawFamilies.names))
+  private val seeded: Gen[Vector[PointSource]] = seededOf(
+    Gen.elementUnsafe(LawFamilies.names)
+  )
 
   /** The sources of a family the generator gives, drawn from a seed. */
   private def seededOf(families: Gen[String]): Gen[Vector[PointSource]] =
@@ -66,52 +70,104 @@ class MemberJudgmentsLawTest extends GeneratedProperties:
   private val corpus: Gen[Vector[PointSource]] =
     for
       family <- Gen.elementUnsafe(CorpusSources.families.keys.toList.sorted)
-      problems = CorpusSources.sources(LawFamilies.group, family, "test", BigDecimal(1))
+      problems = CorpusSources.sources(
+        LawFamilies.group,
+        family,
+        "test",
+        BigDecimal(1)
+      )
       start <- Gen.int(Range.constant(0, problems.size - 1))
     yield problems.drop(start).take(3)
 
   /** The points of the file written from the sources. */
   private def writtenPoints(sources: Vector[PointSource]): Vector[Point] =
     val directory = Files.createTempDirectory("member-judgments")
-    PointsFile.written(directory, sources, writerBudget, Some(JudgmentPoints(BigDecimal(2), false, None)))
+    PointsFile.written(
+      directory,
+      sources,
+      writerBudget,
+      Some(JudgmentPoints(BigDecimal(2), false, None))
+    )
     PointsFile.read(directory)
 
   private def isJudgment(point: Point): Boolean = point.question match
     case Question.Judgment(_, _) => true
     case _                       => false
 
-  property("every member judgment's candidate is in its evaluation point's reference", _.copy(testLimit = 15)) {
+  property(
+    "every member judgment's candidate is in its evaluation point's reference",
+    _.copy(testLimit = 15)
+  ) {
     for
-      points <- Gen.choice1(seeded, corpus).forAllWithLog(logged).map(writtenPoints)
-      judged <- seededOf(Gen.constant(LawFamilies.trapAtEveryPoint)).forAllWithLog(logged).map(writtenPoints)
+      points <- Gen
+        .choice1(seeded, corpus)
+        .forAllWithLog(logged)
+        .map(writtenPoints)
+      judged <- seededOf(Gen.constant(LawFamilies.trapAtEveryPoint))
+        .forAllWithLog(logged)
+        .map(writtenPoints)
     yield membersLaw(points)
       .and(membersLaw(judged))
-      .and(Result.assert(judged.exists(isJudgment)).log(s"${LawFamilies.trapAtEveryPoint} yields no judgment point"))
+      .and(
+        Result
+          .assert(judged.exists(isJudgment))
+          .log(s"${LawFamilies.trapAtEveryPoint} yields no judgment point")
+      )
   }
 
-  private def logged(sources: Vector[PointSource]): String = sources.map(_.pointName).mkString(", ")
+  private def logged(sources: Vector[PointSource]): String =
+    sources.map(_.pointName).mkString(", ")
 
   /** The law on the points of one file. */
   private def membersLaw(points: Vector[Point]): Result =
-    val evaluations = points.collect { case point @ Point(name, _, _, _, _, Question.Evaluation(reference)) =>
-      name -> (point, reference)
+    val evaluations = points.collect {
+      case point @ Point(name, _, _, _, _, Question.Evaluation(reference)) =>
+        name -> (point, reference)
     }.toMap
-    val judgments = points.collect { case point @ Point(name, _, _, _, _, Question.Judgment(candidate, member)) =>
-      (name, point, candidate, member)
+    val judgments = points.collect {
+      case point @ Point(
+            name,
+            _,
+            _,
+            _,
+            _,
+            Question.Judgment(candidate, member)
+          ) =>
+        (name, point, candidate, member)
     }
     val attached = judgments.map((name, point, candidate, member) =>
       val evaluationName = name.substring(0, name.lastIndexOf("/candidate_"))
       evaluations.get(evaluationName) match
         case Some((evaluation, reference)) =>
           Result
-            .assert(reference.contains(gezi.frontend.Defunctionalization.instructionTerm(candidate)) && member)
-            .log(s"$name: the candidate is not a member of $evaluationName's reference")
-            .and(Result.assert(point.program == evaluation.program).log(s"$name: another program than $evaluationName's"))
-            .and(Result.diff(point.family, s"${evaluation.family}_judgments")(_ == _))
-        case None => Result.failure.log(s"$name: no evaluation point $evaluationName")
+            .assert(
+              reference.contains(
+                gezi.frontend.Defunctionalization.instructionTerm(candidate)
+              ) && member
+            )
+            .log(
+              s"$name: the candidate is not a member of $evaluationName's reference"
+            )
+            .and(
+              Result
+                .assert(point.program == evaluation.program)
+                .log(s"$name: another program than $evaluationName's")
+            )
+            .and(
+              Result
+                .diff(point.family, s"${evaluation.family}_judgments")(_ == _)
+            )
+        case None =>
+          Result.failure.log(s"$name: no evaluation point $evaluationName")
     )
     val counted = evaluations.toVector.map { case (name, (_, reference)) =>
-      Result.diff(judgments.count((judgmentName, _, _, _) => judgmentName.startsWith(s"$name/candidate_")), reference.size)(_ == _)
+      Result
+        .diff(
+          judgments.count((judgmentName, _, _, _) =>
+            judgmentName.startsWith(s"$name/candidate_")
+          ),
+          reference.size
+        )(_ == _)
         .log(s"$name: judgment points per member")
     }
     Result.all((attached ++ counted).toList)

@@ -9,14 +9,13 @@ import gezi.ir.NoFacts
 import gezi.ir.NonEmptyHoles
 import gezi.ir
 
-/** The port of `gezi/tests/thunk_instructions.plt`: the thunk
-  * conversion of the front end:
-  * a chain of abstractions is one thunk layer whose binders and maximal
-  * closed subterms are slots alike, a closure is the thunk with holes,
-  * abstractions of one shape share a code, and the readback is the inverse.
-  * A parallel is a layer of two sides, converted, read back and interned
-  * like an application. Where the Prolog tests compare hash_consing handles,
-  * these compare interned instructions.
+/** The port of `gezi/tests/thunk_instructions.plt`: the thunk conversion of the
+  * front end: a chain of abstractions is one thunk layer whose binders and
+  * maximal closed subterms are slots alike, a closure is the thunk with holes,
+  * abstractions of one shape share a code, and the readback is the inverse. A
+  * parallel is a layer of two sides, converted, read back and interned like an
+  * application. Where the Prolog tests compare hash_consing handles, these
+  * compare interned instructions.
   */
 class ThunkInstructionsTest extends gezi.generatedinputs.FailFastSuite:
 
@@ -30,18 +29,34 @@ class ThunkInstructionsTest extends gezi.generatedinputs.FailFastSuite:
   private def thunkInstruction(term: DeBruijnTermOf[NoFactsTerm]): NoFactsTerm =
     Defunctionalization.thunkInstruction[NoFacts.type](term)
 
-  private def thunkOf(code: Code, holes: Vector[Hole], fillings: Vector[NoFactsTerm]): NoFactsTerm =
-    NoFacts.thunk(code, NonEmptyHoles.of(holes).getOrElse(throw IllegalArgumentException("a thunk of no hole")), fillings)
+  private def thunkOf(
+      code: Code,
+      holes: Vector[Hole],
+      fillings: Vector[NoFactsTerm]
+  ): NoFactsTerm =
+    NoFacts.thunk(
+      code,
+      NonEmptyHoles
+        .of(holes)
+        .getOrElse(throw IllegalArgumentException("a thunk of no hole")),
+      fillings
+    )
 
-  private def assertSameInstruction(obtained: NoFactsTerm, expected: NoFactsTerm): Unit =
-    assert(Configured.same(obtained, expected), s"the instructions differ: $obtained and $expected")
+  private def assertSameInstruction(
+      obtained: NoFactsTerm,
+      expected: NoFactsTerm
+  ): Unit =
+    assert(
+      Configured.same(obtained, expected),
+      s"the instructions differ: $obtained and $expected"
+    )
 
   private val zero: DeBruijnTerm = Lambda(Lambda(Variable(1)))
   private val one: DeBruijnTerm = Lambda(Lambda(Apply(Variable(0), zero)))
   private val two: DeBruijnTerm = Lambda(Lambda(Apply(Variable(0), one)))
 
-  /** Zero's instruction: an instruction standing for a library name; a reference
-    * `Constant(instruction)` converts to the bare instruction.
+  /** Zero's instruction: an instruction standing for a library name; a
+    * reference `Constant(instruction)` converts to the bare instruction.
     */
   private val name = thunkInstruction(zero)
 
@@ -167,7 +182,9 @@ class ThunkInstructionsTest extends gezi.generatedinputs.FailFastSuite:
         Lambda(Apply(Variable(0), Lambda(Apply(Variable(1), Variable(0)))))
       ),
       Choice(zero, two)
-    ).foreach(term => assertEquals(instructionTerm(thunkInstruction(term)), term))
+    ).foreach(term =>
+      assertEquals(instructionTerm(thunkInstruction(term)), term)
+    )
   }
 
   test("anOpenTermIsAnError") {
@@ -189,14 +206,18 @@ class ThunkInstructionsTest extends gezi.generatedinputs.FailFastSuite:
   test("theInstructionOfALiteralIsTheInstructionOfItsThunkIr") {
     val instruction = thunkInstruction(zero)
     val instruction2 = thunkInstruction(zero)
-    assert(Configured.same(instruction, instruction2), "converting one literal twice gives one object")
+    assert(
+      Configured.same(instruction, instruction2),
+      "converting one literal twice gives one object"
+    )
   }
 
   // A term that refers to a name by instruction and the same term with the name's
   // literal in its place are one instruction: the reference is the referenced
   // layer.
   test("aReferenceAndTheLiteralItNamesAreOneInstruction") {
-    val instruction = thunkInstruction(Lambda(Apply(Variable(0), Constant(name))))
+    val instruction =
+      thunkInstruction(Lambda(Apply(Variable(0), Constant(name))))
     val instruction2 = thunkInstruction(Lambda(Apply(Variable(0), zero)))
     assertSameInstruction(instruction, instruction2)
   }
@@ -219,7 +240,9 @@ class ThunkInstructionsTest extends gezi.generatedinputs.FailFastSuite:
   // `\f. f ((\a. a) ∥ (\b. b))`: a closed parallel is a maximal closed
   // subterm, a filling of the chain, converted outside the thunk.
   test("aClosedParallelIsAFilling") {
-    val term = Lambda(Apply(Variable(0), Parallel(Lambda(Variable(0)), Lambda(Variable(0)))))
+    val term = Lambda(
+      Apply(Variable(0), Parallel(Lambda(Variable(0)), Lambda(Variable(0))))
+    )
     val instruction = thunkInstruction(term)
     val identity = thunkOf(slot(0), Vector(Hole.Bound(0)), Vector.empty)
     assertSameInstruction(
@@ -235,9 +258,13 @@ class ThunkInstructionsTest extends gezi.generatedinputs.FailFastSuite:
 
   test("aParallelIsInternedOverTheInstructionsOfItsSides") {
     // `(λa. a) ∥ (λb. b)`.
-    val closedInstruction = thunkInstruction(Parallel(Lambda(Variable(0)), Lambda(Variable(0))))
+    val closedInstruction =
+      thunkInstruction(Parallel(Lambda(Variable(0)), Lambda(Variable(0))))
     closedInstruction.layer match
       case ir.Parallel(left, right) =>
-        assert(Configured.same(left, right), "the two sides are one canonical instruction")
+        assert(
+          Configured.same(left, right),
+          "the two sides are one canonical instruction"
+        )
       case other => fail(s"the layer of the closed parallel is $other")
   }

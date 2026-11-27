@@ -21,25 +21,35 @@ import gezi.strategies.NormalityModule
   * registered with `java.util.ServiceLoader` in the tests' resources: its
   * selector is the one field of tests/extractor_module_fixtures/test_extractor,
   * and its extraction and route are the framework's narrow blocks
-  * (`NarrowBlockExtractor` of `LemmaRoute`'s modules, with the measured
-  * bounds `JointReading.measured`, and `LemmaRoute`), each carrying the
-  * parameter the entry wrote, a tuple of one integer the module reads by
-  * structure, and the inputs the framework gave, so that a test sees which
-  * parameters and inputs reached each.
+  * (`NarrowBlockExtractor` of `LemmaRoute`'s modules, with the measured bounds
+  * `JointReading.measured`, and `LemmaRoute`), each carrying the parameter the
+  * entry wrote, a tuple of one integer the module reads by structure, and the
+  * inputs the framework gave, so that a test sees which parameters and inputs
+  * reached each.
   */
 final class TestExtractorModule extends ExtractorModule:
 
-  def selectorFile: Path = Path.of("tests", "extractor_module_fixtures", "test_extractor.lambdalattice")
+  def selectorFile: Path = Path.of(
+    "tests",
+    "extractor_module_fixtures",
+    "test_extractor.lambdalattice"
+  )
 
   /** The framework's narrow blocks' extraction over the inputs' natives,
     * carrying the integer the parameters' one field holds and the inputs.
     * Throws `EntryDataError` for parameters that are no tuple of one integer.
     */
-  def extractor[C <: NativeSpecializer & Singleton](parameters: Configured[NoFacts.type], inputs: ExtractorModuleInputs[C]): Extractor[C] =
+  def extractor[C <: NativeSpecializer & Singleton](
+      parameters: Configured[NoFacts.type],
+      inputs: ExtractorModuleInputs[C]
+  ): Extractor[C] =
     ParameterCarryingExtractor(
       TestModuleParameters.integer("extractor", parameters)(using NoFacts),
       inputs,
-      NarrowBlockExtractor(LemmaRoute.extractorModules(inputs.natives, inputs.configuration), JointReading.measured)
+      NarrowBlockExtractor(
+        LemmaRoute.extractorModules(inputs.natives, inputs.configuration),
+        JointReading.measured
+      )
     )
 
   /** The framework's route, carrying the integer the parameters' one field
@@ -47,10 +57,13 @@ final class TestExtractorModule extends ExtractorModule:
     * integer.
     */
   def route(parameters: Configured[NoFacts.type]): NarrowBlockRoute =
-    ParameterCarryingRoute(TestModuleParameters.integer("extractor", parameters)(using NoFacts), LemmaRoute)
+    ParameterCarryingRoute(
+      TestModuleParameters.integer("extractor", parameters)(using NoFacts),
+      LemmaRoute
+    )
 
-/** The framework's extraction with the parameter a module read and the
-  * inputs the framework gave it: every call is the framework extraction's.
+/** The framework's extraction with the parameter a module read and the inputs
+  * the framework gave it: every call is the framework extraction's.
   */
 final case class ParameterCarryingExtractor[C <: NativeSpecializer & Singleton](
     parameter: BigInt,
@@ -67,13 +80,19 @@ final case class ParameterCarryingExtractor[C <: NativeSpecializer & Singleton](
   ): Vector[Configured[C]] =
     framework.extracted(index, graph, inputNodes, inputs, stop)
 
-/** The framework's route with the parameter a module read: every call is the framework route's. */
-final case class ParameterCarryingRoute(parameter: BigInt, framework: NarrowBlockRoute) extends NarrowBlockRoute:
+/** The framework's route with the parameter a module read: every call is the
+  * framework route's.
+  */
+final case class ParameterCarryingRoute(
+    parameter: BigInt,
+    framework: NarrowBlockRoute
+) extends NarrowBlockRoute:
 
   def extractorModules[C <: NativeSpecializer & Singleton](
       natives: NativeBackend,
       configuration: gezi.weakhead.ReadingConfiguration[C]
-  ): Vector[NormalityModule[C]] = framework.extractorModules(natives, configuration)
+  ): Vector[NormalityModule[C]] =
+    framework.extractorModules(natives, configuration)
 
   def compiledRounds[C <: NativeSpecializer & Singleton](
       index: StandardLibraryIndex[C],
@@ -84,4 +103,12 @@ final case class ParameterCarryingRoute(parameter: BigInt, framework: NarrowBloc
       explained: Boolean,
       stop: StopSignal
   )(using C): LemmaRoundsResult[C] =
-    framework.compiledRounds(index, rounds, natives, encoding, program, explained, stop)
+    framework.compiledRounds(
+      index,
+      rounds,
+      natives,
+      encoding,
+      program,
+      explained,
+      stop
+    )

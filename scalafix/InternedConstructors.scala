@@ -46,20 +46,22 @@ class InternedConstructors extends SyntacticRule("InternedConstructors") {
   )
 
   private def lastName(qualifier: Term): Option[String] = qualifier match {
-    case Term.Name(name)              => Some(name)
+    case Term.Name(name)                 => Some(name)
     case Term.Select(_, Term.Name(name)) => Some(name)
-    case _                            => None
+    case _                               => None
   }
 
   private def renaming(qualifier: Term, name: String): Option[String] =
     lastName(qualifier).flatMap(renamed.get).flatMap(_.get(name))
 
   private def insidePackage(tree: Tree, packageName: String): Boolean =
-    tree.collect { case Pkg(reference, _) => reference.syntax }.contains(packageName)
+    tree
+      .collect { case Pkg(reference, _) => reference.syntax }
+      .contains(packageName)
 
   private def wildcard(argument: Type): Boolean = argument match {
     case _: Type.Wildcard | _: Type.AnonymousParam => true
-    case _                                           => false
+    case _                                         => false
   }
 
   override def fix(implicit document: SyntacticDocument): Patch = {
@@ -70,28 +72,44 @@ class InternedConstructors extends SyntacticRule("InternedConstructors") {
     // So does a file that defines a member of one of the classes' names (an
     // enum case `View.Apply`), which shadows an import in its own scope.
     val classNames = renamed.values.flatMap(_.values).toSet
-    val qualified = !inside && (document.tree.collect {
-      case Importer(reference, importees) if reference.syntax != "gezi.ir" =>
-        importees.exists(_.isInstanceOf[Importee.Wildcard])
-    }.contains(true) || document.tree.collect {
-      case definition: Defn.Class if classNames.contains(definition.name.value)  => true
-      case definition: Defn.Object if classNames.contains(definition.name.value) => true
-      case definition: Defn.EnumCase if classNames.contains(definition.name.value) => true
+    val qualified = !inside && (document.tree
+      .collect {
+        case Importer(reference, importees) if reference.syntax != "gezi.ir" =>
+          importees.exists(_.isInstanceOf[Importee.Wildcard])
+      }
+      .contains(true) || document.tree.collect {
+      case definition: Defn.Class
+          if classNames.contains(definition.name.value) =>
+        true
+      case definition: Defn.Object
+          if classNames.contains(definition.name.value) =>
+        true
+      case definition: Defn.EnumCase
+          if classNames.contains(definition.name.value) =>
+        true
     }.nonEmpty)
-    val alreadyImported: Set[String] = document.tree.collect {
-      case Importer(reference, importees) if reference.syntax == "gezi.ir" =>
-        importees.collect { case Importee.Name(Name(name)) => name }
-    }.flatten.toSet
-    val importsPackage = document.tree.collect {
-      case Importer(Term.Name("gezi"), importees) =>
-        importees.exists { case Importee.Name(Name("ir")) => true; case _ => false }
-    }.contains(true)
+    val alreadyImported: Set[String] = document.tree
+      .collect {
+        case Importer(reference, importees) if reference.syntax == "gezi.ir" =>
+          importees.collect { case Importee.Name(Name(name)) => name }
+      }
+      .flatten
+      .toSet
+    val importsPackage = document.tree
+      .collect { case Importer(Term.Name("gezi"), importees) =>
+        importees.exists {
+          case Importee.Name(Name("ir")) => true; case _ => false
+        }
+      }
+      .contains(true)
     def spelled(name: String): String = if (qualified) s"ir.$name" else name
     val rewrites: List[(Patch, Option[String])] = document.tree.collect {
-      case selected @ Term.Select(qualifier, Term.Name(name)) if renaming(qualifier, name).isDefined =>
+      case selected @ Term.Select(qualifier, Term.Name(name))
+          if renaming(qualifier, name).isDefined =>
         val target = renaming(qualifier, name).get
         (Patch.replaceTree(selected, spelled(target)), Some(target))
-      case selected @ Type.Select(qualifier, Type.Name(name)) if renaming(qualifier, name).isDefined =>
+      case selected @ Type.Select(qualifier, Type.Name(name))
+          if renaming(qualifier, name).isDefined =>
         val target = renaming(qualifier, name).get
         (Patch.replaceTree(selected, spelled(target)), Some(target))
       // Not inside the package gezi.ir, whose CodeLayer is the new
@@ -99,28 +117,47 @@ class InternedConstructors extends SyntacticRule("InternedConstructors") {
       // that the rule can run again on a tree it has run on.
       case named @ Type.Name("CodeLayer") if !inside && !named.parent.exists {
             case Type.Apply(function, _) => function eq named
-            case _: Importee              => true
-            case _                        => false
+            case _: Importee             => true
+            case _                       => false
           } && !named.parent.exists(_.isInstanceOf[Importer]) =>
-        (Patch.replaceTree(named, s"CodeLayer[${spelled("Code")}]"), Some("Code"))
+        (
+          Patch.replaceTree(named, s"CodeLayer[${spelled("Code")}]"),
+          Some("Code")
+        )
       // `Layer` becomes a type lambda's alias, which a wildcard argument cannot
       // apply; the alias is covariant, so `Layer[Any]` is the supertype of
       // every layer that `Layer[?]` was.
-      case Type.Apply(Type.Name("Layer"), arguments) if arguments.exists(wildcard) =>
-        (arguments.filter(wildcard).map(argument => Patch.replaceTree(argument, "Any")).asPatch, None)
+      case Type.Apply(Type.Name("Layer"), arguments)
+          if arguments.exists(wildcard) =>
+        (
+          arguments
+            .filter(wildcard)
+            .map(argument => Patch.replaceTree(argument, "Any"))
+            .asPatch,
+          None
+        )
     }
     val names = rewrites.flatMap(_._2).distinct.sorted
     val imports =
       if (names.isEmpty || inside) Patch.empty
       else if (qualified) {
         if (importsPackage) Patch.empty
-        else Patch.addGlobalImport(Importer(Term.Name("gezi"), List(Importee.Name(Name.Indeterminate("ir")))))
+        else
+          Patch.addGlobalImport(
+            Importer(
+              Term.Name("gezi"),
+              List(Importee.Name(Name.Indeterminate("ir")))
+            )
+          )
       } else {
         val missing = names.filterNot(alreadyImported.contains)
         if (missing.isEmpty) Patch.empty
         else {
-          val importees = missing.map(name => Importee.Name(Name.Indeterminate(name)))
-          Patch.addGlobalImport(Importer(Term.Select(Term.Name("gezi"), Term.Name("ir")), importees))
+          val importees =
+            missing.map(name => Importee.Name(Name.Indeterminate(name)))
+          Patch.addGlobalImport(
+            Importer(Term.Select(Term.Name("gezi"), Term.Name("ir")), importees)
+          )
         }
       }
     rewrites.map(_._1).asPatch + imports

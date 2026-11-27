@@ -11,8 +11,8 @@ import gezi.ir.{Apply, Parallel}
 
 class FixedPointTest extends gezi.generatedinputs.FailFastSuite:
 
-  /** `function first` and `function second`, paired in either order; the
-    * three names are noinline leaves.
+  /** `function first` and `function second`, paired in either order; the three
+    * names are noinline leaves.
     */
   private type C = NoFacts.type
 
@@ -24,7 +24,10 @@ class FixedPointTest extends gezi.generatedinputs.FailFastSuite:
   private val pairInOrder = NoFacts.parallel(functionOfFirst, functionOfSecond)
   private val pairReversed = NoFacts.parallel(functionOfSecond, functionOfFirst)
 
-  private val store = Store(noinline = Set(function, first, second), gezi.ir.TermConstruction(NoFacts))
+  private val store = Store(
+    noinline = Set(function, first, second),
+    gezi.ir.TermConstruction(NoFacts)
+  )
 
   private val lemma = Justification.Lemma(LemmaIdentifier(0), Vector.empty)
 
@@ -35,18 +38,43 @@ class FixedPointTest extends gezi.generatedinputs.FailFastSuite:
   @tailrec
   private def unionsWorked(graph: EGraph[C]): EGraph[C] = graph.unionTaken match
     case Some((pending, rest)) =>
-      unionsWorked(rest.unionWorked(pending.first, pending.second, pending.justification, pending.made))
+      unionsWorked(
+        rest.unionWorked(
+          pending.first,
+          pending.second,
+          pending.justification,
+          pending.made
+        )
+      )
     case None => graph
 
-  private def united(graph: EGraph[C], instruction: Configured[C], other: Configured[C]): EGraph[C] =
+  private def united(
+      graph: EGraph[C],
+      instruction: Configured[C],
+      other: Configured[C]
+  ): EGraph[C] =
     unionsWorked(
-      graph.unionWorked(graph.instructionNode(instruction).get, graph.instructionNode(other).get, lemma, None)
+      graph.unionWorked(
+        graph.instructionNode(instruction).get,
+        graph.instructionNode(other).get,
+        lemma,
+        None
+      )
     )
 
-  test("the same classes over the same layers have one form, whatever the node numbers") {
-    val inOrder = united(added(EGraph.empty(store, Map.empty, explained = false), pairInOrder), first, second)
+  test(
+    "the same classes over the same layers have one form, whatever the node numbers"
+  ) {
+    val inOrder = united(
+      added(EGraph.empty(store, Map.empty, explained = false), pairInOrder),
+      first,
+      second
+    )
     val reversed = united(
-      added(added(EGraph.empty(store, Map.empty, explained = false), second), pairReversed),
+      added(
+        added(EGraph.empty(store, Map.empty, explained = false), second),
+        pairReversed
+      ),
       second,
       first
     )
@@ -61,8 +89,12 @@ class FixedPointTest extends gezi.generatedinputs.FailFastSuite:
   }
 
   test("a union changes the form") {
-    val apart = added(EGraph.empty(store, Map.empty, explained = false), pairInOrder)
+    val apart =
+      added(EGraph.empty(store, Map.empty, explained = false), pairInOrder)
     val joined = united(apart, first, second)
-    assertNotEquals(FixedPoint.form(apart).digest, FixedPoint.form(joined).digest)
+    assertNotEquals(
+      FixedPoint.form(apart).digest,
+      FixedPoint.form(joined).digest
+    )
     assertEquals(FixedPoint.form(apart).classes, 6)
   }

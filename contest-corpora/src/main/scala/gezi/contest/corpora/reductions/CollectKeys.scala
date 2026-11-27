@@ -7,9 +7,8 @@ import gezi.frontend.Term
 import gezi.frontend.Term.*
 
 /** Collecting keys on a grid within a budget, the port of
-  * `problems/collect_keys`: the set of the totals of the walks
-  * that collect every key in some order, each leg at most the number of
-  * nodes long.
+  * `problems/collect_keys`: the set of the totals of the walks that collect
+  * every key in some order, each leg at most the number of nodes long.
   */
 object CollectKeys:
 
@@ -33,21 +32,30 @@ object CollectKeys:
   def noneCollected(attractors: Attractors, count: Int): ProblemTerm =
     SetFree.booleanList(attractors, Vector.fill(count)(0))
 
-  /** The program with each leg bounded by the number of nodes and the total
-    * by the budget (`collect_keys_term/6`).
+  /** The program with each leg bounded by the number of nodes and the total by
+    * the budget (`collect_keys_term/6`).
     */
-  def collectKeysTerm(attractors: Attractors, count: Int, edges: Vector[(Int, Int)], keys: Vector[Int], start: Int, budget: Int): ProblemTerm =
-    def function(name: String) = attractors.functionSurface(name, Spelling.Direct)
+  def collectKeysTerm(
+      attractors: Attractors,
+      count: Int,
+      edges: Vector[(Int, Int)],
+      keys: Vector[Int],
+      start: Int,
+      budget: Int
+  ): ProblemTerm =
+    def function(name: String) =
+      attractors.functionSurface(name, Spelling.Direct)
     Graphs.numeralLets(
       count,
       nodes =>
-        val lengthsFunction = lengthsFunctionTerm(attractors, count, edges, nodes)
+        val lengthsFunction =
+          lengthsFunctionTerm(attractors, count, edges, nodes)
         val none = noneCollected(attractors, keys.size)
         val difference = function("natural_difference")
         λ(lengths =>
-          tourFunction(attractors, keys, nodes, count, lengths)(none)(nodes(start))(unary(budget))(λ(remaining =>
-            difference(unary(budget))(remaining)
-          ))
+          tourFunction(attractors, keys, nodes, count, lengths)(none)(
+            nodes(start)
+          )(unary(budget))(λ(remaining => difference(unary(budget))(remaining)))
         )(lengthsFunction)
     )
 
@@ -55,7 +63,12 @@ object CollectKeys:
     * walk the numeral case of v over the boxes of its successors
     * (`lengths_function/4`).
     */
-  private def lengthsFunctionTerm(attractors: Attractors, count: Int, edges: Vector[(Int, Int)], nodes: Vector[ProblemTerm]): ProblemTerm =
+  private def lengthsFunctionTerm(
+      attractors: Attractors,
+      count: Int,
+      edges: Vector[(Int, Int)],
+      nodes: Vector[ProblemTerm]
+  ): ProblemTerm =
     val equal = attractors.functionSurface("natural_equal", Spelling.Direct)
     val zero = attractors.attractorSurface("zero", Spelling.Direct)
     attractors.fixpoint(
@@ -65,21 +78,30 @@ object CollectKeys:
             λ(target =>
               members(
                 Vector(
-                  equal(vertex)(target)(λ(continuation => continuation(zero)))(top),
-                  bound(top)(λ(predecessor =>
-                    Graphs.numeralCase(
-                      (0 until count).toVector.map(index =>
-                        members(edges.collect {
-                          case (from, to) if from == index =>
-                            val successor = attractors.functionSurface("successor", Spelling.Direct)
-                            λ(continuation =>
-                              self(predecessor)(nodes(to))(target)(λ(length => continuation(successor(length))))
-                            )
-                        })
-                      ),
-                      vertex
+                  equal(vertex)(target)(λ(continuation => continuation(zero)))(
+                    top
+                  ),
+                  bound(top)(
+                    λ(predecessor =>
+                      Graphs.numeralCase(
+                        (0 until count).toVector.map(index =>
+                          members(edges.collect {
+                            case (from, to) if from == index =>
+                              val successor = attractors.functionSurface(
+                                "successor",
+                                Spelling.Direct
+                              )
+                              λ(continuation =>
+                                self(predecessor)(nodes(to))(target)(
+                                  λ(length => continuation(successor(length)))
+                                )
+                              )
+                          })
+                        ),
+                        vertex
+                      )
                     )
-                  ))
+                  )
                 )
               )
             )
@@ -91,8 +113,15 @@ object CollectKeys:
   /** `Y (\self. \c. \v. \r. \k. full c (k r) { branch_i | i a key })`
     * (`tour_function/5`).
     */
-  private def tourFunction(attractors: Attractors, keys: Vector[Int], nodes: Vector[ProblemTerm], count: Int, lengths: ProblemTerm): ProblemTerm =
-    def function(name: String) = attractors.functionSurface(name, Spelling.Direct)
+  private def tourFunction(
+      attractors: Attractors,
+      keys: Vector[Int],
+      nodes: Vector[ProblemTerm],
+      count: Int,
+      lengths: ProblemTerm
+  ): ProblemTerm =
+    def function(name: String) =
+      attractors.functionSurface(name, Spelling.Direct)
     val full = function("bit_set_full")
     attractors.fixpoint(
       λ(self =>
@@ -100,17 +129,27 @@ object CollectKeys:
           λ(vertex =>
             λ(remaining =>
               λ(continuation =>
-                full(collected)(continuation(remaining))(members(keys.zipWithIndex.map((key, position) =>
-                  val member = function("bit_set_member")
-                  val insert = function("bit_set_insert")
-                  val atLeast = function("natural_at_least")
-                  val difference = function("natural_difference")
-                  member(collected)(unary(position))(top)(lengths(unary(count))(vertex)(nodes(key))(λ(leg =>
-                    atLeast(remaining)(leg)(self(insert(collected)(unary(position)))(nodes(key))(difference(remaining)(leg))(
-                      continuation
-                    ))(top)
-                  )))
-                )))
+                full(collected)(continuation(remaining))(
+                  members(keys.zipWithIndex.map((key, position) =>
+                    val member = function("bit_set_member")
+                    val insert = function("bit_set_insert")
+                    val atLeast = function("natural_at_least")
+                    val difference = function("natural_difference")
+                    member(collected)(unary(position))(top)(
+                      lengths(unary(count))(vertex)(nodes(key))(
+                        λ(leg =>
+                          atLeast(remaining)(leg)(
+                            self(insert(collected)(unary(position)))(
+                              nodes(key)
+                            )(difference(remaining)(leg))(
+                              continuation
+                            )
+                          )(top)
+                        )
+                      )
+                    )
+                  ))
+                )
               )
             )
           )
@@ -118,28 +157,48 @@ object CollectKeys:
       )
     )
 
-  /** The sorted totals of at most the budget of the walks from the start
-    * that collect every key in some order (`collect_keys_totals/6`).
+  /** The sorted totals of at most the budget of the walks from the start that
+    * collect every key in some order (`collect_keys_totals/6`).
     */
-  def collectKeysTotals(count: Int, edges: Vector[(Int, Int)], keys: Vector[Int], start: Int, budget: Int): Vector[Int] =
+  def collectKeysTotals(
+      count: Int,
+      edges: Vector[(Int, Int)],
+      keys: Vector[Int],
+      start: Int,
+      budget: Int
+  ): Vector[Int] =
     keys.permutations.toVector
       .flatMap(order => orderTotals(order, start, count, edges, budget, 0))
       .distinct
       .sorted
 
-  private def orderTotals(order: Vector[Int], from: Int, count: Int, edges: Vector[(Int, Int)], budget: Int, accumulated: Int): Vector[Int] =
+  private def orderTotals(
+      order: Vector[Int],
+      from: Int,
+      count: Int,
+      edges: Vector[(Int, Int)],
+      budget: Int,
+      accumulated: Int
+  ): Vector[Int] =
     if order.isEmpty then Vector(accumulated)
     else
       PathLengths
         .walkLengths(edges, from, order.head, count)
         .map(accumulated + _)
         .filter(_ <= budget)
-        .flatMap(next => orderTotals(order.tail, order.head, count, edges, budget, next))
+        .flatMap(next =>
+          orderTotals(order.tail, order.head, count, edges, budget, next)
+        )
 
-  /** The least total over every order of the keys, each leg its
-    * breadth-first distance (`shortest_total/5`).
+  /** The least total over every order of the keys, each leg its breadth-first
+    * distance (`shortest_total/5`).
     */
-  def shortestTotal(count: Int, edges: Vector[(Int, Int)], keys: Vector[Int], start: Int): Int =
+  def shortestTotal(
+      count: Int,
+      edges: Vector[(Int, Int)],
+      keys: Vector[Int],
+      start: Int
+  ): Int =
     keys.permutations.toVector
       .map(order =>
         order
@@ -156,15 +215,21 @@ object CollectKeys:
   def problems(group: ReductionGroup): Vector[ReductionProblem] =
     group.problems(family).rows("collect_keys_point").map {
       case Vector(point, rows, columns, keys, slack) =>
-        val (count, edges) = grid(ProblemData.small(rows), ProblemData.small(columns))
+        val (count, edges) =
+          grid(ProblemData.small(rows), ProblemData.small(columns))
         val keyNodes = ProblemData.smalls(keys)
-        val budget = shortestTotal(count, edges, keyNodes, 0) + ProblemData.small(slack)
+        val budget =
+          shortestTotal(count, edges, keyNodes, 0) + ProblemData.small(slack)
         ReductionProblem(
           ProblemData.text(point),
           collectKeysTerm(group.attractors, count, edges, keyNodes, 0, budget),
           "unary",
-          Reduction.expectedOf(collectKeysTotals(count, edges, keyNodes, 0, budget).map(Scott.unaryTree)),
+          Reduction.expectedOf(
+            collectKeysTotals(count, edges, keyNodes, 0, budget)
+              .map(Scott.unaryTree)
+          ),
           Reduction.defaultLimits
         )
-      case other => throw IllegalArgumentException(s"not a collect keys point: $other")
+      case other =>
+        throw IllegalArgumentException(s"not a collect keys point: $other")
     }

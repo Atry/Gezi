@@ -11,11 +11,10 @@ import gezi.strategies.NormalityModule
   * `gezi.contest.entry.Defaults.route`): the modules that spell a round's
   * extraction and its write-backs, and the route of the lemma rounds, whose
   * last round's extraction has its blocks compiled and run. The default is
-  * `LemmaRoute`; `gezi.narrowblocks.lists.LemmaRoute` is the opt-in copy
-  * with lists and booleans ([[gezi.narrowblocks.lists]]), kept beside it
-  * until the copy beats it everywhere: a general improvement is opt-in by
-  * copy on write, and the old version is deleted only once the new one is
-  * better everywhere.
+  * `LemmaRoute`; `gezi.narrowblocks.lists.LemmaRoute` is the opt-in copy with
+  * lists and booleans ([[gezi.narrowblocks.lists]]), kept beside it until the
+  * copy beats it everywhere: a general improvement is opt-in by copy on write,
+  * and the old version is deleted only once the new one is better everywhere.
   */
 trait NarrowBlockRoute:
 

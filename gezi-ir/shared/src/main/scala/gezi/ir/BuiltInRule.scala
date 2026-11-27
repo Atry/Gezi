@@ -2,19 +2,19 @@ package gezi.ir
 
 /** A rule the saturation applies by itself, without a lemma: the β rule. A
   * round lists the rules it enables, as it lists its knowledge modules, and a
-  * rule it does not list is not applied: the β rule and δ are opt-in.
-  * The set is the saturation's only: the weak-head readings, the JIT and the
-  * normal forms are reference readings and apply every rule. It lives in the
-  * IR's module so that a round described outside the saturation's modules can
-  * name its rules.
+  * rule it does not list is not applied: the β rule and δ are opt-in. The set
+  * is the saturation's only: the weak-head readings, the JIT and the normal
+  * forms are reference readings and apply every rule. It lives in the IR's
+  * module so that a round described outside the saturation's modules can name
+  * its rules.
   *
   * The β rule here is the e-graph's β step, a pending application of a thunk
-  * worked by the saturation (`gezi.saturation.Saturation.agendaWorked`).
-  * The reverse beta of lemma matching (`gezi.saturation.HigherOrderMatching`,
-  * `gezi.saturation.ReverseBeta`, and the union of a redex with its
-  * subterm justified by `gezi.egraph.Justification.BetaConversion`) is
-  * not this rule: every lemma carries an n-ary native reverse β, and a round
-  * without `Beta` keeps it.
+  * worked by the saturation (`gezi.saturation.Saturation.agendaWorked`). The
+  * reverse beta of lemma matching (`gezi.saturation.HigherOrderMatching`,
+  * `gezi.saturation.ReverseBeta`, and the union of a redex with its subterm
+  * justified by `gezi.egraph.Justification.BetaConversion`) is not this rule:
+  * every lemma carries an n-ary native reverse β, and a round without `Beta`
+  * keeps it.
   */
 enum BuiltInRule:
 
@@ -27,10 +27,9 @@ enum BuiltInRule:
     * (`gezi.egraph.EGraph.storageViewAdded`), one leaf at a time in the
     * saturation's loop, each expansion that changes the graph counted as an
     * instance against the round's budget, the stop read before each. A round
-    * that does not enable it
-    * matches a storage leaf through its pattern view only, `?x ∥ ?T` with ?x
-    * the leaf's own class. A round cannot enable it and also stop matching at
-    * the classes of storages of constant size
+    * that does not enable it matches a storage leaf through its pattern view
+    * only, `?x ∥ ?T` with ?x the leaf's own class. A round cannot enable it and
+    * also stop matching at the classes of storages of constant size
     * (`SaturationOptions.constantStorageStop` of the strategies, refused
     * together), whose purpose is the opposite.
     */

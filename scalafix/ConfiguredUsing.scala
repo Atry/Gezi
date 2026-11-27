@@ -18,31 +18,51 @@ import scala.meta._
 class ConfiguredUsing extends SyntacticRule("ConfiguredUsing") {
 
   private def declaresConfiguration(parameters: List[Type.Param]): Boolean =
-    parameters.exists(parameter => parameter.name.value == "C" && parameter.tbounds.hi.exists(_.syntax.contains("NativeSpecializer")))
+    parameters.exists(parameter =>
+      parameter.name.value == "C" && parameter.tbounds.hi.exists(
+        _.syntax.contains("NativeSpecializer")
+      )
+    )
 
-  private def takesConfiguration(parameterLists: List[List[Term.Param]]): Boolean =
+  private def takesConfiguration(
+      parameterLists: List[List[Term.Param]]
+  ): Boolean =
     parameterLists.flatten.exists(_.decltpe.exists(_.syntax == "C"))
 
   override def fix(implicit document: SyntacticDocument): Patch =
     document.tree.collect {
-      case definition: Defn.Def if declaresConfiguration(definition.tparams) && !takesConfiguration(definition.paramss) =>
+      case definition: Defn.Def
+          if declaresConfiguration(definition.tparams) && !takesConfiguration(
+            definition.paramss
+          ) =>
         clauseAdded(definition.name, definition.tparams, definition.paramss)
-      case declaration: Decl.Def if declaresConfiguration(declaration.tparams) && !takesConfiguration(declaration.paramss) =>
+      case declaration: Decl.Def
+          if declaresConfiguration(declaration.tparams) && !takesConfiguration(
+            declaration.paramss
+          ) =>
         clauseAdded(declaration.name, declaration.tparams, declaration.paramss)
     }.asPatch
 
   // After the closing parenthesis of the last parameter clause, or after the type parameters of a method with none.
-  private def clauseAdded(name: Tree, typeParameters: List[Type.Param], parameterLists: List[List[Term.Param]])(implicit
+  private def clauseAdded(
+      name: Tree,
+      typeParameters: List[Type.Param],
+      parameterLists: List[List[Term.Param]]
+  )(implicit
       document: SyntacticDocument
   ): Patch = {
     val tokens = document.tree.tokens
     parameterLists.lastOption.flatMap(_.lastOption) match {
       case Some(parameter) =>
-        val closing = tokens.find(token => token.start >= parameter.pos.end && token.is[Token.RightParen])
+        val closing = tokens.find(token =>
+          token.start >= parameter.pos.end && token.is[Token.RightParen]
+        )
         closing.fold(Patch.empty)(token => Patch.addRight(token, "(using C)"))
       case None =>
         val closing = typeParameters.lastOption.flatMap(last =>
-          tokens.find(token => token.start >= last.pos.end && token.is[Token.RightBracket])
+          tokens.find(token =>
+            token.start >= last.pos.end && token.is[Token.RightBracket]
+          )
         )
         closing.fold(Patch.empty)(token => Patch.addRight(token, "(using C)"))
     }

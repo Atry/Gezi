@@ -6,8 +6,8 @@ import gezi.ir.{Configured, NoFacts, Pure}
 enum Declaration:
 
   /** A lemma read from a knowledge file: its two sides are terms of no facts
-    * already, spelled as the front end spells them, and its proof metadata
-    * the constructor read under weak head.
+    * already, spelled as the front end spells them, and its proof metadata the
+    * constructor read under weak head.
     */
   case ReadLemma(
       name: String,
@@ -21,15 +21,19 @@ enum Declaration:
     */
   case NativeBinding(instruction: Pure, native: String)
 
-  /** A combinator property read from a knowledge file, of the library term, written as
-    * a name the file binds by its imports; a data family's `data_fields` is
-    * `FieldsBinding`.
+  /** A combinator property read from a knowledge file, of the library term,
+    * written as a name the file binds by its imports; a data family's
+    * `data_fields` is `FieldsBinding`.
     */
   case PropertyBinding(instruction: Pure, property: Property)
 
   /** `data_fields` read from a knowledge file: the family's criterion, the
-    * constructor as the file writes it, a library term, and the criteria of
-    * its fields. The compiler identifies the constructor by its position in
-    * the criterion's `data_family`.
+    * constructor as the file writes it, a library term, and the criteria of its
+    * fields. The compiler identifies the constructor by its position in the
+    * criterion's `data_family`.
     */
-  case FieldsBinding(criterion: Pure, constructor: Pure, fields: Vector[FieldCriterion])
+  case FieldsBinding(
+      criterion: Pure,
+      constructor: Pure,
+      fields: Vector[FieldCriterion]
+  )

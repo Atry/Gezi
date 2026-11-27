@@ -10,13 +10,12 @@ import gezi.weakhead.oldcorpora.ScottDecoding
 import gezi.frontend.Term
 import gezi.frontend.Term.*
 
-/** The port of `gezi/tests/scott_decoding.plt`: the Scott decoder's
-  * evaluating half on the weak-head evaluator:
-  * a term applied to one
-  * neutral value per constructor reads its constructor tree; every tree of
-  * every head is an answer; a head that is no constructor of the level reads
-  * ill-formed; a parallel reads the trees both sides read. Every run is
-  * bounded by a budget of steps.
+/** The port of `gezi/tests/scott_decoding.plt`: the Scott decoder's evaluating
+  * half on the weak-head evaluator: a term applied to one neutral value per
+  * constructor reads its constructor tree; every tree of every head is an
+  * answer; a head that is no constructor of the level reads ill-formed; a
+  * parallel reads the trees both sides read. Every run is bounded by a budget
+  * of steps.
   */
 class ScottDecodingTest extends gezi.generatedinputs.FailFastSuite:
 
@@ -24,15 +23,23 @@ class ScottDecodingTest extends gezi.generatedinputs.FailFastSuite:
 
   private def omega: Term = λ(a => a(a))(λ(b => b(b)))
 
-  /** The distinct trees decoded under the mode, as a set, within the limit
-    * of small terms.
+  /** The distinct trees decoded under the mode, as a set, within the limit of
+    * small terms.
     */
-  private def trees(mode: Mode, term: Term, dataType: ScottDataType): Set[ConstructorTree] =
+  private def trees(
+      mode: Mode,
+      term: Term,
+      dataType: ScottDataType
+  ): Set[ConstructorTree] =
     val value = valueOf(term)
     finishedValue(treesWithin(mode, value, dataType, smallTermLimit)).toSet
 
   /** Both modes decode exactly the expected trees, as a set. */
-  private def decodes(term: Term, dataType: ScottDataType, expected: Vector[ConstructorTree]): Unit =
+  private def decodes(
+      term: Term,
+      dataType: ScottDataType,
+      expected: Vector[ConstructorTree]
+  ): Unit =
     assertEquals(trees(Mode.WeakHead, term, dataType), expected.toSet)
     assertEquals(trees(Mode.TablingWeakHead, term, dataType), expected.toSet)
 
@@ -45,14 +52,30 @@ class ScottDecodingTest extends gezi.generatedinputs.FailFastSuite:
 
   test("aCanonicalTermDecodesToItsTree") {
     Vector(0, 1, 2, 5).foreach(count =>
-      decodes(surfaceOf(ScottDataType.Unary, unary(count)), ScottDataType.Unary, Vector(unary(count)))
+      decodes(
+        surfaceOf(ScottDataType.Unary, unary(count)),
+        ScottDataType.Unary,
+        Vector(unary(count))
+      )
     )
     (0 to 9).foreach(natural =>
       val tree = ScottDecoding.binaryTree(natural)
-      decodes(surfaceOf(ScottDataType.Binary, tree), ScottDataType.Binary, Vector(tree))
+      decodes(
+        surfaceOf(ScottDataType.Binary, tree),
+        ScottDataType.Binary,
+        Vector(tree)
+      )
     )
-    decodes(λ(t => λ(_ => t)), ScottDataType.Booleans, Vector(ConstructorTree.Constructor("true", Vector.empty)))
-    decodes(λ(_ => λ(f => f)), ScottDataType.Booleans, Vector(ConstructorTree.Constructor("false", Vector.empty)))
+    decodes(
+      λ(t => λ(_ => t)),
+      ScottDataType.Booleans,
+      Vector(ConstructorTree.Constructor("true", Vector.empty))
+    )
+    decodes(
+      λ(_ => λ(f => f)),
+      ScottDataType.Booleans,
+      Vector(ConstructorTree.Constructor("false", Vector.empty))
+    )
   }
 
   /** even zero denotes 0 as zero does, but case analysis tells them apart. */
@@ -60,7 +83,12 @@ class ScottDecodingTest extends gezi.generatedinputs.FailFastSuite:
     decodes(
       λ(_ => λ(e => λ(_ => e(λ(z => λ(_ => λ(_ => z))))))),
       ScottDataType.Binary,
-      Vector(ConstructorTree.Constructor("even", Vector(ConstructorTree.Constructor("zero", Vector.empty))))
+      Vector(
+        ConstructorTree.Constructor(
+          "even",
+          Vector(ConstructorTree.Constructor("zero", Vector.empty))
+        )
+      )
     )
   }
 
@@ -73,8 +101,16 @@ class ScottDecodingTest extends gezi.generatedinputs.FailFastSuite:
   }
 
   test("aHeadThatIsNoConstructorReadsIllFormed") {
-    decodes(λ(_ => λ(s => s)), ScottDataType.Unary, Vector(ConstructorTree.IllFormed))
-    decodes(λ(_ => λ(_ => λ(x => x))), ScottDataType.Unary, Vector(ConstructorTree.IllFormed))
+    decodes(
+      λ(_ => λ(s => s)),
+      ScottDataType.Unary,
+      Vector(ConstructorTree.IllFormed)
+    )
+    decodes(
+      λ(_ => λ(_ => λ(x => x))),
+      ScottDataType.Unary,
+      Vector(ConstructorTree.IllFormed)
+    )
     decodes(λ(t => λ(_ => t)), ScottDataType.Unary, Vector(unary(0)))
   }
 
@@ -82,9 +118,13 @@ class ScottDecodingTest extends gezi.generatedinputs.FailFastSuite:
     */
   test("aFieldAnsweringAnOuterCaseReadsIllFormed") {
     decodes(
-      λ(_ => λ(e => λ(_ => e(λ(_ => λ(_ => λ(_ => e(λ(z => λ(_ => λ(_ => z))))))))))),
+      λ(_ =>
+        λ(e => λ(_ => e(λ(_ => λ(_ => λ(_ => e(λ(z => λ(_ => λ(_ => z))))))))))
+      ),
       ScottDataType.Binary,
-      Vector(ConstructorTree.Constructor("even", Vector(ConstructorTree.IllFormed)))
+      Vector(
+        ConstructorTree.Constructor("even", Vector(ConstructorTree.IllFormed))
+      )
     )
   }
 
@@ -93,7 +133,16 @@ class ScottDecodingTest extends gezi.generatedinputs.FailFastSuite:
     val two = surfaceOf(ScottDataType.Unary, unary(2))
     decodes(choice(one, two), ScottDataType.Unary, Vector(unary(1), unary(2)))
     decodes(
-      λ(_ => λ(s => s(choice(surfaceOf(ScottDataType.Unary, unary(1)), surfaceOf(ScottDataType.Unary, unary(2)))))),
+      λ(_ =>
+        λ(s =>
+          s(
+            choice(
+              surfaceOf(ScottDataType.Unary, unary(1)),
+              surfaceOf(ScottDataType.Unary, unary(2))
+            )
+          )
+        )
+      ),
       ScottDataType.Unary,
       Vector(unary(3), unary(2))
     )
@@ -104,7 +153,11 @@ class ScottDecodingTest extends gezi.generatedinputs.FailFastSuite:
     def two = surfaceOf(ScottDataType.Unary, unary(2))
     decodes(one ∥ choice(one, two), ScottDataType.Unary, Vector(unary(1)))
     decodes(one ∥ two, ScottDataType.Unary, Vector.empty)
-    decodes(λ(_ => λ(s => s(one ∥ choice(one, two)))), ScottDataType.Unary, Vector(unary(2)))
+    decodes(
+      λ(_ => λ(s => s(one ∥ choice(one, two)))),
+      ScottDataType.Unary,
+      Vector(unary(2))
+    )
   }
 
   /** Tabled, the decoding of successor Ω finishes within 100,000 steps (the
@@ -118,29 +171,38 @@ class ScottDecodingTest extends gezi.generatedinputs.FailFastSuite:
       treesWithin(Mode.TablingWeakHead, value, ScottDataType.Unary, 100000),
       Bounded.Finished(Vector.empty)
     )
-    assertEquals(treesWithin(Mode.WeakHead, value, ScottDataType.Unary, 1000000), Bounded.Exceeded)
+    assertEquals(
+      treesWithin(Mode.WeakHead, value, ScottDataType.Unary, 1000000),
+      Bounded.Exceeded
+    )
   }
 
   /** The Prolog predicate had no budget; here each decoding is one tabled
-    * reading within the limit of small terms, and a decoding past its limit
-    * (a limit of 0 steps here) answers neither way.
+    * reading within the limit of small terms, and a decoding past its limit (a
+    * limit of 0 steps here) answers neither way.
     */
   test("meaningConfirmedHoldsOfOneTreeOnly") {
     val two = valueOf(surfaceOf(ScottDataType.Unary, unary(2)))
     assertEquals(
-      ScottDecoding.meaningConfirmed(two, ScottDataType.Unary, unary(2), smallTermLimit),
+      ScottDecoding
+        .meaningConfirmed(two, ScottDataType.Unary, unary(2), smallTermLimit),
       Confirmation.Confirmed
     )
     val both = valueOf(
-      choice(surfaceOf(ScottDataType.Unary, unary(1)), surfaceOf(ScottDataType.Unary, unary(2)))
+      choice(
+        surfaceOf(ScottDataType.Unary, unary(1)),
+        surfaceOf(ScottDataType.Unary, unary(2))
+      )
     )
     assertEquals(
-      ScottDecoding.meaningConfirmed(both, ScottDataType.Unary, unary(2), smallTermLimit),
+      ScottDecoding
+        .meaningConfirmed(both, ScottDataType.Unary, unary(2), smallTermLimit),
       Confirmation.NotConfirmed
     )
     val omegaField = valueOf(λ(_ => λ(s => s(omega))))
     assertEquals(
-      ScottDecoding.meaningConfirmed(omegaField, ScottDataType.Unary, unary(1), 0),
+      ScottDecoding
+        .meaningConfirmed(omegaField, ScottDataType.Unary, unary(1), 0),
       Confirmation.LimitReached
     )
   }

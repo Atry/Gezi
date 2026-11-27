@@ -4,8 +4,8 @@ import gezi.ir.Configured
 import gezi.ir.NativeSpecializer.*
 import gezi.ir.NoFacts
 
-/** The port of `gezi/tests/lambdalattice.plt`, unit
-  * `lambdalattice_grammar`: the text syntax of a lambdalattice file.
+/** The port of `gezi/tests/lambdalattice.plt`, unit `lambdalattice_grammar`:
+  * the text syntax of a lambdalattice file.
   */
 class LambdalatticeGrammarTest extends gezi.generatedinputs.FailFastSuite:
 
@@ -19,7 +19,10 @@ class LambdalatticeGrammarTest extends gezi.generatedinputs.FailFastSuite:
     * fresh layer for each, and a de Bruijn constant only holds the instruction.
     */
   private val testNames: Map[String, NoFactsTerm] =
-    Map("fixpoint" -> NoFacts.opaque("fixpoint"), "true" -> NoFacts.opaque("true"))
+    Map(
+      "fixpoint" -> NoFacts.opaque("fixpoint"),
+      "true" -> NoFacts.opaque("true")
+    )
 
   /** The term of a text that binds every name it uses. */
   private def term(text: String): DeBruijnTerm =
@@ -54,8 +57,22 @@ class LambdalatticeGrammarTest extends gezi.generatedinputs.FailFastSuite:
     assertEquals(
       term("(λx.λf.f (x x f)) (λx.λf.f (x x f))"),
       Apply(
-        Lambda(Lambda(Apply(Variable(0), Apply(Apply(Variable(1), Variable(1)), Variable(0))))),
-        Lambda(Lambda(Apply(Variable(0), Apply(Apply(Variable(1), Variable(1)), Variable(0)))))
+        Lambda(
+          Lambda(
+            Apply(
+              Variable(0),
+              Apply(Apply(Variable(1), Variable(1)), Variable(0))
+            )
+          )
+        ),
+        Lambda(
+          Lambda(
+            Apply(
+              Variable(0),
+              Apply(Apply(Variable(1), Variable(1)), Variable(0))
+            )
+          )
+        )
       )
     )
   }
@@ -68,8 +85,18 @@ class LambdalatticeGrammarTest extends gezi.generatedinputs.FailFastSuite:
                     + (λ_.λ_.λx15.λ_.λ_.x15 (λ_.λx19.λ_.λ_.λ_.x19 (λ_.λx24.x24))) # a comment
                    """),
       Choice(
-        fiveLambdas(Apply(Variable(2), fiveLambdas(Apply(Variable(3), Lambda(Lambda(Variable(0))))))),
-        fiveLambdas(Apply(Variable(3), fiveLambdas(Apply(Variable(3), Lambda(Lambda(Variable(1)))))))
+        fiveLambdas(
+          Apply(
+            Variable(2),
+            fiveLambdas(Apply(Variable(3), Lambda(Lambda(Variable(0)))))
+          )
+        ),
+        fiveLambdas(
+          Apply(
+            Variable(3),
+            fiveLambdas(Apply(Variable(3), Lambda(Lambda(Variable(1)))))
+          )
+        )
       )
     )
   }
@@ -86,7 +113,9 @@ class LambdalatticeGrammarTest extends gezi.generatedinputs.FailFastSuite:
   test("aChainOfChoicesNestsInItsRightSides") {
     assertEquals(
       term("λa.λb.λc.(a + b + c)"),
-      Lambda(Lambda(Lambda(Choice(Variable(0), Choice(Variable(1), Variable(2))))))
+      Lambda(
+        Lambda(Lambda(Choice(Variable(0), Choice(Variable(1), Variable(2)))))
+      )
     )
   }
 
@@ -148,15 +177,21 @@ class LambdalatticeGrammarTest extends gezi.generatedinputs.FailFastSuite:
   test("choiceAndParallelMixInOneChain") {
     assertEquals(
       term("λa.λb.λc.(a ∥ b + c)"),
-      Lambda(Lambda(Lambda(Choice(Variable(0), Parallel(Variable(2), Variable(1))))))
+      Lambda(
+        Lambda(Lambda(Choice(Variable(0), Parallel(Variable(2), Variable(1)))))
+      )
     )
     assertEquals(
       term("λa.λb.λc.(a + b ∥ c)"),
-      Lambda(Lambda(Lambda(Parallel(Choice(Variable(1), Variable(2)), Variable(0)))))
+      Lambda(
+        Lambda(Lambda(Parallel(Choice(Variable(1), Variable(2)), Variable(0))))
+      )
     )
     assertEquals(
       term("λa.λb.λc.((a ∥ b) + c)"),
-      Lambda(Lambda(Lambda(Choice(Variable(0), Parallel(Variable(2), Variable(1))))))
+      Lambda(
+        Lambda(Lambda(Choice(Variable(0), Parallel(Variable(2), Variable(1)))))
+      )
     )
   }
 
@@ -177,7 +212,9 @@ class LambdalatticeGrammarTest extends gezi.generatedinputs.FailFastSuite:
     assert(
       Configured.same(
         Defunctionalization.thunkInstruction[NoFacts.type](parsed, testNames),
-        Defunctionalization.thunkInstruction[NoFacts.type](Lambda(Apply(Constant(testNames("true")), Variable(0))))
+        Defunctionalization.thunkInstruction[NoFacts.type](
+          Lambda(Apply(Constant(testNames("true")), Variable(0)))
+        )
       )
     )
   }
@@ -204,16 +241,25 @@ class LambdalatticeGrammarTest extends gezi.generatedinputs.FailFastSuite:
   test("unclosedParenthesis") {
     assertEquals(
       problem("(λx.x"),
-      syntax(SyntaxError.Expected(Expectation.CloseParenthesis, TokenKind.End), 5)
+      syntax(
+        SyntaxError.Expected(Expectation.CloseParenthesis, TokenKind.End),
+        5
+      )
     )
   }
 
   test("abstractionAsChoiceOperand") {
-    assertEquals(term("(λx.x) + λy.y"), Choice(Lambda(Variable(0)), Lambda(Variable(0))))
+    assertEquals(
+      term("(λx.x) + λy.y"),
+      Choice(Lambda(Variable(0)), Lambda(Variable(0)))
+    )
   }
 
   test("abstractionAsParallelOperand") {
-    assertEquals(term("(λx.x) ∥ λy.y"), Parallel(Lambda(Variable(0)), Lambda(Variable(0))))
+    assertEquals(
+      term("(λx.x) ∥ λy.y"),
+      Parallel(Lambda(Variable(0)), Lambda(Variable(0)))
+    )
   }
 
   test("choiceWithoutARightOperand") {

@@ -23,7 +23,11 @@ object NoJavaUtilMutableCollection extends ForbiddenSymbols:
     "java.util.EnumMap"
   )
 
-  override protected val message: String = "mutable java.util collection is disabled"
+  override protected val message: String =
+    "mutable java.util collection is disabled"
 
-  override protected def isForbidden(fullName: String, simpleName: String): Boolean =
+  override protected def isForbidden(
+      fullName: String,
+      simpleName: String
+  ): Boolean =
     mutableCollections(fullName)

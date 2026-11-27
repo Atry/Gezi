@@ -12,4 +12,5 @@ object Planted:
   val inEta = locked(guard => List(1, 2).map(guard.get))
   val byName = locked(guard => later(guard.get(1)))
   val inComputation = locked(guard => guard.getOrElseUpdate(1, guard.get(2)))
-  val inAnonymousClass = locked(guard => new Runnable { def run(): Unit = { val _ = guard.get(1) } })
+  val inAnonymousClass =
+    locked(guard => new Runnable { def run(): Unit = { val _ = guard.get(1) } })

@@ -3,25 +3,32 @@ package gezi.contest.corpora.merges
 import gezi.contest.corpora.claims
 import gezi.frontend.Term
 
-/** The port of the deleted Prolog file
-  * (`git show 6ab16a338^:lambda_jit/corpora/contest_jit.pl`): the JIT arena's points,
-  * one program each. Twenty-four points delegate to the former `contest_hard` module,
-  * which names their programs and fixes their parameters (the claims
-  * group's port, `claims.Hard` and `claims.HardClauses`); the six
-  * regression points not carried over keep their own bodies, the programs
-  * of the contest corpus of the same names (`Contest`).
+/** The port of the deleted Prolog file (`git show
+  * 6ab16a338^:lambda_jit/corpora/contest_jit.pl`): the JIT arena's points, one
+  * program each. Twenty-four points delegate to the former `contest_hard`
+  * module, which names their programs and fixes their parameters (the claims
+  * group's port, `claims.Hard` and `claims.HardClauses`); the six regression
+  * points not carried over keep their own bodies, the programs of the contest
+  * corpus of the same names (`Contest`).
   */
-final class ContestJit(contest: Contest, hard: claims.Hard, clauses: claims.HardClauses):
+final class ContestJit(
+    contest: Contest,
+    hard: claims.Hard,
+    clauses: claims.HardClauses
+):
 
   private def fromHard(name: String): (String, () => ProblemTerm) =
     name -> (() =>
       hard.points
         .get(name)
         .orElse(clauses.points.get(name))
-        .getOrElse(throw IllegalStateException(s"contest_hard.pl has no point $name"))()
+        .getOrElse(
+          throw IllegalStateException(s"contest_hard.pl has no point $name")
+        )()
     )
 
-  private def fromContest(name: String): (String, () => ProblemTerm) = name -> (() => contest.program(name))
+  private def fromContest(name: String): (String, () => ProblemTerm) =
+    name -> (() => contest.program(name))
 
   private val pointTerms: Vector[(String, () => ProblemTerm)] = Vector(
     fromHard("input_independent_stretch"),
@@ -56,11 +63,15 @@ final class ContestJit(contest: Contest, hard: claims.Hard, clauses: claims.Hard
     fromHard("type_self_record_unrolled")
   )
 
-  /** The points, in the order the deleted `contest_jit` module exported them. */
+  /** The points, in the order the deleted `contest_jit` module exported them.
+    */
   def points: Vector[String] = pointTerms.map(_._1)
 
   /** The point's program. */
   def program(name: String): ProblemTerm =
-    pointTerms.find(_._1 == name).map(_._2()).getOrElse(
-      throw IllegalArgumentException(s"$name is no point of contest_jit.pl")
-    )
+    pointTerms
+      .find(_._1 == name)
+      .map(_._2())
+      .getOrElse(
+        throw IllegalArgumentException(s"$name is no point of contest_jit.pl")
+      )

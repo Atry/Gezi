@@ -1,10 +1,10 @@
 package gezi.standardlibrary
 
 /** A slot of a knowledge term, the mixin of the fixed-width encoding a
-  * knowledge file writes, keyed by no string, so that several files
-  * contribute to one knowledge term. The term is a mixin of
-  * three groups, each a mixin of its own slots, a group holding about seven
-  * slots, a design guideline and not a hard limit:
+  * knowledge file writes, keyed by no string, so that several files contribute
+  * to one knowledge term. The term is a mixin of three groups, each a mixin of
+  * its own slots, a group holding about seven slots, a design guideline and not
+  * a hard limit:
   *
   * {{{
   * rewriting   lemmas, leaves
@@ -14,10 +14,10 @@ package gezi.standardlibrary
   * }}}
   *
   * A contribution to the slot of position p in the group of position g is
-  * `λself. λg0 g1 g2. gg λself. λc0 … cW. cp body`, W the group's width; a
-  * file that reads no self writes `_` for it, and one wrapper may give
-  * several slots, the λ distributing over the choice
-  * (`λ_ lemmas leaves. lemmas L + leaves V`).
+  * `λself. λg0 g1 g2. gg λself. λc0 … cW. cp body`, W the group's width; a file
+  * that reads no self writes `_` for it, and one wrapper may give several
+  * slots, the λ distributing over the choice (`λ_ lemmas leaves. lemmas L +
+  * leaves V`).
   *
   * @param group
   *   the position of the slot's group among the three
@@ -47,10 +47,16 @@ object KnowledgeSlot:
   val width: Int = 3
 
   /** The width of each group, in the groups' order. */
-  val groupWidths: Vector[Int] = Vector.tabulate(width)(group => KnowledgeSlot.values.count(_.group == group))
+  val groupWidths: Vector[Int] = Vector.tabulate(width)(group =>
+    KnowledgeSlot.values.count(_.group == group)
+  )
 
   require(
-    KnowledgeSlot.values.forall(slot => slot.position < groupWidths(slot.group)) &&
-      KnowledgeSlot.values.groupBy(slot => (slot.group, slot.position)).forall(_._2.size == 1),
+    KnowledgeSlot.values.forall(slot =>
+      slot.position < groupWidths(slot.group)
+    ) &&
+      KnowledgeSlot.values
+        .groupBy(slot => (slot.group, slot.position))
+        .forall(_._2.size == 1),
     "the knowledge slots' positions are not each group's 0 to its width"
   )

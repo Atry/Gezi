@@ -16,13 +16,14 @@ import gezi.generatedinputs.LambdalatticeText
 import gezi.rewritetrace.TracePageText
 
 /** The traces a kernel started with `--trace-directory` shows (`CellTraces`),
-  * on the data entry `contest-entries-wren` through the kernel's interpreter, generated normal
-  * forms bound by a cell and shown through the entry. Its purpose is to catch a player's file or a font
-  * a style sheet loads that the kernel's build does not put on the
-  * classpath, a page that still loads a file (which the sandbox of Jupyter
-  * Server's `/files/` answers by the login's redirect), a frame whose path
-  * does not lead from the working directory to the page of a trace the cell
-  * wrote, and a trace written but not shown or shown twice.
+  * on the data entry `contest-entries-wren` through the kernel's interpreter,
+  * generated normal forms bound by a cell and shown through the entry. Its
+  * purpose is to catch a player's file or a font a style sheet loads that the
+  * kernel's build does not put on the classpath, a page that still loads a file
+  * (which the sandbox of Jupyter Server's `/files/` answers by the login's
+  * redirect), a frame whose path does not lead from the working directory to
+  * the page of a trace the cell wrote, and a trace written but not shown or
+  * shown twice.
   */
 class CellTracesTest extends GeneratedProperties:
   // Measured 2026-11-19 on 8 CPUs (contest.slice, CPUs 0-7, nice 10), the 1-minute load 6.1: the suite 30.9 s, nearly
@@ -30,18 +31,26 @@ class CellTracesTest extends GeneratedProperties:
   // to 5 s.
   // FIXME: this suite exceeds the 3 s default: each case reads the whole entry `contest-entries-wren`, as CellInterpreterLawTest does, with https://github.com/Atry/private-overlay/issues/1925
   // its destination in a fresh directory, and the entry writes an article and a trace for the cell.
-  override val munitTimeout: scala.concurrent.duration.Duration = scala.concurrent.duration.Duration(50, "s")
+  override val munitTimeout: scala.concurrent.duration.Duration =
+    scala.concurrent.duration.Duration(50, "s")
 
   private def text(term: Term): String = LambdalatticeText.text(term)
 
   test("the player a page holds loads no file") {
     val player = CellTraces.player()
-    val loaded = player.styleSheets.flatMap("""url\("?([^")]+)""".r.findAllMatchIn(_).map(_.group(1))).filterNot(_.startsWith("data:"))
+    val loaded = player.styleSheets
+      .flatMap("""url\("?([^")]+)""".r.findAllMatchIn(_).map(_.group(1)))
+      .filterNot(_.startsWith("data:"))
     assertEquals(loaded, Vector.empty[String])
-    assert(player.script.nonEmpty && player.styleSheets.size == TracePageText.playerStyleSheets.size)
+    assert(
+      player.script.nonEmpty && player.styleSheets.size == TracePageText.playerStyleSheets.size
+    )
   }
 
-  property("a cell's output shows the page of each trace the cell wrote, each of which holds its player", _.copy(testLimit = 3)) {
+  property(
+    "a cell's output shows the page of each trace the cell wrote, each of which holds its player",
+    _.copy(testLimit = 3)
+  ) {
     for shown <- HoasGenerators.normalForm.forAllWithLog(text)
     yield
       val working = Files.createTempDirectory("cell-traces")
@@ -53,23 +62,47 @@ class CellTracesTest extends GeneratedProperties:
       )
       val buildRoot = Paths.get(sys.props("gezi.buildRoot"))
       val interpreter =
-        CellInterpreter.started(buildRoot, NotebookLocation.of(working.resolve("cell-traces.ipynb")), entry, Some(traces))
+        CellInterpreter.started(
+          buildRoot,
+          NotebookLocation.of(working.resolve("cell-traces.ipynb")),
+          entry,
+          Some(traces)
+        )
       val before = traces.traces()
-      interpreter.execute(s"λ\"shown\". (${text(shown)})", storeHistory = true, None, None, None) match
+      interpreter.execute(
+        s"λ\"shown\". (${text(shown)})",
+        storeHistory = true,
+        None,
+        None,
+        None
+      ) match
         case ExecuteResult.Success(data) =>
-          val written = traces.traces().filterNot(before.contains).map(CellTraces.notebookPage)
+          val written = traces
+            .traces()
+            .filterNot(before.contains)
+            .map(CellTraces.notebookPage)
           val html = data.detailedData.get("text/html") match
             case Some(DisplayData.Value.String(value)) => value
-            case other                                 => fail(s"the output has no HTML: $other")
-          val sources = """src="([^"]+)"""".r.findAllMatchIn(html).map(_.group(1)).toVector
+            case other => fail(s"the output has no HTML: $other")
+          val sources =
+            """src="([^"]+)"""".r.findAllMatchIn(html).map(_.group(1)).toVector
           Result
-            .diff(sources.map(source => working.resolve(source).normalize), written.map(_.toAbsolutePath.normalize))(_ == _)
-            .and(Result.diff(written.filterNot(Files.isRegularFile(_)), Vector.empty)(_ == _))
+            .diff(
+              sources.map(source => working.resolve(source).normalize),
+              written.map(_.toAbsolutePath.normalize)
+            )(_ == _)
+            .and(
+              Result.diff(
+                written.filterNot(Files.isRegularFile(_)),
+                Vector.empty
+              )(_ == _)
+            )
             .and(
               Result.diff(
                 written.filter(page =>
                   val content = Files.readString(page, StandardCharsets.UTF_8)
-                  content.contains("<link rel=\"stylesheet\"") || content.contains("<script src=")
+                  content.contains("<link rel=\"stylesheet\"") || content
+                    .contains("<script src=")
                 ),
                 Vector.empty
               )(_ == _)

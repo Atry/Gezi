@@ -8,13 +8,12 @@ import gezi.contest.corpora.merges.ClaimFact.ScoredFiniteHead
 import gezi.frontend.Term
 import gezi.frontend.Term.*
 
-/** The port of the deleted Prolog file
-  * (`git show 91b3f11e1^:lambda_jit/corpora/contest_merge_twins.pl`; its data are
-  * `problems/merge_twins`): each twin asks
-  * its original's question (grid paths, Fibonacci, the binary product) at the
-  * same size with the twin arithmetic of `MergeDynamic` and twin bodies. The
-  * twin bodies and the table of twins are read from the family's directory,
-  * `gezi/problems/merge_twins`.
+/** The port of the deleted Prolog file (`git show
+  * 91b3f11e1^:lambda_jit/corpora/contest_merge_twins.pl`; its data are
+  * `problems/merge_twins`): each twin asks its original's question (grid paths,
+  * Fibonacci, the binary product) at the same size with the twin arithmetic of
+  * `MergeDynamic` and twin bodies. The twin bodies and the table of twins are
+  * read from the family's directory, `gezi/problems/merge_twins`.
   */
 final class MergeTwins(
     problems: ProblemFamilies,
@@ -26,20 +25,25 @@ final class MergeTwins(
 
   private val file = problems("merge_twins")
 
-  /** The twins, each with its problem and its original (`twin/3`), the
-    * problem a constructor of problems/merge_twins/problem read by its
-    * position (`ProblemData.alternative`).
+  /** The twins, each with its problem and its original (`twin/3`), the problem
+    * a constructor of problems/merge_twins/problem read by its position
+    * (`ProblemData.alternative`).
     */
   val twins: Vector[(String, TwinProblem, String)] =
-    file.rows("twin").map(arguments =>
-      (
-        ProblemData.text(arguments(1)),
-        ProblemData.alternative(arguments(0), TwinProblem.values.size) match
-          case (position, Vector()) => TwinProblem.fromOrdinal(position)
-          case (_, fields)          => throw IllegalArgumentException(s"a problem of contest_merge_twins has ${fields.size} fields"),
-        ProblemData.text(arguments(2))
+    file
+      .rows("twin")
+      .map(arguments =>
+        (
+          ProblemData.text(arguments(1)),
+          ProblemData.alternative(arguments(0), TwinProblem.values.size) match
+            case (position, Vector()) => TwinProblem.fromOrdinal(position)
+            case (_, fields)          =>
+              throw IllegalArgumentException(
+                s"a problem of contest_merge_twins has ${fields.size} fields"
+              ),
+          ProblemData.text(arguments(2))
+        )
       )
-    )
 
   /** The twin's program on its original's data (`twin_term/2`). */
   def program(twin: String): ProblemTerm =
@@ -47,7 +51,9 @@ final class MergeTwins(
       case Some((_, TwinProblem.Grid, original)) =>
         val (_, size, claimed) = dynamic.gridPoints
           .find(_._1 == original)
-          .getOrElse(throw IllegalArgumentException(s"$original is no grid point"))
+          .getOrElse(
+            throw IllegalArgumentException(s"$original is no grid point")
+          )
         twinGridTerm(size, claimed)
       case Some((_, TwinProblem.Fibonacci, original)) =>
         val (n, claimed) = fibonacci.point(original)
@@ -55,7 +61,10 @@ final class MergeTwins(
       case Some((_, TwinProblem.Product, original)) =>
         val (left, right, claimed) = binary.claimed(original)
         twinProductTerm(left, right, claimed)
-      case None => throw IllegalArgumentException(s"$twin is no twin of contest_merge_twins")
+      case None =>
+        throw IllegalArgumentException(
+          s"$twin is no twin of contest_merge_twins"
+        )
 
   /** Grid paths casing on c first, paths(r, c - 1) + paths(r - 1, c)
     * (`twin_grid_term/3`).
@@ -63,8 +72,14 @@ final class MergeTwins(
   def twinGridTerm(size: Int, claimed: BigInt): ProblemTerm =
     dynamic.withTwinArithmetic(names =>
       λ(one =>
-        λ(grid => names.equality(grid(dynamic.unary(size))(dynamic.unary(size)))(dynamic.binary(claimed)))(
-          file.program("twin_grid_body", names.plus, one)(file.program("twin_grid_body", names.plus, one))
+        λ(grid =>
+          names.equality(grid(dynamic.unary(size))(dynamic.unary(size)))(
+            dynamic.binary(claimed)
+          )
+        )(
+          file.program("twin_grid_body", names.plus, one)(
+            file.program("twin_grid_body", names.plus, one)
+          )
         )
       )(dynamic.binary(1))
     )
@@ -74,7 +89,9 @@ final class MergeTwins(
     dynamic.withTwinArithmetic(names =>
       λ(zero =>
         λ(one =>
-          λ(function => names.equality(function(dynamic.unary(n)))(dynamic.binary(claimed)))(
+          λ(function =>
+            names.equality(function(dynamic.unary(n)))(dynamic.binary(claimed))
+          )(
             file.program("twin_fibonacci_body", names.plus, zero, one)(
               file.program("twin_fibonacci_body", names.plus, zero, one)
             )
@@ -84,23 +101,32 @@ final class MergeTwins(
     )
 
   /** The product with the twin multiplication (`twin_product_term/4`). */
-  def twinProductTerm(left: BigInt, right: BigInt, claimed: BigInt): ProblemTerm =
+  def twinProductTerm(
+      left: BigInt,
+      right: BigInt,
+      claimed: BigInt
+  ): ProblemTerm =
     dynamic.withTwinArithmetic(names =>
       λ(zero =>
-        λ(times => names.equality(times(dynamic.binary(left))(dynamic.binary(right)))(dynamic.binary(claimed)))(
+        λ(times =>
+          names.equality(times(dynamic.binary(left))(dynamic.binary(right)))(
+            dynamic.binary(claimed)
+          )
+        )(
           dynamic.twinTimesFunction(names.plus, zero)
         )
       )(dynamic.binary(0))
     )
 
   /** The intended head of the twin's original, which the twin shares. */
-  private def originalValue(problem: TwinProblem, original: String): Template = problem match
-    case TwinProblem.Grid      => dynamic.gridValue(original)
-    case TwinProblem.Fibonacci => fibonacci.value(original)
-    case TwinProblem.Product   => binary.value(original)
+  private def originalValue(problem: TwinProblem, original: String): Template =
+    problem match
+      case TwinProblem.Grid      => dynamic.gridValue(original)
+      case TwinProblem.Fibonacci => fibonacci.value(original)
+      case TwinProblem.Product   => binary.value(original)
 
-  /** The claim facts of the twins: each poses its original's claim with its
-    * own argument.
+  /** The claim facts of the twins: each poses its original's claim with its own
+    * argument.
     */
   def claims: Vector[ClaimFact] =
     twins.flatMap((twin, problem, original) =>

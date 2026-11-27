@@ -19,9 +19,8 @@ import gezi.ir.StorageAccess
   * whose leaves include two opaque terms, one named with a double quote and a
   * backslash, and two URI nodes, one with a space. Its purpose is to catch a
   * leaf written as a name the text binds nowhere, which the front end rejects,
-  * a literal that reads
-  * back as another instruction, and a leaf binding the reader takes for a
-  * shared instruction's.
+  * a literal that reads back as another instruction, and a leaf binding the
+  * reader takes for a shared instruction's.
   */
 class TraceStartLeavesLawTest extends GeneratedProperties:
 
@@ -37,9 +36,14 @@ class TraceStartLeavesLawTest extends GeneratedProperties:
     NoFacts.uri(java.net.URI("gezi:/cell/1"))
   )
 
-  private def terms(depth: Int, binders: Int): Gen[DeBruijnTermOf[NoFactsTerm]] =
+  private def terms(
+      depth: Int,
+      binders: Int
+  ): Gen[DeBruijnTermOf[NoFactsTerm]] =
     val leaf = Gen.elementUnsafe(
-      (leaves.map(DeBruijnTerm.Constant(_)) ++ (0 until binders).map(DeBruijnTerm.Variable(_))).toList
+      (leaves.map(DeBruijnTerm.Constant(_)) ++ (0 until binders).map(
+        DeBruijnTerm.Variable(_)
+      )).toList
     )
     if depth <= 0 then leaf
     else
@@ -53,13 +57,22 @@ class TraceStartLeavesLawTest extends GeneratedProperties:
       )
 
   private val starts: Gen[NoFactsTerm] =
-    terms(5, 0).map(term => Defunctionalization.thunkInstruction[NoFacts.type](DeBruijnTerm.Lambda(term)))
+    terms(5, 0).map(term =>
+      Defunctionalization.thunkInstruction[NoFacts.type](
+        DeBruijnTerm.Lambda(term)
+      )
+    )
 
   property("a start that holds opaque instructions reads back as itself") {
     for start <- starts.forAll
     yield
       val text = TraceStart.written(start, None)
       Result
-        .assert(Configured.same(TraceStart.readLocated(text, java.net.URI("trace:start")).start, start))
+        .assert(
+          Configured.same(
+            TraceStart.readLocated(text, java.net.URI("trace:start")).start,
+            start
+          )
+        )
         .log(text)
   }

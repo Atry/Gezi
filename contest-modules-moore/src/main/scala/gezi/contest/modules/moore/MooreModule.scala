@@ -42,13 +42,12 @@ final case class MooreCriteria[C <: NativeSpecializer & Singleton](
     bits64: Configured[C]
 )
 
-/** The executor module that runs FFI programs: the framework's
-  * reading executor of the entry's JIT (`Defaults.executor`), which reads
-  * every other program as it does, and `MooreExecutor` for a Moore machine
-  * state. An entry selects it by the constructor `module` of the executors'
-  * list, with the parameters of `corpora/library/java_ffi/moore_parameters`,
-  * and enables the knowledge `corpora/compiler/java_ffi`, whose data families
-  * the criteria name.
+/** The executor module that runs FFI programs: the framework's reading executor
+  * of the entry's JIT (`Defaults.executor`), which reads every other program as
+  * it does, and `MooreExecutor` for a Moore machine state. An entry selects it
+  * by the constructor `module` of the executors' list, with the parameters of
+  * `corpora/library/java_ffi/moore_parameters`, and enables the knowledge
+  * `corpora/compiler/java_ffi`, whose data families the criteria name.
   */
 final class MooreModule extends ExecutorModule:
 
@@ -57,7 +56,10 @@ final class MooreModule extends ExecutorModule:
   /** The executor of the inputs. Throws `EntryDataError` for parameters that
     * are no tuple of the eight fields of `MooreCriteria`.
     */
-  def executor[C <: NativeSpecializer & Singleton](parameters: Configured[NoFacts.type], inputs: ExecutorModuleInputs[C]): Executor[C, ?] =
+  def executor[C <: NativeSpecializer & Singleton](
+      parameters: Configured[NoFacts.type],
+      inputs: ExecutorModuleInputs[C]
+  ): Executor[C, ?] =
     given NoFacts.type = NoFacts
     val specializer = inputs.jit.configuration.specializer
     // A criterion is a library term, a pure key, the same under every configuration: read under no facts, then
@@ -66,12 +68,25 @@ final class MooreModule extends ExecutorModule:
       Pure
         .of(KnowledgeReading.term(term, Set.empty))
         .map(Configured.fromPure(specializer))
-        .getOrElse(throw EntryDataError("the Moore module's criteria are library terms with no parallel"))
+        .getOrElse(
+          throw EntryDataError(
+            "the Moore module's criteria are library terms with no parallel"
+          )
+        )
     val criteria =
       try
         KnowledgeReading.run(
           KnowledgeReading.fields(Value.of(parameters), 8).flatMap {
-            case Vector(state, methodSymbols, symbols, boolean, bits8, bits16, bits32, bits64) =>
+            case Vector(
+                  state,
+                  methodSymbols,
+                  symbols,
+                  boolean,
+                  bits8,
+                  bits16,
+                  bits32,
+                  bits64
+                ) =>
               Computation.pure(
                 MooreCriteria[C](
                   criterion(state),
@@ -84,17 +99,26 @@ final class MooreModule extends ExecutorModule:
                   criterion(bits64)
                 )
               )
-            case fields => throw EntryDataError(s"the Moore module's parameters have ${fields.size} fields, not 8")
+            case fields =>
+              throw EntryDataError(
+                s"the Moore module's parameters have ${fields.size} fields, not 8"
+              )
           },
           MooreModule.parametersReadingLimit
         )
-      catch case KnowledgeReadingError(reason) => throw EntryDataError(s"the Moore module's parameters: $reason")
-    MooreExecutor[C](Defaults.executor(inputs.jit, inputs.reading), inputs.jit, criteria)
+      catch
+        case KnowledgeReadingError(reason) =>
+          throw EntryDataError(s"the Moore module's parameters: $reason")
+    MooreExecutor[C](
+      Defaults.executor(inputs.jit, inputs.reading),
+      inputs.jit,
+      criteria
+    )
 
 object MooreModule:
 
   /** The evaluator steps reading the parameters may take: a tuple of eight
-    * fields, each read to its head, the limit the framework's test modules
-    * read theirs within (`TestModuleParameters.readingLimit`).
+    * fields, each read to its head, the limit the framework's test modules read
+    * theirs within (`TestModuleParameters.readingLimit`).
     */
   val parametersReadingLimit: Long = 10000L

@@ -8,8 +8,7 @@ import java.nio.file.Paths
   */
 object LibraryFiles:
 
-  /** The root of Gezi's build, which the build passes to the forked
-    * test JVM.
+  /** The root of Gezi's build, which the build passes to the forked test JVM.
     */
   val buildRoot: Path = Paths.get(
     sys.props.getOrElse(
@@ -20,27 +19,31 @@ object LibraryFiles:
     )
   )
 
-  /** The source tree of the standard library, `corpora`, whose `library`
-    * holds the library files and `compiler` the knowledge files.
+  /** The source tree of the standard library, `corpora`, whose `library` holds
+    * the library files and `compiler` the knowledge files.
     */
   val sourceTree: Path = buildRoot.resolve("corpora")
 
-  /** The library of the file at the path relative to the build root, such
-    * as `tests/library_fixtures/presets.lambdalattice` or
+  /** The library of the file at the path relative to the build root, such as
+    * `tests/library_fixtures/presets.lambdalattice` or
     * `corpora/compiler/top.lambdalattice`, with the backends' checks: the
-    * knowledge the file holds as the one field of its tuple, a knowledge
-    * file of one field or a fixture whose field is the choice of the
-    * knowledge files it imports at its top (`StandardLibrary.compiledAt`),
-    * read off the tree whose visible subtree is Gezi's directory. A
-    * fixture under tests/ imports from `gezi "corpora"`. FIXME: those https://github.com/Atry/private-overlay/issues/1924
-    * imports depend on the project root's directory being named gezi;
-    * they break if that directory is renamed.
+    * knowledge the file holds as the one field of its tuple, a knowledge file
+    * of one field or a fixture whose field is the choice of the knowledge files
+    * it imports at its top (`StandardLibrary.compiledAt`), read off the tree
+    * whose visible subtree is Gezi's directory. A fixture under tests/ imports
+    * from `gezi "corpora"`. FIXME: those
+    * https://github.com/Atry/private-overlay/issues/1924 imports depend on the
+    * project root's directory being named gezi; they break if that directory is
+    * renamed.
     */
-  def compiled(file: String, backends: Vector[LibraryBackend]): StandardLibrary =
+  def compiled(
+      file: String,
+      backends: Vector[LibraryBackend]
+  ): StandardLibrary =
     StandardLibrary.compiledAt(buildRoot, buildRoot.resolve(file), backends)
 
-  /** The source tree of a small library of `tests/standard_library_fixtures`,
-    * a directory whose name is the fixture's.
+  /** The source tree of a small library of `tests/standard_library_fixtures`, a
+    * directory whose name is the fixture's.
     */
   def fixture(name: String): Path =
     buildRoot.resolve("tests/standard_library_fixtures").resolve(name)

@@ -21,5 +21,8 @@ class TrailingZerosLawTest extends GeneratedProperties:
     for number <- Gen.int(Range.linear(0, 700)).forAll
     yield
       val factorial = (1 to number).foldLeft(BigInt(1))(_ * _)
-      Result.diff(BigInt(TrailingZeros.count(BigInt(number).bigInteger)), BigInt(zeros(factorial, 0)))(_ == _)
+      Result.diff(
+        BigInt(TrailingZeros.count(BigInt(number).bigInteger)),
+        BigInt(zeros(factorial, 0))
+      )(_ == _)
   }

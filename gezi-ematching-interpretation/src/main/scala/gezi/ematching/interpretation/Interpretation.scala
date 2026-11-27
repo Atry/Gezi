@@ -21,47 +21,56 @@ import gezi.ir.NativeSpecializer
 import scala.annotation.tailrec
 import gezi.ir.{Apply, Choice, Parallel, Thunk}
 
-/** The backend that interprets a program: compiling keeps the program as it
-  * is, and every call walks the program's data. A match looks the kind and
-  * the key up in the program's trees (`Program.trees`, a lazy value of the
-  * program computed on its first use) and runs the key's tree by walking its
-  * steps from the first, then the matches of the seeds that end there, then
-  * each branch; a building walks its tree, a code body looked up in the
-  * program's codes where it is referenced.
+/** The backend that interprets a program: compiling keeps the program as it is,
+  * and every call walks the program's data. A match looks the kind and the key
+  * up in the program's trees (`Program.trees`, a lazy value of the program
+  * computed on its first use) and runs the key's tree by walking its steps from
+  * the first, then the matches of the seeds that end there, then each branch; a
+  * building walks its tree, a code body looked up in the program's codes where
+  * it is referenced.
   *
   * A run of a tree holds its registers in an immutable array (`IArray`),
-  * written once each: a step that writes one passes on a copy, grown when
-  * the register lies past its end, so that the number of registers need not
-  * be computed before the run; a register no step wrote reads -1. Each
-  * seed's matches come out in the order of the closure backend: the entries
-  * an `Each` step reads in their order, depth first; the matches of a key
-  * are handed over grouped by seed, in the seeds' order.
+  * written once each: a step that writes one passes on a copy, grown when the
+  * register lies past its end, so that the number of registers need not be
+  * computed before the run; a register no step wrote reads -1. Each seed's
+  * matches come out in the order of the closure backend: the entries an `Each`
+  * step reads in their order, depth first; the matches of a key are handed over
+  * grouped by seed, in the seeds' order.
   */
 object Interpretation extends Backend:
 
-  def compiled[C <: NativeSpecializer & Singleton](program: Program[C]): CompiledProgram[C] = InterpretedProgram(program)
+  def compiled[C <: NativeSpecializer & Singleton](
+      program: Program[C]
+  ): CompiledProgram[C] = InterpretedProgram(program)
 
 /** The registers of one run of a seed. */
 private type Registers = IArray[Int]
 
-/** A witness's run: the registers of its first success, if it has one, and
-  * the entries its steps read up to that success.
+/** A witness's run: the registers of its first success, if it has one, and the
+  * entries its steps read up to that success.
   */
-private final case class Witnessed(registers: Option[Registers], entriesRead: Int)
+private final case class Witnessed(
+    registers: Option[Registers],
+    entriesRead: Int
+)
 
 private val noWitness: Witnessed = Witnessed(None, 0)
 
-/** The searched of a tree so far: the matches found, by the number of the
-  * seed that found them, each seed's in the order found; and the entries
-  * read.
+/** The searched of a tree so far: the matches found, by the number of the seed
+  * that found them, each seed's in the order found; and the entries read.
   */
-private final case class Searched(bySeed: Vector[Vector[Match]], entriesRead: Int):
+private final case class Searched(
+    bySeed: Vector[Vector[Match]],
+    entriesRead: Int
+):
   def read(count: Int): Searched = copy(entriesRead = entriesRead + count)
 
   def found(seed: Int, matched: Match): Searched =
     copy(bySeed = bySeed.updated(seed, bySeed(seed) :+ matched))
 
-private final class InterpretedProgram[C <: NativeSpecializer & Singleton](program: Program[C]) extends CompiledProgram[C]:
+private final class InterpretedProgram[C <: NativeSpecializer & Singleton](
+    program: Program[C]
+) extends CompiledProgram[C]:
 
   def matches(
       kind: SeedKind,
@@ -71,7 +80,10 @@ private final class InterpretedProgram[C <: NativeSpecializer & Singleton](progr
   ): Matching =
     program.trees.get((kind, key)) match
       case Some(tree) =>
-        val none = Searched(Vector.fill(program.seeds((kind, key)).size)(Vector.empty), 0)
+        val none = Searched(
+          Vector.fill(program.seeds((kind, key)).size)(Vector.empty),
+          0
+        )
         val searched = runTree(tree, graph, IArray(delta), none)
         Matching(searched.bySeed.flatten, searched.entriesRead)
       case None => Matching.none
@@ -81,7 +93,11 @@ private final class InterpretedProgram[C <: NativeSpecializer & Singleton](progr
       graph: Graph,
       bindings: Vector[Option[Int]]
   ): (Graph, Int) =
-    built(program.orientations(orientation).added, graph, bindings.map(_.getOrElse(-1)))
+    built(
+      program.orientations(orientation).added,
+      graph,
+      bindings.map(_.getOrElse(-1))
+    )
 
   def shared[Graph <: GraphBuilding[C, Graph]](
       orientation: Int,
@@ -113,7 +129,11 @@ private final class InterpretedProgram[C <: NativeSpecializer & Singleton](progr
   private def read(registers: Registers, register: Int): Int =
     if register < registers.length then registers(register) else -1
 
-  private def written(registers: Registers, register: Int, node: Int): Registers =
+  private def written(
+      registers: Registers,
+      register: Int,
+      node: Int
+  ): Registers =
     if register < registers.length then registers.updated(register, node)
     else
       IArray.tabulate(register + 1)(index =>
@@ -132,10 +152,10 @@ private final class InterpretedProgram[C <: NativeSpecializer & Singleton](progr
   ): Searched =
     run(tree, 0, graph, registers, searched)
 
-  /** The tree's steps from the index on, for every way they succeed, then
-    * the matches of the seeds that end there and each branch: the matching
-    * so far, with the matches they find and the entries they read added. An
-    * `Each` step reads every entry of its collection.
+  /** The tree's steps from the index on, for every way they succeed, then the
+    * matches of the seeds that end there and each branch: the matching so far,
+    * with the matches they find and the entries they read added. An `Each` step
+    * reads every entry of its collection.
     */
   private def run(
       tree: SeedTree[C],
@@ -164,18 +184,28 @@ private final class InterpretedProgram[C <: NativeSpecializer & Singleton](progr
         run(tree, index + 1, graph, written, current)
       def eachNode(entries: Vector[Int], target: Int): Searched =
         entries.foldLeft(searched.read(entries.size))((current, node) =>
-          if graph.live(node) then next(written(registers, target, node), current)
+          if graph.live(node) then
+            next(written(registers, target, node), current)
           else current
         )
       steps(index) match
         case Step.Layer(node, template, children) =>
-          layerRead(graph.layer(read(registers, node)), template, children, registers) match
+          layerRead(
+            graph.layer(read(registers, node)),
+            template,
+            children,
+            registers
+          ) match
             case Some(withChildren) => next(withChildren, searched)
             case None               => searched
         case Step.Root(node, target) =>
-          next(written(registers, target, graph.root(read(registers, node))), searched)
+          next(
+            written(registers, target, graph.root(read(registers, node))),
+            searched
+          )
         case Step.Same(first, second) =>
-          if read(registers, first) == read(registers, second) then next(registers, searched)
+          if read(registers, first) == read(registers, second) then
+            next(registers, searched)
           else searched
         case Step.InstructionIn(instruction, root) =>
           graph.instructionNode(instruction) match
@@ -183,7 +213,8 @@ private final class InterpretedProgram[C <: NativeSpecializer & Singleton](progr
               next(registers, searched)
             case _ => searched
         case Step.HasClosure(root) =>
-          if graph.hasClosure(read(registers, root)) then next(registers, searched)
+          if graph.hasClosure(read(registers, root)) then
+            next(registers, searched)
           else searched
         case Step.InstructionNode(instruction, target) =>
           graph.instructionNode(instruction) match
@@ -213,9 +244,9 @@ private final class InterpretedProgram[C <: NativeSpecializer & Singleton](progr
             case Some(withWitness) => next(withWitness, withReads)
             case None              => withReads
 
-  /** The steps from the index on, inside a witness: the first way they
-    * succeed, and the entries read up to it. An `Each` step reads its
-    * entries up to the first that leads to a success.
+  /** The steps from the index on, inside a witness: the first way they succeed,
+    * and the entries read up to it. An `Each` step reads its entries up to the
+    * first that leads to a success.
     */
   private def first(
       steps: Vector[Step[C]],
@@ -225,17 +256,23 @@ private final class InterpretedProgram[C <: NativeSpecializer & Singleton](progr
   ): Witnessed =
     if index >= steps.size then Witnessed(Some(registers), 0)
     else
-      def next(written: Registers): Witnessed = first(steps, index + 1, graph, written)
+      def next(written: Registers): Witnessed =
+        first(steps, index + 1, graph, written)
       steps(index) match
         case Step.Layer(node, template, children) =>
-          layerRead(graph.layer(read(registers, node)), template, children, registers) match
+          layerRead(
+            graph.layer(read(registers, node)),
+            template,
+            children,
+            registers
+          ) match
             case Some(withChildren) => next(withChildren)
             case None               => noWitness
         case Step.Root(node, target) =>
           next(written(registers, target, graph.root(read(registers, node))))
         case Step.Same(firstRegister, secondRegister) =>
-          if read(registers, firstRegister) == read(registers, secondRegister) then
-            next(registers)
+          if read(registers, firstRegister) == read(registers, secondRegister)
+          then next(registers)
           else noWitness
         case Step.InstructionIn(instruction, root) =>
           graph.instructionNode(instruction) match
@@ -254,20 +291,60 @@ private final class InterpretedProgram[C <: NativeSpecializer & Singleton](progr
             case Some(node) => next(written(registers, target, node))
             case None       => noWitness
         case Step.EachHeadMember(root, head, target) =>
-          firstNode(graph.headMembers(read(registers, root), head), 0, 0, target, steps, index, graph, registers)
+          firstNode(
+            graph.headMembers(read(registers, root), head),
+            0,
+            0,
+            target,
+            steps,
+            index,
+            graph,
+            registers
+          )
         case Step.EachMember(root, shape, target) =>
-          firstNode(graph.members(read(registers, root), shape), 0, 0, target, steps, index, graph, registers)
+          firstNode(
+            graph.members(read(registers, root), shape),
+            0,
+            0,
+            target,
+            steps,
+            index,
+            graph,
+            registers
+          )
         case Step.EachUser(root, role, target) =>
-          firstNode(graph.users(read(registers, root), role), 0, 0, target, steps, index, graph, registers)
+          firstNode(
+            graph.users(read(registers, root), role),
+            0,
+            0,
+            target,
+            steps,
+            index,
+            graph,
+            registers
+          )
         case Step.EachPositionUser(root, role, position, target) =>
           val entries = graph.positionUsers(read(registers, root), role)
-          firstPositionUser(entries, 0, 0, position, target, steps, index, graph, registers)
+          firstPositionUser(
+            entries,
+            0,
+            0,
+            position,
+            target,
+            steps,
+            index,
+            graph,
+            registers
+          )
         case Step.Once(inner) =>
           val witnessed = first(inner, 0, graph, registers)
           witnessed.registers match
             case Some(withWitness) =>
               val after = next(withWitness)
-              Witnessed(after.registers, witnessed.entriesRead + after.entriesRead)
+              Witnessed(
+                after.registers,
+                witnessed.entriesRead + after.entriesRead
+              )
             case None => witnessed
 
   /** The first entry from the position on whose node is live and leads the
@@ -288,11 +365,22 @@ private final class InterpretedProgram[C <: NativeSpecializer & Singleton](progr
     else
       val node = entries(position)
       val attempt =
-        if graph.live(node) then first(steps, index + 1, graph, written(registers, target, node))
+        if graph.live(node) then
+          first(steps, index + 1, graph, written(registers, target, node))
         else noWitness
       val readNow = readSoFar + 1 + attempt.entriesRead
       if attempt.registers.isDefined then Witnessed(attempt.registers, readNow)
-      else firstNode(entries, position + 1, readNow, target, steps, index, graph, registers)
+      else
+        firstNode(
+          entries,
+          position + 1,
+          readNow,
+          target,
+          steps,
+          index,
+          graph,
+          registers
+        )
 
   @tailrec
   private def firstPositionUser(
@@ -316,7 +404,17 @@ private final class InterpretedProgram[C <: NativeSpecializer & Singleton](progr
       val readNow = readSoFar + 1 + attempt.entriesRead
       if attempt.registers.isDefined then Witnessed(attempt.registers, readNow)
       else
-        firstPositionUser(entries, entryIndex + 1, readNow, position, target, steps, index, graph, registers)
+        firstPositionUser(
+          entries,
+          entryIndex + 1,
+          readNow,
+          position,
+          target,
+          steps,
+          index,
+          graph,
+          registers
+        )
 
   /** The registers with the layer's children written, when the layer has the
     * template's shape, its choice's number of members, its thunk's code and
@@ -334,7 +432,10 @@ private final class InterpretedProgram[C <: NativeSpecializer & Singleton](progr
       Some(childrenWritten(registers, children, Vector(left, right)))
     case (LayerTemplate.Choice, Choice(left, right)) =>
       Some(childrenWritten(registers, children, Vector(left, right)))
-    case (LayerTemplate.Thunk(code, holes), Thunk(layerCode, layerHoles, fillings))
+    case (
+          LayerTemplate.Thunk(code, holes),
+          Thunk(layerCode, layerHoles, fillings)
+        )
         if layerCode == code && layerHoles == holes && fillings.size == children.size =>
       Some(childrenWritten(registers, children, fillings))
     case _ => None
@@ -375,9 +476,9 @@ private final class InterpretedProgram[C <: NativeSpecializer & Singleton](progr
 
   // ---- buildings ----
 
-  /** The building's node added to the graph, children first; the values are
-    * an instance's bindings (-1 for an unbound metavariable) or a β step's
-    * slot values.
+  /** The building's node added to the graph, children first; the values are an
+    * instance's bindings (-1 for an unbound metavariable) or a β step's slot
+    * values.
     */
   private def built[Graph <: GraphBuilding[C, Graph]](
       building: Building[C],
@@ -388,8 +489,9 @@ private final class InterpretedProgram[C <: NativeSpecializer & Singleton](progr
       val node = values(index)
       require(node >= 0, s"the value at $index is unbound")
       (graph, node)
-    case Building.InstructionNode(instruction) => graph.instructionAdded(instruction)
-    case Building.CodeBody(code)     => built(codeBuilding(code), graph, values)
+    case Building.InstructionNode(instruction) =>
+      graph.instructionAdded(instruction)
+    case Building.CodeBody(code) => built(codeBuilding(code), graph, values)
     case Building.Apply(function, argument, readByBeta) =>
       val (withFunction, functionNode) = built(function, graph, values)
       val (withArgument, argumentNode) = built(argument, withFunction, values)
@@ -414,7 +516,8 @@ private final class InterpretedProgram[C <: NativeSpecializer & Singleton](progr
       graph: Graph,
       values: Vector[Int]
   ): (Graph, Vector[Int]) =
-    buildings.foldLeft((graph, Vector.empty[Int])) { case ((current, nodes), building) =>
-      val (next, node) = built(building, current, values)
-      (next, nodes :+ node)
+    buildings.foldLeft((graph, Vector.empty[Int])) {
+      case ((current, nodes), building) =>
+        val (next, node) = built(building, current, values)
+        (next, nodes :+ node)
     }

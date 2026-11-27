@@ -16,7 +16,12 @@ object SetFreeEmptySearch:
   private val family = "set_free_empty_search"
 
   /** A point: its spelling, height and target (`empty_search_point/4`). */
-  final case class EmptySearchPoint(point: String, spelling: Spelling, height: Int, target: Int)
+  final case class EmptySearchPoint(
+      point: String,
+      spelling: Spelling,
+      height: Int,
+      target: Int
+  )
 
   /** The points: the facts read, then each size with each twin, unreachable,
     * the target one above the height.
@@ -24,8 +29,14 @@ object SetFreeEmptySearch:
   def points(group: ReductionGroup): Vector[EmptySearchPoint] =
     val stated = group.problems(family).rows("empty_search_point").map {
       case Vector(point, spelling, height, target) =>
-        EmptySearchPoint(ProblemData.text(point), SetFree.spelling(spelling), ProblemData.small(height), ProblemData.small(target))
-      case other => throw IllegalArgumentException(s"not an empty search point: $other")
+        EmptySearchPoint(
+          ProblemData.text(point),
+          SetFree.spelling(spelling),
+          ProblemData.small(height),
+          ProblemData.small(target)
+        )
+      case other =>
+        throw IllegalArgumentException(s"not an empty search point: $other")
     }
     val sized = for
       size <- group.problems(family).rows("empty_search_size")
@@ -51,9 +62,15 @@ object SetFreeEmptySearch:
           λ(successors =>
             λ(goal =>
               λ(stack =>
-                stack(empty)(λ(node =>
-                  λ(rest => goal(node)(trueValue)(self(successors)(goal)(append(successors(node))(rest))))
-                ))
+                stack(empty)(
+                  λ(node =>
+                    λ(rest =>
+                      goal(node)(trueValue)(
+                        self(successors)(goal)(append(successors(node))(rest))
+                      )
+                    )
+                  )
+                )
               )
             )
           )
@@ -68,9 +85,15 @@ object SetFreeEmptySearch:
   /** `(Y (Template E append)) Successors Goal Stack`
     * (`empty_search_point_surface/2`).
     */
-  def pointSurface(attractors: Attractors, point: EmptySearchPoint): ProblemTerm =
+  def pointSurface(
+      attractors: Attractors,
+      point: EmptySearchPoint
+  ): ProblemTerm =
     attractors.fixpoint(
-      Attractors.spelledSurface(point.spelling, emptyOnExhaustionTemplate(attractors))(emptyTerm(attractors))(
+      Attractors.spelledSurface(
+        point.spelling,
+        emptyOnExhaustionTemplate(attractors)
+      )(emptyTerm(attractors))(
         attractors.functionSurface("append", point.spelling)
       )
     )(SetFreeSearch.successors(attractors, point.spelling, point.height))(
@@ -84,7 +107,8 @@ object SetFreeEmptySearch:
         point.point,
         pointSurface(group.attractors, point),
         "boolean",
-        if point.target <= point.height then Expected.One(Scott.leaf("true")) else Expected.Trees(Vector.empty),
+        if point.target <= point.height then Expected.One(Scott.leaf("true"))
+        else Expected.Trees(Vector.empty),
         Reduction.defaultLimits
       )
     )

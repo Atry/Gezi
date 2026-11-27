@@ -2,32 +2,31 @@ package gezi.hotspot
 
 import gezi.ir.{Configured, NativeSpecializer}
 
-/** What a compiler compiles: a code, a closure (the term of a thunk layer, with its fillings), or a whole program,
-  * the terms of the configuration `C`.
+/** What a compiler compiles: a code, a closure (the term of a thunk layer, with
+  * its fillings), or a whole program, the terms of the configuration `C`.
   */
 enum CompilationUnit[C <: NativeSpecializer & Singleton]:
   case Code(code: gezi.ir.Code)
   case Closure(thunk: Configured[C])
   case Program(root: Configured[C])
 
-/** The configuration that, with the unit, keys the artifacts a compiler
-  * writes: its schedule, budget and refinement, as a value whose equality
-  * tells two configurations apart; each compiler gives its own
-  * implementation.
+/** The configuration that, with the unit, keys the artifacts a compiler writes:
+  * its schedule, budget and refinement, as a value whose equality tells two
+  * configurations apart; each compiler gives its own implementation.
   */
 trait CompilerConfiguration
 
-/** A compiler of units of a residual term. The
-  * compiler takes the types of the unit from the assertions written in the
-  * residual term, reading the unit's applications, not the whole term, and
-  * writes its artifact into its own namespace of the cache service under
-  * `ArtifactKey(unit, configuration)`; `Artifact` is the type of what it
-  * writes, so that a lookup gives an `Artifact` with no cast.
+/** A compiler of units of a residual term. The compiler takes the types of the
+  * unit from the assertions written in the residual term, reading the unit's
+  * applications, not the whole term, and writes its artifact into its own
+  * namespace of the cache service under `ArtifactKey(unit, configuration)`;
+  * `Artifact` is the type of what it writes, so that a lookup gives an
+  * `Artifact` with no cast.
   */
 trait Compiler[C <: NativeSpecializer & Singleton, Artifact]:
 
-  /** The configuration that, with the unit, keys the artifacts this
-    * compiler writes.
+  /** The configuration that, with the unit, keys the artifacts this compiler
+    * writes.
     */
   def configuration: CompilerConfiguration
 
@@ -47,11 +46,17 @@ trait Compiler[C <: NativeSpecializer & Singleton, Artifact]:
 
 /** The key of a compilation artifact in the cache service: the unit and the
   * compiler's configuration, every input of the compilation (the cache-table
-  * rule, `CONTRIBUTING.md`, "Tables"). The artifact's type is part of
-  * the key's type.
+  * rule, `CONTRIBUTING.md`, "Tables"). The artifact's type is part of the key's
+  * type.
   */
-final case class ArtifactKey[C <: NativeSpecializer & Singleton, Artifact](unit: CompilationUnit[C], configuration: CompilerConfiguration)
+final case class ArtifactKey[C <: NativeSpecializer & Singleton, Artifact](
+    unit: CompilationUnit[C],
+    configuration: CompilerConfiguration
+)
 
 /** What a compilation cost: the e-graph instances it took. */
 final case class CompilationSpent(instances: Long):
-  require(instances >= 0, s"a compilation's instances are not negative: $instances")
+  require(
+    instances >= 0,
+    s"a compilation's instances are not negative: $instances"
+  )

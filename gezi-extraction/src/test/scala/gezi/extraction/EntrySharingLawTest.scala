@@ -11,26 +11,31 @@ import scala.concurrent.Future
 import scala.concurrent.duration.DurationInt
 import gezi.ir.Apply
 
-/** The hash code and the equality of `Entry` cost the distinct entries, not
-  * the size of the term they spell. An entry of `depth` levels, each an
-  * application whose two children are the level below, has `depth + 1`
-  * distinct entries and 2^depth leaves as a term; two copies are built
-  * separately, so that the heap shares nothing between them. Its purpose is
-  * to catch a hash code or an equality that walks shared entries as a tree:
-  * a `.distinct` of entries held main's jit NativeRouteCompilationTest for 11
-  * to 13 minutes in the hash code that Scala derives for a case class
-  * (2026-11-14). Each comparison is given ten seconds, so that such a walk
-  * fails the test instead of hanging it; with depth at least 48 it would
-  * take years.
+/** The hash code and the equality of `Entry` cost the distinct entries, not the
+  * size of the term they spell. An entry of `depth` levels, each an application
+  * whose two children are the level below, has `depth + 1` distinct entries and
+  * 2^depth leaves as a term; two copies are built separately, so that the heap
+  * shares nothing between them. Its purpose is to catch a hash code or an
+  * equality that walks shared entries as a tree: a `.distinct` of entries held
+  * main's jit NativeRouteCompilationTest for 11 to 13 minutes in the hash code
+  * that Scala derives for a case class (2026-11-14). Each comparison is given
+  * ten seconds, so that such a walk fails the test instead of hanging it; with
+  * depth at least 48 it would take years.
   */
 class EntrySharingLawTest extends GeneratedProperties:
 
-  /** The entry of the depth over a leaf named by the leaf's number, each
-    * level built from the one below, of cost the level.
+  /** The entry of the depth over a leaf named by the leaf's number, each level
+    * built from the one below, of cost the level.
     */
   private def shared(depth: Int, leaf: Int): Entry[NoFacts.type, Int] =
-    (1 to depth).foldLeft(Entry(0, Shape.Name(NoFacts.opaque(s"leaf$leaf")), Vector.empty)) { (below, level) =>
-      Entry(level, Shape.Node(level, Apply(level - 1, level - 1)), Vector(below, below))
+    (1 to depth).foldLeft(
+      Entry(0, Shape.Name(NoFacts.opaque(s"leaf$leaf")), Vector.empty)
+    ) { (below, level) =>
+      Entry(
+        level,
+        Shape.Node(level, Apply(level - 1, level - 1)),
+        Vector(below, below)
+      )
     }
 
   /** The result of the computation, failing after ten seconds. */
@@ -50,11 +55,22 @@ class EntrySharingLawTest extends GeneratedProperties:
       val first = shared(depth, leaf)
       val second = shared(depth, leaf)
       val other = shared(depth, otherLeaf)
-      Result.all(List(
-        Result.assert(within(first == second)).log("equal copies are equal"),
-        Result.assert(within(first.hashCode == second.hashCode)).log("equal copies hash alike"),
-        Result.assert(within(Set(first, second, other).size) == (if leaf == otherLeaf then 1 else 2))
-          .log("a set of the copies holds one entry per term"),
-        Result.assert(within(first == other) == (leaf == otherLeaf)).log("copies over other leaves differ")
-      ))
+      Result.all(
+        List(
+          Result.assert(within(first == second)).log("equal copies are equal"),
+          Result
+            .assert(within(first.hashCode == second.hashCode))
+            .log("equal copies hash alike"),
+          Result
+            .assert(
+              within(Set(first, second, other).size) == (if leaf == otherLeaf
+                                                         then 1
+                                                         else 2)
+            )
+            .log("a set of the copies holds one entry per term"),
+          Result
+            .assert(within(first == other) == (leaf == otherLeaf))
+            .log("copies over other leaves differ")
+        )
+      )
   }

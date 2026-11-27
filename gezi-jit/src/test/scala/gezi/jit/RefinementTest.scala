@@ -5,12 +5,12 @@ import gezi.weakhead.Mode
 import gezi.ir.{Configured, Value}
 
 /** The refinement of `Refinement` (jit_strategies.pl, THE REFINEMENT), on
-  * outputs written in the IR over the native route's library with the
-  * backend's modules: no Prolog test exercised it apart from the native
-  * route's compilation, whose schedule the module `strategies` ports; these
-  * check the rules of the Prolog module comment one by one. The library
-  * terms are members of `JitTesting.libraryTermsFile`, each read by
-  * projection, so no name is resolved.
+  * outputs written in the IR over the native route's library with the backend's
+  * modules: no Prolog test exercised it apart from the native route's
+  * compilation, whose schedule the module `strategies` ports; these check the
+  * rules of the Prolog module comment one by one. The library terms are members
+  * of `JitTesting.libraryTermsFile`, each read by projection, so no name is
+  * resolved.
   */
 class RefinementTest extends gezi.generatedinputs.FailFastSuite:
 
@@ -22,18 +22,30 @@ class RefinementTest extends gezi.generatedinputs.FailFastSuite:
 
   private given encoding.type = encoding
 
-  private def name(key: String): Configured[encoding.type] = JitTesting.libraryInstruction[encoding.type](key)
+  private def name(key: String): Configured[encoding.type] =
+    JitTesting.libraryInstruction[encoding.type](key)
 
-  private def apply(function: Configured[encoding.type], argument: Configured[encoding.type]): Configured[encoding.type] =
+  private def apply(
+      function: Configured[encoding.type],
+      argument: Configured[encoding.type]
+  ): Configured[encoding.type] =
     encoding.application(function, argument)
 
-  private def choice(left: Configured[encoding.type], right: Configured[encoding.type]): Configured[encoding.type] =
+  private def choice(
+      left: Configured[encoding.type],
+      right: Configured[encoding.type]
+  ): Configured[encoding.type] =
     encoding.choice(left, right)
 
-  private def parallel(left: Configured[encoding.type], right: Configured[encoding.type]): Configured[encoding.type] =
+  private def parallel(
+      left: Configured[encoding.type],
+      right: Configured[encoding.type]
+  ): Configured[encoding.type] =
     encoding.parallel(left, right)
 
-  private def specialization(criterion: Configured[encoding.type]): Configured[encoding.type] =
+  private def specialization(
+      criterion: Configured[encoding.type]
+  ): Configured[encoding.type] =
     val filteredZero = parallel(name("zero"), criterion)
     val typedApplication = apply(name("successor"), filteredZero)
     val typed = parallel(typedApplication, criterion)
@@ -45,13 +57,17 @@ class RefinementTest extends gezi.generatedinputs.FailFastSuite:
     val point = choice(name("zero"), filteredZero)
     apply(name("successor"), point)
 
-  test("aSpecializationChoiceOnTheRootsPathBecomesTheFunctionOnAFallbackPoint") {
+  test(
+    "aSpecializationChoiceOnTheRootsPathBecomesTheFunctionOnAFallbackPoint"
+  ) {
     val output = specialization(name("nat_type"))
     val refined = Refinement(encoding).refined(output)
     assert(Configured.same(refined, refinedAtTheRoot))
   }
 
-  test("aSpecializationChoiceOffTheRootsPathIsAlsoUnderTheRangesFallbackPoint") {
+  test(
+    "aSpecializationChoiceOffTheRootsPathIsAlsoUnderTheRangesFallbackPoint"
+  ) {
     val choiceOffTheRoot = specialization(name("nat_type"))
     val output = apply(name("successor"), choiceOffTheRoot)
     val refined = Refinement(encoding).refined(output)
@@ -81,10 +97,20 @@ class RefinementTest extends gezi.generatedinputs.FailFastSuite:
     val output = apply(name("successor"), choiceOffTheRoot)
     val refined = Refinement(encoding).refined(output)
     val successor = JitTesting.libraryTerm[encoding.type]("successor")
-    val plain = JitTesting.termValue(successor(successor(JitTesting.libraryTerm[encoding.type]("zero"))))
+    val plain = JitTesting.termValue(
+      successor(successor(JitTesting.libraryTerm[encoding.type]("zero")))
+    )
     val jit = Jit(configurationOf(encoding))
-    val reference = normalFormsSpent(Mode.TablingWeakHead, JitTesting.referenceConfiguration(jit), plain, normalFormLimit).outcome
+    val reference = normalFormsSpent(
+      Mode.TablingWeakHead,
+      JitTesting.referenceConfiguration(jit),
+      plain,
+      normalFormLimit
+    ).outcome
     val read = normalFormsSpent(jit, Value.of(refined), normalFormLimit)
-    assert(JitTesting.sameOutcomes(read.outcome, reference), s"${read.outcome} against $reference")
+    assert(
+      JitTesting.sameOutcomes(read.outcome, reference),
+      s"${read.outcome} against $reference"
+    )
     assert(JitTesting.counts(read.jitState).nativeCalls > 0)
   }
