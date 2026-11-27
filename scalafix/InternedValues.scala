@@ -22,22 +22,30 @@ class InternedValues extends SyntacticRule("InternedValues") {
 
   private def isReference(function: Term): Boolean = function match {
     case Term.Select(Term.Name("Value"), Term.Name("Reference")) => true
-    case Term.Select(Term.Select(_, Term.Name("Value")), Term.Name("Reference")) => true
+    case Term.Select(
+          Term.Select(_, Term.Name("Value")),
+          Term.Name("Reference")
+        ) =>
+      true
     case _ => false
   }
 
   private def simple(argument: Term): Boolean = argument match {
-    case _: Term.Name | _: Term.Select | _: Term.Apply | _: Term.ApplyType => true
-    case _                                                                 => false
+    case _: Term.Name | _: Term.Select | _: Term.Apply | _: Term.ApplyType =>
+      true
+    case _ => false
   }
 
   override def fix(implicit document: SyntacticDocument): Patch =
     document.tree.collect {
       case application: Term.Apply
-          if isReference(application.fun) && application.argClause.values.size == 1 &&
+          if isReference(
+            application.fun
+          ) && application.argClause.values.size == 1 &&
             !application.argClause.values.head.isInstanceOf[Term.Placeholder] =>
         val argument = application.argClause.values.head
-        val text = if (simple(argument)) argument.syntax else s"(${argument.syntax})"
+        val text =
+          if (simple(argument)) argument.syntax else s"(${argument.syntax})"
         Patch.replaceTree(application, text)
     }.asPatch
 }

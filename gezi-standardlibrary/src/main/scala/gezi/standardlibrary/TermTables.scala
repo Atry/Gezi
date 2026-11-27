@@ -1,11 +1,11 @@
 package gezi.standardlibrary
 
-/** A term table: a data file under Gezi's directory whose tuple's one field
-  * is the Scott tuple of library terms, each imported at the file's top, and
-  * the names the host gives the positions, in order, for its own look-up and
-  * display (`StandardLibrary.entryMembers`). The file names none of its
-  * terms (the host reads no string key), so a field the file
-  * adds is added here at its position.
+/** A term table: a data file under Gezi's directory whose tuple's one field is
+  * the Scott tuple of library terms, each imported at the file's top, and the
+  * names the host gives the positions, in order, for its own look-up and
+  * display (`StandardLibrary.entryMembers`). The file names none of its terms
+  * (the host reads no string key), so a field the file adds is added here at
+  * its position.
   *
   * @param file
   *   the file's path relative to Gezi's directory
@@ -13,7 +13,10 @@ package gezi.standardlibrary
   *   the names of the tuple's fields, in order
   */
 final case class TermTable(file: String, names: Vector[String]):
-  require(names.distinct.size == names.size, s"a name twice among the fields of $file")
+  require(
+    names.distinct.size == names.size,
+    s"a name twice among the fields of $file"
+  )
 
 /** The term tables of the tests' and the problem generators' data files. */
 object TermTables:
@@ -165,9 +168,8 @@ object TermTables:
     )
   )
 
-  /** The trace showcase's Hindley-Milner page:
-    * the judgment
-    * type_of, and the type its trace proves the page's program has.
+  /** The trace showcase's Hindley-Milner page: the judgment type_of, and the
+    * type its trace proves the page's program has.
     */
   val showcaseTerms: TermTable = TermTable(
     "tests/jit_fixtures/showcase_terms.lambdalattice",

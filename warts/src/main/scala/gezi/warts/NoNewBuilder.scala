@@ -5,5 +5,8 @@ object NoNewBuilder extends ForbiddenSymbols:
 
   override protected val message: String = "newBuilder is disabled"
 
-  override protected def isForbidden(fullName: String, simpleName: String): Boolean =
+  override protected def isForbidden(
+      fullName: String,
+      simpleName: String
+  ): Boolean =
     simpleName == "newBuilder"

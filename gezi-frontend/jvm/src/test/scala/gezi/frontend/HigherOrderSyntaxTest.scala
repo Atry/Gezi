@@ -1,7 +1,7 @@
 package gezi.frontend
 
-/** The object language written in Scala (HOAS, `Term`): its de Bruijn terms
-  * are the ones the lambdalattice text of the same programs gives.
+/** The object language written in Scala (HOAS, `Term`): its de Bruijn terms are
+  * the ones the lambdalattice text of the same programs gives.
   */
 class HigherOrderSyntaxTest extends gezi.generatedinputs.FailFastSuite:
 
@@ -23,7 +23,7 @@ class HigherOrderSyntaxTest extends gezi.generatedinputs.FailFastSuite:
       lambdalattice("λf.λx.λy.f x y")
     )
     assertEquals(
-      converted(λ(x => λ(f => f(x(x)(f)))) (λ(x => λ(f => f(x(x)(f)))))),
+      converted(λ(x => λ(f => f(x(x)(f))))(λ(x => λ(f => f(x(x)(f)))))),
       lambdalattice("(λx.λf.f (x x f)) (λx.λf.f (x x f))")
     )
   }

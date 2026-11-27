@@ -9,15 +9,14 @@ import gezi.generatedinputs.GeneratedProperties
   * them as the standard order orders the Prolog lists of their elements,
   * `OrderValue.list(left*)` against `OrderValue.list(right*)`, which is its
   * definition. Its purpose is to catch a comparison that, compared element by
-  * element without making the lists,
-  * orders a proper
-  * prefix, or the first differing element, otherwise than the lists do.
+  * element without making the lists, orders a proper prefix, or the first
+  * differing element, otherwise than the lists do.
   */
 class RanksOrderingLawTest extends GeneratedProperties:
 
-  /** Values of the standard order: numbers, atoms, and compounds of up to
-    * two arguments, a few levels deep, from small alphabets so that ties and
-    * shared prefixes occur.
+  /** Values of the standard order: numbers, atoms, and compounds of up to two
+    * arguments, a few levels deep, from small alphabets so that ties and shared
+    * prefixes occur.
     */
   private def value(depth: Int): Gen[OrderValue] =
     val leaves = Gen.choice1(
@@ -34,14 +33,23 @@ class RanksOrderingLawTest extends GeneratedProperties:
         yield OrderValue.Compound(name, arguments.toVector))
       )
 
-  private val ranks: Gen[Vector[OrderValue]] = value(2).list(Range.linear(0, 4)).map(_.toVector)
+  private val ranks: Gen[Vector[OrderValue]] =
+    value(2).list(Range.linear(0, 4)).map(_.toVector)
 
-  property("the ranks ordering orders two vectors as the standard order orders their lists") {
+  property(
+    "the ranks ordering orders two vectors as the standard order orders their lists"
+  ) {
     for
       left <- ranks.forAll
-      right <- Gen.choice1(ranks, Gen.constant(left), ranks.map(suffix => left ++ suffix)).forAll
+      right <- Gen
+        .choice1(ranks, Gen.constant(left), ranks.map(suffix => left ++ suffix))
+        .forAll
     yield
-      val expected = Integer.signum(OrderValue.ordering.compare(OrderValue.list(left*), OrderValue.list(right*)))
-      val obtained = Integer.signum(OrderValue.ranksOrdering.compare(left, right))
+      val expected = Integer.signum(
+        OrderValue.ordering
+          .compare(OrderValue.list(left*), OrderValue.list(right*))
+      )
+      val obtained =
+        Integer.signum(OrderValue.ranksOrdering.compare(left, right))
       Result.diff(obtained, expected)(_ == _).log(s"$left against $right")
   }

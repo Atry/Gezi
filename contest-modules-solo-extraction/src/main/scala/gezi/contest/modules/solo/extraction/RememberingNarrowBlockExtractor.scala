@@ -15,14 +15,15 @@ import gezi.strategies.NormalityModule
 import gezi.strategies.TermOrder
 import gezi.strategies.TermReading
 
-/** The framework's narrow blocks' extraction (`NarrowBlockExtractor`) with
-  * its cost model's candidates remembered within each extraction
+/** The framework's narrow blocks' extraction (`NarrowBlockExtractor`) with its
+  * cost model's candidates remembered within each extraction
   * (`RememberingCostModel` over the same `ModuleCostModel`): the same
-  * productions, the same model and the same spelling of each input's class,
-  * so the same outputs, its candidates computed once for each call's
-  * arguments.
+  * productions, the same model and the same spelling of each input's class, so
+  * the same outputs, its candidates computed once for each call's arguments.
   */
-final case class RememberingNarrowBlockExtractor[C <: NativeSpecializer & Singleton](modules: Vector[NormalityModule[C]], jointReading: JointReading)
+final case class RememberingNarrowBlockExtractor[
+    C <: NativeSpecializer & Singleton
+](modules: Vector[NormalityModule[C]], jointReading: JointReading)
     extends Extractor[C]:
 
   TermOrder.extractionModulesChecked(modules)
@@ -34,7 +35,21 @@ final case class RememberingNarrowBlockExtractor[C <: NativeSpecializer & Single
       inputs: Vector[Configured[C]],
       stop: StopSignal
   ): Vector[Configured[C]] =
-    val model = RememberingCostModel[C, ModuleCost](ModuleCostModel(modules, TermReading(index), stop, jointReading), stop)
-    CountedExtraction.fixed(graph, NarrowBlockExtractor.productionNames(index), model, stop)(using index.specializer) match
-      case Some(extracted) => FixpointEgraph.outputsSpelled(extracted, inputNodes.map(graph.root), inputs, graph.store.construction)(using index.specializer)
-      case None            => inputs
+    val model = RememberingCostModel[C, ModuleCost](
+      ModuleCostModel(modules, TermReading(index), stop, jointReading),
+      stop
+    )
+    CountedExtraction.fixed(
+      graph,
+      NarrowBlockExtractor.productionNames(index),
+      model,
+      stop
+    )(using index.specializer) match
+      case Some(extracted) =>
+        FixpointEgraph.outputsSpelled(
+          extracted,
+          inputNodes.map(graph.root),
+          inputs,
+          graph.store.construction
+        )(using index.specializer)
+      case None => inputs

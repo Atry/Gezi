@@ -7,9 +7,9 @@ import gezi.contest.corpora.reductions.Encodings.*
 import gezi.frontend.Term
 import gezi.frontend.Term.*
 
-/** The longest common subsequence by a recursion over the attractors, the
-  * port of `problems/set_free_dynamic`: direct and respelled twins
-  * and a near miss whose match does not count.
+/** The longest common subsequence by a recursion over the attractors, the port
+  * of `problems/set_free_dynamic`: direct and respelled twins and a near miss
+  * whose match does not count.
   */
 object SetFreeDynamic:
 
@@ -30,8 +30,10 @@ object SetFreeDynamic:
   def recursion(field: ProblemField): Recursion =
     ProblemData.alternative(field, Recursion.values.size) match
       case (position, Vector()) => Recursion.fromOrdinal(position)
-      case (_, fields) =>
-        throw IllegalArgumentException(s"the recursion of $family has ${fields.size} fields")
+      case (_, fields)          =>
+        throw IllegalArgumentException(
+          s"the recursion of $family has ${fields.size} fields"
+        )
 
   /** A point: its recursion, spelling and bit strings. */
   final case class CommonSubsequencePoint(
@@ -74,20 +76,29 @@ object SetFreeDynamic:
   /** `(Y (Template equal at_least successor)) LeftList RightList`
     * (`common_subsequence_point_surface/2`).
     */
-  def pointSurface(attractors: Attractors, point: CommonSubsequencePoint): ProblemTerm =
+  def pointSurface(
+      attractors: Attractors,
+      point: CommonSubsequencePoint
+  ): ProblemTerm =
     attractors.fixpoint(
       recursionTemplate(attractors, point.recursion, point.spelling)(
         attractors.functionSurface("merge_symbols_equal", point.spelling)
       )(attractors.functionSurface("natural_at_least", point.spelling))(
         attractors.functionSurface("successor", point.spelling)
       )
-    )(SetFree.booleanList(attractors, point.left))(SetFree.booleanList(attractors, point.right))
+    )(SetFree.booleanList(attractors, point.left))(
+      SetFree.booleanList(attractors, point.right)
+    )
 
   /** The recursion's body over the attractors it calls,
     * `\equal. \at_least. \successor. \self. \xs. \ys. ...`
     * (`recursion_template/3`).
     */
-  private def recursionTemplate(attractors: Attractors, recursion: Recursion, spelling: Spelling): ProblemTerm =
+  private def recursionTemplate(
+      attractors: Attractors,
+      recursion: Recursion,
+      spelling: Spelling
+  ): ProblemTerm =
     val zeroOne = attractors.attractorSurface("zero", Spelling.Direct)
     val zeroTwo = attractors.attractorSurface("zero", Spelling.Direct)
     Attractors.spelledSurface(
@@ -98,20 +109,27 @@ object SetFreeDynamic:
             λ(self =>
               λ(xs =>
                 λ(ys =>
-                  xs(zeroOne)(λ(x =>
-                    λ(xTail =>
-                      ys(zeroTwo)(λ(y =>
-                        λ(yTail =>
-                          val matched = recursion match
-                            case Recursion.LongestCommonSubsequence => successor(self(xTail)(yTail))
-                            case Recursion.Near                     => self(xTail)(yTail)
-                          val maximum =
-                            atLeast(self(xTail)(ys))(self(xs)(yTail))(self(xTail)(ys))(self(xs)(yTail))
-                          equal(x)(y)(matched)(maximum)
+                  xs(zeroOne)(
+                    λ(x =>
+                      λ(xTail =>
+                        ys(zeroTwo)(
+                          λ(y =>
+                            λ(yTail =>
+                              val matched = recursion match
+                                case Recursion.LongestCommonSubsequence =>
+                                  successor(self(xTail)(yTail))
+                                case Recursion.Near => self(xTail)(yTail)
+                              val maximum =
+                                atLeast(self(xTail)(ys))(self(xs)(yTail))(
+                                  self(xTail)(ys)
+                                )(self(xs)(yTail))
+                              equal(x)(y)(matched)(maximum)
+                            )
+                          )
                         )
-                      ))
+                      )
                     )
-                  ))
+                  )
                 )
               )
             )
@@ -126,14 +144,15 @@ object SetFreeDynamic:
   def longestCommonSubsequence(left: Vector[Int], right: Vector[Int]): Int =
     DynamicReferences.referenceLongestCommonSubsequence(left, right)
 
-  /** The problems: the length of the longest common subsequence, or 0 for
-    * the near miss (`reference/4`).
+  /** The problems: the length of the longest common subsequence, or 0 for the
+    * near miss (`reference/4`).
     */
   def problems(group: ReductionGroup): Vector[ReductionProblem] =
     points(group).map(point =>
       val length = point.recursion match
-        case Recursion.LongestCommonSubsequence => longestCommonSubsequence(point.left, point.right)
-        case Recursion.Near                     => 0
+        case Recursion.LongestCommonSubsequence =>
+          longestCommonSubsequence(point.left, point.right)
+        case Recursion.Near => 0
       ReductionProblem(
         point.point,
         pointSurface(group.attractors, point),

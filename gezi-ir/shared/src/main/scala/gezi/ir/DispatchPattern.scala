@@ -1,10 +1,10 @@
 package gezi.ir
 
-/** What stands around the typed application `F (A ∥ D)` in the typed member
-  * of a specialization: nothing; a parallel by the range R,
-  * `F (A ∥ D) ∥ R`; or a contract C applied to it, `C (F (A ∥ D))`, C a
-  * term whose spelling is λf. f (`DispatchPattern.identityContract`), the
-  * typed member of a curried function's contract.
+/** What stands around the typed application `F (A ∥ D)` in the typed member of
+  * a specialization: nothing; a parallel by the range R, `F (A ∥ D) ∥ R`; or a
+  * contract C applied to it, `C (F (A ∥ D))`, C a term whose spelling is λf. f
+  * (`DispatchPattern.identityContract`), the typed member of a curried
+  * function's contract.
   */
 enum SpecializationRange[+Node]:
   case Absent
@@ -18,9 +18,9 @@ enum SpecializationRange[+Node]:
     case Contracted(contract) => Vector(contract)
 
 /** A specialization choice, `F A + T` in either order, T its typed member
-  * `F (A ∥ D)` under the range (`SpecializationRange`): an untyped
-  * application and its typed version overlapped (the vocabulary's
-  * specialization). `untypedFirst` says the order the choice was written in.
+  * `F (A ∥ D)` under the range (`SpecializationRange`): an untyped application
+  * and its typed version overlapped (the vocabulary's specialization).
+  * `untypedFirst` says the order the choice was written in.
   */
 final case class Specialization[+Node](
     function: Node,
@@ -38,45 +38,57 @@ final case class Specialization[+Node](
   /** The specialization with each part mapped. */
   def map[Result](mapping: Node => Result): Specialization[Result] =
     val mappedRange: SpecializationRange[Result] = range match
-      case SpecializationRange.Absent               => SpecializationRange.Absent
-      case SpecializationRange.Filtered(found)      => SpecializationRange.Filtered(mapping(found))
-      case SpecializationRange.Contracted(contract) => SpecializationRange.Contracted(mapping(contract))
-    Specialization(mapping(function), mapping(argument), mapping(domain), mappedRange, untypedFirst)
+      case SpecializationRange.Absent          => SpecializationRange.Absent
+      case SpecializationRange.Filtered(found) =>
+        SpecializationRange.Filtered(mapping(found))
+      case SpecializationRange.Contracted(contract) =>
+        SpecializationRange.Contracted(mapping(contract))
+    Specialization(
+      mapping(function),
+      mapping(argument),
+      mapping(domain),
+      mappedRange,
+      untypedFirst
+    )
 
 /** A judgment, `X + (X ∥ T)` in either order, which is X by law (6), the
   * absorption. `valueFirst` says the order the choice was written in.
   */
-final case class Fallback[+Node](value: Node, criterion: Node, valueFirst: Boolean):
+final case class Fallback[+Node](
+    value: Node,
+    criterion: Node,
+    valueFirst: Boolean
+):
 
   /** The value and the criterion, in that order. */
   def parts: Vector[Node] = Vector(value, criterion)
 
-/** THE DISPATCH PATTERNS: the one recognizer of the specialization choices
-  * and the judgments, for every reader that needs them, over a view of a
-  * node as the layers it may be read as (`layers`), the children compared by
-  * `==`. The refinement reads them on instructions and on codes
-  * (`gezi.jit.StrategyDispatch`), the extraction on the classes of an
-  * e-graph (`gezi.extraction.Extraction.productions`), and the cost
-  * modules on resolved codes (`gezi.strategies.TermReading`), so that
-  * what the refinement dispatches is what the extraction prices (the
-  * extraction's rule, `gezi.strategies.ModuleCostModel`, THE PRICE OF
-  * A CHOICE). It reads layers only, and names no combinator, lemma or type
-  * (`CONTRIBUTING.md`, "Types live only in the term").
+/** THE DISPATCH PATTERNS: the one recognizer of the specialization choices and
+  * the judgments, for every reader that needs them, over a view of a node as
+  * the layers it may be read as (`layers`), the children compared by `==`. The
+  * refinement reads them on instructions and on codes
+  * (`gezi.jit.StrategyDispatch`), the extraction on the classes of an e-graph
+  * (`gezi.extraction.Extraction.productions`), and the cost modules on resolved
+  * codes (`gezi.strategies.TermReading`), so that what the refinement
+  * dispatches is what the extraction prices (the extraction's rule,
+  * `gezi.strategies.ModuleCostModel`, THE PRICE OF A CHOICE). It reads layers
+  * only, and names no combinator, lemma or type (`CONTRIBUTING.md`, "Types live
+  * only in the term").
   */
 object DispatchPattern:
 
-  /** The specialization choices the choice of the two members is read as,
-    * the untyped member on either side. `identityContract` says whether a
-    * node's spelling is λf. f, for the curried typed member.
+  /** The specialization choices the choice of the two members is read as, the
+    * untyped member on either side. `identityContract` says whether a node's
+    * spelling is λf. f, for the curried typed member.
     *
     * The curried typed member is read only where the contract's spelling is
-    * fixed: in a code, a slot whose filling's own layers are read
-    * (`noContract` elsewhere). In an e-graph a class whose members include
-    * such a closure may be spelled by another member, which no reader of the
-    * spelling takes for a contract, so the extraction would price as a
-    * specialization a choice the refinement runs whole
-    * (`DispatchPatternLawTest`, 2026-11-13: the contract's class spelled by an
-    * application); the refinement reads an instruction the same way.
+    * fixed: in a code, a slot whose filling's own layers are read (`noContract`
+    * elsewhere). In an e-graph a class whose members include such a closure may
+    * be spelled by another member, which no reader of the spelling takes for a
+    * contract, so the extraction would price as a specialization a choice the
+    * refinement runs whole (`DispatchPatternLawTest`, 2026-11-13: the
+    * contract's class spelled by an application); the refinement reads an
+    * instruction the same way.
     */
   def specializations[Node](
       left: Node,
@@ -85,7 +97,10 @@ object DispatchPattern:
       identityContract: Node => Boolean
   ): Vector[Specialization[Node]] =
     val parallels = parallelLayers(layers)
-    specializationsRead(reading(left, layers, parallels, identityContract), reading(right, layers, parallels, identityContract))
+    specializationsRead(
+      reading(left, layers, parallels, identityContract),
+      reading(right, layers, parallels, identityContract)
+    )
 
   /** No node is read as a contract: the view of instructions and of e-graph
     * classes (`specializations`).
@@ -95,27 +110,35 @@ object DispatchPattern:
   /** The judgments the choice of the two members is read as, the value on
     * either side.
     */
-  def fallbacks[Node](left: Node, right: Node, layers: Node => Vector[Layer[Node]]): Vector[Fallback[Node]] =
+  def fallbacks[Node](
+      left: Node,
+      right: Node,
+      layers: Node => Vector[Layer[Node]]
+  ): Vector[Fallback[Node]] =
     val parallels = parallelLayers(layers)
-    fallbacksRead(left, right, reading(left, layers, parallels, noContract), reading(right, layers, parallels, noContract))
+    fallbacksRead(
+      left,
+      right,
+      reading(left, layers, parallels, noContract),
+      reading(right, layers, parallels, noContract)
+    )
 
-  /** A node read once for the dispatch patterns (`reading`): the positions
-    * of its applications `F A` among its layers, keyed by (F, A); the typed
+  /** A node read once for the dispatch patterns (`reading`): the positions of
+    * its applications `F A` among its layers, keyed by (F, A); the typed
     * members `F (A ∥ D)` it may be read as, each with its range, in the order
     * of its layers, of the applications each layer is read as and of the
     * parallels of each argument; and its parallels `V ∥ C`.
     *
-    * A choice is matched by looking its untyped member's keys up for each
-    * typed member of the other side, so that a choice costs the typed
-    * members and the matches, and each node is read once for all the choices
-    * it is a member of, not once per member of the other side: the join is
-    * keyed by what the pattern requires. Measured on
-    * 2026-11-13 (a scratch probe, programfamilies' size families at 64, 128
-    * and 256): folds at 256 holds a class of 523 members, 518 of them
-    * applications of one function, on both sides of eight choices, which
-    * the nested loop of the members read in 606,815 class readings building
-    * 146,581,966 members; nested at 256 holds a class of 521 members, one
-    * side of 517 choices.
+    * A choice is matched by looking its untyped member's keys up for each typed
+    * member of the other side, so that a choice costs the typed members and the
+    * matches, and each node is read once for all the choices it is a member of,
+    * not once per member of the other side: the join is keyed by what the
+    * pattern requires. Measured on 2026-11-13 (a scratch probe,
+    * programfamilies' size families at 64, 128 and 256): folds at 256 holds a
+    * class of 523 members, 518 of them applications of one function, on both
+    * sides of eight choices, which the nested loop of the members read in
+    * 606,815 class readings building 146,581,966 members; nested at 256 holds a
+    * class of 521 members, one side of 517 choices.
     */
   final case class Reading[Node](
       applications: Map[(Node, Node), Vector[Int]],
@@ -134,40 +157,81 @@ object DispatchPattern:
   ): Reading[Node] =
     val nodeLayers = layers(node)
     val applications = nodeLayers.zipWithIndex
-      .collect { case (Apply(function, argument), position) => ((function, argument), position) }
+      .collect { case (Apply(function, argument), position) =>
+        ((function, argument), position)
+      }
       .groupMap(_._1)(_._2)
     val typedMembers =
       for
         typedLayer <- nodeLayers
-        (function, filtered, range) <- typedApplications(typedLayer, layers, identityContract)
+        (function, filtered, range) <- typedApplications(
+          typedLayer,
+          layers,
+          identityContract
+        )
         (argument, domain) <- parallels(filtered)
       yield (function, argument, domain, range)
     Reading(applications, typedMembers, parallels(node))
 
   /** The parallels `V ∥ C` among a node's layers, each as (V, C). */
-  def parallelLayers[Node](layers: Node => Vector[Layer[Node]]): Node => Vector[(Node, Node)] =
-    node => layers(node).collect { case Parallel(value, criterion) => (value, criterion) }
+  def parallelLayers[Node](
+      layers: Node => Vector[Layer[Node]]
+  ): Node => Vector[(Node, Node)] =
+    node =>
+      layers(node).collect { case Parallel(value, criterion) =>
+        (value, criterion)
+      }
 
-  /** `specializations` of the two members' readings: for each orientation,
-    * the untyped member's applications in the order of its layers and, for
-    * each, the typed member's matches in the order of its typed members.
+  /** `specializations` of the two members' readings: for each orientation, the
+    * untyped member's applications in the order of its layers and, for each,
+    * the typed member's matches in the order of its typed members.
     */
-  def specializationsRead[Node](left: Reading[Node], right: Reading[Node]): Vector[Specialization[Node]] =
-    oriented(left, right, untypedFirst = true) ++ oriented(right, left, untypedFirst = false)
+  def specializationsRead[Node](
+      left: Reading[Node],
+      right: Reading[Node]
+  ): Vector[Specialization[Node]] =
+    oriented(left, right, untypedFirst = true) ++ oriented(
+      right,
+      left,
+      untypedFirst = false
+    )
 
   /** `fallbacks` of the two members and their readings. */
-  def fallbacksRead[Node](left: Node, right: Node, leftReading: Reading[Node], rightReading: Reading[Node]): Vector[Fallback[Node]] =
-    rightReading.parallels.collect { case (value, criterion) if value == left => Fallback(left, criterion, valueFirst = true) } ++
-      leftReading.parallels.collect { case (value, criterion) if value == right => Fallback(right, criterion, valueFirst = false) }
+  def fallbacksRead[Node](
+      left: Node,
+      right: Node,
+      leftReading: Reading[Node],
+      rightReading: Reading[Node]
+  ): Vector[Fallback[Node]] =
+    rightReading.parallels.collect {
+      case (value, criterion) if value == left =>
+        Fallback(left, criterion, valueFirst = true)
+    } ++
+      leftReading.parallels.collect {
+        case (value, criterion) if value == right =>
+          Fallback(right, criterion, valueFirst = false)
+      }
 
-  private def oriented[Node](untyped: Reading[Node], typed: Reading[Node], untypedFirst: Boolean): Vector[Specialization[Node]] =
+  private def oriented[Node](
+      untyped: Reading[Node],
+      typed: Reading[Node],
+      untypedFirst: Boolean
+  ): Vector[Specialization[Node]] =
     typed.typedMembers.zipWithIndex
       .flatMap { case ((function, argument, domain, range), typedPosition) =>
         untyped.applications
           .getOrElse((function, argument), Vector.empty)
-          .map(untypedPosition => (untypedPosition, typedPosition, Specialization(function, argument, domain, range, untypedFirst)))
+          .map(untypedPosition =>
+            (
+              untypedPosition,
+              typedPosition,
+              Specialization(function, argument, domain, range, untypedFirst)
+            )
+          )
       }
-      .sortBy((untypedPosition, typedPosition, _) => (untypedPosition, typedPosition))
+      .sortBy((untypedPosition, typedPosition, _) =>
+        (untypedPosition, typedPosition)
+      )
       .map(_._3)
 
   /** The typed applications `F P` the typed member's layer is read as, each
@@ -192,35 +256,55 @@ object DispatchPattern:
       }
     case _ => Vector.empty
 
-  /** The typed member of the specialization, built by `make` over its
-    * parts: `F (A ∥ D)`, `F (A ∥ D) ∥ R` or `C (F (A ∥ D))`.
+  /** The typed member of the specialization, built by `make` over its parts:
+    * `F (A ∥ D)`, `F (A ∥ D) ∥ R` or `C (F (A ∥ D))`.
     */
-  def typedMember[Node](specialization: Specialization[Node], make: Layer[Node] => Node)(using NotTerm[Node]): Node =
-    val application = make(Apply(specialization.function, make(Parallel(specialization.argument, specialization.domain))))
+  def typedMember[Node](
+      specialization: Specialization[Node],
+      make: Layer[Node] => Node
+  )(using NotTerm[Node]): Node =
+    val application = make(
+      Apply(
+        specialization.function,
+        make(Parallel(specialization.argument, specialization.domain))
+      )
+    )
     specialization.range match
-      case SpecializationRange.Absent               => application
-      case SpecializationRange.Filtered(range)      => make(Parallel(application, range))
-      case SpecializationRange.Contracted(contract) => make(Apply(contract, application))
+      case SpecializationRange.Absent          => application
+      case SpecializationRange.Filtered(range) =>
+        make(Parallel(application, range))
+      case SpecializationRange.Contracted(contract) =>
+        make(Apply(contract, application))
 
-  /** The specialization choice spelled by `make` over its parts, in the
-    * order it was written in.
+  /** The specialization choice spelled by `make` over its parts, in the order
+    * it was written in.
     */
-  def spelled[Node](specialization: Specialization[Node], make: Layer[Node] => Node)(using NotTerm[Node]): Node =
+  def spelled[Node](
+      specialization: Specialization[Node],
+      make: Layer[Node] => Node
+  )(using NotTerm[Node]): Node =
     val untyped = make(Apply(specialization.function, specialization.argument))
     val typed = typedMember(specialization, make)
-    make(if specialization.untypedFirst then Choice(untyped, typed) else Choice(typed, untyped))
+    make(if specialization.untypedFirst then Choice(untyped, typed)
+    else Choice(typed, untyped))
 
-  /** The judgment spelled by `make` over its parts, in the order it was
-    * written in.
+  /** The judgment spelled by `make` over its parts, in the order it was written
+    * in.
     */
-  def spelled[Node](fallback: Fallback[Node], make: Layer[Node] => Node)(using NotTerm[Node]): Node =
+  def spelled[Node](fallback: Fallback[Node], make: Layer[Node] => Node)(using
+      NotTerm[Node]
+  ): Node =
     val filtered = make(Parallel(fallback.value, fallback.criterion))
-    make(if fallback.valueFirst then Choice(fallback.value, filtered) else Choice(filtered, fallback.value))
+    make(if fallback.valueFirst then Choice(fallback.value, filtered)
+    else Choice(filtered, fallback.value))
 
-  /** The typed member of a specialization of terms, built through the specializer in scope, as `typedMember` builds
-    * it over nodes that are no terms.
+  /** The typed member of a specialization of terms, built through the
+    * specializer in scope, as `typedMember` builds it over nodes that are no
+    * terms.
     */
-  def typedMemberTerm[C <: NativeSpecializer & Singleton](specialization: Specialization[Configured[C]])(using
+  def typedMemberTerm[C <: NativeSpecializer & Singleton](
+      specialization: Specialization[Configured[C]]
+  )(using
       specializer: C
   ): Configured[C] =
     val application = specializer.application(
@@ -228,134 +312,199 @@ object DispatchPattern:
       specializer.parallel(specialization.argument, specialization.domain)
     )
     specialization.range match
-      case SpecializationRange.Absent               => application
-      case SpecializationRange.Filtered(range)      => specializer.parallel(application, range)
-      case SpecializationRange.Contracted(contract) => specializer.application(contract, application)
+      case SpecializationRange.Absent          => application
+      case SpecializationRange.Filtered(range) =>
+        specializer.parallel(application, range)
+      case SpecializationRange.Contracted(contract) =>
+        specializer.application(contract, application)
 
-  /** The specialization choice of terms spelled through the specializer in scope, as `spelled` spells it. */
-  def spelledTerm[C <: NativeSpecializer & Singleton](specialization: Specialization[Configured[C]])(using
+  /** The specialization choice of terms spelled through the specializer in
+    * scope, as `spelled` spells it.
+    */
+  def spelledTerm[C <: NativeSpecializer & Singleton](
+      specialization: Specialization[Configured[C]]
+  )(using
       specializer: C
   ): Configured[C] =
-    val untyped = specializer.application(specialization.function, specialization.argument)
+    val untyped =
+      specializer.application(specialization.function, specialization.argument)
     val typed = typedMemberTerm(specialization)
-    if specialization.untypedFirst then specializer.choice(untyped, typed) else specializer.choice(typed, untyped)
+    if specialization.untypedFirst then specializer.choice(untyped, typed)
+    else specializer.choice(typed, untyped)
 
-  /** The judgment of terms spelled through the specializer in scope, as `spelled` spells it. */
-  def spelledTerm[C <: NativeSpecializer & Singleton](fallback: Fallback[Configured[C]])(using specializer: C): Configured[C] =
+  /** The judgment of terms spelled through the specializer in scope, as
+    * `spelled` spells it.
+    */
+  def spelledTerm[C <: NativeSpecializer & Singleton](
+      fallback: Fallback[Configured[C]]
+  )(using specializer: C): Configured[C] =
     val filtered = specializer.parallel(fallback.value, fallback.criterion)
-    if fallback.valueFirst then specializer.choice(fallback.value, filtered) else specializer.choice(filtered, fallback.value)
+    if fallback.valueFirst then specializer.choice(fallback.value, filtered)
+    else specializer.choice(filtered, fallback.value)
 
   /** The layers of a code read as a node: its own, a slot having none. */
   def codeLayers(code: Code): Vector[Layer[Code]] = code.layer match
-    case Slot(_)                      => Vector.empty
-    case Apply(function, argument)    => Vector(Apply(function, argument))
-    case Parallel(left, right)        => Vector(Parallel(left, right))
-    case Choice(left, right)          => Vector(Choice(left, right))
+    case Slot(_)                       => Vector.empty
+    case Apply(function, argument)     => Vector(Apply(function, argument))
+    case Parallel(left, right)         => Vector(Parallel(left, right))
+    case Choice(left, right)           => Vector(Choice(left, right))
     case Thunk(inner, holes, fillings) => Vector(Thunk(inner, holes, fillings))
 
-  /** The node's spelling is λf. f by its syntax, as the refinement runs it:
-    * one of its layers is an identity contract (`identityContractLayer`),
-    * each filling read by this function in turn. A node met again while it
-    * is being read is not one.
+  /** The node's spelling is λf. f by its syntax, as the refinement runs it: one
+    * of its layers is an identity contract (`identityContractLayer`), each
+    * filling read by this function in turn. A node met again while it is being
+    * read is not one.
     */
-  def identityContract[Node](node: Node, layers: Node => Vector[Layer[Node]]): Boolean =
+  def identityContract[Node](
+      node: Node,
+      layers: Node => Vector[Layer[Node]]
+  ): Boolean =
     contracted(node, layers, Set.empty)
 
-  private def contracted[Node](node: Node, layers: Node => Vector[Layer[Node]], visiting: Set[Node]): Boolean =
-    !visiting.contains(node) && layers(node).exists(identityContractLayer(_, contracted(_, layers, visiting + node)))
+  private def contracted[Node](
+      node: Node,
+      layers: Node => Vector[Layer[Node]],
+      visiting: Set[Node]
+  ): Boolean =
+    !visiting.contains(node) && layers(node).exists(
+      identityContractLayer(_, contracted(_, layers, visiting + node))
+    )
 
   /** The checks of the layer read as a contract: a thunk whose code is a
     * specialization choice `F y + F (y ∥ D)` of its function applied to its
     * argument, under its range or its curried member's contract C, D and C
     * fillings, as the refinement reads a contract: a thunk of one hole whose
-    * function is a filling (a contract over a filling), or of two holes
-    * whose function is the first (λf. f's contracts, `identityContractLayer`).
-    * Gives D, the domain the contract checks its argument by, and C when the
-    * range is a contract, which checks the arguments after it; none for any
-    * other layer. A curried member's contract is read by `fillingIdentity`
-    * on the filling that holds it.
+    * function is a filling (a contract over a filling), or of two holes whose
+    * function is the first (λf. f's contracts, `identityContractLayer`). Gives
+    * D, the domain the contract checks its argument by, and C when the range is
+    * a contract, which checks the arguments after it; none for any other layer.
+    * A curried member's contract is read by `fillingIdentity` on the filling
+    * that holds it.
     */
-  def contractChecks[Node](layer: Layer[Node], fillingIdentity: Node => Boolean): Option[(Node, Option[Node])] = layer match
+  def contractChecks[Node](
+      layer: Layer[Node],
+      fillingIdentity: Node => Boolean
+  ): Option[(Node, Option[Node])] = layer match
     case Thunk(code, holes, fillings) =>
       def slotIdentity(slotCode: Code): Boolean = slotCode match
-        case Code.Slot(slot) => filling(holes, fillings, slot).exists(fillingIdentity)
-        case _               => false
-      def functionRead(function: Code, argumentHole: Int): Option[Int] = holes match
-        case Vector(Hole.Bound(`argumentHole`)) =>
-          function match
-            case Code.Slot(slot) if filling(holes, fillings, slot).isDefined => Some(argumentHole)
-            case _                                                          => None
-        case Vector(Hole.Bound(functionHole), Hole.Bound(`argumentHole`)) =>
-          function match
-            case Code.Slot(`functionHole`) => Some(argumentHole)
-            case _                         => None
-        case _ => None
+        case Code.Slot(slot) =>
+          filling(holes, fillings, slot).exists(fillingIdentity)
+        case _ => false
+      def functionRead(function: Code, argumentHole: Int): Option[Int] =
+        holes match
+          case Vector(Hole.Bound(`argumentHole`)) =>
+            function match
+              case Code.Slot(slot)
+                  if filling(holes, fillings, slot).isDefined =>
+                Some(argumentHole)
+              case _ => None
+          case Vector(Hole.Bound(functionHole), Hole.Bound(`argumentHole`)) =>
+            function match
+              case Code.Slot(`functionHole`) => Some(argumentHole)
+              case _                         => None
+          case _ => None
       code match
         case Code.Choice(first, second) =>
-          specializations(first, second, codeLayers, slotIdentity).headOption.flatMap(found =>
-            (found.argument, found.domain) match
-              case (Code.Slot(argumentHole), Code.Slot(domainSlot)) =>
-                for
-                  _ <- functionRead(found.function, argumentHole)
-                  domain <- filling(holes, fillings, domainSlot)
-                yield
-                  val contract = found.range match
-                    case SpecializationRange.Contracted(Code.Slot(contractSlot)) => filling(holes, fillings, contractSlot)
-                    case _                                                       => None
-                  (domain, contract)
-              case _ => None
-          )
+          specializations(first, second, codeLayers, slotIdentity).headOption
+            .flatMap(found =>
+              (found.argument, found.domain) match
+                case (Code.Slot(argumentHole), Code.Slot(domainSlot)) =>
+                  for
+                    _ <- functionRead(found.function, argumentHole)
+                    domain <- filling(holes, fillings, domainSlot)
+                  yield
+                    val contract = found.range match
+                      case SpecializationRange.Contracted(
+                            Code.Slot(contractSlot)
+                          ) =>
+                        filling(holes, fillings, contractSlot)
+                      case _ => None
+                    (domain, contract)
+                case _ => None
+            )
         case _ => None
     case _ => None
 
-  /** The layer is λf. f by its syntax, as the refinement runs it, its
-    * fillings read by `fillingIdentity`: a thunk of two holes whose code,
-    * read as the refinement leaves it up to its judgments (`absorbed`), is
-    * `f y`, or `c (f y)` with c a filling that is one. One definition for
-    * a node read through its layers (`identityContract`) and for an entry
-    * of the extraction read through its children's entries.
+  /** The layer is λf. f by its syntax, as the refinement runs it, its fillings
+    * read by `fillingIdentity`: a thunk of two holes whose code, read as the
+    * refinement leaves it up to its judgments (`absorbed`), is `f y`, or
+    * `c (f y)` with c a filling that is one. One definition for a node read
+    * through its layers (`identityContract`) and for an entry of the extraction
+    * read through its children's entries.
     */
-  def identityContractLayer[Node](layer: Layer[Node], fillingIdentity: Node => Boolean): Boolean = layer match
-    case Thunk(code, holes @ Vector(Hole.Bound(functionHole), Hole.Bound(argumentHole)), fillings) =>
+  def identityContractLayer[Node](
+      layer: Layer[Node],
+      fillingIdentity: Node => Boolean
+  ): Boolean = layer match
+    case Thunk(
+          code,
+          holes @ Vector(Hole.Bound(functionHole), Hole.Bound(argumentHole)),
+          fillings
+        ) =>
       def slotIdentity(slotCode: Code): Boolean = slotCode match
-        case Code.Slot(slot) => filling(holes, fillings, slot).exists(fillingIdentity)
-        case _               => false
+        case Code.Slot(slot) =>
+          filling(holes, fillings, slot).exists(fillingIdentity)
+        case _ => false
       absorbed(code, slotIdentity) match
-        case Code.Apply(Code.Slot(`functionHole`), Code.Slot(`argumentHole`)) => true
-        case Code.Apply(Code.Slot(contractSlot), Code.Apply(Code.Slot(`functionHole`), Code.Slot(`argumentHole`))) =>
+        case Code.Apply(Code.Slot(`functionHole`), Code.Slot(`argumentHole`)) =>
+          true
+        case Code.Apply(
+              Code.Slot(contractSlot),
+              Code.Apply(Code.Slot(`functionHole`), Code.Slot(`argumentHole`))
+            ) =>
           filling(holes, fillings, contractSlot).exists(fillingIdentity)
         case _ => false
     case _ => false
 
   /** The code as the refinement runs it, read up to its judgments: each
     * judgment on its spine and in its arguments read as its value, and each
-    * specialization choice as its untyped application `F A`, the contracts
-    * of its curried members read by `identityContract`. The refinement turns
-    * a specialization choice into its typed member with a fallback point
-    * where a criterion decodes, `F (A + (A ∥ D))` and its range likewise,
-    * and with no check where it does not, `F A`, both `F A` up to their
-    * judgments; a curried member `C (F A)` with C read as λf. f. A contract
-    * whose code holds a specialization choice, the contract of a curried
-    * function's last argument, is then read as λf. f, as the refinement
-    * reads it once its fillings are refined (CLOSUREPROBE, 2026-11-13:
-    * `cons (f zero) nil` in a closure's body, whose typed member's contract
-    * is `λf y. f y + (f (y ∥ T)) ∥ T`).
+    * specialization choice as its untyped application `F A`, the contracts of
+    * its curried members read by `identityContract`. The refinement turns a
+    * specialization choice into its typed member with a fallback point where a
+    * criterion decodes, `F (A + (A ∥ D))` and its range likewise, and with no
+    * check where it does not, `F A`, both `F A` up to their judgments; a
+    * curried member `C (F A)` with C read as λf. f. A contract whose code holds
+    * a specialization choice, the contract of a curried function's last
+    * argument, is then read as λf. f, as the refinement reads it once its
+    * fillings are refined (CLOSUREPROBE, 2026-11-13: `cons (f zero) nil` in a
+    * closure's body, whose typed member's contract is
+    * `λf y. f y + (f (y ∥ T)) ∥ T`).
     */
   def absorbed(code: Code, identityContract: Code => Boolean): Code = code match
     case Code.Choice(left, right) =>
       fallbacks(left, right, codeLayers).headOption match
         case Some(found) => absorbed(found.value, identityContract)
-        case None =>
-          specializations(left, right, codeLayers, identityContract).headOption match
-            case Some(found) => absorbed(Code.Apply(found.function, found.argument), identityContract)
-            case None        => code
-    case Code.Apply(function, argument) => Code.Apply(absorbed(function, identityContract), absorbed(argument, identityContract))
-    case other                          => other
+        case None        =>
+          specializations(
+            left,
+            right,
+            codeLayers,
+            identityContract
+          ).headOption match
+            case Some(found) =>
+              absorbed(
+                Code.Apply(found.function, found.argument),
+                identityContract
+              )
+            case None => code
+    case Code.Apply(function, argument) =>
+      Code.Apply(
+        absorbed(function, identityContract),
+        absorbed(argument, identityContract)
+      )
+    case other => other
 
-  /** The filling a thunk of the holes and fillings puts in the slot, none
-    * when a hole binds it: the fillings fill the slots no hole binds, in
-    * ascending order.
+  /** The filling a thunk of the holes and fillings puts in the slot, none when
+    * a hole binds it: the fillings fill the slots no hole binds, in ascending
+    * order.
     */
-  def filling[Node](holes: Vector[Hole], fillings: Vector[Node], slot: Int): Option[Node] =
+  def filling[Node](
+      holes: Vector[Hole],
+      fillings: Vector[Node],
+      slot: Int
+  ): Option[Node] =
     if holes.contains(Hole.Bound(slot)) then None
-    else fillings.lift((0 until slot).count(index => !holes.contains(Hole.Bound(index))))
+    else
+      fillings.lift(
+        (0 until slot).count(index => !holes.contains(Hole.Bound(index)))
+      )

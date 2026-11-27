@@ -24,8 +24,8 @@ import gezi.ir.Store
 import gezi.ir.{Apply, Parallel, Slot}
 
 /** Orientations compiled by the index, run by the closure backend and
-  * saturated: the whole pipeline the comparison runs, on hand-written
-  * generic examples.
+  * saturated: the whole pipeline the comparison runs, on hand-written generic
+  * examples.
   */
 class IndexedSaturationTest extends gezi.generatedinputs.FailFastSuite:
 
@@ -43,7 +43,10 @@ class IndexedSaturationTest extends gezi.generatedinputs.FailFastSuite:
       input: Configured[C],
       stop: StopSignal
   ): Run[C] =
-    val program = Indexing.program(orientations, Indexing.codesMet(orientations, patternInstructions :+ input))
+    val program = Indexing.program(
+      orientations,
+      Indexing.codesMet(orientations, patternInstructions :+ input)
+    )
     Saturation.run(
       program,
       ClosureCompilation.compiled(program),
@@ -57,7 +60,10 @@ class IndexedSaturationTest extends gezi.generatedinputs.FailFastSuite:
       stop
     )
 
-  private def orientation(matched: Pattern[C], added: Pattern[C]): Orientation[C] = Orientation(
+  private def orientation(
+      matched: Pattern[C],
+      added: Pattern[C]
+  ): Orientation[C] = Orientation(
     index = 0,
     lemma = LemmaIdentifier(0),
     direction = Direction.Forward,
@@ -69,42 +75,49 @@ class IndexedSaturationTest extends gezi.generatedinputs.FailFastSuite:
     shared = Vector.empty
   )
 
-  stoppableTest("idempotence unites a parallel of one class with that class") { stopped =>
-    val pair = NoFacts.parallel(leaf, leaf)
-    val result = saturated(
-      Vector(
-        orientation(
-          Pattern.Parallel(Pattern.Metavariable[C](0), Pattern.Metavariable[C](0)),
-          Pattern.Metavariable[C](0)
-        )
-      ),
-      Store(Set(leaf), gezi.ir.TermConstruction(NoFacts)),
-      Vector.empty,
-      pair,
-      StopSignal.completedWith(stopped)
-    )
-    assertEquals(result.end, End.FixedPoint(1))
-    assertEquals(
-      result.graph.unions,
-      Vector(
-        UnionRecord(
-          1,
-          0,
-          Justification.Lemma(LemmaIdentifier(0), Vector(Some(0))),
-          None
+  stoppableTest("idempotence unites a parallel of one class with that class") {
+    stopped =>
+      val pair = NoFacts.parallel(leaf, leaf)
+      val result = saturated(
+        Vector(
+          orientation(
+            Pattern
+              .Parallel(Pattern.Metavariable[C](0), Pattern.Metavariable[C](0)),
+            Pattern.Metavariable[C](0)
+          )
+        ),
+        Store(Set(leaf), gezi.ir.TermConstruction(NoFacts)),
+        Vector.empty,
+        pair,
+        StopSignal.completedWith(stopped)
+      )
+      assertEquals(result.end, End.FixedPoint(1))
+      assertEquals(
+        result.graph.unions,
+        Vector(
+          UnionRecord(
+            1,
+            0,
+            Justification.Lemma(LemmaIdentifier(0), Vector(Some(0))),
+            None
+          )
         )
       )
-    )
-    assertEquals(result.graph.matchesFound, 3)
+      assertEquals(result.graph.matchesFound, 3)
   }
 
-  stoppableTest("an added side applying a lambda takes a β step, united with the body") { stopped =>
+  stoppableTest(
+    "an added side applying a lambda takes a β step, united with the body"
+  ) { stopped =>
     val applied = NoFacts.application(name, leaf)
     val identity = Code(Slot(0))
     val result = saturated(
       Vector(
         orientation(
-          Pattern.Apply(Pattern.InstructionReference(name), Pattern.Metavariable[C](0)),
+          Pattern.Apply(
+            Pattern.InstructionReference(name),
+            Pattern.Metavariable[C](0)
+          ),
           Pattern.Apply(
             Pattern.Thunk[C](identity, Vector(Hole.Bound(0)), Vector.empty),
             Pattern.Metavariable[C](0)

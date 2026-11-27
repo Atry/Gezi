@@ -24,11 +24,13 @@ import gezi.ir.Store
 import gezi.ir.Parallel
 
 /** The loop over a compiled program written by hand for one orientation, a
-  * parallel of two classes: with `Merge`, idempotence `X ∥ X = X`; with
-  * `Add`, `X ∥ Y = X ∥ name`.
+  * parallel of two classes: with `Merge`, idempotence `X ∥ X = X`; with `Add`,
+  * `X ∥ Y = X ∥ name`.
   */
-private final class ParallelProgram(kind: SeedKind, name: Configured[NoFacts.type])
-    extends CompiledProgram[NoFacts.type]:
+private final class ParallelProgram(
+    kind: SeedKind,
+    name: Configured[NoFacts.type]
+) extends CompiledProgram[NoFacts.type]:
 
   def matches(
       matchedKind: SeedKind,
@@ -38,7 +40,10 @@ private final class ParallelProgram(kind: SeedKind, name: Configured[NoFacts.typ
   ): Matching = (matchedKind, key, graph.layer(delta)) match
     case (`kind`, SeedKey.Parallel(), Parallel(left, right))
         if kind == SeedKind.Add || graph.root(left) == graph.root(right) =>
-      Matching(Vector(Match(0, graph.root(delta), Vector(Some(graph.root(left))))), 0)
+      Matching(
+        Vector(Match(0, graph.root(delta), Vector(Some(graph.root(left))))),
+        0
+      )
     case _ => Matching.none
 
   def added[Graph <: GraphBuilding[NoFacts.type, Graph]](
@@ -47,7 +52,7 @@ private final class ParallelProgram(kind: SeedKind, name: Configured[NoFacts.typ
       bindings: Vector[Option[Int]]
   ): (Graph, Int) = (kind, bindings) match
     case (SeedKind.Merge, Vector(Some(node))) => (graph, node)
-    case (SeedKind.Add, Vector(Some(node))) =>
+    case (SeedKind.Add, Vector(Some(node)))   =>
       val (withName, nameNode) = graph.instructionAdded(name)
       withName.layerAdded(Parallel(node, nameNode))
     case other => throw IllegalArgumentException(s"no added side for $other")
@@ -75,7 +80,8 @@ class SaturationTest extends gezi.generatedinputs.FailFastSuite:
   private val name = NoFacts.opaque("name")
   private val pair = NoFacts.parallel(leaf, leaf)
 
-  private val store = Store(noinline = Set(leaf, name), gezi.ir.TermConstruction(NoFacts))
+  private val store =
+    Store(noinline = Set(leaf, name), gezi.ir.TermConstruction(NoFacts))
 
   /** The plan saturation reads; the stub builds the added side itself. */
   private val program = Program[NoFacts.type](
@@ -92,7 +98,9 @@ class SaturationTest extends gezi.generatedinputs.FailFastSuite:
     Map.empty
   )
 
-  stoppableTest("idempotence unites a parallel of one class with that class, then reaches its fixed point") { stopped =>
+  stoppableTest(
+    "idempotence unites a parallel of one class with that class, then reaches its fixed point"
+  ) { stopped =>
     val result = Saturation.run(
       program,
       ParallelProgram(SeedKind.Merge, name),
@@ -123,7 +131,9 @@ class SaturationTest extends gezi.generatedinputs.FailFastSuite:
     assertEquals(result.graph.matchesFound, 3)
   }
 
-  stoppableTest("the run stops as soon as the instances that changed the graph reach the budget") { stopped =>
+  stoppableTest(
+    "the run stops as soon as the instances that changed the graph reach the budget"
+  ) { stopped =>
     val result = Saturation.run(
       program,
       ParallelProgram(SeedKind.Add, name),
@@ -141,10 +151,12 @@ class SaturationTest extends gezi.generatedinputs.FailFastSuite:
     assertEquals(result.graph.nodeCount, 4)
   }
 
-  /** Purpose: catch a saturation that ignores its stop signal, or that
-    * reads it only after matching a delta.
+  /** Purpose: catch a saturation that ignores its stop signal, or that reads it
+    * only after matching a delta.
     */
-  test("a stop requested before the first delta ends the run stopped with no instance") {
+  test(
+    "a stop requested before the first delta ends the run stopped with no instance"
+  ) {
     object Requested extends StopSignal:
       def stopRequested: Boolean = true
     val result = Saturation.run(
@@ -163,7 +175,9 @@ class SaturationTest extends gezi.generatedinputs.FailFastSuite:
     assertEquals(result.graph.matchesFound, 0)
   }
 
-  test("slot values put the arguments at the holes' slots and the fillings at the others") {
+  test(
+    "slot values put the arguments at the holes' slots and the fillings at the others"
+  ) {
     assertEquals(
       Saturation.slotValues(
         Vector(Hole.Bound(2), Hole.Ignored, Hole.Bound(0)),

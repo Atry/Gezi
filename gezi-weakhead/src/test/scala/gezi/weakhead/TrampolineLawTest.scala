@@ -17,9 +17,8 @@ private final case class SplitMix(state: Long):
     val (drawn, after) = bits
     (low + java.lang.Math.floorMod(drawn, (high - low + 1).toLong).toInt, after)
 
-/** A program of the trampoline's constructions, generated: a value, a
-  * deferred program, or a program whose value chooses the next by an affine
-  * map of it.
+/** A program of the trampoline's constructions, generated: a value, a deferred
+  * program, or a program whose value chooses the next by an affine map of it.
   */
 private enum Program:
   case Value(value: Long)
@@ -27,11 +26,11 @@ private enum Program:
   case Bound(first: Program, multiplier: Long, addend: Long, next: Program)
 
 /** The law of `Trampoline`: a program's trampolined result is its direct
-  * evaluation, on generated programs nested to the left and to the right,
-  * and a chain of 200,000 sequenced steps nested either way runs without
-  * growing the JVM stack. Its purpose: to catch a wrong reassociation in
-  * `Trampoline.flatMap` or in the trampoline's run, the two places it
-  * departs from `scala.util.control.TailCalls`.
+  * evaluation, on generated programs nested to the left and to the right, and a
+  * chain of 200,000 sequenced steps nested either way runs without growing the
+  * JVM stack. Its purpose: to catch a wrong reassociation in
+  * `Trampoline.flatMap` or in the trampoline's run, the two places it departs
+  * from `scala.util.control.TailCalls`.
   */
 class TrampolineLawTest extends gezi.generatedinputs.FailFastSuite:
 
@@ -52,51 +51,81 @@ class TrampolineLawTest extends gezi.generatedinputs.FailFastSuite:
         (Program.Bound(first, multiplier.toLong, addend.toLong, next), after)
 
   private def direct(program: Program): Long = program match
-    case Program.Value(value)                            => value
-    case Program.Deferred(inner)                         => direct(inner)
-    case Program.Bound(first, multiplier, addend, next) => direct(next) + multiplier * direct(first) + addend
+    case Program.Value(value)                           => value
+    case Program.Deferred(inner)                        => direct(inner)
+    case Program.Bound(first, multiplier, addend, next) =>
+      direct(next) + multiplier * direct(first) + addend
 
   private def trampolined(program: Program): Trampoline[Long] = program match
     case Program.Value(value)    => Trampoline.done(value)
     case Program.Deferred(inner) => Trampoline.tailcall(trampolined(inner))
     case Program.Bound(first, multiplier, addend, next) =>
-      trampolined(first).flatMap(value => trampolined(next).map(_ + multiplier * value + addend))
+      trampolined(first).flatMap(value =>
+        trampolined(next).map(_ + multiplier * value + addend)
+      )
 
   test("a generated program's trampolined result is its direct evaluation") {
-    val (_, failures) = (1 to 500).foldLeft((SplitMix(20261103L), Vector.empty[Program])) {
-      case ((random, failed), _) =>
-        val (depth, afterDepth) = random.between(0, 9)
-        val (program, after) = generated(afterDepth, depth)
-        (after, if trampolined(program).result == direct(program) then failed else failed :+ program)
-    }
+    val (_, failures) =
+      (1 to 500).foldLeft((SplitMix(20261103L), Vector.empty[Program])) {
+        case ((random, failed), _) =>
+          val (depth, afterDepth) = random.between(0, 9)
+          val (program, after) = generated(afterDepth, depth)
+          (
+            after,
+            if trampolined(program).result == direct(program) then failed
+            else failed :+ program
+          )
+      }
     assertEquals(failures, Vector.empty)
   }
 
-  test("200,000 sequenced steps nested to the left or to the right run without growing the JVM stack") {
+  test(
+    "200,000 sequenced steps nested to the left or to the right run without growing the JVM stack"
+  ) {
     val steps = 200000
-    val leftNested = (1 to steps).foldLeft(Trampoline.done(0L))((computation, _) => computation.flatMap(value => Trampoline.done(value + 1)))
+    val leftNested =
+      (1 to steps).foldLeft(Trampoline.done(0L))((computation, _) =>
+        computation.flatMap(value => Trampoline.done(value + 1))
+      )
     def rightNested(remaining: Int, value: Long): Trampoline[Long] =
       if remaining == 0 then Trampoline.done(value)
-      else Trampoline.tailcall(rightNested(remaining - 1, value + 1)).flatMap(Trampoline.done)
+      else
+        Trampoline
+          .tailcall(rightNested(remaining - 1, value + 1))
+          .flatMap(Trampoline.done)
     assertEquals(leftNested.result, rightNested(steps, 0L).result)
   }
 
-  stoppableTest("run under a signal that never stops, a generated program's result is the plain run's") { stopped =>
-    val (_, failures) = (1 to 500).foldLeft((SplitMix(20261107L), Vector.empty[Program])) {
-      case ((random, failed), _) =>
-        val (depth, afterDepth) = random.between(0, 9)
-        val (program, after) = generated(afterDepth, depth)
-        val unless = trampolined(program).resultUnless(gezi.saturation.StopSignal.completedWith(stopped), Long.MinValue)
-        (after, if unless == trampolined(program).result then failed else failed :+ program)
-    }
+  stoppableTest(
+    "run under a signal that never stops, a generated program's result is the plain run's"
+  ) { stopped =>
+    val (_, failures) =
+      (1 to 500).foldLeft((SplitMix(20261107L), Vector.empty[Program])) {
+        case ((random, failed), _) =>
+          val (depth, afterDepth) = random.between(0, 9)
+          val (program, after) = generated(afterDepth, depth)
+          val unless = trampolined(program).resultUnless(
+            gezi.saturation.StopSignal.completedWith(stopped),
+            Long.MinValue
+          )
+          (
+            after,
+            if unless == trampolined(program).result then failed
+            else failed :+ program
+          )
+      }
     assertEquals(failures, Vector.empty)
   }
 
-  test("a stop asked for from the start ends a long chain at a read of the signal and never a chain shorter than the reads' interval") {
+  test(
+    "a stop asked for from the start ends a long chain at a read of the signal and never a chain shorter than the reads' interval"
+  ) {
     val stopped = new gezi.saturation.StopSignal:
       def stopRequested: Boolean = true
     def chain(steps: Int): Trampoline[Long] =
-      (1 to steps).foldLeft(Trampoline.done(0L))((computation, _) => computation.flatMap(value => Trampoline.done(value + 1)))
+      (1 to steps).foldLeft(Trampoline.done(0L))((computation, _) =>
+        computation.flatMap(value => Trampoline.done(value + 1))
+      )
     assertEquals(chain(200000).resultUnless(stopped, -1L), -1L)
     val short = Trampoline.stopCheckBounces / 4
     assertEquals(chain(short).resultUnless(stopped, -1L), short.toLong)

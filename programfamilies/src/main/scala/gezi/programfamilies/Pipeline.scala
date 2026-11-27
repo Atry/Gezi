@@ -31,8 +31,7 @@ import gezi.ir.{Configured, NativeSpecializer, NoFacts}
 /** The configuration of the terms here: no facts. */
 private given pipelineNoFacts: NoFacts.type = NoFacts
 
-/** A size family of the two configurations: its configuration and its
-  * name.
+/** A size family of the two configurations: its configuration and its name.
   */
 final case class SizeFamily(configuration: Configuration, family: String):
 
@@ -42,7 +41,11 @@ final case class SizeFamily(configuration: Configuration, family: String):
   def item(size: Int): Item =
     configuration.items
       .find(item => item.family == family && item.size == size.toString)
-      .getOrElse(throw IllegalArgumentException(s"the family $family has no item of size $size"))
+      .getOrElse(
+        throw IllegalArgumentException(
+          s"the family $family has no item of size $size"
+        )
+      )
 
 /** The program after the front end: the de Bruijn term of its HOAS, the term
   * after the occurrence tagging, and the program's instruction.
@@ -56,23 +59,28 @@ final case class FrontEnd(
 /** An item's saturation: the graph at the End, the End, the nodes the input
   * made when it was added, and the input's node.
   */
-final case class Saturated(graph: EGraph[NoFacts.type], end: End, inputNodesMade: Int, inputNodes: Vector[Int])
+final case class Saturated(
+    graph: EGraph[NoFacts.type],
+    end: End,
+    inputNodesMade: Int,
+    inputNodes: Vector[Int]
+)
 
-/** The deterministic counts of each stage of the pipeline on one item, for
-  * the migration's criterion 4 (`CriterionFourTest`). Every count is read off the values the stages
-  * return; none is kept in a counter.
+/** The deterministic counts of each stage of the pipeline on one item, for the
+  * migration's criterion 4 (`CriterionFourTest`). Every count is read off the
+  * values the stages return; none is kept in a counter.
   *
   * @param programNodesRead
-  *   reading: the nodes of the HOAS program as the conversion reads them,
-  *   which are the nodes of its de Bruijn term before the tagging
+  *   reading: the nodes of the HOAS program as the conversion reads them, which
+  *   are the nodes of its de Bruijn term before the tagging
   * @param deBruijnNodes
   *   front end: the nodes of the de Bruijn term after the occurrence tagging
   * @param layersInterned
   *   front end: the instructions under the program's instruction
   *   (`Reachability.instructionsUnder`) that are not under the library's
   * @param codesInterned
-  *   front end: the codes under the program's instruction that are not under the
-  *   library's
+  *   front end: the codes under the program's instruction that are not under
+  *   the library's
   * @param libraryLayers
   *   library compilation: the instructions under the orientations' pattern
   *   instructions, where the library's terms a program meets stand
@@ -94,12 +102,12 @@ final case class Saturated(graph: EGraph[NoFacts.type], end: End, inputNodesMade
   * @param matches
   *   saturation: the matches found
   * @param productions
-  *   extraction: the productions the extraction reads, the graph's live
-  *   nodes but the absorbed choices and the round's leaves whose
-  *   node is live (`Extraction.productions`)
+  *   extraction: the productions the extraction reads, the graph's live nodes
+  *   but the absorbed choices and the round's leaves whose node is live
+  *   (`Extraction.productions`)
   * @param classesEntered
-  *   extraction: the classes that have a best entry at the extraction's
-  *   fixed point
+  *   extraction: the classes that have a best entry at the extraction's fixed
+  *   point
   * @param productionReads
   *   extraction: the child positions of the productions, each a production
   *   filed as a reader of the class at that position, which the extraction
@@ -149,20 +157,20 @@ final case class StageCounts(
     ("extraction", "layers_spelled", layersSpelled)
   )
 
-/** Gezi's pipeline as the benchmarks run it, split into its stages:
-  * the knowledge files read and the library compiled with the orientations
-  * of its enabled lemmas (`FixedPointRuns.compiled`), the program through the
-  * front end (its HOAS to de Bruijn, the occurrence tagging, the
-  * defunctionalization and the interning), the index and the backend
-  * compiled over the orientations and the store's codes, the graph
-  * saturated to its End, and the output extracted from the graph as a round
-  * of the baseline's search strategy extracts it after its saturation
-  * (`CountedExtractor`, over `CountedExtraction.fixed`, one round being a saturation followed
-  * by an extraction): the cost model of the ordering modules of every round
-  * of the native route (`NativeRouteCompilation.extraction`) over the
-  * baseline's table of modules, for both configurations. Unlike
-  * `FixedPointRuns.input`, the run's input is not numbered: the exporter's
-  * numbering only serves the comparison with the fixtures.
+/** Gezi's pipeline as the benchmarks run it, split into its stages: the
+  * knowledge files read and the library compiled with the orientations of its
+  * enabled lemmas (`FixedPointRuns.compiled`), the program through the front
+  * end (its HOAS to de Bruijn, the occurrence tagging, the defunctionalization
+  * and the interning), the index and the backend compiled over the orientations
+  * and the store's codes, the graph saturated to its End, and the output
+  * extracted from the graph as a round of the baseline's search strategy
+  * extracts it after its saturation (`CountedExtractor`, over
+  * `CountedExtraction.fixed`, one round being a saturation followed by an
+  * extraction): the cost model of the ordering modules of every round of the
+  * native route (`NativeRouteCompilation.extraction`) over the baseline's table
+  * of modules, for both configurations. Unlike `FixedPointRuns.input`, the
+  * run's input is not numbered: the exporter's numbering only serves the
+  * comparison with the fixtures.
   */
 object Pipeline:
 
@@ -170,8 +178,12 @@ object Pipeline:
     * record's tables.
     */
   val sizeFamilies: Vector[SizeFamily] =
-    Vector("numeral", "list", "chain", "nested", "tuple").map(SizeFamily(Configurations.hindleyMilnerBaseline, _)) ++
-      Vector("numerals", "lists", "folds").map(SizeFamily(Configurations.costComparison, _))
+    Vector("numeral", "list", "chain", "nested", "tuple").map(
+      SizeFamily(Configurations.hindleyMilnerBaseline, _)
+    ) ++
+      Vector("numerals", "lists", "folds").map(
+        SizeFamily(Configurations.costComparison, _)
+      )
 
   /** The sizes of the timing. */
   val timedSizes: Vector[Int] = Vector(64, 128, 256, 512, 1024)
@@ -179,25 +191,41 @@ object Pipeline:
   /** The sizes of the migration's criterion 4. */
   val countedSizes: Vector[Int] = Vector(64, 128, 512, 1024)
 
-  /** The configuration's fixture file read off the build's root and its
-    * library and orientations compiled.
+  /** The configuration's fixture file read off the build's root and its library
+    * and orientations compiled.
     */
-  def libraryCompiled(configuration: Configuration, buildRoot: Path): CompiledConfiguration =
+  def libraryCompiled(
+      configuration: Configuration,
+      buildRoot: Path
+  ): CompiledConfiguration =
     FixedPointRuns.compiled(configuration, buildRoot)
 
   /** The closed program through the front end. */
-  def frontEnd(compiled: CompiledConfiguration, program: ProgramTerm): FrontEnd =
+  def frontEnd(
+      compiled: CompiledConfiguration,
+      program: ProgramTerm
+  ): FrontEnd =
     val untagged = program.deBruijnTerm(Map.empty)
     val tagged = compiled.occurrenceMarkers match
       case None          => untagged
       case Some(markers) => Occurrences.tagged[NoFacts.type](untagged, markers)
-    FrontEnd(untagged, tagged, Defunctionalization.thunkInstruction(tagged)(using gezi.ir.NoFacts))
+    FrontEnd(
+      untagged,
+      tagged,
+      Defunctionalization.thunkInstruction(tagged)(using gezi.ir.NoFacts)
+    )
 
   /** The run's input, compiled by the index and the closure backend. */
-  def indexCompiled(compiled: CompiledConfiguration, frontEnd: FrontEnd): Compiled[NoFacts.type] =
+  def indexCompiled(
+      compiled: CompiledConfiguration,
+      frontEnd: FrontEnd
+  ): Compiled[NoFacts.type] =
     Compiled.of(
       RunInput(
-        Store(compiled.library.index.noinline, gezi.ir.TermConstruction(gezi.ir.NoFacts)),
+        Store(
+          compiled.library.index.noinline,
+          gezi.ir.TermConstruction(gezi.ir.NoFacts)
+        ),
         compiled.orientations.orientations,
         compiled.orientations.patternInstructions,
         Vector(frontEnd.inputInstruction),
@@ -210,34 +238,78 @@ object Pipeline:
     */
   def saturated(item: Compiled[NoFacts.type]): Saturated =
     val input = item.input
-    val initial = Saturation.initialGraph(input.store, item.headArityBounds, input.patternInstructions, explained = false)
+    val initial = Saturation.initialGraph(
+      input.store,
+      item.headArityBounds,
+      input.patternInstructions,
+      explained = false
+    )
     val (withInputs, inputNodes) = Saturation.inputsAdded(initial, input.inputs)
     val (graph, end) =
-      Saturation.saturated(item.program, item.compiled, BuiltInRule.beforeOptIn, withInputs, input.budget, StopSignal.NeverStopped)
-    Saturated(graph, end, withInputs.canonicalNodeCount - initial.canonicalNodeCount, inputNodes)
+      Saturation.saturated(
+        item.program,
+        item.compiled,
+        BuiltInRule.beforeOptIn,
+        withInputs,
+        input.budget,
+        StopSignal.NeverStopped
+      )
+    Saturated(
+      graph,
+      end,
+      withInputs.canonicalNodeCount - initial.canonicalNodeCount,
+      inputNodes
+    )
 
-  /** The ordering modules of the extraction of every round of the native
-    * route, from the baseline's table, checked once.
+  /** The ordering modules of the extraction of every round of the native route,
+    * from the baseline's table, checked once.
     */
   val extractionModules: Vector[NormalityModule[NoFacts.type]] =
-    TermOrder.extractionModulesChecked(TermOrder.modulesChecked(BaselineModules.table, NativeRouteCompilation.extraction.modules))
+    TermOrder.extractionModulesChecked(
+      TermOrder.modulesChecked(
+        BaselineModules.table,
+        NativeRouteCompilation.extraction.modules
+      )
+    )
 
   /** The output of the saturated graph extracted as the baseline's round
     * extracts it, the program's instruction the one input.
     */
-  def extracted(compiled: CompiledConfiguration, frontEnd: FrontEnd, run: Saturated): ExtractedOutputs[NoFacts.type] =
+  def extracted(
+      compiled: CompiledConfiguration,
+      frontEnd: FrontEnd,
+      run: Saturated
+  ): ExtractedOutputs[NoFacts.type] =
     val index = compiled.library.index
-    val model = ModuleCostModel(extractionModules, TermReading(index), StopSignal.NeverStopped)
+    val model = ModuleCostModel(
+      extractionModules,
+      TermReading(index),
+      StopSignal.NeverStopped
+    )
     val extraction = CountedExtraction
-      .fixed(run.graph, FixpointEgraph.productionNames(index), model, StopSignal.NeverStopped)
-      .getOrElse(throw IllegalStateException("an extraction under NeverStopped was stopped"))
+      .fixed(
+        run.graph,
+        FixpointEgraph.productionNames(index),
+        model,
+        StopSignal.NeverStopped
+      )
+      .getOrElse(
+        throw IllegalStateException(
+          "an extraction under NeverStopped was stopped"
+        )
+      )
     ExtractedOutputs(
       extraction,
-      FixpointEgraph.outputsSpelled(extraction, run.inputNodes.map(run.graph.root), Vector(frontEnd.inputInstruction), run.graph.store.construction)
+      FixpointEgraph.outputsSpelled(
+        extraction,
+        run.inputNodes.map(run.graph.root),
+        Vector(frontEnd.inputInstruction),
+        run.graph.store.construction
+      )
     )
 
-  /** The counts of every stage on the item, the library compiled once for
-    * its configuration.
+  /** The counts of every stage on the item, the library compiled once for its
+    * configuration.
     */
   def counts(compiled: CompiledConfiguration, item: Item): StageCounts =
     val afterFrontEnd = frontEnd(compiled, item.program)
@@ -245,12 +317,24 @@ object Pipeline:
     val run = saturated(indexed)
     val libraryRoots = compiled.orientations.patternInstructions
     val libraryInstructions = Reachability.instructionsUnder(libraryRoots)
-    val libraryCodes = Indexing.codesMet(compiled.orientations.orientations, libraryRoots)
-    val programInstructions = Reachability.instructionsUnder(Vector(afterFrontEnd.inputInstruction))
-    val programCodes = Reachability.codesUnder(Vector(afterFrontEnd.inputInstruction), Vector.empty)
-    val extraction = extractionCounts(extracted(compiled, afterFrontEnd, run), programInstructions, libraryInstructions)
+    val libraryCodes =
+      Indexing.codesMet(compiled.orientations.orientations, libraryRoots)
+    val programInstructions =
+      Reachability.instructionsUnder(Vector(afterFrontEnd.inputInstruction))
+    val programCodes = Reachability.codesUnder(
+      Vector(afterFrontEnd.inputInstruction),
+      Vector.empty
+    )
+    val extraction = extractionCounts(
+      extracted(compiled, afterFrontEnd, run),
+      programInstructions,
+      libraryInstructions
+    )
     val (productions, _) =
-      Extraction.productions(run.graph, FixpointEgraph.productionNames(compiled.library.index))
+      Extraction.productions(
+        run.graph,
+        FixpointEgraph.productionNames(compiled.library.index)
+      )
     StageCounts(
       programNodesRead = nodeCount(List(afterFrontEnd.untagged), 0),
       deBruijnNodes = nodeCount(List(afterFrontEnd.tagged), 0),
@@ -272,12 +356,16 @@ object Pipeline:
     )
 
   /** The counts `counts` reads off the extraction, so that the extraction
-    * itself is not kept: `counts` then builds the productions again for
-    * their number, and holding the extracted classes through that second
-    * build ran out of a 352m heap on list at 1024 (curried-partial-function,
-    * 2026-11-13, CriterionFourTest).
+    * itself is not kept: `counts` then builds the productions again for their
+    * number, and holding the extracted classes through that second build ran
+    * out of a 352m heap on list at 1024 (curried-partial-function, 2026-11-13,
+    * CriterionFourTest).
     */
-  private final case class ExtractionCounts(classesEntered: Int, productionReads: Long, layersSpelled: Int)
+  private final case class ExtractionCounts(
+      classesEntered: Int,
+      productionReads: Long,
+      layersSpelled: Int
+  )
 
   private def extractionCounts[C <: NativeSpecializer & Singleton](
       extraction: ExtractedOutputs[C],
@@ -287,13 +375,20 @@ object Pipeline:
     ExtractionCounts(
       extraction.extracted.classes.values.count(_.best.isDefined),
       extraction.extracted.classes.values.map(_.readers.size.toLong).sum,
-      Reachability.instructionsUnder(extraction.outputs).diff(programInstructions).diff(libraryInstructions).size
+      Reachability
+        .instructionsUnder(extraction.outputs)
+        .diff(programInstructions)
+        .diff(libraryInstructions)
+        .size
     )
 
   /** The nodes of the terms, counted with an explicit stack. */
   @tailrec
-  private def nodeCount[Constant](pending: List[DeBruijnTermOf[Constant]], counted: Int): Int = pending match
-    case Nil => counted
+  private def nodeCount[Constant](
+      pending: List[DeBruijnTermOf[Constant]],
+      counted: Int
+  ): Int = pending match
+    case Nil          => counted
     case term :: rest =>
       val subterms = term match
         case DeBruijnTerm.Variable(_)               => Nil

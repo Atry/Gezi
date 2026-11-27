@@ -4,25 +4,31 @@ import snapshot4s.generated.snapshotConfig
 
 /** The knowledge file each lemma of the native route's library
   * (`tests/library_fixtures/native_route_lemmas.lambdalattice`, the choice of
-  * seven compiler knowledge files) is attributed to by `LemmaSources.attributed`,
-  * among the files of `corpora/compiler`, and the lemmas attributed to none.
+  * seven compiler knowledge files) is attributed to by
+  * `LemmaSources.attributed`, among the files of `corpora/compiler`, and the
+  * lemmas attributed to none.
   *
   * Purpose: catch an attribution that misses a lemma the library holds, or
-  * gives it a file whose declaration of the name reads as other sides, so
-  * that a trace's lemma would point at no text
-  * or at the wrong one. The input is the corpus and a fixture the library's
-  * tests already read; the output is a table of 85-odd rows, so it is a
-  * snapshot.
+  * gives it a file whose declaration of the name reads as other sides, so that
+  * a trace's lemma would point at no text or at the wrong one. The input is the
+  * corpus and a fixture the library's tests already read; the output is a table
+  * of 85-odd rows, so it is a snapshot.
   */
-class LemmaAttributionSnapshotTest extends gezi.generatedinputs.FailFastSuite with snapshot4s.munit.SnapshotAssertions:
+class LemmaAttributionSnapshotTest
+    extends gezi.generatedinputs.FailFastSuite
+    with snapshot4s.munit.SnapshotAssertions:
 
-  /** The library the lemmas are taken from, a shared fixture, not the
-    * subject of the test.
+  /** The library the lemmas are taken from, a shared fixture, not the subject
+    * of the test.
     */
   private lazy val library: StandardLibrary =
-    LibraryFiles.compiled("tests/library_fixtures/native_route_lemmas.lambdalattice", Vector.empty)
+    LibraryFiles.compiled(
+      "tests/library_fixtures/native_route_lemmas.lambdalattice",
+      Vector.empty
+    )
 
-  override def sharedFixtures: Vector[scala.concurrent.Future[Unit] => Any] = Vector(_ => library)
+  override def sharedFixtures: Vector[scala.concurrent.Future[Unit] => Any] =
+    Vector(_ => library)
 
   test("the knowledge file of each lemma of the native route's library") {
     // The seven files the fixture chooses, and two that declare other
@@ -39,13 +45,27 @@ class LemmaAttributionSnapshotTest extends gezi.generatedinputs.FailFastSuite wi
       "occurrence_erasure",
       "prelude",
       "prolog_backend_shapes"
-    ).map(name => LibraryFiles.buildRoot.resolve("corpora").resolve("compiler").resolve(s"$name.lambdalattice"))
+    ).map(name =>
+      LibraryFiles.buildRoot
+        .resolve("corpora")
+        .resolve("compiler")
+        .resolve(s"$name.lambdalattice")
+    )
     val lemmas = library.index.lemmaNames.flatMap(named =>
-      library.index.lemmaSides.find(_.lemma == named.lemma).map(sides => (named, sides))
+      library.index.lemmaSides
+        .find(_.lemma == named.lemma)
+        .map(sides => (named, sides))
     )
     val found = LemmaSources.attributed(LibraryFiles.buildRoot, files, lemmas)
     val lines = lemmas.map((named, _) =>
-      found.get(named.lemma).fold(s"${named.name}: none")((file, _) => s"${named.name}: ${file.getFileName}")
+      found
+        .get(named.lemma)
+        .fold(s"${named.name}: none")((file, _) =>
+          s"${named.name}: ${file.getFileName}"
+        )
     )
-    assertFileSnapshot(lines.sorted.mkString("", "\n", "\n"), "lemma_sources/native_route_attribution.txt")
+    assertFileSnapshot(
+      lines.sorted.mkString("", "\n", "\n"),
+      "lemma_sources/native_route_attribution.txt"
+    )
   }

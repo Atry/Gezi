@@ -27,18 +27,34 @@ class OrientationCompilationTest extends gezi.generatedinputs.FailFastSuite:
   private type C = NoFacts.type
 
   private val leaf = NoFacts.opaque("leaf")
-  private val name = NoFacts.thunk(argumentSlot, NonEmptyHoles(Hole.Ignored, Vector.empty), Vector(leaf))
-  private val other = NoFacts.thunk(argumentSlot, NonEmptyHoles(Hole.Ignored, Vector(Hole.Ignored)), Vector(leaf))
+  private val name = NoFacts.thunk(
+    argumentSlot,
+    NonEmptyHoles(Hole.Ignored, Vector.empty),
+    Vector(leaf)
+  )
+  private val other = NoFacts.thunk(
+    argumentSlot,
+    NonEmptyHoles(Hole.Ignored, Vector(Hole.Ignored)),
+    Vector(leaf)
+  )
 
   private val store = Store(Set(leaf), gezi.ir.TermConstruction(NoFacts))
 
   private def metavariable(index: Int): Pattern[C] = Pattern.Metavariable(index)
 
-  private def application(function: Pattern[C], argument: Pattern[C]): Pattern[C] = Pattern.Apply(function, argument)
+  private def application(
+      function: Pattern[C],
+      argument: Pattern[C]
+  ): Pattern[C] = Pattern.Apply(function, argument)
 
-  test("the standard order puts numbers, the empty list, atoms and compounds in that order") {
+  test(
+    "the standard order puts numbers, the empty list, atoms and compounds in that order"
+  ) {
     val sorted = Vector(
-      PrologTerm.Compound("f", Vector(PrologTerm.Atom("a"), PrologTerm.Atom("b"))),
+      PrologTerm.Compound(
+        "f",
+        Vector(PrologTerm.Atom("a"), PrologTerm.Atom("b"))
+      ),
       PrologTerm.Atom("b"),
       PrologTerm.Compound("g", Vector(PrologTerm.Atom("a"))),
       PrologTerm.EmptyList,
@@ -57,22 +73,42 @@ class OrientationCompilationTest extends gezi.generatedinputs.FailFastSuite:
         PrologTerm.Atom("b"),
         PrologTerm.Compound("f", Vector(PrologTerm.Atom("x"))),
         PrologTerm.Compound("g", Vector(PrologTerm.Atom("a"))),
-        PrologTerm.Compound("f", Vector(PrologTerm.Atom("a"), PrologTerm.Atom("b")))
+        PrologTerm.Compound(
+          "f",
+          Vector(PrologTerm.Atom("a"), PrologTerm.Atom("b"))
+        )
       )
     )
   }
 
-  test("a side of metavariables alone is matched by no orientation, and equal sides by the forward one") {
+  test(
+    "a side of metavariables alone is matched by no orientation, and equal sides by the forward one"
+  ) {
     val compiled = OrientationCompilation.compiled(
       Vector(
-        LemmaSides(LemmaIdentifier(0), 1, application(Pattern.InstructionReference(name), metavariable(0)), metavariable(0)),
-        LemmaSides(LemmaIdentifier(1), 1, Pattern.InstructionReference(other), Pattern.InstructionReference(other))
+        LemmaSides(
+          LemmaIdentifier(0),
+          1,
+          application(Pattern.InstructionReference(name), metavariable(0)),
+          metavariable(0)
+        ),
+        LemmaSides(
+          LemmaIdentifier(1),
+          1,
+          Pattern.InstructionReference(other),
+          Pattern.InstructionReference(other)
+        )
       ),
       store
     )
     assertEquals(
-      compiled.orientations.map(orientation => (orientation.lemma, orientation.direction)),
-      Vector((LemmaIdentifier(1), Direction.Forward), (LemmaIdentifier(0), Direction.Forward))
+      compiled.orientations.map(orientation =>
+        (orientation.lemma, orientation.direction)
+      ),
+      Vector(
+        (LemmaIdentifier(1), Direction.Forward),
+        (LemmaIdentifier(0), Direction.Forward)
+      )
     )
     assertEquals(compiled.orientations.map(_.index), Vector(0, 1))
     assertEquals(compiled.orientations(1).essential, Vector(0))
@@ -80,15 +116,24 @@ class OrientationCompilationTest extends gezi.generatedinputs.FailFastSuite:
     assertEquals(compiled.patternInstructions, Vector(other, name))
   }
 
-  test("an eta-shaped thunk pattern is read as a closure of a function metavariable") {
-    val lambda = Pattern.Thunk[C](apply, Vector(Hole.Bound(0)), Vector(metavariable(0)))
+  test(
+    "an eta-shaped thunk pattern is read as a closure of a function metavariable"
+  ) {
+    val lambda =
+      Pattern.Thunk[C](apply, Vector(Hole.Bound(0)), Vector(metavariable(0)))
     val compiled = OrientationCompilation.compiled(
       Vector(
         LemmaSides(
           LemmaIdentifier(0),
           2,
-          application(application(Pattern.InstructionReference(name), lambda), metavariable(1)),
-          application(application(Pattern.InstructionReference(other), metavariable(1)), lambda)
+          application(
+            application(Pattern.InstructionReference(name), lambda),
+            metavariable(1)
+          ),
+          application(
+            application(Pattern.InstructionReference(other), metavariable(1)),
+            lambda
+          )
         )
       ),
       store
@@ -100,8 +145,9 @@ class OrientationCompilationTest extends gezi.generatedinputs.FailFastSuite:
       assert(OrientationCompilation.mentions(orientation.matched).contains(0))
     )
     assertEquals(
-      compiled.orientations.map(_.matched).collect { case Pattern.Apply(Pattern.Apply(_, Pattern.Closure(index)), _) =>
-        index
+      compiled.orientations.map(_.matched).collect {
+        case Pattern.Apply(Pattern.Apply(_, Pattern.Closure(index)), _) =>
+          index
       },
       Vector(0)
     )

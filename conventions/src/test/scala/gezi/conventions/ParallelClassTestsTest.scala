@@ -1,7 +1,7 @@
 package gezi.conventions
 
-/** The main sources that test a term's class against `Parallel` without
-  * reading its `layer`.
+/** The main sources that test a term's class against `Parallel` without reading
+  * its `layer`.
   *
   * Purpose: a native storage is no `Parallel` object while its view is a
   * parallel (`gezi.ir.NativeStorage`), so a class test that reads no layer
@@ -29,23 +29,33 @@ object ParallelClassTests:
     */
   def found(sources: Vector[(String, String)]): Vector[String] =
     sources
-      .filter((path, _) => path.contains("/src/main/") && !withoutLayer.keys.exists(path.endsWith))
+      .filter((path, _) =>
+        path.contains("/src/main/") && !withoutLayer.keys.exists(path.endsWith)
+      )
       .flatMap((path, text) =>
         val lines = text.split('\n').toVector
         val code = ScalaSources.commentsBlanked(text).split('\n').toVector
         lines.zipWithIndex.collect {
           case (line, index)
-              if parallelTypeTest.findFirstIn(code(index)).isDefined && !code(index).contains(".layer") =>
+              if parallelTypeTest.findFirstIn(code(index)).isDefined && !code(
+                index
+              ).contains(".layer") =>
             s"$path:${index + 1}: ${line.trim}"
         }
       )
 
 class ParallelClassTestsTest extends gezi.generatedinputs.FailFastSuite:
 
-  override def sharedFixtures: Vector[scala.concurrent.Future[Unit] => Any] = Vector(_ => ScalaSources.texts)
+  override def sharedFixtures: Vector[scala.concurrent.Future[Unit] => Any] =
+    Vector(_ => ScalaSources.texts)
 
-  test("every class test of a term against Parallel reads its layer, or is listed with how it answers a storage") {
-    assert(ScalaSources.texts.nonEmpty, s"no Scala source found under ${ScalaSources.root}")
+  test(
+    "every class test of a term against Parallel reads its layer, or is listed with how it answers a storage"
+  ) {
+    assert(
+      ScalaSources.texts.nonEmpty,
+      s"no Scala source found under ${ScalaSources.root}"
+    )
     val found = ParallelClassTests.found(ScalaSources.texts)
     assert(found.isEmpty, found.mkString("\n"))
   }

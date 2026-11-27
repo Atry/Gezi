@@ -5,20 +5,20 @@ package gezi.proofs
   * `expected_articles_lean_text/1` of `gezi/tests/opentheory_article.plt`.
   *
   * Lean takes the expected articles through the end-to-end theorem: the
-  * package's module EndToEndFixtures (four articles of the hand-made runs),
-  * the Lean text of `LeanStatementsTest` (the six articles of the hand-made
-  * runs) and the package's module FixpointRunFixtures (the seven articles of
-  * the fixpoint runs). The package's Nix build has only gezi/lean as
-  * its source, so the articles' lines are written into a Lean module of the
-  * package, generated from the files: one definition per article, named
-  * after the file in lower camel case with `Lines` appended, its lines
-  * without their newlines, in order. An article of more than `linesPerPart`
-  * lines is written as its parts of that many lines, each a definition of
-  * its own, and the article's definition is their concatenation: Lean
-  * elaborates a list literal into nested applications as deep as the list is
-  * long, and stops at its default `maxRecDepth` (measured 2026-10-09 with
-  * Lean 4.30.0: a literal of 6000 lines elaborates, one of 8000 or of 11151
-  * reaches the maximum recursion depth). The limit is not raised.
+  * package's module EndToEndFixtures (four articles of the hand-made runs), the
+  * Lean text of `LeanStatementsTest` (the six articles of the hand-made runs)
+  * and the package's module FixpointRunFixtures (the seven articles of the
+  * fixpoint runs). The package's Nix build has only gezi/lean as its source, so
+  * the articles' lines are written into a Lean module of the package, generated
+  * from the files: one definition per article, named after the file in lower
+  * camel case with `Lines` appended, its lines without their newlines, in
+  * order. An article of more than `linesPerPart` lines is written as its parts
+  * of that many lines, each a definition of its own, and the article's
+  * definition is their concatenation: Lean elaborates a list literal into
+  * nested applications as deep as the list is long, and stops at its default
+  * `maxRecDepth` (measured 2026-10-09 with Lean 4.30.0: a literal of 6000 lines
+  * elaborates, one of 8000 or of 11151 reaches the maximum recursion depth).
+  * The limit is not raised.
   *
   * The module's text names `text` as its generator and the test of
   * `ExpectedArticlesModuleTest` that checks the committed module is its
@@ -30,13 +30,14 @@ object ExpectedArticlesModule:
   /** The most lines of one list literal of the module. */
   val linesPerPart: Int = 5000
 
-  /** The name of the Lean definition of the lines of the expected article
-    * of the base name: the base in lower camel case with `Lines` appended.
+  /** The name of the Lean definition of the lines of the expected article of
+    * the base name: the base in lower camel case with `Lines` appended.
     */
-  def linesName(base: String): String = gezi.standardlibrary.LeanFiniteTerms.lowerCamelCase(base) + "Lines"
+  def linesName(base: String): String =
+    gezi.standardlibrary.LeanFiniteTerms.lowerCamelCase(base) + "Lines"
 
-  /** The module of the lines of every `.art` file of the expected articles,
-    * in the order of the file names.
+  /** The module of the lines of every `.art` file of the expected articles, in
+    * the order of the file names.
     */
   def text: String =
     val definitions = ProofTestFiles
@@ -44,10 +45,16 @@ object ExpectedArticlesModule:
       .filter(_.endsWith(".art"))
       .map { entry =>
         val base = entry.stripSuffix(".art")
-        val parts = ProofTestFiles.textRead(ProofTestFiles.expectedDirectory.resolve(entry)).split("\n", -1).toVector
+        val parts = ProofTestFiles
+          .textRead(ProofTestFiles.expectedDirectory.resolve(entry))
+          .split("\n", -1)
+          .toVector
         val lines = parts match
           case lines :+ "" if lines.nonEmpty => lines
-          case _ => throw IllegalStateException(s"the expected article $entry is not terminated")
+          case _                             =>
+            throw IllegalStateException(
+              s"the expected article $entry is not terminated"
+            )
         definitionText(base, linesName(base), lines)
       }
     "/-!\n" +
@@ -75,16 +82,29 @@ object ExpectedArticlesModule:
       definitions.mkString +
       "end LambdaJit.ExpectedArticles\n"
 
-  private def definitionText(base: String, name: String, lines: Vector[String]): String =
+  private def definitionText(
+      base: String,
+      name: String,
+      lines: Vector[String]
+  ): String =
     val file = s"gezi/tests/opentheory_article_expected/$base.art"
-    if lines.size <= linesPerPart then s"/-- The lines of `$file`. -/\n" + listText(name, lines)
+    if lines.size <= linesPerPart then
+      s"/-- The lines of `$file`. -/\n" + listText(name, lines)
     else
       val parts = lines.grouped(linesPerPart).toVector
-      val partNames = parts.indices.map(index => s"${name}Part${index + 1}").toVector
-      parts.zip(partNames).zipWithIndex.map { case ((part, partName), index) =>
-        val first = index * linesPerPart + 1
-        s"/-- Lines $first to ${first + part.size - 1} of `$file`. -/\n" + listText(partName, part)
-      }.mkString +
+      val partNames =
+        parts.indices.map(index => s"${name}Part${index + 1}").toVector
+      parts
+        .zip(partNames)
+        .zipWithIndex
+        .map { case ((part, partName), index) =>
+          val first = index * linesPerPart + 1
+          s"/-- Lines $first to ${first + part.size - 1} of `$file`. -/\n" + listText(
+            partName,
+            part
+          )
+        }
+        .mkString +
         s"/-- The lines of `$file`: its ${parts.size} parts in\n" +
         "order. -/\n" +
         s"def $name : List String :=\n" +
@@ -94,23 +114,33 @@ object ExpectedArticlesModule:
   def listText(name: String, lines: Vector[String]): String =
     val items = lines.map(LeanStatements.stringLiteral).toList
     val first :: rest = items: @unchecked
-    s"def $name : List String :=\n" + itemsFilled(rest, "  [" + first, Vector.empty).map(_ + "\n").mkString + "\n"
+    s"def $name : List String :=\n" + itemsFilled(
+      rest,
+      "  [" + first,
+      Vector.empty
+    ).map(_ + "\n").mkString + "\n"
 
-  /** The items of a Lean list after the line begun so far, separated by
-    * commas, a line ending before it would pass 100 columns, the next one
-    * indented by four spaces, and the last item closed by `]`.
+  /** The items of a Lean list after the line begun so far, separated by commas,
+    * a line ending before it would pass 100 columns, the next one indented by
+    * four spaces, and the last item closed by `]`.
     */
   @scala.annotation.tailrec
-  private def itemsFilled(items: List[String], current: String, done: Vector[String]): Vector[String] = items match
-    case Nil => done :+ (current + "]")
+  private def itemsFilled(
+      items: List[String],
+      current: String,
+      done: Vector[String]
+  ): Vector[String] = items match
+    case Nil          => done :+ (current + "]")
     case item :: rest =>
       val separated = current + ","
-      if ProofTestFiles.length(separated) + 1 + ProofTestFiles.length(item) + 1 <= 100 then
-        itemsFilled(rest, s"$separated $item", done)
+      if ProofTestFiles.length(separated) + 1 + ProofTestFiles.length(
+          item
+        ) + 1 <= 100
+      then itemsFilled(rest, s"$separated $item", done)
       else itemsFilled(rest, "    " + item, done :+ separated)
 
-/** Writes `ExpectedArticlesModule.text` to `gezi/lean/LambdaJit/ExpectedArticles.lean`,
-  * replacing it, in UTF-8.
+/** Writes `ExpectedArticlesModule.text` to
+  * `gezi/lean/LambdaJit/ExpectedArticles.lean`, replacing it, in UTF-8.
   */
 @main def writeExpectedArticlesModule(): Unit =
   java.nio.file.Files.writeString(

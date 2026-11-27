@@ -22,11 +22,17 @@ Test / testForkedParallel := false
 
 // The suites run lake in the Lean package: one such test group at a time
 // (project/LeanTests.scala).
-Test / test / testGrouping := Def.uncached(LeanTests.tagged((Test / test / testGrouping).value))
+Test / test / testGrouping := Def.uncached(
+  LeanTests.tagged((Test / test / testGrouping).value)
+)
 
-Test / testSelected / testGrouping := Def.uncached(LeanTests.tagged((Test / testSelected / testGrouping).value))
+Test / testSelected / testGrouping := Def.uncached(
+  LeanTests.tagged((Test / testSelected / testGrouping).value)
+)
 
-Test / testQuick / testGrouping := Def.uncached(LeanTests.tagged((Test / testQuick / testGrouping).value))
+Test / testQuick / testGrouping := Def.uncached(
+  LeanTests.tagged((Test / testQuick / testGrouping).value)
+)
 
 // Tests that read the files of Gezi find them from the build's root, the
 // parent of this project's directory.

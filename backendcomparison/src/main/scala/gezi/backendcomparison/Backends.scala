@@ -5,8 +5,8 @@ import gezi.ematching.closures.ClosureCompilation
 import gezi.ematching.interpretation.Interpretation
 import gezi.ematching.Backend
 
-/** The backends the application can run, by the name of their module, and
-  * the one it runs when none is named.
+/** The backends the application can run, by the name of their module, and the
+  * one it runs when none is named.
   */
 object Backends:
 
@@ -20,7 +20,9 @@ object Backends:
 
   def named(name: String): Backend =
     byName
-      .collectFirst { case (backendName, backend) if backendName == name => backend }
+      .collectFirst {
+        case (backendName, backend) if backendName == name => backend
+      }
       .getOrElse(
         throw IllegalArgumentException(
           s"no backend named $name; the backends are ${byName.map(_._1).mkString(", ")}"

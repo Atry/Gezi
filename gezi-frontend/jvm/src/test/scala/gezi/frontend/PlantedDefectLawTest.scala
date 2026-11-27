@@ -5,13 +5,12 @@ import gezi.generatedinputs.PlantedDefects
 import gezi.generatedinputs.GeneratedProperties
 import scala.util.Try
 
-/** The laws that a malformed input with one planted defect is rejected with
-  * the reason the defect predicts (`PlantedDefects`), whose purpose is to
-  * catch an error reported at the wrong offset (counted in bytes or UTF-16
-  * units instead of code points, or after skipping the layout), of the
-  * wrong kind (a syntax error where the name is unbound), or not at all (a
-  * read-back that accepts a thunk whose code reads a slot it lacks, or whose
-  * fillings are short).
+/** The laws that a malformed input with one planted defect is rejected with the
+  * reason the defect predicts (`PlantedDefects`), whose purpose is to catch an
+  * error reported at the wrong offset (counted in bytes or UTF-16 units instead
+  * of code points, or after skipping the layout), of the wrong kind (a syntax
+  * error where the name is unbound), or not at all (a read-back that accepts a
+  * thunk whose code reads a slot it lacks, or whose fillings are short).
   */
 class PlantedDefectLawTest extends GeneratedProperties:
 
@@ -26,12 +25,20 @@ class PlantedDefectLawTest extends GeneratedProperties:
 
   /** The problem of reading the closed text and converting it. */
   private def rejection(text: String): Option[LambdalatticeProblem] =
-    Try(Defunctionalization.thunkInstruction(Lambdalattice.term(text))(using gezi.ir.NoFacts)).failed.toOption
+    Try(
+      Defunctionalization.thunkInstruction(Lambdalattice.term(text))(using
+        gezi.ir.NoFacts
+      )
+    ).failed.toOption
       .collect { case LambdalatticeMalformed(problem) => problem }
 
-  property("a text with an unexpected character is rejected at that character") {
+  property(
+    "a text with an unexpected character is rejected at that character"
+  ) {
     for malformed <- PlantedDefects.unexpectedCharacter.forAll
-    yield Result.diff(rejection(malformed.text), Some(malformed.expected))(_ == _)
+    yield Result.diff(rejection(malformed.text), Some(malformed.expected))(
+      _ == _
+    )
   }
 
   // TODO: the property "a text with an unbound name is rejected for that name" stood here. Its purpose: catch an
@@ -44,11 +51,14 @@ class PlantedDefectLawTest extends GeneratedProperties:
   property("a thunk with a planted defect is rejected for it when read back") {
     for (instruction, defect) <- PlantedDefects.malformedThunk.forAll
     yield
-      val reason = Try(Defunctionalization.instructionTerm(instruction)).failed.toOption.collect {
-        case LambdaError(reason) => reason
+      val reason = Try(
+        Defunctionalization.instructionTerm(instruction)
+      ).failed.toOption.collect { case LambdaError(reason) =>
+        reason
       }
       val expected = defect match
-        case PlantedDefects.ThunkDefect.SlotOutOfRange => reason.exists(_.isInstanceOf[LambdaErrorReason.SlotOutOfRange])
+        case PlantedDefects.ThunkDefect.SlotOutOfRange =>
+          reason.exists(_.isInstanceOf[LambdaErrorReason.SlotOutOfRange])
         case PlantedDefects.ThunkDefect.MissingFilling =>
           reason.exists(_.isInstanceOf[LambdaErrorReason.FillingsNotMatched])
       Result.assert(expected).log(s"rejected with $reason")

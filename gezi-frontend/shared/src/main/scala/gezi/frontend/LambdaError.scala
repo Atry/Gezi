@@ -2,9 +2,9 @@ package gezi.frontend
 
 import gezi.ir.Hole
 
-/** A malformed object term, the Prolog front end's `lambda_error(Reason)`.
-  * The message names the reason's kind only: a reason may hold a term
-  * thousands of levels deep, whose derived `toString` recurses per level.
+/** A malformed object term, the Prolog front end's `lambda_error(Reason)`. The
+  * message names the reason's kind only: a reason may hold a term thousands of
+  * levels deep, whose derived `toString` recurses per level.
   */
 final case class LambdaError(reason: LambdaErrorReason)
     extends RuntimeException:
@@ -19,8 +19,8 @@ enum LambdaErrorReason:
   // library terms it needs as members of a fixture file under tests/ by projection, so no name can be unknown.
   // The deleted code: git show 2908bffd5:lambda_jit/frontend/src/main/scala/lambdajit/frontend/LambdaError.scala.
 
-  /** A HOAS variable used outside the abstraction that made it: its level,
-    * and the number of abstractions around the place it was used.
+  /** A HOAS variable used outside the abstraction that made it: its level, and
+    * the number of abstractions around the place it was used.
     */
   case VariableOutsideItsAbstraction(level: Int, depth: Int)
 

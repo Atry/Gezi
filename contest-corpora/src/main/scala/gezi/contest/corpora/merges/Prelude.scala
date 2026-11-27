@@ -7,8 +7,8 @@ import gezi.frontend.Term
 /** The prelude of the contest corpora: a fixpoint combinator and the Scott
   * encoding, all pure lambda, each piece a program file of
   * `problems/prelude_clauses`, read as it is written. The composite functions
-  * import the pieces they use off their scope, a recursive one as the
-  * fixpoint of its body, whose own file the attractors' sources read too.
+  * import the pieces they use off their scope, a recursive one as the fixpoint
+  * of its body, whose own file the attractors' sources read too.
   */
 final class Prelude(problems: ProblemFamilies):
 
@@ -16,6 +16,7 @@ final class Prelude(problems: ProblemFamilies):
 
   /** The Y combinator, `fixpoint @ F` reducing to `F @ (fixpoint @ F)`. */
   val fixpoint: ProblemTerm = file.program("fixpoint")
+
   /** `\x. x`. */
   val identity: ProblemTerm = file.program("identity")
 
@@ -52,8 +53,8 @@ final class Prelude(problems: ProblemFamilies):
   /** `\a. \b. a true b`. */
   val or: ProblemTerm = file.program("or")
 
-  /** The body `natural_equal` hands its fixpoint, the source of the
-    * attractor of the same name (`problems/attractors`).
+  /** The body `natural_equal` hands its fixpoint, the source of the attractor
+    * of the same name (`problems/attractors`).
     */
   val naturalEqualBody: ProblemTerm = file.program("natural_equal_body")
 
@@ -67,7 +68,8 @@ final class Prelude(problems: ProblemFamilies):
   val naturalAtLeast: ProblemTerm = file.program("natural_at_least")
 
   /** The body `natural_difference` hands its fixpoint. */
-  val naturalDifferenceBody: ProblemTerm = file.program("natural_difference_body")
+  val naturalDifferenceBody: ProblemTerm =
+    file.program("natural_difference_body")
 
   /** `natural_difference @ M @ N`, M - N when M >= N. */
   val naturalDifference: ProblemTerm = file.program("natural_difference")
@@ -78,8 +80,8 @@ final class Prelude(problems: ProblemFamilies):
   /** Doubling a Scott natural. */
   val naturalDouble: ProblemTerm = file.program("natural_double")
 
-  /** A BinNat, a Scott list of Scott Booleans least significant bit first,
-    * as a unary natural: `bit + 2 * rest`.
+  /** A BinNat, a Scott list of Scott Booleans least significant bit first, as a
+    * unary natural: `bit + 2 * rest`.
     */
   val binaryToUnary: ProblemTerm = file.program("binary_to_unary")
 

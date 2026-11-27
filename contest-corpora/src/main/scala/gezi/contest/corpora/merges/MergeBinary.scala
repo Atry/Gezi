@@ -8,12 +8,12 @@ import gezi.contest.corpora.merges.ClaimFact.ScoredFiniteHead
 import gezi.frontend.Term
 import gezi.frontend.Term.*
 
-/** The port of the deleted Prolog file
-  * (`git show 91b3f11e1^:lambda_jit/corpora/contest_merge_binary.pl`; its data are
-  * `problems/merge_binary`): the product of
-  * two Scott binary naturals compared with a claimed one, by the shift and
-  * add multiplication of `MergeDynamic`, with no choice. The table of points
-  * is read from the family's directory, `gezi/problems/merge_binary`.
+/** The port of the deleted Prolog file (`git show
+  * 91b3f11e1^:lambda_jit/corpora/contest_merge_binary.pl`; its data are
+  * `problems/merge_binary`): the product of two Scott binary naturals compared
+  * with a claimed one, by the shift and add multiplication of `MergeDynamic`,
+  * with no choice. The table of points is read from the family's directory,
+  * `gezi/problems/merge_binary`.
   */
 final class MergeBinary(problems: ProblemFamilies, dynamic: MergeDynamic):
 
@@ -23,30 +23,40 @@ final class MergeBinary(problems: ProblemFamilies, dynamic: MergeDynamic):
   def productTerm(left: BigInt, right: BigInt, claimed: BigInt): ProblemTerm =
     dynamic.withArithmetic(names =>
       λ(zero =>
-        λ(times => names.equality(times(dynamic.binary(left))(dynamic.binary(right)))(dynamic.binary(claimed)))(
+        λ(times =>
+          names.equality(times(dynamic.binary(left))(dynamic.binary(right)))(
+            dynamic.binary(claimed)
+          )
+        )(
           dynamic.timesFunction(names.plus, zero)
         )
       )(dynamic.binary(0))
     )
 
-  /** The points, each with its factors and the bits flipped in its claim,
-    * 0 for the true product (`product_point/4`).
+  /** The points, each with its factors and the bits flipped in its claim, 0 for
+    * the true product (`product_point/4`).
     */
   val points: Vector[(String, BigInt, BigInt, BigInt)] =
-    file.rows("product_point").map(arguments =>
-      (
-        ProblemData.text(arguments(0)),
-        ProblemData.integer(arguments(1)),
-        ProblemData.integer(arguments(2)),
-        ProblemData.integer(arguments(3))
+    file
+      .rows("product_point")
+      .map(arguments =>
+        (
+          ProblemData.text(arguments(0)),
+          ProblemData.integer(arguments(1)),
+          ProblemData.integer(arguments(2)),
+          ProblemData.integer(arguments(3))
+        )
       )
-    )
 
   /** The point's factors and its claimed product (`claimed/4`). */
   def claimed(point: String): (BigInt, BigInt, BigInt) =
     val (_, left, right, flipped) = points
       .find(_._1 == point)
-      .getOrElse(throw IllegalArgumentException(s"$point is no point of contest_merge_binary"))
+      .getOrElse(
+        throw IllegalArgumentException(
+          s"$point is no point of contest_merge_binary"
+        )
+      )
     (left, right, (left * right) ^ flipped)
 
   /** The point's program. */

@@ -15,32 +15,37 @@ import org.openjdk.jmh.annotations.Mode
 import org.openjdk.jmh.annotations.OutputTimeUnit
 import org.openjdk.jmh.annotations.Warmup
 
-/** The stages of Gezi's pipeline (`gezi.programfamilies.Pipeline`),
-  * one benchmark each, every stage on the values the stages before it give,
-  * built in the trial's setup: the knowledge files read and the library and
-  * its orientations compiled, the program through the front end, the index
-  * and the closure backend compiled, and the graph saturated to its End.
-  * Each returns its stage's value, so that JMH consumes it. The whole
-  * pipeline is the sum of the four.
+/** The stages of Gezi's pipeline (`gezi.programfamilies.Pipeline`), one
+  * benchmark each, every stage on the values the stages before it give, built
+  * in the trial's setup: the knowledge files read and the library and its
+  * orientations compiled, the program through the front end, the index and the
+  * closure backend compiled, and the graph saturated to its End. Each returns
+  * its stage's value, so that JMH consumes it. The whole pipeline is the sum of
+  * the four.
   *
-  * The mode is the average time of a call: a call longer than an iteration,
-  * as a saturation of a size of 512 or 1,024 is, makes the iteration one
-  * call. Each trial's JVM has the heap of 256 MB that the tests have
-  * (`gezi/programfamilies/build.sbt`) and the serial
-  * collector, so that no collection runs on threads beside the benchmark's.
-  * The warm-up, two iterations of three seconds, is set from a trial of
-  * fifteen warm-up iterations of one second on 2026-10-31: every
-  * benchmark of a call shorter than a second had reached its plateau by the
-  * sixth second, and every call longer than a second by the second call.
+  * The mode is the average time of a call: a call longer than an iteration, as
+  * a saturation of a size of 512 or 1,024 is, makes the iteration one call.
+  * Each trial's JVM has the heap of 256 MB that the tests have
+  * (`gezi/programfamilies/build.sbt`) and the serial collector, so that no
+  * collection runs on threads beside the benchmark's. The warm-up, two
+  * iterations of three seconds, is set from a trial of fifteen warm-up
+  * iterations of one second on 2026-10-31: every benchmark of a call shorter
+  * than a second had reached its plateau by the sixth second, and every call
+  * longer than a second by the second call.
   */
-@BenchmarkMode(Array(Mode.AverageTime)) // the JMH protocol's exception (the user, 2026-10-31: "好的，用sbt-jmh，需要配合JMH协议时，必要时可以作为例外使用可变数据结构"), Inputs.scala
-@Fork(value = 3, jvmArgsAppend = Array("-Xmx256m", "-XX:+UseSerialGC")) // the JMH protocol's exception (the user, 2026-10-31: "好的，用sbt-jmh，需要配合JMH协议时，必要时可以作为例外使用可变数据结构"), Inputs.scala
+@BenchmarkMode(
+  Array(Mode.AverageTime)
+) // the JMH protocol's exception (the user, 2026-10-31: "好的，用sbt-jmh，需要配合JMH协议时，必要时可以作为例外使用可变数据结构"), Inputs.scala
+@Fork(
+  value = 3,
+  jvmArgsAppend = Array("-Xmx256m", "-XX:+UseSerialGC")
+) // the JMH protocol's exception (the user, 2026-10-31: "好的，用sbt-jmh，需要配合JMH协议时，必要时可以作为例外使用可变数据结构"), Inputs.scala
 @Warmup(iterations = 2, time = 3, timeUnit = TimeUnit.SECONDS)
 @Measurement(iterations = 3, time = 1, timeUnit = TimeUnit.SECONDS)
 class PipelineBenchmarks:
 
-  /** The knowledge files read and the configuration's library and
-    * orientations compiled.
+  /** The knowledge files read and the configuration's library and orientations
+    * compiled.
     */
   @Benchmark
   @OutputTimeUnit(TimeUnit.MILLISECONDS)

@@ -8,15 +8,14 @@ import gezi.hotspot.Cache
 import gezi.weakhead.Expansions
 import java.nio.file.Path
 
-/** What the generators of the reduction group read, from Gezi's
-  * directory: the problem data, the Scott types, the
-  * attractors (the claims group's port), the binary arithmetic and the
-  * Fibonacci and product families (the merge group's ports) and the mixin
-  * library over the hierarchies of the group's families. Each is read once,
-  * when first used, every read of the tree from the URI expansions
-  * `problems` carries (`ProblemFamilies.sharedExpansions`), so that a group
-  * lists each directory and parses each file it shares with its other reads
-  * once.
+/** What the generators of the reduction group read, from Gezi's directory: the
+  * problem data, the Scott types, the attractors (the claims group's port), the
+  * binary arithmetic and the Fibonacci and product families (the merge group's
+  * ports) and the mixin library over the hierarchies of the group's families.
+  * Each is read once, when first used, every read of the tree from the URI
+  * expansions `problems` carries (`ProblemFamilies.sharedExpansions`), so that
+  * a group lists each directory and parses each file it shares with its other
+  * reads once.
   */
 final case class ReductionGroup(root: Path, problems: ProblemFamilies):
 
@@ -32,24 +31,27 @@ final case class ReductionGroup(root: Path, problems: ProblemFamilies):
   /** The library terms of native_types, native_arithmetic, fixed_width and
     * binary that the programs built from the library hold.
     */
-  lazy val standardLibrary: StandardLibraryTerms = StandardLibraryTerms(root, problems.sharedExpansions)
+  lazy val standardLibrary: StandardLibraryTerms =
+    StandardLibraryTerms(root, problems.sharedExpansions)
 
   /** The binary arithmetic of `problems/merge_dynamic`. */
   lazy val arithmetic: merges.MergeDynamic = claimsCorpora.mergeDynamic
 
   /** The Fibonacci family, `problems/merge_fibonacci`. */
-  lazy val fibonacci: merges.MergeFibonacci = merges.MergeFibonacci(problems, arithmetic)
+  lazy val fibonacci: merges.MergeFibonacci =
+    merges.MergeFibonacci(problems, arithmetic)
 
   /** The product family, `problems/merge_binary`. */
-  lazy val products: merges.MergeBinary = merges.MergeBinary(problems, arithmetic)
+  lazy val products: merges.MergeBinary =
+    merges.MergeBinary(problems, arithmetic)
 
-  /** The library of the mixin_builtin families, MIXINv2's Builtin read
-    * from `problems/mixin_builtin`.
+  /** The library of the mixin_builtin families, MIXINv2's Builtin read from
+    * `problems/mixin_builtin`.
     */
   lazy val mixinBuiltin: MixinBuiltinLibrary = MixinBuiltinLibrary(root)
 
-  /** The functions of the CSES port, `problems/cses`, each read by
-    * projection from the URI expansions `problems` carries.
+  /** The functions of the CSES port, `problems/cses`, each read by projection
+    * from the URI expansions `problems` carries.
     */
   lazy val cses: CsesProblems = CsesProblems(root, problems.sharedExpansions)
 
@@ -67,11 +69,15 @@ final case class ReductionGroup(root: Path, problems: ProblemFamilies):
 
 object ReductionGroup:
 
-  /** The group under the root whose reads start from the expansions, the
-    * URI expansions its owner carries (`Expansions`): the judge's run or a
-    * test suite builds the group once, from `Expansions.none`; its reads keep
-    * their complete tables in the cache service the owner carries
+  /** The group under the root whose reads start from the expansions, the URI
+    * expansions its owner carries (`Expansions`): the judge's run or a test
+    * suite builds the group once, from `Expansions.none`; its reads keep their
+    * complete tables in the cache service the owner carries
     * (`ProblemFamilies`).
     */
-  def apply(root: Path, expansions: Expansions[gezi.ir.NoFacts.type], cache: Cache): ReductionGroup =
+  def apply(
+      root: Path,
+      expansions: Expansions[gezi.ir.NoFacts.type],
+      cache: Cache
+  ): ReductionGroup =
     ReductionGroup(root, ProblemFamilies(root, expansions, cache))

@@ -14,5 +14,9 @@ import java.math.BigInteger
 object ModularPower:
 
   /** base^exponent modulo the modulus. */
-  def power(base: BigInteger, exponent: BigInteger, modulus: BigInteger): BigInteger =
+  def power(
+      base: BigInteger,
+      exponent: BigInteger,
+      modulus: BigInteger
+  ): BigInteger =
     base.modPow(exponent, modulus)

@@ -8,12 +8,12 @@ import gezi.generatedinputs.GeneratedProperties
 import gezi.generatedinputs.HoasGenerators
 import gezi.weakhead.NoJitState
 
-/** The law that a list's decode point is sound: on generated values
-  * filtered by the lists of an element and applied to two generated cases,
+/** The law that a list's decode point is sound: on generated values filtered by
+  * the lists of an element and applied to two generated cases,
   * `(x ∥ list_type e) a b`, the JIT with the natives on
-  * (`NativesTesting.nativesOn`) throws on none and, wherever both finish,
-  * reads no normal form tabling(weak_head) does not. It may read fewer: the
-  * decoded list is above the filtered value in the term order
+  * (`NativesTesting.nativesOn`) throws on none and, wherever both finish, reads
+  * no normal form tabling(weak_head) does not. It may read fewer: the decoded
+  * list is above the filtered value in the term order
   * (`gezi.weakhead.ListCodec`, WHY A DECODED LIST STANDS FOR THE FILTERED
   * VALUE), so it drops the answers of a branch of the type that meets the
   * value's other constructor, such as `n ∥ c i t` applied to cases that agree.
@@ -37,7 +37,9 @@ class ListDecodingLawTest extends GeneratedProperties:
   override def sharedFixtures: Vector[scala.concurrent.Future[Unit] => Any] =
     Vector(_ => NativesTesting.nativesOn, _ => evaluator)
 
-  private lazy val evaluator = Jit(NativesTesting.configurationOf(NativesTesting.nativesOn))
+  private lazy val evaluator = Jit(
+    NativesTesting.configurationOf(NativesTesting.nativesOn)
+  )
 
   private lazy val nil = JitTesting.libraryTerm("nil")
   private lazy val cons = JitTesting.libraryTerm("cons")
@@ -47,32 +49,60 @@ class ListDecodingLawTest extends GeneratedProperties:
   private def leaves: Vector[Term] = Vector(nil, zero, Term.λ(y => y))
 
   /** A small closed term over the leaves. */
-  private def small: Gen[Term] = HoasGenerators.closedTermOver(leaves).resize(hedgehog.Size(8))
+  private def small: Gen[Term] =
+    HoasGenerators.closedTermOver(leaves).resize(hedgehog.Size(8))
 
   /** A Scott cell `λn c. c i t`: its item one of n, a term mentioning n or a
     * closed term, its tail nil or a cell of a closed item.
     */
   private def cell: Gen[Term] =
     for
-      item <- Gen.element1[Term => Term](n => n, n => Term.λ(_ => n), _ => zero, n => cons(n)(nil))
+      item <- Gen.element1[Term => Term](
+        n => n,
+        n => Term.λ(_ => n),
+        _ => zero,
+        n => cons(n)(nil)
+      )
       closedItem <- small
       tail <- Gen.element1[Term](nil, cons(closedItem)(nil))
       mentions <- Gen.boolean
-    yield Term.λ(n => Term.λ(c => c(if mentions then item(n) else closedItem)(tail)))
+    yield Term.λ(n =>
+      Term.λ(c => c(if mentions then item(n) else closedItem)(tail))
+    )
 
   private def values: Gen[Term] = Gen.choice1(cell, small)
 
-  property("a list's decode point reads no normal form tabling(weak_head) does not", _.copy(testLimit = 20)) {
+  property(
+    "a list's decode point reads no normal form tabling(weak_head) does not",
+    _.copy(testLimit = 20)
+  ) {
     for
       value <- values.forAll
-      element <- Gen.element1[Term](Term.λ(y => y), JitTesting.libraryTerm("nat_type")).forAll
+      element <- Gen
+        .element1[Term](Term.λ(y => y), JitTesting.libraryTerm("nat_type"))
+        .forAll
       nilCase <- small.forAll
-      consCase <- Gen.element1[Term](Term.λ(h => Term.λ(_ => h)), Term.λ(_ => Term.λ(t => t))).forAll
+      consCase <- Gen
+        .element1[Term](
+          Term.λ(h => Term.λ(_ => h)),
+          Term.λ(_ => Term.λ(t => t))
+        )
+        .forAll
     yield
-      val root = JitTesting.termInstruction((value ∥ listType(element))(nilCase)(consCase))
-      val compared = JitTesting.comparison(JitTesting.normalFormsQuestion(evaluator, root), 20000, NoJitState, cacheDropped = true)
+      val root = JitTesting.termInstruction(
+        (value ∥ listType(element))(nilCase)(consCase)
+      )
+      val compared = JitTesting.comparison(
+        JitTesting.normalFormsQuestion(evaluator, root),
+        20000,
+        NoJitState,
+        cacheDropped = true
+      )
       compared.disagreement match
-        case Some((answers, expected)) if !answers.toSet.subsetOf(expected.toSet) =>
-          Result.failure.log(s"${gezi.frontend.ReadableText.printedNameless(root).text}: the JIT read $answers where tabling(weak_head) read $expected")
+        case Some((answers, expected))
+            if !answers.toSet.subsetOf(expected.toSet) =>
+          Result.failure.log(
+            s"${gezi.frontend.ReadableText.printedNameless(root).text}: the JIT read $answers where tabling(weak_head) read $expected"
+          )
         case _ => Result.success
   }
