@@ -518,7 +518,7 @@ private object ClassFileGeneration:
       *
       * The finish is an `Either` folded, never matched: the exhaustivity check
       * of a match on a case whose field is a `java.lang.classfile` type loads
-      * the library's internal classes, and Scala 3.10.0 fails on them with a
+      * the library's internal classes, and Scala 3.10.1 fails on them with a
       * CyclicReference (BufferedMethodBuilder, measured on 2026-10-31).
       */
     private def steps[C <: NativeSpecializer & Singleton](
