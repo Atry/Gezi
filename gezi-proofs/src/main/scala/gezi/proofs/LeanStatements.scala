@@ -11,6 +11,9 @@ import gezi.ir.Code
 import gezi.ir.CodeLayer
 import gezi.ir.Hole
 import gezi.ir.LemmaIdentifier
+import gezi.ir.NativeSpecializer
+import gezi.ir.StorageAccess
+import gezi.standardlibrary.StandardLibraryIndex
 import gezi.lemmaencoding.EncodedLemma
 import scala.jdk.StreamConverters.*
 import gezi.ir
@@ -68,7 +71,7 @@ private final case class LemmaStatement(
   *     the hand-written proof `LambdaJit.LibraryLemmaProofs.«Name»`
   *     when the Lean module `LibraryLemmaProofs` holds one whose type is
   *     definitionally equal to it; otherwise as a theorem proved by the first
-  *     of four decisions of the Lean module `StatementNormalisation` that the
+  *     of six decisions of the Lean module `StatementNormalisation` that the
   *     kernel evaluates to `true` on the statement. When none applies it
   *     declares a named axiom. Whether a lemma is a theorem is so the
   *     environment and the kernel's evaluation, not a list of names here: a
@@ -99,20 +102,20 @@ private final case class LemmaStatement(
   *
   * FIXME (2026-10-07, 2026-10-08; carried from lean_statements.pl:72): a https://github.com/Atry/private-overlay/issues/1981
   * lemma that has no hand-written proof in the Lean module
-  * LibraryLemmaProofs and that none of the four decisions proves stays a
+  * LibraryLemmaProofs and that none of the six decisions proves stays a
   * named axiom. Of the 36 lemmas of prelude, guard_laws, parallel_types,
   * filtered_recursion_naturals, lattice_types and contracts none does
-  * (measured 2026-10-07 by tests/lean_statements.plt, and on 2026-10-31 by
-  * `LeanStatementsTest`): 2 are instances of the numbered equations (8) and
-  * (9), 18 are proved by the normaliser, 4 by leftmost outermost contraction
-  * and 12 by hand. Of the 89 lemmas of the native route's modules
-  * native_types, native_arithmetic, hindley_milner_unions,
+  * (`LeanStatementsTest`, `expectedKindCounts`, the reading of 2026-11-19):
+  * 2 are instances of the numbered equations (8) and (9), 14 are proved by
+  * the decision of absorbed members, 4 by the normaliser, 4 by leftmost
+  * outermost contraction and 12 by hand. Of the 89 lemmas of the native
+  * route's modules native_types, native_arithmetic, hindley_milner_unions,
   * native_arithmetic_unions, occurrence_erasure, closure_application and
-  * prolog_backend_shapes, none does either (measured 2026-10-28 by
-  * tests/lean_statements.plt, unit lean_statements_native_route, which pins
-  * the decision of each, and on 2026-10-31 by
-  * `LeanStatementsNativeRouteTest`): 1 is an instance of the numbered
-  * equation (6) and 88 are proved by the decision of absorbed members. The lemmas of the other knowledge modules have not been exported
+  * prolog_backend_shapes, none does either (`LeanStatementsNativeRouteTest`,
+  * `expectedKinds`, which pins the decision of each, the reading of
+  * 2026-11-21): 1 is an instance of the numbered equation (6), 3 are proved
+  * by the normal form within the long fuel and 85 by the decision of
+  * absorbed members. The lemmas of the other knowledge modules have not been exported
   * to Lean by any test, and a hand-written proof covers only the statement it
   * copies: a lemma added to these modules, or a change of the encoding, can
   * make an axiom or, for a copied statement, a build error, until a proof is
@@ -132,18 +135,21 @@ object LeanStatements:
   /** The Lean module of the statements of the library, each named after its
     * lemma. `repository` is the monorepo's root, against which the Markdown
     * link of every `md` proof is checked (`ProofCitations.citationsChecked`,
-    * which throws `StandardLibraryMalformed` with `BrokenCitation`). `lemmas`
-    * are the search strategies' encodings of the lemmas into patterns, from
-    * which a statement is built as an article builds its import. Throws
-    * `LeanStatementsError`, and `OpentheoryArticleError` as the article
-    * writer does on a lemma.
+    * which throws `StandardLibraryMalformed` with `BrokenCitation`). `index`
+    * is the library's index in the configuration of the articles (an
+    * entry's, the library crossed into its facts), and `lemmas` are the search
+    * strategies' encodings of the lemmas into patterns in that configuration,
+    * from which a statement is built as an article builds its import, a
+    * storage written as its view. Throws `LeanStatementsError`, and
+    * `OpentheoryArticleError` as the article writer does on a lemma.
     */
-  def text(
+  def text[C <: NativeSpecializer & Singleton](
       library: StandardLibrary,
-      lemmas: Vector[EncodedLemma],
+      index: StandardLibraryIndex[C],
+      lemmas: Vector[EncodedLemma[C]],
       repository: Path
-  ): String =
-    selectedText(library, lemmas, repository, names(library))
+  )(using StorageAccess): String =
+    selectedText(library, index, lemmas, repository, names(library))
 
   /** The module of `text` with the statements of the lemmas `lemmaNames`
     * only, in that order: what a round certificate imports of an entry's
@@ -151,14 +157,15 @@ object LeanStatements:
     * so that Lean elaborates the soundness of those lemmas only. Throws as `text` does, and `LeanStatementsError`
     * with `NoDeclaration` for a name that is no lemma of the library.
     */
-  def selectedText(
+  def selectedText[C <: NativeSpecializer & Singleton](
       library: StandardLibrary,
-      lemmas: Vector[EncodedLemma],
+      index: StandardLibraryIndex[C],
+      lemmas: Vector[EncodedLemma[C]],
       repository: Path,
       lemmaNames: Vector[String]
-  ): String =
+  )(using StorageAccess): String =
     lemmaNames.foreach(checkedWord)
-    val statements = lemmaNames.map(lemmaStatement(library, lemmas, _))
+    val statements = lemmaNames.map(lemmaStatement(library, index, lemmas, _))
     ProofCitations.citationsChecked(statements.map(statement => statement.name -> statement.proof).toMap, repository)
     val shared = sharedTerms(statements.flatMap(statement => Vector(statement.left, statement.right)))
     header +
@@ -171,13 +178,14 @@ object LeanStatements:
       "end LambdaJit.Exported\n"
 
   /** Writes the module of `text` to the file, replacing it, in UTF-8. */
-  def written(
+  def written[C <: NativeSpecializer & Singleton](
       library: StandardLibrary,
-      lemmas: Vector[EncodedLemma],
+      index: StandardLibraryIndex[C],
+      lemmas: Vector[EncodedLemma[C]],
       repository: Path,
       file: Path
-  ): Unit =
-    Files.writeString(file, text(library, lemmas, repository), StandardCharsets.UTF_8)
+  )(using StorageAccess): Unit =
+    Files.writeString(file, text(library, index, lemmas, repository), StandardCharsets.UTF_8)
 
   /** A Lean string literal of the text: its quotes and backslashes escaped.
     * Throws `LeanStatementsError` with `ControlCharacter` for a control
@@ -191,15 +199,16 @@ object LeanStatements:
       else throw LeanStatementsError(LeanStatementsErrorReason.ControlCharacter(code))
     }.mkString + "\""
 
-  private def lemmaStatement(
+  private def lemmaStatement[C <: NativeSpecializer & Singleton](
       library: StandardLibrary,
-      lemmas: Vector[EncodedLemma],
+      index: StandardLibraryIndex[C],
+      lemmas: Vector[EncodedLemma[C]],
       name: String
-  ): LemmaStatement =
+  )(using StorageAccess): LemmaStatement =
     val lemma = library.index.lemmaNames.collectFirst {
       case LemmaNamed(lemma, `name`) if library.index.sides(lemma).isDefined => lemma
     }.getOrElse(throw LeanStatementsError(LeanStatementsErrorReason.NoDeclaration(name)))
-    val named = OpentheoryArticle.lemmaStatementEncoded(library.index, lemmas, lemma)
+    val named = OpentheoryArticle.lemmaStatementEncoded(index, lemmas, lemma)
     val Vector(left, right) = named.terms: @unchecked
     val proof = library
       .lemmaProof(name)

@@ -206,7 +206,7 @@ object CycleClaim:
 trait HardFamily:
 
   /** The points the file defines in `contest_hard`, by name. */
-  def points: Map[String, () => gezi.frontend.Term]
+  def points: Map[String, () => ProblemTerm]
 
   /** `contest_hard_answers:hard_intended/3`, point and answer. */
   def intended: Vector[(String, Intended)]

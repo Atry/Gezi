@@ -1,6 +1,9 @@
 package gezi.frontend
 
-import gezi.ir.Instruction
+import gezi.ir.ChoiceSpine
+import gezi.ir.Configured
+import gezi.ir.NativeSpecializer
+import gezi.ir.StorageAccess
 import scala.annotation.tailrec
 
 /** The exchange format of terms: one line of lambda-lattice text that writes
@@ -36,6 +39,11 @@ import scala.annotation.tailrec
   * choice, a chain of `+` in their order. A βη normal form is a pure term, no
   * choice, so the right spine of the choice gives back the members.
   *
+  * A set of Scott ADT values is one line too (`scottADTLine`): the members the Scott ADT reading gives
+  * (`ReadableText.Reading.ScottADT`), a storage written as its untyped Scott ADT layer and a parallel node `v ∥ E`
+  * as v, their choice in the order of each member's own text (`ReadableText.scottADTText`). Any other term, the
+  * remainder of an output, is written by `line`, which keeps every `∥ T` and writes a storage as its view.
+  *
   * The form is here, in the front end, so that the runner in an entry's JVM
   * (`gezi.contest.runner`) reads and writes the pipe without the problem
   * corpora on its classpath, which an entry's JVM does not have.
@@ -50,31 +58,104 @@ object ExchangeText:
     * as printing, and a writer of many lines would pay it for each. Throws
     * `IllegalArgumentException` for an instruction that holds an opaque
     * instruction or a URI node, which the text would write as a name no
-    * abstraction binds.
+    * abstraction binds. A storage in the instruction is written as its view,
+    * `v ∥ T`, every `∥ T` kept: the line of the remainder of an output, or of
+    * any term. The Scott ADT values of an output are written by `scottADTLine`.
     */
-  def line(instruction: Instruction): String =
-    opaqueLeaf(List(instruction), Set.empty).foreach(leaf =>
+  def line[C <: NativeSpecializer & Singleton](instruction: Configured[C])(using C, StorageAccess): String =
+    lineRead(instruction, ReadableText.Reading.Display)
+
+  /** The line of a set of Scott ADT values, given as their members (each member of `ScottADTChoices.members`, a
+    * group of storages already given as its members): their choice, a chain of `+`, in the order of each member's own
+    * text (`ReadableText.scottADTText`), so that a set has one line. Each storage in a member is written as its
+    * untyped Scott ADT layer `λc1 … ck. ci f1 … fn` from its native data, and a parallel node `v ∥ E` as v; the layer
+    * is the one the front end spells for the same term, so a storage and the pure term it equals are one binding.
+    * The empty set is `noNormalFormLine`, as for normal forms. Throws `IllegalArgumentException` for a member that is a
+    * choice, which no Scott ADT value is, and for an opaque instruction or a URI node, as `line` does.
+    */
+  def scottADTLine[C <: NativeSpecializer & Singleton](members: Vector[Configured[C]])(using
+      specializer: C,
+      access: StorageAccess
+  ): String =
+    members.foreach { member =>
+      member.layer match
+        case gezi.ir.Choice(_, _) => throw IllegalArgumentException(s"a Scott ADT value is no choice: $member")
+        case _                    => ()
+    }
+    if members.isEmpty then noNormalFormLine
+    else
+      val ordered = members.map(member => (ReadableText.scottADTText(member), member)).sortBy(_._1).map(_._2)
+      lineRead(ChoiceSpine.nested[Configured[C]](ordered, specializer.choice(_, _)), ReadableText.Reading.ScottADT)
+
+  /** The line of an output that holds both Scott ADT values and a remainder (`OutputDisplay.Mixed`): the choice of the
+    * members, as `scottADTLine` writes them, then the remainder, a term kept as it is (every `∥ T`, a storage as its
+    * view) as `line` writes it. One table serves the whole line, so that an instruction the members and the remainder
+    * refer to more than once between them is bound once, and a storage both hold is bound twice, once as its Scott ADT
+    * layer and once as its view. With no member the line is `line` of the remainder. Throws `IllegalArgumentException`
+    * as `scottADTLine` and `line` do.
+    */
+  def mixedLine[C <: NativeSpecializer & Singleton](members: Vector[Configured[C]], remainder: Configured[C])(using
+      C,
+      StorageAccess
+  ): String =
+    members.foreach { member =>
+      member.layer match
+        case gezi.ir.Choice(_, _) => throw IllegalArgumentException(s"a Scott ADT value is no choice: $member")
+        case _                    => ()
+    }
+    if members.isEmpty then line(remainder)
+    else
+      val ordered = members.map(member => (ReadableText.scottADTText(member), member)).sortBy(_._1).map(_._2)
+      (ordered.map((_, ReadableText.Reading.ScottADT)) :+ ((remainder, ReadableText.Reading.Display))).foreach((part, reading) =>
+        opaqueLeaf(List(part), Set.empty, reading).foreach(leaf =>
+          throw IllegalArgumentException(s"an exchange line writes no opaque instruction, found $leaf")
+        )
+      )
+      framed(ReadableText.printedMixedUnmarked(ordered, remainder))
+
+  /** The line of the instruction with its storages read as the reading says. */
+  private def lineRead[C <: NativeSpecializer & Singleton](instruction: Configured[C], reading: ReadableText.Reading)(using
+      C,
+      StorageAccess
+  ): String =
+    opaqueLeaf(List(instruction), Set.empty, reading).foreach(leaf =>
       throw IllegalArgumentException(s"an exchange line writes no opaque instruction, found $leaf")
     )
-    printed(instruction)
+    printed(instruction, reading)
 
   /** An opaque instruction under the pending ones, each distinct
-    * instruction visited once.
+    * instruction visited once, the terms a storage holds as the reading says.
     */
   @tailrec
-  private def opaqueLeaf(pending: List[Instruction], visited: Set[Instruction]): Option[Instruction] = pending match
-    case Nil                                         => None
-    case current :: rest if visited.contains(current) => opaqueLeaf(rest, visited)
-    case current :: _ if current.opaque              => Some(current)
-    case current :: rest                             => opaqueLeaf(current.layered.children.toList ++ rest, visited + current)
+  private def opaqueLeaf[C <: NativeSpecializer & Singleton](
+      pending: List[Configured[C]],
+      visited: Set[Configured[C]],
+      reading: ReadableText.Reading
+  )(using C, StorageAccess): Option[Configured[C]] = pending match
+    case Nil                                          => None
+    case current :: rest if visited.contains(current) => opaqueLeaf(rest, visited, reading)
+    case current :: _ if current.opaque               => Some(current)
+    case current :: rest =>
+      opaqueLeaf(ReadableText.childrenOf(current, reading).toList ++ rest, visited + current, reading)
+
+  /** Whether the text has the shape of a line, `λstart. start (λk. k N)
+    * (TERM)` with no tab and no newline, read no further: for a holder of
+    * lines that does not read their terms (the judge's supervisor, whose
+    * runner reads them), which learns that a line is malformed only where
+    * the line is read.
+    */
+  def shaped(text: String): Boolean =
+    text.startsWith(shapePrefix) && text.endsWith(")") && !text.exists(character => character == '\t' || character == '\n')
+
+  private val shapePrefix: String = "λstart. start (λk. k "
 
   /** The instruction of the line, or why the text is no line of the format:
     * a syntax error, a free name, a text of another shape, or a spelling
     * other than the one `line` writes for the instruction it reads as.
     */
-  def term(text: String): Either[String, Instruction] =
-    read(text).flatMap(instruction =>
-      val written = printed(instruction)
+  def term[C <: NativeSpecializer & Singleton](text: String)(using C, StorageAccess): Either[String, Configured[C]] =
+    read[C](text).flatMap(instruction =>
+      val written = printed(instruction, ReadableText.Reading.Display)
       if written == text then Right(instruction) else Left(s"another spelling of the term written ${written.take(80)}")
     )
 
@@ -82,13 +163,17 @@ object ExchangeText:
     * Throws `IllegalArgumentException` for a member that is a choice, which
     * no βη normal form is.
     */
-  def normalFormsLine(normalForms: Vector[Instruction]): String =
-    normalForms.foreach {
-      case member @ Instruction.Choice(_, _) =>
-        throw IllegalArgumentException(s"a normal form is no choice: $member")
-      case _ => ()
+  def normalFormsLine[C <: NativeSpecializer & Singleton](normalForms: Vector[Configured[C]])(using
+      specializer: C,
+      access: StorageAccess
+  ): String =
+    normalForms.foreach { member =>
+      member.layer match
+        case gezi.ir.Choice(_, _) => throw IllegalArgumentException(s"a normal form is no choice: $member")
+        case _                    => ()
     }
-    if normalForms.isEmpty then noNormalFormLine else line(Instruction.Choice.nested(normalForms))
+    if normalForms.isEmpty then noNormalFormLine
+    else line(ChoiceSpine.nested[Configured[C]](normalForms, specializer.choice(_, _)))
 
   /** The line of no normal form: the format's own spelling of the empty set,
     * which is no term of the language and which `term` does not read: no
@@ -101,23 +186,37 @@ object ExchangeText:
   /** The normal forms of a line `normalFormsLine` writes, in order, or why
     * the text is none.
     */
-  def normalForms(text: String): Either[String, Vector[Instruction]] =
+  def normalForms[C <: NativeSpecializer & Singleton](text: String)(using C, StorageAccess): Either[String, Vector[Configured[C]]] =
     if text == noNormalFormLine then Right(Vector.empty)
-    else term(text).map { case Instruction.ChoiceMembers(members) => members }
+    else
+      term[C](text).map(choice =>
+        ChoiceSpine.members[Configured[C]](
+          choice,
+          member =>
+            member.layer match
+              case gezi.ir.Choice(left, right) => Some((left, right))
+              case _                           => None
+        )
+      )
 
   /** The text of the instruction in the format's shape, not read back. */
-  private def printed(instruction: Instruction): String =
-    val written = ReadableText.printedNamelessUnmarked(instruction)
+  private def printed[C <: NativeSpecializer & Singleton](instruction: Configured[C], reading: ReadableText.Reading)(using
+      C,
+      StorageAccess
+  ): String = framed(ReadableText.printedNamelessUnmarked(instruction, reading))
+
+  /** The printed text in the format's shape: `λstart. start (λk. k N) (TERM)`. */
+  private def framed[C <: NativeSpecializer & Singleton](written: ReadableText.Printed[C]): String =
     s"λstart. start (λk. k ${written.bindings}) (${written.text})"
 
   /** The instruction the text reads as, its printer's bindings contracted,
     * or the reason it reads as none.
     */
-  private def read(text: String): Either[String, Instruction] =
+  private def read[C <: NativeSpecializer & Singleton](text: String)(using C): Either[String, Configured[C]] =
     try
       Lambdalattice.term(text) match
         case DeBruijnTerm.Lambda(DeBruijnTerm.Apply(DeBruijnTerm.Apply(DeBruijnTerm.Variable(0), DeBruijnTerm.Lambda(count)), body)) =>
-          bindingCount(count).flatMap(bindings => Defunctionalization.bindingsContracted(body, bindings, enclosingBinders = 1))
+          bindingCount(count).flatMap(bindings => Defunctionalization.bindingsContracted[C](body, bindings, enclosingBinders = 1))
         case _ => Left("no text λstart. start (λk. k N) (TERM)")
     catch
       case LambdalatticeMalformed(problem) => Left(problem.toString)

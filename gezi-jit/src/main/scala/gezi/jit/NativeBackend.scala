@@ -1,5 +1,7 @@
 package gezi.jit
 
+import gezi.ir.StorageAccess
+
 import gezi.weakhead.BigIntegerCodec
 import gezi.weakhead.BooleanCodec
 import gezi.weakhead.CaseReadings
@@ -9,18 +11,18 @@ import gezi.weakhead.Head
 import gezi.weakhead.ListCodec
 import gezi.weakhead.ListConstructor
 import gezi.weakhead.ListRepresentation
-import gezi.weakhead.ListTail
 import gezi.weakhead.NaturalConstructor
 import gezi.weakhead.NeutralVariable
 import gezi.weakhead.Shape
-import gezi.weakhead.Value
-import gezi.ir.Instruction
+import gezi.ir.Value
+import gezi.weakhead.NeutralValue
+import gezi.ir.{Configured, NativeSpecializer, Pure}
 
 /** The place of a native's parameter or result in its calling convention,
   * before a list's element filter is known (jit.pl, THE NATIVE'S
   * REPRESENTATIONS): a representation of a data family, any list, a list's
   * item in the representation of the list's element filter, or a list's
-  * tail, ready in the list's representation and kept unread.
+  * tail, a list of the list's representation.
   *
   * A data family that takes a parameter (`DataFamily.parameterFamily`) has
   * one representation per parameter, and a native over it may have places
@@ -31,21 +33,24 @@ import gezi.ir.Instruction
   * parameter (`DataField`).
   * The call's parameter is the parameter of a representation a licensed
   * source names: the decoding criterion written in the term, read where a
-  * decoding point is read (`Native.parameterAdmitted`), or the operands'
-  * native values (`Native.resultParameter`).
+  * decoding point is read (`Native.parameterAdmitted`), never the operands'
+  * native values.
   */
 enum NativePlace:
-  case Fixed(representation: Representation)
+  case Fixed(representation: Representation[Nothing])
   case AnyList
   case Item
   case Tail
   case Parameter(family: FamilyIdentity)
-  case OfParameter(representation: Option[NativeValue] => Representation)
+  case OfParameter(representation: FieldRepresentation)
 
-  /** A parameter that is a list whose elements are all decoded binary
-    * naturals of the representation `element`, a backend fact of the native's
-    * binding, written here and never inferred from a term. Only a narrow block
-    * with lists (`gezi.narrowblocks.lists`) passes one, the elements of the
+  /** A parameter, or a result, that is a list whose elements are all
+    * decoded binary naturals of the representation `element`, a backend fact
+    * of the native's binding, written here and never inferred from a term. A
+    * group block (`gezi.narrowblocks.groups`) passes one, the elements of a
+    * list it holds under `∥ array_list c`, and takes one as a result
+    * (`StaticBlockResult.NaturalList`); the JIT calls no native of such a
+    * result outside a block. A narrow block with lists (`gezi.narrowblocks.lists`) passes one, the elements of the
     * `NarrowList` that the filter `∥ list_type c` written in the term licensed,
     * as a `scala.collection.immutable.Vector` of `java.math.BigInteger`, and
     * only when `c` names exactly `element`, so that a list of positive naturals
@@ -54,7 +59,27 @@ enum NativePlace:
     * this place and runs the define's body, and a block without lists does not
     * compile a call of such a native.
     */
-  case NaturalList(element: Representation)
+  case NaturalList(element: Representation[Nothing])
+
+  /** A parameter that is a list of records of a declared data family of one
+    * constructor, every field a decoded binary natural of the representation
+    * at its position in `fields`, a backend fact of the native's binding. Only
+    * the narrow blocks over declared families
+    * (`gezi.narrowblocks.lists.DeclaredFamilyRoute`) pass one, column by
+    * column, as a `scala.collection.immutable.Vector` of one such `Vector` of
+    * `java.math.BigInteger` per field, and only when the filter
+    * `∥ list_type (T c1 … ck)` written in the term names exactly `fields`.
+    * Like `NaturalList`, the JIT is never ready at this place.
+    */
+  case NaturalRecordList(fields: Vector[Representation[Nothing]])
+
+  /** A result that is a value of a declared data family whose fields are
+    * naturals, returned as a `ConstructedNaturals`
+    * (`StaticBlockResult.Constructed`). Only the narrow blocks over declared
+    * families call such a native, only at a block's root; which family it is
+    * is read from the filter at the root of the term the native is bound to.
+    */
+  case DeclaredFamilyValue
 
 /** The name of a native implementation, the key of `NativeBackend.natives`.
   *
@@ -89,42 +114,66 @@ enum NativeName:
   * implementation's match throws.
   *
   * A native whose result's place is `NativePlace.Parameter` has two more
-  * parts, both part of computing its result and of nothing else:
-  * `parameterAdmitted`, whether the native gives a value at the parameter a
-  * decoding criterion names (a constructor that is not one of its family's
-  * at that parameter, or is excluded there, does not); and
-  * `resultParameter`, the parameter of its result computed from its
-  * operands' native values, `None` when they are no layer of the family.
-  * `resultParameter` is applied only to operands already represented, after
-  * the `native` declaration and the operands' readiness have chosen to call
-  * the native: it never reads a term that is not represented to conclude
-  * what the term is, which would be a signature typing a node
-  * (`CONTRIBUTING.md`, "Types live only in the term"), and it never chooses a route or an
-  * evaluator.
-  *
-  * FIXME (the interface review of 2026-11-03): `resultParameter` https://github.com/Atry/private-overlay/issues/1936
-  * is to be replaced by type-preservation lemmas that write the result's
-  * criterion into the term; see the FIXME at `Jit.parameterisedReady`.
+  * parts: `parameterAdmitted`, whether the native gives a value at the
+  * parameter a decoding criterion names (a constructor that is not one of its
+  * family's at that parameter, or is excluded there, does not); and
+  * `constantParameter`, for a native of no operand, the parameter its constant
+  * stands at (`word_end`'s is width 0), a fact of the backend that reads no
+  * term (`BackendFacts.constants`); none for any other native. No part gives
+  * the parameter of a result from the operands' values: that would type a
+  * node in the host (`CONTRIBUTING.md`, "Types live only in the term"), and
+  * the criterion written in the term gives it instead.
   */
 final case class Native(
     parameters: Vector[NativePlace],
     result: NativePlace,
-    implementation: Vector[NativeArgument] => NativeValue,
-    parameterAdmitted: Option[NativeValue] => Boolean = _ => true,
-    resultParameter: Vector[NativeValue] => Option[Option[NativeValue]] = _ => None
+    implementation: NativeImplementation,
+    parameterAdmitted: Option[FamilyParameter[Any]] => Boolean,
+    constantParameter: Option[Option[FamilyParameter[Nothing]]]
 ):
 
   /** The number of the native's parameters. */
   def parameterCount: Int = parameters.size
 
-  /** Whether one of the native's parameters is a `NativePlace.NaturalList`. */
+  /** Whether one of the native's parameters is a `NativePlace.NaturalList` or
+    * a `NativePlace.NaturalRecordList`.
+    */
   def takesNaturalList: Boolean = parameters.exists {
-    case NativePlace.NaturalList(_) => true
-    case _                          => false
+    case NativePlace.NaturalList(_) | NativePlace.NaturalRecordList(_) => true
+    case _                                                             => false
   }
+
+/** The implementation of a native: the function from the values at its parameters' places to the value at its
+  * result's, in the configuration of the specializer in scope, whose terms (a list's items and tail, a field held as
+  * written) it may hold in its result.
+  */
+trait NativeImplementation:
+  def apply[C <: NativeSpecializer & Singleton](arguments: Vector[NativeArgument[JitValue[C]]])(using C): NativeValue[JitValue[C]]
+
+object NativeImplementation:
+
+  /** The implementation of a native whose result holds no term: a function of its arguments' native data alone, the
+    * same in every configuration.
+    */
+  def plain(implementation: Vector[NativeArgument[Any]] => NativeValue[Nothing]): NativeImplementation =
+    new NativeImplementation:
+      def apply[C <: NativeSpecializer & Singleton](arguments: Vector[NativeArgument[JitValue[C]]])(using C): NativeValue[JitValue[C]] =
+        implementation(arguments)
 
 /** What every native's implementation may rely on. */
 object Native:
+
+  /** A native whose result holds no term (`NativeImplementation.plain`), admitted at every parameter and of no constant
+    * parameter unless given.
+    */
+  def apply(
+      parameters: Vector[NativePlace],
+      result: NativePlace,
+      implementation: Vector[NativeArgument[Any]] => NativeValue[Nothing],
+      parameterAdmitted: Option[FamilyParameter[Any]] => Boolean = _ => true,
+      constantParameter: Option[Option[FamilyParameter[Nothing]]] = None
+  ): Native =
+    new Native(parameters, result, NativeImplementation.plain(implementation), parameterAdmitted, constantParameter)
 
   /** The end of an implementation's match on its arguments, for arguments
     * the JIT never passes: it calls a native only with one argument for each
@@ -134,7 +183,7 @@ object Native:
     * a list's tail (`NativeArgument.Tail`), and a native with no parameter
     * with none. Arguments outside that are a defect of the caller.
     */
-  def outsidePlaces(native: String, arguments: Vector[NativeArgument]): Nothing =
+  def outsidePlaces(native: String, arguments: Vector[NativeArgument[Any]]): Nothing =
     throw IllegalStateException(s"the native $native was called with $arguments, not one argument of each parameter's place")
 
 /** A constructor of a data family: the name of the native implementation
@@ -150,10 +199,38 @@ final case class DataConstructor(native: NativeName, fields: Vector[DataField])
   * For a family whose
   * parameter is a value, the field's family at a parameter in that family
   * (`DataField.apply`); for a family declared by facts whose parameters are
-  * criteria (`NativeValue.CriterionParameters`), the representation one of
+  * criteria (`CriterionParameters`), the representation one of
   * those criteria names (`DeclaredFamilies`).
   */
-final case class DataField(representation: Option[NativeValue] => Representation)
+final case class DataField(representation: FieldRepresentation)
+
+/** A field's representation as a function of the parameter of the layer it is a field of, in the configuration of
+  * the specializer in scope: a declared family's field takes the representation one of the layer's criteria names, and
+  * a closed field criterion that names no family is the filter it spells, a term built from the facts' pure keys in
+  * that configuration.
+  */
+trait FieldRepresentation:
+  def apply[C <: NativeSpecializer & Singleton](parameter: Option[FamilyParameter[JitValue[C]]])(using C): Representation[JitValue[C]]
+
+object FieldRepresentation:
+
+  /** The field of the family at the parameter that a function of the layer's gives, a parameter holding no term (a
+    * word's width, a binary natural's set).
+    */
+  def ofFamily(family: FamilyIdentity, parameter: Option[FamilyParameter[Any]] => Option[FamilyParameter[Nothing]]): FieldRepresentation =
+    new FieldRepresentation:
+      def apply[C <: NativeSpecializer & Singleton](layerParameter: Option[FamilyParameter[JitValue[C]]])(using
+          C
+      ): Representation[JitValue[C]] =
+        Representation.Data(family, parameter(layerParameter))
+
+  /** The field of one representation at every parameter of its layer. */
+  def fixed(representation: Representation[Nothing]): FieldRepresentation =
+    new FieldRepresentation:
+      def apply[C <: NativeSpecializer & Singleton](layerParameter: Option[FamilyParameter[JitValue[C]]])(using
+          C
+      ): Representation[JitValue[C]] =
+        representation
 
 /** The fields of the families of value parameters. */
 object DataField:
@@ -161,8 +238,8 @@ object DataField:
   /** A field of the family at its parameter, a function of the layer's:
     * `None` for a family that takes none.
     */
-  def apply(family: FamilyIdentity, parameter: Option[NativeValue] => Option[NativeValue]): DataField =
-    DataField(layerParameter => Representation.Data(family, parameter(layerParameter)))
+  def apply(family: FamilyIdentity, parameter: Option[FamilyParameter[Any]] => Option[FamilyParameter[Nothing]]): DataField =
+    DataField(FieldRepresentation.ofFamily(family, parameter))
 
   /** A field of the family, which takes no parameter. */
   def unparameterised(family: FamilyIdentity): DataField = DataField(family, _ => None)
@@ -170,7 +247,7 @@ object DataField:
 /** One layer of a value of a data family: the index of its constructor in
   * the family's order and the values of its fields.
   */
-final case class DataLayer(constructor: Int, fields: Vector[NativeValue])
+final case class DataLayer[+Term](constructor: Int, fields: Vector[NativeValue[Term]])
 
 /** The case of a constructor a value is applied to in a decoding of a data
   * family: the decoding, the field depth, the family and the constructor's
@@ -203,9 +280,15 @@ final case class FieldVariable(family: FamilyIdentity, constructor: Int, field: 
 /** What a head of a value applied to a decoding's cases reads: the case of
   * a constructor over its arguments, or no case.
   */
-enum DataReading:
-  case Case(constructor: Int, arguments: Vector[Value])
-  case NoCase
+enum DataReading[+Read]:
+  case Case(constructor: Int, arguments: Vector[Read])
+  case NoCase extends DataReading[Nothing]
+
+/** A JVM primitive type a codec holds its values as
+  * (`DataFamily.jvmPrimitive`).
+  */
+enum JvmPrimitive:
+  case Byte, Short, Int, Long
 
 /** A family of representations, Scott encoded: a value of the family is a
   * term of as many cases as the encoding has constructors (`constructors`
@@ -244,9 +327,22 @@ trait DataFamily:
   /** The family of the parameter, or `None` when the family takes none. */
   def parameterFamily: Option[FamilyIdentity]
 
+  /** The parameter a value of `parameterFamily` decoded from the criterion
+    * stands for. Throws `IllegalArgumentException` for a family that takes no
+    * such parameter, or a value that is no parameter of it.
+    */
+  def parameterOf[Term](value: NativeValue[Term]): FamilyParameter[Term] =
+    throw IllegalArgumentException(s"${identity.shown} takes no parameter of a value: $value")
+
+  /** The value of `parameterFamily` that spells the parameter in the
+    * criterion, the inverse of `parameterOf`.
+    */
+  def parameterValue[Term](parameter: FamilyParameter[Term]): NativeValue[Term] =
+    throw IllegalArgumentException(s"${identity.shown} takes no parameter of a value: $parameter")
+
   /** The number of criteria the family's criterion is applied to in a
     * filter, `C @ P1 @ … @ Pk`, for a family declared by facts whose
-    * parameters are criteria (`NativeValue.CriterionParameters`); 0 for
+    * parameters are criteria (`CriterionParameters`); 0 for
     * every other family.
     */
   def criterionArity: Int = 0
@@ -258,8 +354,17 @@ trait DataFamily:
     */
   def heldAsWritten: Boolean = false
 
+  /** The JVM primitive type the family's storage holds a value as, when it
+    * holds it as one: the codec's own fact, as a native's static method has
+    * its own signature, so that a backend that holds columns of primitives
+    * (a group block's) reads a family's JVM type from its codec and names no
+    * family. A family held as `JvmPrimitive.Int` has its values as
+    * `JvmBits(32, bits)` and its storage as `IntStorage`. None by default.
+    */
+  def jvmPrimitive: Option[JvmPrimitive] = None
+
   /** The constructors at the parameter, in the order of the cases. */
-  def constructors(parameter: Option[NativeValue]): Vector[DataConstructor]
+  def constructors[Term](parameter: Option[FamilyParameter[Term]]): Vector[DataConstructor]
 
   /** Whether the constructor of the index is excluded at the parameter: the
     * type the family specializes has no value of that constructor there, so
@@ -268,27 +373,39 @@ trait DataFamily:
     * rest of a native specialization, made safe by the family's law against
     * weak_head. `taken` never gives an excluded layer. None by default.
     */
-  def excluded(parameter: Option[NativeValue], constructor: Int): Boolean = false
+  def excluded[Term](parameter: Option[FamilyParameter[Term]], constructor: Int): Boolean = false
+
+  /** The storage of a value of the family at the parameter, for a family a provider adds: its own storage class, a
+    * subclass of `ProviderStorage`, so that the class is the codec. None for the framework's codecs, whose classes the
+    * framework chooses (`RepresentedStorage`), the default.
+    */
+  def storageOf[Term](parameter: Option[FamilyParameter[Term]], value: NativeValue[Term]): Option[RepresentedStorage[Term]] = None
 
   /** The value of one layer at the parameter, whose fields are decoded. */
-  def built(parameter: Option[NativeValue], layer: DataLayer): NativeValue
+  def built[Term](parameter: Option[FamilyParameter[Term]], layer: DataLayer[Term]): NativeValue[Term]
 
-  /** The layer of a value of the family at the parameter. */
-  def taken(parameter: Option[NativeValue], value: NativeValue): DataLayer
+  /** The layer of a value of the family at the parameter. Each field's value
+    * is a value of the field's declared representation: an `Unread` term only
+    * at a field held as written or filtered, a storage the JIT holds as a term
+    * only at a field of a family declared by facts
+    * (`StorageEncoding.holdsNoTerm` relies on it).
+    */
+  def taken[Term](parameter: Option[FamilyParameter[Term]], value: NativeValue[Term]): DataLayer[Term]
 
   /** The parameter at which the constructor whose native is named, over
     * the fields' values, is a layer, or `None` when it is no layer at any
-    * parameter: the result's parameter of the constructor's native
-    * (`Native.resultParameter`). A family that takes no parameter answers
-    * `Some(None)`; one that takes a parameter overrides it.
+    * parameter: part of the constructor native's computation of its value,
+    * and the parameter of a constant (`Native.constantParameter`). The JIT
+    * never reads it to place a result. A family that takes no parameter
+    * answers `Some(None)`; one that takes a parameter overrides it.
     */
-  def builtParameter(native: NativeName, fields: Vector[NativeValue]): Option[Option[NativeValue]] =
+  def builtParameter[Term](native: NativeName, fields: Vector[NativeValue[Term]]): Option[Option[FamilyParameter[Term]]] =
     if parameterFamily.isEmpty then Some(None) else None
 
   /** `taken`, checked: the layer is of a constructor not excluded at the
     * parameter, or the family is defective and this throws.
     */
-  final def layer(parameter: Option[NativeValue], value: NativeValue): DataLayer =
+  final def layer[Term](parameter: Option[FamilyParameter[Term]], value: NativeValue[Term]): DataLayer[Term] =
     val found = taken(parameter, value)
     if excluded(parameter, found.constructor) then
       throw IllegalStateException(s"${identity.shown} took a layer of the constructor ${found.constructor}, excluded at $parameter")
@@ -298,18 +415,20 @@ trait DataFamily:
     * alone for a family that takes no parameter. A family that takes one
     * gives parameters at which every constructor appears.
     */
-  def shapeParameters: Vector[Option[NativeValue]] = Vector(None)
+  def shapeParameters: Vector[Option[FamilyParameter[Nothing]]] = Vector(None)
 
   /** The cases of the decoding at the field depth, one per constructor at
     * the parameter.
     */
-  final def decodingCases(decoding: Decoding, level: Int, parameter: Option[NativeValue]): Vector[Value] =
-    constructors(parameter).indices.toVector.map(index => Value.Neutral(DataCase(decoding, level, identity, index), Vector.empty))
+  final def decodingCases[C <: NativeSpecializer & Singleton](decoding: Decoding, level: Int, parameter: Option[FamilyParameter[JitValue[C]]])(using
+      C
+  ): Vector[Value[C]] =
+    constructors(parameter).indices.toVector.map(index => NeutralValue(DataCase(decoding, level, identity, index), Vector.empty))
 
   /** What a head of a value applied to the decoding's cases at the level
     * reads.
     */
-  final def caseReading(head: Head, decoding: Decoding, level: Int): DataReading = head match
+  final def caseReading[C <: NativeSpecializer & Singleton](head: Head[C], decoding: Decoding, level: Int)(using C): DataReading[Value[C]] = head match
     case Head.Neutral(DataCase(`decoding`, `level`, family, constructor), arguments) if family == identity =>
       DataReading.Case(constructor, arguments)
     case _ => DataReading.NoCase
@@ -326,15 +445,18 @@ trait DataFamily:
     * `Codecs.shapeStepLimit` steps. A family whose codec reports readings of
     * its own overrides it.
     */
-  def constructorsShape(parameter: Option[NativeValue], defines: Vector[Instruction]): Shape[Any] =
+  def constructorsShape[C <: NativeSpecializer & Singleton](parameter: Option[FamilyParameter[JitValue[C]]], defines: Vector[Configured[C]])(using
+      C,
+      StorageAccess
+  ): Shape[Any] =
     val atParameter = constructors(parameter)
     require(defines.size == atParameter.size, s"${defines.size} defines for the ${atParameter.size} constructors of ${identity.shown}")
-    val cases = decodingCases(Decoding.Shape, 0, parameter)
+    val cases = decodingCases[C](Decoding.Shape, 0, parameter)
     val compared = atParameter.indices.toVector.map(index =>
       val fields = atParameter(index).fields.indices.toVector.map(field =>
-        Value.Neutral(FieldVariable(identity, index, field), Vector.empty)
+        NeutralValue[C](FieldVariable(identity, index, field), Vector.empty)
       )
-      val applied = (fields ++ cases).foldLeft(defines(index): Value)(Value.Apply(_, _))
+      val applied = (fields ++ cases).foldLeft(Value.of(defines(index)))(Value.Apply(_, _))
       val expected = DataReading.Case(index, fields)
       (Codecs.readingsWithin(applied, DataReading.NoCase)(caseReading(_, Decoding.Shape, 0)), expected)
     )
@@ -410,8 +532,9 @@ object NativeBackend:
     * depend on the family's parameter (a word's width, a binary natural's
     * set), are natives with places at the call's parameter
     * (`familyConstructorNatives`): `word_cell` takes a boolean and a word
-    * of width w - 1 to a word of width w. The library binds them in
-    * `fixed_width_prolog_backend` and `binary_prolog_backend`.
+    * of width w - 1 to a word of width w. The library binds them by the
+    * `data_family` of `word_type` (`fixed_width_prolog_backend`) and of
+    * `binary_set` (`binary_prolog_backend`).
     *
     * THE PROLOG BACKEND'S SET IS THIS SET. The data names these natives and
     * families for the "Prolog backend": the knowledge modules
@@ -476,13 +599,10 @@ object NativeBackend:
           case other    => Native.outsidePlaces("nil", other)
         }),
       NativeName.Constructor(Representation.listFamily, ListCodec.position(ListConstructor.Cons)) ->
-        Native(Vector(NativePlace.Item, NativePlace.Tail), NativePlace.AnyList, {
-          case Vector(NativeArgument.Item(item), NativeArgument.Tail(tail)) => NativeValue.Listed(listCons(item, tail))
-          case other                                                         => Native.outsidePlaces("cons", other)
-        })
+        new Native(Vector(NativePlace.Item, NativePlace.Tail), NativePlace.AnyList, ListConsImplementation, _ => true, None)
     ) ++ familyConstructorNatives(WordFamily) ++ familyConstructorNatives(BinaryNaturalFamily) ++ BinaryNaturalNatives.operations.natives ++
-      JvmBitsFamily.constructorNatives,
-    Vector(BigIntegerFamily, BooleanFamily, WordFamily, BinaryNaturalFamily, UnreadFamily) ++ JvmBitsFamily.all
+      JvmIntNatives.operations.natives ++ JvmBitsFamily.constructorNatives,
+    Vector(BigIntegerFamily, BooleanFamily, WordFamily, BinaryNaturalFamily, UnreadFamily, FilteredFamily, JvmIntFamily) ++ JvmBitsFamily.all
   )
 
   /** A backend of functions and families, each function named by the
@@ -497,8 +617,10 @@ object NativeBackend:
     * places are its `DataField`s' families at their parameters, its result
     * the family at the parameter (`NativePlace.Parameter`); it is admitted
     * at a parameter where it is one of the family's constructors and not
-    * excluded; its result's parameter is `DataFamily.builtParameter` of its
-    * fields' values, and its value `DataFamily.built` at that parameter.
+    * excluded; its value is `DataFamily.built` at the parameter
+    * `DataFamily.builtParameter` gives of its fields' values, part of
+    * computing the value and of nothing else; a constructor of no field has
+    * its constant at the parameter of its layer (`Native.constantParameter`).
     * Each constructor's fields are those of the first parameter of
     * `shapeParameters` where it appears.
     */
@@ -507,24 +629,27 @@ object NativeBackend:
       .flatMap(parameter => family.constructors(parameter))
       .distinctBy(_.native)
       .map(constructor =>
-        constructor.native -> Native(
+        constructor.native -> new Native(
           constructor.fields.map(field => NativePlace.OfParameter(field.representation)),
           NativePlace.Parameter(family.identity),
-          arguments =>
-            val values = arguments.map {
-              case NativeArgument.Represented(value) => value
-              case other => throw IllegalArgumentException(s"a field of ${constructor.native} that is not a native value: $other")
-            }
-            val parameter = family
-              .builtParameter(constructor.native, values)
-              .getOrElse(throw IllegalArgumentException(s"no layer of ${family.identity.shown} is ${constructor.native} over $values"))
-            val index = constructorIndex(family, parameter, constructor.native)
-              .getOrElse(throw IllegalArgumentException(s"${constructor.native} is no constructor of ${family.identity.shown} at $parameter"))
-            family.built(parameter, DataLayer(index, values))
+          new NativeImplementation:
+            def apply[C <: NativeSpecializer & Singleton](arguments: Vector[NativeArgument[JitValue[C]]])(using
+                C
+            ): NativeValue[JitValue[C]] =
+              val values = arguments.map {
+                case NativeArgument.Represented(value) => value
+                case other => throw IllegalArgumentException(s"a field of ${constructor.native} that is not a native value: $other")
+              }
+              val parameter = family
+                .builtParameter(constructor.native, values)
+                .getOrElse(throw IllegalArgumentException(s"no layer of ${family.identity.shown} is ${constructor.native} over $values"))
+              val index = constructorIndex(family, parameter, constructor.native)
+                .getOrElse(throw IllegalArgumentException(s"${constructor.native} is no constructor of ${family.identity.shown} at $parameter"))
+              family.built(parameter, DataLayer(index, values))
           ,
-          parameter =>
+          (parameter: Option[FamilyParameter[Any]]) =>
             constructorIndex(family, parameter, constructor.native).exists(index => !family.excluded(parameter, index)),
-          values => family.builtParameter(constructor.native, values)
+          Option.when(constructor.fields.isEmpty)(family.builtParameter(constructor.native, Vector.empty)).flatten
         )
       )
       .toMap
@@ -532,23 +657,21 @@ object NativeBackend:
   /** The index of the constructor whose native is named among the family's
     * constructors at the parameter, if it is one of them.
     */
-  private def constructorIndex(family: DataFamily, parameter: Option[NativeValue], native: NativeName): Option[Int] =
+  private def constructorIndex[Term](family: DataFamily, parameter: Option[FamilyParameter[Term]], native: NativeName): Option[Int] =
     Some(family.constructors(parameter).indexWhere(_.native == native)).filter(_ >= 0)
 
   private def natural: NativePlace = NativePlace.Fixed(Representation.BigInteger)
 
   private def truth: NativePlace = NativePlace.Fixed(Representation.Truth)
 
-  /** The library's cons of the item, as given, onto the tail (list_cons/3):
-    * on a list of items, that list one item longer; on a cell or a term
-    * nothing has read, a cell, so that the tail is read only where a
-    * consumer of the list reads it.
+  /** The library's cons of the item, as given, onto the tail's node
+    * (list_cons/3): one cell, the tail never read here.
     */
-  private def listCons(item: JitValue, tail: ListTail[JitValue]): ListRepresentation[JitValue] =
-    tail match
-      case ListTail.Listed(ListRepresentation.Items(length, items)) =>
-        ListRepresentation.Items(length + 1, item +: items)
-      case other => ListRepresentation.Cell(item, other)
+  private object ListConsImplementation extends NativeImplementation:
+    def apply[C <: NativeSpecializer & Singleton](arguments: Vector[NativeArgument[JitValue[C]]])(using C): NativeValue[JitValue[C]] =
+      arguments match
+        case Vector(NativeArgument.Item(item), NativeArgument.Tail(tail)) => NativeValue.Listed(ListRepresentation.Cell(item, tail))
+        case other                                                         => Native.outsidePlaces("cons", other)
 
 /** The family `unread`, the representation of a position a criterion leaves
   * open, whose criterion is Ω: a field of this family is held as it is written, unevaluated
@@ -565,13 +688,51 @@ object UnreadFamily extends DataFamily:
 
   override def heldAsWritten: Boolean = true
 
-  def constructors(parameter: Option[NativeValue]): Vector[DataConstructor] = Vector.empty
+  def constructors[Term](parameter: Option[FamilyParameter[Term]]): Vector[DataConstructor] = Vector.empty
 
-  def built(parameter: Option[NativeValue], layer: DataLayer): NativeValue =
+  def built[Term](parameter: Option[FamilyParameter[Term]], layer: DataLayer[Term]): NativeValue[Term] =
     throw IllegalArgumentException(s"the family unread has no layer: $layer")
 
-  def taken(parameter: Option[NativeValue], value: NativeValue): DataLayer =
+  def taken[Term](parameter: Option[FamilyParameter[Term]], value: NativeValue[Term]): DataLayer[Term] =
     throw IllegalArgumentException(s"the family unread has no layer: $value")
+
+/** The parameter of `FilteredFamily`: the criterion F a declared family's
+  * field is filtered by, a term that names no family of the backend (a
+  * function's range filter `λ_. r`, any filter a knowledge file writes).
+  */
+final case class FieldFilter[+Term](criterion: Term) extends FamilyParameter[Term]
+
+/** The family of a declared family's field whose criterion F names no family
+  * of the backend: the field is held as the node `f ∥ F`, f the term at the
+  * field's position, unread and undecoded. A decode point that reads the
+  * field adds the filter, the refinement `C f ∥ T ⊑ C (f ∥ F) ∥ T` the decode
+  * point stands for (T's layer asks F of the field), as it does a list's
+  * item. Unlike `UnreadFamily`, whose criterion Ω is a least term, it is
+  * never held as written: `x ∥ F` is not x. It stands only at a declared
+  * family's field and at a criterion parameter of one, never as the
+  * representation of a filter written at the top of a term.
+  */
+object FilteredFamily extends DataFamily:
+
+  val identity: FamilyIdentity.Codec = FamilyIdentity.Codec("filtered")
+
+  val parameterFamily: Option[FamilyIdentity] = None
+
+  def constructors[Term](parameter: Option[FamilyParameter[Term]]): Vector[DataConstructor] = Vector.empty
+
+  def built[Term](parameter: Option[FamilyParameter[Term]], layer: DataLayer[Term]): NativeValue[Term] =
+    throw IllegalArgumentException(s"the family filtered has no layer: $layer")
+
+  def taken[Term](parameter: Option[FamilyParameter[Term]], value: NativeValue[Term]): DataLayer[Term] =
+    throw IllegalArgumentException(s"the family filtered has no layer: $value")
+
+  /** The representation of a field filtered by the criterion. */
+  def of[C <: NativeSpecializer & Singleton](criterion: JitValue[C])(using C): Representation[JitValue[C]] = Representation.Data(identity, Some(FieldFilter(criterion)))
+
+  /** The criterion of the representation, if it is this family's. */
+  def criterionOf[C <: NativeSpecializer & Singleton](representation: Representation[JitValue[C]])(using C): Option[JitValue[C]] = representation match
+    case Representation.Data(`identity`, Some(FieldFilter(criterion))) => Some(criterion)
+    case _                                                            => None
 
 /** The family `big_integer` of the standard set: the library's naturals as
   * `BigInt`s, n standing for successor^n zero (`BigIntegerCodec`, THE
@@ -592,20 +753,23 @@ object BigIntegerFamily extends DataFamily:
     )
   )
 
-  def constructors(parameter: Option[NativeValue]): Vector[DataConstructor] = unparameterisedConstructors
+  def constructors[Term](parameter: Option[FamilyParameter[Term]]): Vector[DataConstructor] = unparameterisedConstructors
 
-  def built(parameter: Option[NativeValue], layer: DataLayer): NativeValue = layer match
+  def built[Term](parameter: Option[FamilyParameter[Term]], layer: DataLayer[Term]): NativeValue[Term] = layer match
     case DataLayer(0, Vector())                                 => NativeValue.Natural(BigInt(0))
     case DataLayer(1, Vector(NativeValue.Natural(predecessor))) => NativeValue.Natural(predecessor + 1)
     case other => throw IllegalArgumentException(s"no layer of a natural: $other")
 
-  def taken(parameter: Option[NativeValue], value: NativeValue): DataLayer = value match
+  def taken[Term](parameter: Option[FamilyParameter[Term]], value: NativeValue[Term]): DataLayer[Term] = value match
     case NativeValue.Natural(natural) =>
       val (_, branch, fields) = BigIntegerCodec.eliminatedBranch(natural)
       DataLayer(branch - 1, fields.map(NativeValue.Natural(_)))
     case other => throw IllegalArgumentException(s"no natural: $other")
 
-  override def constructorsShape(parameter: Option[NativeValue], defines: Vector[Instruction]): Shape[Any] =
+  override def constructorsShape[C <: NativeSpecializer & Singleton](parameter: Option[FamilyParameter[JitValue[C]]], defines: Vector[Configured[C]])(using
+      C,
+      StorageAccess
+  ): Shape[Any] =
     defines match
       case Vector(zero, successor) => BigIntegerCodec.constructorsShape(zero, successor)
       case other => throw IllegalArgumentException(s"${other.size} defines for the two constructors of ${identity.name}")
@@ -626,20 +790,23 @@ object BooleanFamily extends DataFamily:
     DataConstructor(NativeName.Constructor(identity, BooleanCodec.position(false)), Vector.empty)
   )
 
-  def constructors(parameter: Option[NativeValue]): Vector[DataConstructor] = unparameterisedConstructors
+  def constructors[Term](parameter: Option[FamilyParameter[Term]]): Vector[DataConstructor] = unparameterisedConstructors
 
-  def built(parameter: Option[NativeValue], layer: DataLayer): NativeValue = layer match
+  def built[Term](parameter: Option[FamilyParameter[Term]], layer: DataLayer[Term]): NativeValue[Term] = layer match
     case DataLayer(0, Vector()) => NativeValue.Truth(true)
     case DataLayer(1, Vector()) => NativeValue.Truth(false)
     case other                  => throw IllegalArgumentException(s"no layer of a boolean: $other")
 
-  def taken(parameter: Option[NativeValue], value: NativeValue): DataLayer = value match
+  def taken[Term](parameter: Option[FamilyParameter[Term]], value: NativeValue[Term]): DataLayer[Term] = value match
     case NativeValue.Truth(truth) =>
       val (_, branch, _) = BooleanCodec.eliminatedBranch(truth)
       DataLayer(branch - 1, Vector.empty)
     case other => throw IllegalArgumentException(s"no boolean: $other")
 
-  override def constructorsShape(parameter: Option[NativeValue], defines: Vector[Instruction]): Shape[Any] =
+  override def constructorsShape[C <: NativeSpecializer & Singleton](parameter: Option[FamilyParameter[JitValue[C]]], defines: Vector[Configured[C]])(using
+      C,
+      StorageAccess
+  ): Shape[Any] =
     defines match
       case Vector(trueDefine, falseDefine) => BooleanCodec.constructorsShape(trueDefine, falseDefine)
       case other => throw IllegalArgumentException(s"${other.size} defines for the two constructors of ${identity.name}")
@@ -652,15 +819,15 @@ object BooleanFamily extends DataFamily:
 extension (facts: BackendFacts)
 
   /** The term of zero, big_integer's constructor 0. */
-  def zero: Instruction =
+  def zero: Pure =
     facts.constructorDefine(NativeName.Constructor(BigIntegerFamily.identity, BigIntegerCodec.position(NaturalConstructor.Zero)))
 
   /** The term of successor, big_integer's constructor 1. */
-  def successor: Instruction =
+  def successor: Pure =
     facts.constructorDefine(NativeName.Constructor(BigIntegerFamily.identity, BigIntegerCodec.position(NaturalConstructor.Successor)))
 
   /** The term of true, boolean's constructor 0. */
-  def trueDefine: Instruction = facts.constructorDefine(NativeName.Constructor(BooleanFamily.identity, BooleanCodec.position(true)))
+  def trueDefine: Pure = facts.constructorDefine(NativeName.Constructor(BooleanFamily.identity, BooleanCodec.position(true)))
 
   /** The term of false, boolean's constructor 1. */
-  def falseDefine: Instruction = facts.constructorDefine(NativeName.Constructor(BooleanFamily.identity, BooleanCodec.position(false)))
+  def falseDefine: Pure = facts.constructorDefine(NativeName.Constructor(BooleanFamily.identity, BooleanCodec.position(false)))

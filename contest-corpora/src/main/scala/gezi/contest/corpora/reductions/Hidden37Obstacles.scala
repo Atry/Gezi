@@ -17,7 +17,7 @@ object Hidden37Obstacles:
   /** The program (`obstacles_term/3`):
     * `(\grid. (\nth. (\blocked. \moves. \goal. Body) Blocked Moves Goal) Nth) Grid`.
     */
-  def obstaclesTerm(attractors: Attractors, grid: Vector[Vector[Int]], budget: Int): Term =
+  def obstaclesTerm(attractors: Attractors, grid: Vector[Vector[Int]], budget: Int): ProblemTerm =
     def function(name: String) = attractors.functionSurface(name, Spelling.Direct)
     val (lastRow, lastColumn) = (grid.size - 1, grid.head.size - 1)
     λ(gridVariable =>
@@ -40,7 +40,7 @@ object Hidden37Obstacles:
     )(SetFree.bitLists(attractors, grid))
 
   /** The element at a unary index (`nth_function/1`). */
-  private def nthFunction(attractors: Attractors): Term =
+  private def nthFunction(attractors: Attractors): ProblemTerm =
     val nil = attractors.attractorSurface("nil", Spelling.Direct)
     attractors.fixpoint(
       λ(self =>
@@ -49,12 +49,12 @@ object Hidden37Obstacles:
     )
 
   /** `\r. \c. member (nth grid r) c` (`blocked_function/3`). */
-  private def blockedFunction(attractors: Attractors, nth: Term, grid: Term): Term =
+  private def blockedFunction(attractors: Attractors, nth: ProblemTerm, grid: ProblemTerm): ProblemTerm =
     val member = attractors.functionSurface("bit_set_member", Spelling.Direct)
     λ(row => λ(column => member(nth(grid)(row))(column)))
 
   /** The four moves that stay on the grid (`moves_function/3`). */
-  private def movesFunction(attractors: Attractors, lastRow: Int, lastColumn: Int): Term =
+  private def movesFunction(attractors: Attractors, lastRow: Int, lastColumn: Int): ProblemTerm =
     def function(name: String) = attractors.functionSurface(name, Spelling.Direct)
     val atLeastOne = function("natural_at_least")
     val atLeastTwo = function("natural_at_least")
@@ -77,7 +77,7 @@ object Hidden37Obstacles:
   /** `\p. and (equal (first p) last) (equal (second p) last)`
     * (`goal_function/3`).
     */
-  private def goalFunction(attractors: Attractors, lastRow: Int, lastColumn: Int): Term =
+  private def goalFunction(attractors: Attractors, lastRow: Int, lastColumn: Int): ProblemTerm =
     def function(name: String) = attractors.functionSurface(name, Spelling.Direct)
     val and = function("and")
     val equalOne = function("natural_equal")
@@ -100,7 +100,7 @@ object Hidden37Obstacles:
     * pred (2h) = 2 pred(h) + 1 for h ≥ 1, pred (2h + 1) = 2h, which is zero
     * when h is; zero to zero, a case `goFunction` never reaches.
     */
-  private def binaryPredecessor(attractors: Attractors): Term =
+  private def binaryPredecessor(attractors: Attractors): ProblemTerm =
     val zero = attractors.attractorSurface("binary_zero", Spelling.Direct)
     val evenOne = attractors.attractorSurface("binary_even", Spelling.Direct)
     val evenTwo = attractors.attractorSurface("binary_even", Spelling.Direct)
@@ -120,7 +120,7 @@ object Hidden37Obstacles:
     * least fixed point), the whole choice with it, and the program would be
     * below every closed βη normal form in ⊑_O.
     */
-  private def goFunction(attractors: Attractors, blocked: Term, moves: Term, goal: Term, predecessor: Term): Term =
+  private def goFunction(attractors: Attractors, blocked: ProblemTerm, moves: ProblemTerm, goal: ProblemTerm, predecessor: ProblemTerm): ProblemTerm =
     val pairOne = attractors.functionSurface("pair", Spelling.Direct)
     val pairTwo = attractors.functionSurface("pair", Spelling.Direct)
     attractors.fixpoint(

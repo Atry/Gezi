@@ -6,8 +6,11 @@ import hedgehog.Range
 import hedgehog.Result
 import java.math.BigInteger
 import gezi.generatedinputs.GeneratedProperties
-import gezi.ir.Instruction
+import gezi.ir.Configured
+import gezi.ir.NoFacts
 import gezi.saturation.StopSignal
+
+private given narrowLeadingZerosLawTestNoFacts: NoFacts.type = NoFacts
 
 /** The law of a numeral with leading zeros (the trap of
   * `repeated_library_binary_domain_traps`): a block that reads `binary_even`
@@ -24,11 +27,11 @@ class NarrowLeadingZerosLawTest extends GeneratedProperties:
   /** The canonical numeral of the value with the zero at its end replaced by
     * `even` applied `padding` times to zero.
     */
-  private def padded(value: Int, padding: Int): Instruction =
-    if value == 0 then (1 to padding).foldLeft(zero)((inner, _) => Instruction.Apply(even, inner))
-    else Instruction.Apply(if (value & 1) == 1 then odd else even, padded(value >> 1, padding))
+  private def padded(value: Int, padding: Int): Configured[NoFacts.type] =
+    if value == 0 then (1 to padding).foldLeft(zero)((inner, _) => NoFacts.application(even, inner))
+    else NoFacts.application(if (value & 1) == 1 then odd else even, padded(value >> 1, padding))
 
-  private def plusOf(left: Instruction, right: Instruction): Instruction = Instruction.Apply(Instruction.Apply(plus, left), right)
+  private def plusOf(left: Configured[NoFacts.type], right: Configured[NoFacts.type]): Configured[NoFacts.type] = NoFacts.application(NoFacts.application(plus, left), right)
 
   stoppableProperty("a numeral with leading zeros gives no value, alone or added; its canonical numeral gives its value and the sum") {
     stopped =>
@@ -38,9 +41,9 @@ class NarrowLeadingZerosLawTest extends GeneratedProperties:
         summand <- Gen.int(Range.linear(0, 1000)).forAll
       yield
         val stop = StopSignal.completedWith(stopped)
-        def values(program: Instruction): Either[String, Vector[Option[BigInteger]]] =
+        def values(program: Configured[NoFacts.type]): Either[String, Vector[Option[BigInteger]]] =
           compilation.compiled(compilation.blocks(program), DebugAttributes.Omitted, stop).map(_.map(_.run(stop)))
-        def answered(program: Instruction): Vector[BigInteger] = values(program).toOption.toVector.flatten.flatten
+        def answered(program: Configured[NoFacts.type]): Vector[BigInteger] = values(program).toOption.toVector.flatten.flatten
         Result
           .all(
             List(

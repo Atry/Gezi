@@ -4,8 +4,6 @@ import gezi.egraph.EGraph
 import gezi.egraph.Justification
 import gezi.egraph.MadeNodes
 import gezi.egraph.LiveNode
-import gezi.ir.Instruction
-import gezi.ir.Layer
 import gezi.ir.Pattern
 import gezi.ir.Spine
 import gezi.ir.{Apply, Choice, NoinlineLeaf, Parallel, Slot, Thunk}
@@ -13,25 +11,30 @@ import gezi.ir.TailRecFolds
 import scala.util.control.TailCalls.TailRec
 import scala.util.control.TailCalls.done
 import scala.util.control.TailCalls.tailcall
+import gezi.ir.{Configured, NativeSpecializer}
 
 /** A closure opened: its thunk node, its eigenvariables, one for each hole
   * in lambda order, each an opaque leaf with its node, and the node of its
   * body read at them.
   */
-final case class Opening(closure: Int, eigenvariables: Vector[(Instruction, Int)], body: Int)
+final case class Opening[C <: NativeSpecializer & Singleton](
+    closure: Int,
+    eigenvariables: Vector[(Configured[C], Int)],
+    body: Int
+)
 
 /** How a round chooses the closures it opens: an option of the
   * saturation, not a part of what a program means. Both open only closures
   * that call a head (`BodyOpening.opened`); the second opens a subset of
   * the first's.
   */
-enum OpeningCriterion:
+enum OpeningCriterion[C <: NativeSpecializer & Singleton]:
 
   /** Every closure that calls a head: a name some enabled lemma's left side
     * applies, or such a name applied to fewer arguments than a left side
     * applies it to. The default.
     */
-  case CallsAHead
+  case CallsAHead[C <: NativeSpecializer & Singleton]() extends OpeningCriterion[C]
 
   /** A closure that calls a head, as `CallsAHead` opens, and where some call
     * of a head at the head's own class has arguments that may match one of
@@ -68,7 +71,7 @@ enum OpeningCriterion:
     * more than the default's and records both counts on these shapes, equal
     * on every sample measured (2026-11-21).
     */
-  case CallsAHeadWithMatchingArguments(argumentPatterns: Map[Instruction, Vector[Vector[Pattern]]])
+  case CallsAHeadWithMatchingArguments(argumentPatterns: Map[Configured[C], Vector[Vector[Pattern[C]]]])
 
 /** Which `OpeningCriterion` a round's saturation opens closures by, as the
   * round's data chooses: the choice alone, the saturator building the
@@ -106,7 +109,7 @@ object BodyOpening:
     * member's children, the classes it reads; a class of `stops` is
     * neither in it nor read through.
     */
-  def classesUnder(graph: EGraph, roots: Iterable[Int], stops: Set[Int]): Set[Int] =
+  def classesUnder[C <: NativeSpecializer & Singleton](graph: EGraph[C], roots: Iterable[Int], stops: Set[Int]): Set[Int] =
     @scala.annotation.tailrec
     def visited(pending: List[Int], seen: Set[Int]): Set[Int] = pending match
       case Nil                                         => seen
@@ -129,15 +132,15 @@ object BodyOpening:
     * never the closure applied to the eigenvariables, whose write-back
     * would be the closure's η-expansion.
     */
-  def opened(
-      graph: EGraph,
-      openings: Vector[Opening],
+  def opened[C <: NativeSpecializer & Singleton](
+      graph: EGraph[C],
+      openings: Vector[Opening[C]],
       count: Int,
       scope: Set[Int],
-      heads: Map[Instruction, Int],
+      heads: Map[Configured[C], Int],
       stops: Set[Int],
-      criterion: OpeningCriterion
-  ): (EGraph, Vector[Opening]) =
+      criterion: OpeningCriterion[C]
+  )(using C): (EGraph[C], Vector[Opening[C]]) =
     val (once, made) = openedOnce(graph, openings, count, scope, heads, criterion)
     if made.isEmpty || made.size >= count then (once, made)
     else
@@ -152,14 +155,14 @@ object BodyOpening:
     * (`OpeningCriterion`, which a round's saturator implementation chooses from the entry's data); the first
     * `count` of them in the order of the live nodes.
     */
-  private def openedOnce(
-      graph: EGraph,
-      openings: Vector[Opening],
+  private def openedOnce[C <: NativeSpecializer & Singleton](
+      graph: EGraph[C],
+      openings: Vector[Opening[C]],
       count: Int,
       scope: Set[Int],
-      heads: Map[Instruction, Int],
-      criterion: OpeningCriterion
-  ): (EGraph, Vector[Opening]) =
+      heads: Map[Configured[C], Int],
+      criterion: OpeningCriterion[C]
+  )(using C): (EGraph[C], Vector[Opening[C]]) =
     val openedRoots = openings.map(opening => graph.root(opening.closure)).toSet
     val headRoots = heads.toVector
       .flatMap((head, arity) => graph.instructionNode(head).map(node => graph.root(node) -> arity))
@@ -167,33 +170,46 @@ object BodyOpening:
         bounds.updated(root, bounds.get(root).fold(arity)(_ max arity))
       }
     val argumentPatternsByRoot = criterion match
-      case OpeningCriterion.CallsAHead                                       => Map.empty[Int, Vector[Vector[Pattern]]]
+      case OpeningCriterion.CallsAHead()                                       => Map.empty[Int, Vector[Vector[Pattern[C]]]]
       case OpeningCriterion.CallsAHeadWithMatchingArguments(argumentPatterns) => patternsByRoot(graph, argumentPatterns)
     val closures = graph.liveNodes
       .collect { case LiveNode(node, root, thunk @ Thunk(_, holes, _)) if holes.nonEmpty => (node, root, thunk) }
       .filter((_, root, thunk) =>
         scope.contains(root) && !openedRoots.contains(root) && calls(graph, thunk, headRoots) && (criterion match
-          case OpeningCriterion.CallsAHead => true
+          case OpeningCriterion.CallsAHead() => true
           case OpeningCriterion.CallsAHeadWithMatchingArguments(_) =>
             matchingCalls(graph, thunk, headRoots, argumentPatternsByRoot)
         )
       )
       .distinctBy(_._2)
       .take(count)
-    closures.foldLeft((graph, Vector.empty[Opening])) { case ((current, made), (node, _, thunk)) =>
-      val (withLeaves, leaves) = thunk.holes.indices.foldLeft((current, Vector.empty[(Instruction, Int)])) {
-        case ((partial, added), position) =>
-          val leaf = Instruction.opaque(s"eigenvariable $node $position")
-          val (next, leafNode) = partial.layerAdded(NoinlineLeaf(leaf))
-          (next, added :+ (leaf, leafNode))
-      }
-      val (withBody, body) = HigherOrderMatching.bodyAdded(
-        withLeaves,
-        thunk.code,
-        Saturation.slotValues(thunk.holes, leaves.map(_._2), thunk.fillings)
-      )
-      (withBody, made :+ Opening(node, leaves, body))
+    closures.foldLeft((graph, Vector.empty[Opening[C]])) { case ((current, made), (node, _, thunk)) =>
+      val (withBody, opening) = openedAt(current, node, thunk)
+      (withBody, made :+ opening)
     }
+
+  /** The closure of the node, the thunk layer given, opened: an opaque
+    * eigenvariable leaf for each hole, in lambda order, its text naming the
+    * node and the position, and the thunk's code read at them, its fillings
+    * at the slots they fill, as the body. The rounds' openings and a closure
+    * unit's compilation (`gezi.narrowblocks.ClosureUnits`) open a closure
+    * this one way.
+    */
+  def openedAt[C <: NativeSpecializer & Singleton](graph: EGraph[C], node: Int, thunk: Thunk[Int])(
+      using specializer: C
+  ): (EGraph[C], Opening[C]) =
+    val (withLeaves, leaves) = thunk.holes.indices.foldLeft((graph, Vector.empty[(Configured[C], Int)])) {
+      case ((partial, added), position) =>
+        val leaf: Configured[C] = (specializer: C).opaque(s"eigenvariable $node $position")
+        val (next, leafNode) = partial.layerAdded(NoinlineLeaf(leaf))
+        (next, added :+ (leaf, leafNode))
+    }
+    val (withBody, body) = HigherOrderMatching.bodyAdded(
+      withLeaves,
+      thunk.code,
+      Saturation.slotValues(thunk.holes, leaves.map(_._2), thunk.fillings)
+    )
+    (withBody, Opening(node, leaves, body))
 
   /** Whether the thunk's code applies, at the head of an application of
     * its own code (an inner thunk's code is its own thunk's), a filling
@@ -214,7 +230,7 @@ object BodyOpening:
     * writes as a thunk, is read as the let-bound name it binds
     * (`LetBoundHeadOpeningLawTest`).
     */
-  private def calls(graph: EGraph, thunk: Thunk[Int], headRoots: Map[Int, Int]): Boolean =
+  private def calls[C <: NativeSpecializer & Singleton](graph: EGraph[C], thunk: Thunk[Int], headRoots: Map[Int, Int]): Boolean =
     val environment = Saturation.slotValues(thunk.holes, thunk.holes.map(_ => -1), thunk.fillings)
     def headSlots(code: gezi.ir.Code): Vector[Int] = code.layer match
       case Slot(_) => Vector.empty
@@ -241,7 +257,7 @@ object BodyOpening:
     * arguments applied already, followed through the function position of
     * its applications.
     */
-  private def headApplied(graph: EGraph, headRoots: Map[Int, Int], root: Int, applications: Int): Boolean =
+  private def headApplied[C <: NativeSpecializer & Singleton](graph: EGraph[C], headRoots: Map[Int, Int], root: Int, applications: Int): Boolean =
     val deepest = headRoots.values.maxOption.getOrElse(0)
     headRoots.get(root).exists(applications < _) || (applications + 1 < deepest && graph.classMembers(root).exists(member =>
       member.layer match
@@ -250,10 +266,10 @@ object BodyOpening:
     ))
 
   /** The argument patterns of each head's spines by the head's class. */
-  private def patternsByRoot(graph: EGraph, argumentPatterns: Map[Instruction, Vector[Vector[Pattern]]]): Map[Int, Vector[Vector[Pattern]]] =
+  private def patternsByRoot[C <: NativeSpecializer & Singleton](graph: EGraph[C], argumentPatterns: Map[Configured[C], Vector[Vector[Pattern[C]]]]): Map[Int, Vector[Vector[Pattern[C]]]] =
     argumentPatterns.toVector
       .flatMap((head, spines) => graph.instructionNode(head).map(node => graph.root(node) -> spines))
-      .foldLeft(Map.empty[Int, Vector[Vector[Pattern]]]) { case (byRoot, (root, spines)) =>
+      .foldLeft(Map.empty[Int, Vector[Vector[Pattern[C]]]]) { case (byRoot, (root, spines)) =>
         byRoot.updated(root, byRoot.getOrElse(root, Vector.empty) ++ spines)
       }
 
@@ -273,11 +289,11 @@ object BodyOpening:
     * the thunk is the function of a redex of the code, a let, whose
     * arguments then stand for its first holes.
     */
-  private def matchingCalls(
-      graph: EGraph,
+  private def matchingCalls[C <: NativeSpecializer & Singleton](
+      graph: EGraph[C],
       thunk: Thunk[Int],
       headRoots: Map[Int, Int],
-      patterns: Map[Int, Vector[Vector[Pattern]]]
+      patterns: Map[Int, Vector[Vector[Pattern[C]]]]
   ): Boolean =
     def valueOf(code: gezi.ir.Code, environment: Vector[SlotValue]): SlotValue = code.layer match
       case Slot(slot) => environment(slot)
@@ -289,14 +305,14 @@ object BodyOpening:
         environment: Vector[SlotValue]
     ): Vector[SlotValue] =
       slotValues(holes, holes.indices.map(position => bound.lift(position).getOrElse(SlotValue.Unknown)).toVector, fillings.map(valueOf(_, environment)))
-    def classMayMatch(root: Int, pattern: Pattern): Boolean = pattern.layer match
+    def classMayMatch(root: Int, pattern: Pattern[C]): Boolean = pattern.layer match
       case gezi.ir.InstructionReference(instruction) => graph.instructionNode(instruction).exists(node => graph.root(node) == root)
       case gezi.ir.Apply(_, _)     => graph.classMembers(root).exists(_.layer.isInstanceOf[Apply[?]])
       case gezi.ir.Parallel(_, _)  => graph.classMembers(root).exists(_.layer.isInstanceOf[Parallel[?]])
       case gezi.ir.Choice(_, _)    => graph.classMembers(root).exists(_.layer.isInstanceOf[Choice[?]])
       case gezi.ir.Thunk(_, _, _)  => graph.classMembers(root).exists(_.layer.isInstanceOf[Thunk[?]])
       case _                       => true
-    def argumentMayMatch(pattern: Pattern, argument: gezi.ir.Code, environment: Vector[SlotValue]): Boolean = pattern match
+    def argumentMayMatch(pattern: Pattern[C], argument: gezi.ir.Code, environment: Vector[SlotValue]): Boolean = pattern match
       case Pattern.Metavariable(_) | Pattern.Closure(_) => true
       case _ =>
         valueOf(argument, environment) match
@@ -347,7 +363,7 @@ object BodyOpening:
     * Candidate condition: no union joins the eigenvariable's class with a
     * class that does not depend on it through a metavariable.
     */
-  def eigenvariablesFree(graph: EGraph, opening: Opening): Boolean =
+  def eigenvariablesFree[C <: NativeSpecializer & Singleton](graph: EGraph[C], opening: Opening[C]): Boolean =
     opening.eigenvariables.forall((_, leafNode) => graph.classMembers(leafNode).map(_.node) == Vector(leafNode))
 
   /** The graph with the body's spelling written back as a thunk united with
@@ -356,12 +372,12 @@ object BodyOpening:
     * opening's own and those of the closures it is inside, are given with
     * their nodes, so that a spelling that holds one is added at its leaf.
     */
-  def writtenBack(
-      graph: EGraph,
-      opening: Opening,
-      spelling: Instruction,
-      eigenvariables: Map[Instruction, Int]
-  ): EGraph =
+  def writtenBack[C <: NativeSpecializer & Singleton](
+      graph: EGraph[C],
+      opening: Opening[C],
+      spelling: Configured[C],
+      eigenvariables: Map[Configured[C], Int]
+  )(using C): EGraph[C] =
     if !eigenvariablesFree(graph, opening) then graph
     else
       val spellingNode = this.spellingNode(graph, spelling, eigenvariables)
@@ -376,21 +392,26 @@ object BodyOpening:
 
   /** The node of a body's spelling, found layer by layer, nothing added: a
     * spelling is an extraction of the body's class, every layer of it a
-    * member's layer over classes of the graph, and an eigenvariable its
-    * leaf's node. A spelling shares subterms, so each distinct subterm is
+    * member's layer over classes of the graph (a native storage the
+    * construction converted one of them to standing for that layer, its view),
+    * and an eigenvariable its leaf's node. A spelling shares subterms, so each distinct subterm is
     * looked up once, the nodes found threaded through the walk: linear in
     * the spelling as a graph, not in the tree it unfolds to (5da66229d). A trampoline: a spelling is as deep as a body. Throws
     * `IllegalStateException` for a spelling with a layer the graph has no
     * node of.
     */
-  private def spellingNode(graph: EGraph, spelling: Instruction, eigenvariables: Map[Instruction, Int]): Int =
-    def found(instruction: Instruction, known: Map[Instruction, Int]): TailRec[Map[Instruction, Int]] =
+  private def spellingNode[C <: NativeSpecializer & Singleton](graph: EGraph[C], spelling: Configured[C], eigenvariables: Map[Configured[C], Int]): Int =
+    def found(instruction: Configured[C], known: Map[Configured[C], Int]): TailRec[Map[Configured[C], Int]] =
       if known.contains(instruction) then done(known)
       else
         eigenvariables.get(instruction).orElse(graph.instructionNode(instruction)) match
           case Some(node) => done(known.updated(instruction, node))
           case None =>
-            val layer = instruction.layered
+            // A native storage with no node is one the write-back's construction
+            // just converted from the layer the graph holds (`Store.construction`):
+            // its one-layer view is that layer, over children the graph has nodes of, read with the capability the
+            // graph's store holds (`Store.expanded`).
+            val layer = graph.store.expanded(instruction)
             TailRecFolds.folded(layer.children.toVector, known)((current, child) => found(child, current))
               .map(after =>
                 val node = graph

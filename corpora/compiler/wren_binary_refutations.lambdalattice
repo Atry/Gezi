@@ -1,0 +1,157 @@
+# The refutations of the binary naturals' candidacy, as prolog_backend_shapes
+# writes the unary naturals', the booleans' and the lists': a candidate class
+# for `binary_set true` is refuted when one layer of its own structure differs
+# from the binary naturals' shape (three alternatives, the first with no
+# field, the other two with one field each; binary_wren_shapes), or when the
+# shape's second or third field is refuted for them in turn. Refutation is a
+# least fixed point read bottom up, so a candidate that no layer
+# contradicts, a cycle through the shape included, is never refuted. A
+# mismatch is written for a candidate only, as the unify node of the
+# candidacy and the refutation beside the candidacy; the field refutations,
+# as shapes_natural_field_refuted, need no candidacy on their left side.
+# Every lemma here only adds, and none reads a function type: a binary
+# natural is a Scott value, whose type may also hold one
+# (https://github.com/Atry/private-overlay/issues/2188).
+#
+# A separate module, so that binary_wren_shapes, which other presets select,
+# keeps its readings; wren_elimination_preset's type check selects it.
+#
+# Every lemma is sound by the section zero_universe: both sides are
+# candidate, refuted and unify applied to all their arguments, each 0 by
+# Lemma Z of that proof, and their choices 0 by the unit law, whatever the
+# arguments.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "hindley_milner_unions") "shapes")
+λ structure alternative no_alternative field no_field _
+. omega (omega (omega (omega corpora "library") "prolog_backend_shapes") "prolog_backend_shapes")
+λ candidate _ _ _ _ _ refuted
+. omega (omega (omega (omega corpora "library") "binary") "natural")
+λ _ _ _ _ binary_set
+. omega (omega (omega (omega corpora "library") "native_types") "boolean")
+λ true _ _ _
+. omega (omega (omega (omega corpora "library") "hindley_milner_unions") "judgments")
+λ _ _ unify
+. export
+λ _ rewriting _ _
+. rewriting
+λ _ lemmas _
+. lemmas
+  # The first alternative, zero, has no field.
+  ( λ s
+    . s
+      (λk. k "wren_binary_refuted_first_field")
+      (λx_0 x_1 x_2. candidate (binary_set true) λ. structure λ. alternative (field x_0 x_1) x_2)
+      ( λ x_0 x_1 x_2
+        . ( unify (candidate (binary_set true) λ. structure λ. alternative (field x_0 x_1) x_2)
+            λ
+            . refuted (binary_set true) λ. structure λ. alternative (field x_0 x_1) x_2
+          + candidate (binary_set true) λ. structure λ. alternative (field x_0 x_1) x_2
+          )
+      ) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+  # Three alternatives, not none.
+  + λ s
+    . s
+      (λk. k "wren_binary_refuted_no_alternative")
+      (candidate (binary_set true) λ. structure no_alternative)
+      ( unify (candidate (binary_set true) λ. structure no_alternative) (refuted (binary_set true) λ. structure no_alternative)
+      + candidate (binary_set true) λ. structure no_alternative
+      ) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+  # Three alternatives, not one.
+  + λ s
+    . s
+      (λk. k "wren_binary_refuted_one_alternative")
+      (λx_0. candidate (binary_set true) λ. structure λ. alternative x_0 no_alternative)
+      ( λ x_0
+        . ( unify (candidate (binary_set true) λ. structure λ. alternative x_0 no_alternative)
+            λ
+            . refuted (binary_set true) λ. structure λ. alternative x_0 no_alternative
+          + candidate (binary_set true) λ. structure λ. alternative x_0 no_alternative
+          )
+      ) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+  # Three alternatives, not two: the unary naturals, the booleans and the lists have two.
+  + λ s
+    . s
+      (λk. k "wren_binary_refuted_two_alternatives")
+      (λx_0 x_1. candidate (binary_set true) λ. structure λ. alternative x_0 λ. alternative x_1 no_alternative)
+      ( λ x_0 x_1
+        . ( unify (candidate (binary_set true) λ. structure λ. alternative x_0 λ. alternative x_1 no_alternative)
+            λ
+            . refuted (binary_set true) λ. structure λ. alternative x_0 λ. alternative x_1 no_alternative
+          + candidate (binary_set true) λ. structure λ. alternative x_0 λ. alternative x_1 no_alternative
+          )
+      ) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+  # Three alternatives, not four or more.
+  + λ s
+    . s
+      (λk. k "wren_binary_refuted_alternatives")
+      (λx_0 x_1 x_2 x_3 x_4. candidate (binary_set true) λ. structure λ. alternative x_0 λ. alternative x_1 λ. alternative x_2 λ. alternative x_3 x_4)
+      ( λ x_0 x_1 x_2 x_3 x_4
+        . ( unify (candidate (binary_set true) λ. structure λ. alternative x_0 λ. alternative x_1 λ. alternative x_2 λ. alternative x_3 x_4)
+            λ
+            . refuted (binary_set true) λ. structure λ. alternative x_0 λ. alternative x_1 λ. alternative x_2 λ. alternative x_3 x_4
+          + candidate (binary_set true) λ. structure λ. alternative x_0 λ. alternative x_1 λ. alternative x_2 λ. alternative x_3 x_4
+          )
+      ) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+  # The second alternative, even, has one field, not none.
+  + λ s
+    . s
+      (λk. k "wren_binary_refuted_second_no_field")
+      (λx_0 x_1. candidate (binary_set true) λ. structure λ. alternative x_0 λ. alternative no_field x_1)
+      ( λ x_0 x_1
+        . ( unify (candidate (binary_set true) λ. structure λ. alternative x_0 λ. alternative no_field x_1)
+            λ
+            . refuted (binary_set true) λ. structure λ. alternative x_0 λ. alternative no_field x_1
+          + candidate (binary_set true) λ. structure λ. alternative x_0 λ. alternative no_field x_1
+          )
+      ) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+  # The second alternative has one field, not two or more.
+  + λ s
+    . s
+      (λk. k "wren_binary_refuted_second_fields")
+      (λx_0 x_1 x_2 x_3 x_4. candidate (binary_set true) λ. structure λ. alternative x_0 λ. alternative (field x_1 λ. field x_2 x_3) x_4)
+      ( λ x_0 x_1 x_2 x_3 x_4
+        . ( unify (candidate (binary_set true) λ. structure λ. alternative x_0 λ. alternative (field x_1 λ. field x_2 x_3) x_4)
+            λ
+            . refuted (binary_set true) λ. structure λ. alternative x_0 λ. alternative (field x_1 λ. field x_2 x_3) x_4
+          + candidate (binary_set true) λ. structure λ. alternative x_0 λ. alternative (field x_1 λ. field x_2 x_3) x_4
+          )
+      ) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+  # The third alternative, odd, has one field, not none.
+  + λ s
+    . s
+      (λk. k "wren_binary_refuted_third_no_field")
+      (λx_0 x_1 x_2. candidate (binary_set true) λ. structure λ. alternative x_0 λ. alternative x_1 λ. alternative no_field x_2)
+      ( λ x_0 x_1 x_2
+        . ( unify (candidate (binary_set true) λ. structure λ. alternative x_0 λ. alternative x_1 λ. alternative no_field x_2)
+            λ
+            . refuted (binary_set true) λ. structure λ. alternative x_0 λ. alternative x_1 λ. alternative no_field x_2
+          + candidate (binary_set true) λ. structure λ. alternative x_0 λ. alternative x_1 λ. alternative no_field x_2
+          )
+      ) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+  # The third alternative has one field, not two or more.
+  + λ s
+    . s
+      (λk. k "wren_binary_refuted_third_fields")
+      (λx_0 x_1 x_2 x_3 x_4 x_5. candidate (binary_set true) λ. structure λ. alternative x_0 λ. alternative x_1 λ. alternative (field x_2 λ. field x_3 x_4) x_5)
+      ( λ x_0 x_1 x_2 x_3 x_4 x_5
+        . ( unify (candidate (binary_set true) λ. structure λ. alternative x_0 λ. alternative x_1 λ. alternative (field x_2 λ. field x_3 x_4) x_5)
+            λ
+            . refuted (binary_set true) λ. structure λ. alternative x_0 λ. alternative x_1 λ. alternative (field x_2 λ. field x_3 x_4) x_5
+          + candidate (binary_set true) λ. structure λ. alternative x_0 λ. alternative x_1 λ. alternative (field x_2 λ. field x_3 x_4) x_5
+          )
+      ) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+  # The shape whose second field is refuted for the binary naturals is refuted for them.
+  + λ s
+    . s
+      (λk. k "wren_binary_second_field_refuted")
+      (λx_0 x_1 x_2. structure λ. alternative x_0 λ. alternative (field (refuted (binary_set true) x_1) no_field) λ. alternative (field x_2 no_field) no_alternative)
+      (λx_0 x_1 x_2. refuted (binary_set true) λ. structure λ. alternative x_0 λ. alternative (field (refuted (binary_set true) x_1) no_field) λ. alternative (field x_2 no_field) no_alternative) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+  # The shape whose third field is refuted for the binary naturals is refuted for them.
+  + λ s
+    . s
+      (λk. k "wren_binary_third_field_refuted")
+      (λx_0 x_1 x_2. structure λ. alternative x_0 λ. alternative (field x_1 no_field) λ. alternative (field (refuted (binary_set true) x_2) no_field) no_alternative)
+      (λx_0 x_1 x_2. refuted (binary_set true) λ. structure λ. alternative x_0 λ. alternative (field x_1 no_field) λ. alternative (field (refuted (binary_set true) x_2) no_field) no_alternative) λ_ md _. md λk. k "[zero_universe](docs/design/gezi-hindley-milner-unions-proofs.md#zero_universe)"
+  )

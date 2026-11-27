@@ -42,6 +42,14 @@ final case class Answers[State, Answer](
       Answers.computed(test(answer).map(passes => if passes then Vector(answer) else Vector.empty))
     )
 
+  /** The answers, each once, in the order first given: an answer equal to
+    * one already given is dropped as it is pulled. Only what is pulled is
+    * computed, as for the stream itself, so a caller that stops early never
+    * computes the rest.
+    */
+  def distinct: Answers[State, Answer] =
+    Answers.distinctFrom(this, Set.empty)
+
   /** Every answer, in order: the computation runs to the end. */
   def collected: Computation[State, Vector[Answer]] =
     Answers.collectedFrom(this, Vector.empty)
@@ -98,6 +106,16 @@ object Answers:
       case None                => Computation.pure(found)
       case Some((answer, rest)) => collectedFrom(rest, found :+ answer)
     }
+
+  private def distinctFrom[State, Answer](
+      answers: Answers[State, Answer],
+      seen: Set[Answer]
+  ): Answers[State, Answer] =
+    Answers(answers.pull.flatMap {
+      case None                                          => Computation.pure(None)
+      case Some((answer, rest)) if seen.contains(answer) => distinctFrom(rest, seen).pull
+      case Some((answer, rest))                          => Computation.pure(Some((answer, distinctFrom(rest, seen + answer))))
+    })
 
   private def distinctCollectedFrom[State, Answer](
       answers: Answers[State, Answer],

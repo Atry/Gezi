@@ -1,18 +1,20 @@
 package gezi.interfacelaws
 
+import gezi.ir.Configured
 import hedgehog.Gen
 import hedgehog.Range
 import hedgehog.Result
 import hedgehog.core.SuccessCount
 import gezi.frontend.Term
 import gezi.frontend.Term.*
+import gezi.frontend.TermOf
 import gezi.generatedinputs.GeneratedProperties
 import gezi.hotspot.baselines.BaselineCaches
-import gezi.ir.Instruction
 import gezi.jit.BackendChecks
 import gezi.jit.BackendFacts
 import gezi.jit.ClosureBackend
 import gezi.jit.CompilationStrategy
+import gezi.jit.ConvertedTermConstruction
 import gezi.jit.DispatchMode
 import gezi.jit.Jit
 import gezi.jit.JitConfiguration
@@ -22,7 +24,13 @@ import gezi.jit.PredicatePerCode
 import gezi.jit.StrategyDispatch
 import gezi.jit.NativesTesting.normalFormLimit
 import gezi.jit.NativesTesting.normalFormsSpent
+import gezi.strategies.BaselineModules
 import gezi.strategies.BaselineRounds
+import gezi.strategies.CountedExtractor
+import gezi.strategies.NativeRouteCompilation
+import gezi.strategies.RoundModules
+import gezi.strategies.StandardIndexer
+import gezi.strategies.StandardSaturator
 import gezi.saturation.StopSignal
 import gezi.standardlibrary.StandardLibrary
 import gezi.strategies.DispatchStrategies
@@ -32,8 +40,6 @@ import gezi.standardlibrary.LibraryFiles
 import gezi.strategies.Round
 import gezi.strategies.StrategyTesting
 import gezi.weakhead.Bounded
-import gezi.weakhead.Mode
-import gezi.weakhead.Value
 
 /** The laws of the native block interface `NativeBlockMechanism`, run on any
   * implementation: a suite that extends this class with the mechanism checks
@@ -65,6 +71,7 @@ abstract class NativeBlockMechanismLaws(mechanism: NativeBlockMechanism) extends
     * compilation's reading state and the member compiled after it.
     */
   private lazy val library: StandardLibrary =
+    given gezi.ir.NoFacts.type = gezi.ir.NoFacts
     val root = LibraryFiles.buildRoot
     val (group, afterEntry) = StandardLibrary.entryGroup(
       StandardLibrary.entryTerm(root, root.resolve(NativeBlockMechanismLaws.libraryFile), KnowledgeReading.compilationState)
@@ -74,6 +81,16 @@ abstract class NativeBlockMechanismLaws(mechanism: NativeBlockMechanism) extends
 
   private lazy val facts = BackendFacts.of(library)
 
+  /** The configuration of the laws' terms and JITs: the encoding of the library's backend facts. */
+  private type E = facts.storageEncoding.type
+
+  private lazy val encoding: E = facts.storageEncoding
+
+  private given E = encoding
+
+  // The laws set up their JITs as an entry does, so they grant the capability here.
+  private lazy val storageAccess = gezi.ir.StorageAccess.granted()
+
   /** The schedule of `NativeRouteCompilationTest`'s tests of costs, each
     * round within 20,000 instances, which it measured enough for the count
     * of successor^128 zero: the type check enabling the lemmas of the tests'
@@ -81,18 +98,33 @@ abstract class NativeBlockMechanismLaws(mechanism: NativeBlockMechanism) extends
     * native_arithmetic_unions and prolog_backend_shapes), the erasure those
     * of the round `occurrence_erasure` (`BaselineRounds.nativeRouteSchedule`).
     */
-  private lazy val schedule: Vector[Round] =
-    BaselineRounds.nativeRouteSchedule(library, StrategyTesting.round("prolog_backend_type_check"), 20000)
+  private lazy val schedule: Vector[Round[E]] =
+    NativeRouteCompilation.nativeRouteSchedule[E](
+      encoding.operations.index,
+      BaselineRounds.lemmas(library, StrategyTesting.round("prolog_backend_type_check")),
+      BaselineRounds.lemmas(library, StrategyTesting.round("occurrence_erasure")),
+      20000,
+      RoundModules[E](
+        StandardSaturator[E](_),
+        CountedExtractor(NativeRouteCompilation.extraction, BaselineModules.table[E]),
+        BaselineRounds.modules.lemmaEncoding,
+        StandardIndexer.of[E],
+        BaselineRounds.modules.backend,
+        BaselineRounds.modules.orientationCompiler,
+        ConvertedTermConstruction[E](encoding)(storageAccess)
+      )
+    )
 
-  private def configuration(nativeBlocks: NativeBlockMechanism): JitConfiguration =
-    JitConfiguration(
-      facts,
+  private def configuration(nativeBlocks: NativeBlockMechanism): JitConfiguration[E] =
+    JitConfiguration[E](
+      encoding,
       JitConfiguration.defaultBudget,
       PredicatePerCode,
       ClosureBackend,
       DispatchMode.Dispatch(DispatchStrategies.fallback),
       instanceTable = false,
-      nativeBlocks = nativeBlocks
+      nativeBlocks = nativeBlocks,
+      storageAccess = storageAccess
     )
 
   private lazy val withoutBlocks = Jit(configuration(nativeBlocks = NoNativeBlocks))
@@ -103,17 +135,19 @@ abstract class NativeBlockMechanismLaws(mechanism: NativeBlockMechanism) extends
     * are written with, closed instructions read by projection off the JIT
     * tests' fixture file (`JitTesting.libraryTerm`).
     */
-  private lazy val zero: Term = JitTesting.libraryTerm("zero")
+  private type Program = TermOf[Configured[E]]
 
-  private lazy val successor: Term = JitTesting.libraryTerm("successor")
+  private lazy val zero: Program = JitTesting.libraryTerm[E]("zero")
 
-  private lazy val fixpoint: Term = JitTesting.libraryTerm("fixpoint")
+  private lazy val successor: Program = JitTesting.libraryTerm[E]("successor")
 
-  private lazy val double: Term = JitTesting.libraryTerm("double")
+  private lazy val fixpoint: Program = JitTesting.libraryTerm[E]("fixpoint")
 
-  private def numeral(size: Int): Term = (1 to size).foldLeft(zero)((value, _) => successor(value))
+  private lazy val double: Program = JitTesting.libraryTerm[E]("double")
 
-  private val bases: Gen[Term] = Gen.element1(zero, successor(zero), numeral(3))
+  private def numeral(size: Int): Program = (1 to size).foldLeft(zero)((value, _) => successor(value))
+
+  private def bases: Gen[Program] = Gen.element1(zero, successor(zero), numeral(3))
 
   /** The steps, each with the largest size it is drawn at: the normal form
     * is read back as a Scott numeral, so a step that doubles is drawn only
@@ -121,10 +155,10 @@ abstract class NativeBlockMechanismLaws(mechanism: NativeBlockMechanism) extends
     * read back a numeral of up to 3 · 2^24 layers, and a run drawn so
     * exhausted the test JVM's 256 MB heap (2026-11-02).
     */
-  private val steps: Gen[(Term => Term, Int)] =
+  private def steps: Gen[(Program => Program, Int)] =
     Gen.element1((successor(_), 24), (value => successor(successor(value)), 24), (double(_), 5), (value => value, 24))
 
-  private val programs: Gen[Term] =
+  private def programs: Gen[Program] =
     for
       (step, largest) <- steps
       size <- Gen.int(Range.linear(0, largest))
@@ -132,26 +166,27 @@ abstract class NativeBlockMechanismLaws(mechanism: NativeBlockMechanism) extends
     yield fixpoint(λ(self => λ(t => t(base)(λ(u => step(self(u)))))))(numeral(size))
 
   /** The program compiled by the native route under `fallback`. */
-  private def refined(program: Term, stop: StopSignal): Instruction =
+  private def refined(program: Program, stop: StopSignal): Configured[E] =
     StrategyDispatch
-      .dispatched(
+      .dispatched[E](
         CompilationStrategy(DispatchStrategies.fallback, schedule),
-        StrategyTesting.programInput(library, program),
-        facts,
+        StrategyTesting.programInputIn[E](library, program),
+        encoding,
         BaselineCaches.provider(),
         stop
-      )
+      )(using storageAccess)
       .refined
 
   stoppableProperty("the mechanism's blocks read the normal forms the machine reads", _.copy(testLimit = SuccessCount(20))) { stopped =>
     for program <- programs.forAll
     yield
-      val compiled = refined(program, StopSignal.completedWith(stopped))
+      val compiled = JitTesting.instructionValue(refined(program, StopSignal.completedWith(stopped)))
       (
-        normalFormsSpent(Mode.Jit(withBlocks), compiled, normalFormLimit).outcome,
-        normalFormsSpent(Mode.Jit(withoutBlocks), compiled, normalFormLimit).outcome
+        normalFormsSpent(withBlocks, compiled, normalFormLimit).outcome,
+        normalFormsSpent(withoutBlocks, compiled, normalFormLimit).outcome
       ) match
-        case (Bounded.Finished(blocked), Bounded.Finished(machine)) => Result.diff(blocked, machine)(_ == _)
+        case (Bounded.Finished(blocked), Bounded.Finished(machine)) =>
+          Result.assert(JitTesting.sameTerms(blocked, machine)).log(s"the blocks read $blocked, the machine $machine")
         case (blocked, machine)                                     => Result.failure.log(s"a reading did not finish: $blocked, $machine")
   }
 
@@ -160,11 +195,11 @@ abstract class NativeBlockMechanismLaws(mechanism: NativeBlockMechanism) extends
       program <- programs.forAll
       limit <- Gen.long(Range.linear(1L, 4000L)).forAll
     yield
-      val compiled = refined(program, StopSignal.completedWith(stopped))
-      normalFormsSpent(Mode.Jit(withoutBlocks), compiled, normalFormLimit).outcome match
+      val compiled = JitTesting.instructionValue(refined(program, StopSignal.completedWith(stopped)))
+      normalFormsSpent(withoutBlocks, compiled, normalFormLimit).outcome match
         case Bounded.Finished(machine) =>
-          normalFormsSpent(Mode.Jit(withBlocks), compiled, limit).outcome match
-            case Bounded.Finished(blocked) => Result.diff(blocked, machine)(_ == _)
+          normalFormsSpent(withBlocks, compiled, limit).outcome match
+            case Bounded.Finished(blocked) => Result.assert(JitTesting.sameTerms(blocked, machine)).log(s"the blocks read $blocked, the machine $machine")
             case _                         => Result.success
         case other => Result.failure.log(s"the machine's reading did not finish: $other")
   }

@@ -12,16 +12,18 @@ import gezi.weakhead.JitState
 import gezi.weakhead.Mode
 import gezi.weakhead.NoJitState
 import gezi.weakhead.NormalForms
-import gezi.weakhead.ReadOut
+import gezi.weakhead.ParallelSetReading
+import gezi.weakhead.ReadingConfiguration
 import gezi.weakhead.ReadingState
-import gezi.weakhead.Value
+import gezi.ir.Value
 import gezi.standardlibrary.LibraryFiles
 import gezi.standardlibrary.StandardLibrary
-import gezi.ir.Instruction
 import gezi.frontend.Term
+import gezi.frontend.TermOf
+import gezi.ir.{Configured, NativeSpecializer}
 
 /** A bounded reading's outcome, the steps it took and the JIT state it left. */
-final case class Spent[Result](outcome: Bounded[Result], steps: Long, jitState: JitState)
+final case class Spent[C <: NativeSpecializer & Singleton, Result](outcome: Bounded[Result], steps: Long, jitState: JitState[C])
 
 /** How the reference's read-out by membership ended on a normal form
   * (reference_reads_within/4).
@@ -67,9 +69,19 @@ object NativesTesting:
   lazy val nativesOn: StandardLibrary =
     LibraryFiles.compiled(presetsFile, Vector(BackendChecks))
 
-  /** The configuration of the library under the budget. */
-  def configurationOf(library: StandardLibrary, budget: Int = JitConfiguration.defaultBudget): JitConfiguration =
-    JitTesting.configured(BackendFacts.of(library), budget)
+  /** The encoding of the native route's library, whose singleton type is the configuration of the tests that read
+    * under it.
+    */
+  lazy val nativesOnEncoding: StorageEncoding = encodingOf(nativesOn)
+
+  /** The native specializer of the library's backend facts: a test binds it to a `val` and names its configuration
+    * `encoding.type`.
+    */
+  def encodingOf(library: StandardLibrary): StorageEncoding = BackendFacts.of(library).storageEncoding
+
+  /** The configuration of the encoding under the budget. */
+  def configurationOf[E <: StorageEncoding & Singleton](encoding: E, budget: Int = JitConfiguration.defaultBudget): JitConfiguration[E] =
+    JitTesting.configured(encoding, budget)
 
   /** filter_by, the closure λt.λx. x ∥ t, which a program applies to a
     * criterion and an operand (jit_natives.plt, FILTER_BY).
@@ -83,13 +95,21 @@ object NativesTesting:
   // projection and composes them with the HOAS case of a closed instruction. The deleted code:
   // git show 2908bffd5:lambda_jit/jit/src/test/scala/lambdajit/jit/NativesTesting.scala.
 
-  /** The distinct normal forms of the value under the mode, sorted by text,
+  /** The distinct normal forms of the value under the mode and the configuration, sorted by text,
     * within the limit, from the JIT state given.
     */
-  def normalFormsSpent(mode: Mode, value: Value, limit: Long, jitState: JitState = NoJitState): Spent[Vector[Instruction]] =
-    NormalForms.normalForms(mode, value).result(ReadingState.fresh(limit).copy(jitState = jitState)) match
-      case Computed.Done(normalForms, after) => Spent(Bounded.Finished(normalForms.sortBy(_.toString)), after.budget.spent, after.jitState)
+  def normalFormsSpent[C <: NativeSpecializer & Singleton](mode: Mode, configuration: ReadingConfiguration[C], value: Value[C], limit: Long, jitState: JitState[C])(using C): Spent[C, Vector[Configured[C]]] =
+    NormalForms.normalForms(mode, value).result(ReadingState.fresh(limit, configuration).copy(jitState = jitState)) match
+      case Computed.Done(normalForms, after) => Spent(Bounded.Finished(normalForms.sorted(gezi.ir.ContentComparison.ordering)), after.budget.spent, after.jitState)
       case Computed.Stopped(after)           => Spent(EvaluatorTesting.stopped(after), after.budget.spent, after.jitState)
+
+  /** `normalFormsSpent` from no JIT state. */
+  def normalFormsSpent[C <: NativeSpecializer & Singleton](mode: Mode, configuration: ReadingConfiguration[C], value: Value[C], limit: Long)(using C): Spent[C, Vector[Configured[C]]] =
+    normalFormsSpent(mode, configuration, value, limit, NoJitState)
+
+  /** `normalFormsSpent` under the JIT's own reading configuration (`Mode.Jit`), from the JIT state given. */
+  def normalFormsSpent[C <: NativeSpecializer & Singleton](evaluator: Jit[C], value: Value[C], limit: Long, jitState: JitState[C] = NoJitState)(using C): Spent[C, Vector[Configured[C]]] =
+    normalFormsSpent(Mode.Jit, evaluator.readingConfiguration, value, limit, jitState)
 
   /** The steps a normal-form reading of the natives' tests may take: the
     * Prolog tests read within 10,000,000 inferences; the Scala readings that
@@ -116,11 +136,11 @@ object NativesTesting:
     * the normal form of the value within the limit
     * (reference_reads_within/4).
     */
-  def referenceReads(value: Value, normalForm: Instruction, limit: Long): Confirmation =
+  def referenceReads[C <: NativeSpecializer & Singleton](configuration: ReadingConfiguration[C], value: Value[C], normalForm: Configured[C], limit: Long)(using C): Confirmation =
     NormalForms
-      .normalForm(Mode.TablingWeakHead, ReadOut.Membership, value)
-      .exists(found => gezi.weakhead.Computation.pure(found == normalForm))
-      .result(ReadingState.fresh(limit)) match
+      .normalForm(Mode.TablingWeakHead, ParallelSetReading.Membership, value)
+      .exists(found => gezi.weakhead.Computation.pure(Configured.same(found, normalForm)))
+      .result(ReadingState.fresh(limit, configuration)) match
       case Computed.Done(true, _)  => Confirmation.Confirmed
       case Computed.Done(false, _) => Confirmation.NotRead
       case Computed.Stopped(_)     => Confirmation.Exceeded
@@ -129,10 +149,10 @@ object NativesTesting:
     * of the value under weak_head, sorted by text, within the limit
     * (membership_normal_forms_read/2).
     */
-  def membershipNormalForms(value: Value, limit: Long): Bounded[Vector[Instruction]] =
+  def membershipNormalForms[C <: NativeSpecializer & Singleton](configuration: ReadingConfiguration[C], value: Value[C], limit: Long)(using C): Bounded[Vector[Configured[C]]] =
     NormalForms
-      .normalForm(Mode.TablingWeakHead, ReadOut.Membership, value)
+      .normalForm(Mode.TablingWeakHead, ParallelSetReading.Membership, value)
       .collected
-      .result(ReadingState.fresh(limit)) match
-      case Computed.Done(found, _) => Bounded.Finished(found.distinct.sortBy(_.toString))
+      .result(ReadingState.fresh(limit, configuration)) match
+      case Computed.Done(found, _) => Bounded.Finished(found.distinct.sorted(gezi.ir.ContentComparison.ordering))
       case Computed.Stopped(after) => EvaluatorTesting.stopped(after)

@@ -2,9 +2,10 @@ package gezi.proofs
 
 import gezi.ir.Code
 import gezi.ir.CodeLayer
-import gezi.ir.Instruction
-import gezi.ir.Layer
+import gezi.ir.Hole
 import gezi.ir.LemmaIdentifier
+import gezi.ir.NonEmptyHoles
+import gezi.ir.StorageAccess
 import gezi.rewritetrace.Conversion
 import gezi.rewritetrace.Conversions
 import gezi.rewritetrace.Given
@@ -34,75 +35,142 @@ import scala.util.control.TailCalls.TailRec
 import scala.util.control.TailCalls.done
 import scala.util.control.TailCalls.tailcall
 import gezi.ir.{Apply, Choice, Parallel, Slot, Thunk}
+import gezi.ir.{Configured, NativeSpecializer}
 
 /** The proof of a round's equation `left = right` as the article writer
   * builds it, before it is written (`OpentheoryArticle.derivation`): its
   * tree, the expansion of its edges and paths, the store the article states
-  * its axioms from, and the forest of the search's terms and unions it is
-  * built from.
+  * its axioms from, and the forest of the search's nodes and unions it is
+  * built from; with the configuration of the round's terms and the
+  * capability to read a storage's view, under which the trace reads the
+  * article's terms back (`term`): each built layer by layer through the
+  * configuration, so that the term of a storage's view node is the storage
+  * again.
   */
-final class ArticleDerivation private[proofs] (
-    val left: Instruction,
-    val right: Instruction,
+final class ArticleDerivation[C <: NativeSpecializer & Singleton] private[proofs] (
+    val specializer: C,
+    val left: Configured[C],
+    val right: Configured[C],
     val proof: ArticleProof,
     expansion: ArticleProof => Option[ArticleProof],
-    val store: ArticleStore,
-    val forest: ProofForest
-):
+    val store: ArticleStore[C],
+    val forest: ProofForest[C]
+)(using val access: StorageAccess):
+
+  private given C = specializer
 
   /** The proof an edge or a path expands to, the one the article writes in
     * its place; none for any other proof.
     */
   def expanded(proof: ArticleProof): Option[ArticleProof] = expansion(proof)
 
+  /** The term of each term of the article, by its place: a layer's built over
+    * its children's, placed before it (`ProofTerms`).
+    */
+  private lazy val readBack: Vector[Configured[C]] =
+    (0 until store.terms.size).foldLeft(Vector.empty[Configured[C]])((made, place) =>
+      made :+ (store.terms.key(TermId(place)) match
+        case TermKey.Leaf(leaf)          => leaf
+        case TermKey.Stored(storage, _, _) => storage
+        case TermKey.Layered(layer)      => Positions.built(layer, layer.children.map(child => made(child.index)))
+      )
+    )
+
+  /** The term of a term of the article in the round's configuration. */
+  def term(of: TermId): Configured[C] = readBack(of.index)
+
+  /** The term of a node. */
+  def nodeTerm(node: Int): Configured[C] = term(store.terms.nodeTerm(node))
+
+  /** Each term of a node to the first node whose term it is: two nodes may
+    * read back as one term (a storage's view node and the storage).
+    */
+  private lazy val nodesOfTerms: Map[Configured[C], Int] =
+    (0 until store.terms.nodeCount).foldLeft(Map.empty[Configured[C], Int])((found, node) =>
+      val read = nodeTerm(node)
+      if found.contains(read) then found else found.updated(read, node)
+    )
+
+  /** The first node whose term the term is; none for a term no node has. */
+  def nodeOf(read: Configured[C]): Option[Int] = nodesOfTerms.get(read)
+
 /** Why a step holds: an instance of a lemma, by its identifier, one for
   * each direction and pair of sides (`gezi.standardlibrary.LemmaNamed`);
   * of a numbered equation; the defunctionalized β rule of a thunk, the
-  * thunk of the redex and its argument; the equation of a thunk with no
-  * hole and its code's body, the thunk; the defunctionalized η rule of an
-  * eta-shaped thunk, the thunk; or the equation of a thunk with holes and
-  * its spelling by the front end (`Statements.respell`), the thunk. A lemma
-  * and an equation bind the variables of their statements by name in
+  * thunk's code, holes and fillings and the argument; the equation of a
+  * thunk with no hole and its code's body, the code and the fillings; the
+  * defunctionalized η rule of an eta-shaped thunk, its code, holes and
+  * filling; or the equation of a thunk with holes and its spelling by the
+  * front end (`Statements.respell`), its code, holes and fillings. No reason
+  * holds a thunk as a term: a thunk of no hole is no term. A lemma and an
+  * equation bind the variables of their statements by name in
   * `substitution`; the β, body, η and respelling equations bind theirs
-  * through the thunk's fillings (`filling0`, `filling1`, and so
-  * on) and the argument (`argument`). A step of a union with no proof
+  * through the thunk's fillings (`filling0`, `filling1`, and so on) and the
+  * argument (`argument`). A step of a union with no proof
   * (`ArticleProof.Conversion`) instantiates no equation and binds nothing.
   * A step of the abstraction rule replaces a closure by the thunk its body
   * is written back to: the eigenvariables it opened the closure at, the
   * body it opened to, and the body's own steps, from the body to the
   * spelling written back (turned with the step).
   */
-enum RewriteReason:
-  case Lemma(lemma: LemmaIdentifier, substitution: Vector[(String, Instruction)])
-  case Equation(number: Int, substitution: Vector[(String, Instruction)])
-  case Fill(thunk: Instruction, argument: Instruction)
-  case Body(thunk: Instruction)
-  case Eta(thunk: Instruction)
-  case Respell(thunk: Instruction)
+enum RewriteReason[C <: NativeSpecializer & Singleton]:
+  case Lemma(lemma: LemmaIdentifier, substitution: Vector[(String, Configured[C])])
+  /** A native's fold: `application` equals the storage `result`, the
+    * native's trusted obligation (`Axiom.Native`). The article imports it as
+    * an axiom; the trace writes the replacement as a native value
+    * (`TraceCommand.Native`), a step of no equation, in either direction.
+    */
+  case Native(native: String, application: Configured[C], result: Configured[C])
+  case Equation(number: Int, substitution: Vector[(String, Configured[C])])
+  case Fill(code: Code, holes: Vector[Hole], fillings: Vector[Configured[C]], argument: Configured[C])
+  case Body(code: Code, fillings: Vector[Configured[C]])
+  case Eta(code: Code, holes: Vector[Hole], fillings: Vector[Configured[C]])
+  case Respell(code: Code, holes: Vector[Hole], fillings: Vector[Configured[C]])
   case Unproved(kind: UnprovedKind)
-  case Abstraction(eigenvariables: Vector[Instruction], body: Instruction, steps: Vector[RewriteStep])
+  case Abstraction(eigenvariables: Vector[Configured[C]], body: Configured[C], steps: Vector[RewriteStep[C]])
 
 /** A rewrite of the whole term: the subterm at `position`, from the root,
   * replaced by `replacement`, by the equation of `reason` in `direction`,
   * with the provenance of the equation's variables.
   */
-final case class RewriteStep(
-    reason: RewriteReason,
+final case class RewriteStep[C <: NativeSpecializer & Singleton](
+    reason: RewriteReason[C],
     position: Vector[PositionSegment],
     direction: RewriteDirection,
-    replacement: Instruction,
+    replacement: Configured[C],
     provenance: Vector[Provenance]
 )
 
 /** A round: its input, its steps in order, and its output, which the steps
   * make of the input.
   */
-final case class RewriteRound(input: Instruction, steps: Vector[RewriteStep], output: Instruction)
+final case class RewriteRound[C <: NativeSpecializer & Singleton](input: Configured[C], steps: Vector[RewriteStep[C]], output: Configured[C])
+
+/** A side of a step as the article's proof gives it: a term, or the thunk of
+  * a code with no hole over its fillings, which is no term and stands only
+  * between the β rule's step that fills a thunk's last hole and the body
+  * equation's step that reads it, the two joined into one step before any
+  * term is made of it (`OrientedStep.joined`).
+  */
+private enum StepTerm[C <: NativeSpecializer & Singleton]:
+  case Term(term: Configured[C])
+  case Holeless(code: Code, fillings: Vector[Configured[C]])
+
+/** A step of the proof as it is flattened, a side of which may be the thunk
+  * of no hole (`StepTerm`).
+  */
+private final case class FlatStep[C <: NativeSpecializer & Singleton](
+    reason: RewriteReason[C],
+    position: Vector[PositionSegment],
+    direction: RewriteDirection,
+    replacement: StepTerm[C],
+    provenance: Vector[Provenance]
+)
 
 /** A step with the subterm it replaces, which turning the step needs. */
-private final case class OrientedStep(step: RewriteStep, replaced: Instruction):
+private final case class OrientedStep[C <: NativeSpecializer & Singleton](step: FlatStep[C], replaced: StepTerm[C]):
 
-  def turned: OrientedStep =
+  def turned(using C, StorageAccess): OrientedStep[C] =
     OrientedStep(
       step.copy(
         reason = OrientedStep.reasonTurned(step.reason),
@@ -113,19 +181,66 @@ private final case class OrientedStep(step: RewriteStep, replaced: Instruction):
       step.replacement
     )
 
-  def under(segment: PositionSegment): OrientedStep = copy(step = step.copy(position = segment +: step.position))
+  def under(segment: PositionSegment): OrientedStep[C] = copy(step = step.copy(position = segment +: step.position))
 
 private object OrientedStep:
+
+  /** The step of a rewrite of the whole term, with the subterm it replaces. */
+  def of[C <: NativeSpecializer & Singleton](step: RewriteStep[C], replaced: Configured[C]): OrientedStep[C] =
+    OrientedStep(
+      FlatStep(step.reason, step.position, step.direction, StepTerm.Term(step.replacement), step.provenance),
+      StepTerm.Term(replaced)
+    )
+
+  /** The steps of a flattened proof as rewrites of the whole term, each step
+    * of the β rule that fills a thunk's one hole joined to the step of the
+    * body equation that reads the thunk with no hole it leaves, at the same
+    * position: forward, the β step then the body step; backward, the body
+    * step then the β step. The joined step is the β rule's, its replacement
+    * the pair's (`Statements.betaBody`), so that the thunk with no hole, which
+    * is no term, is never made, and no command writes it. Throws
+    * `IllegalStateException` for a β step of one hole with no body step beside
+    * it, and for a side of no hole left once the pairs are joined: the replay,
+    * which reads the body at once, would replay otherwise than the proof.
+    */
+  def joined[C <: NativeSpecializer & Singleton](steps: Vector[OrientedStep[C]]): Vector[RewriteStep[C]] =
+    def lastHole(step: FlatStep[C]): Boolean = step.reason match
+      case RewriteReason.Fill(_, Vector(_), _, _) => true
+      case _                                      => false
+    def body(step: FlatStep[C]): Boolean = step.reason match
+      case RewriteReason.Body(_, _) => true
+      case _                        => false
+    def rewrite(step: FlatStep[C]): RewriteStep[C] = step.replacement match
+      case StepTerm.Term(term) => RewriteStep(step.reason, step.position, step.direction, term, step.provenance)
+      case StepTerm.Holeless(code, _) =>
+        throw IllegalStateException(s"a step at ${step.position} puts the thunk of the code $code with no hole, which no step reads")
+    @tailrec
+    def joinedFrom(rest: List[FlatStep[C]], made: Vector[RewriteStep[C]]): Vector[RewriteStep[C]] = rest match
+      case first :: second :: after
+          if lastHole(first) && body(second) && first.position == second.position &&
+            first.direction == RewriteDirection.Forward && second.direction == RewriteDirection.Forward =>
+        joinedFrom(after, made :+ rewrite(first.copy(replacement = second.replacement)))
+      case first :: second :: after
+          if body(first) && lastHole(second) && first.position == second.position &&
+            first.direction == RewriteDirection.Backward && second.direction == RewriteDirection.Backward =>
+        joinedFrom(after, made :+ rewrite(second))
+      case first :: _ if lastHole(first) =>
+        throw IllegalStateException(s"the β step of one hole at ${first.position} has no body step beside it")
+      case first :: _ if body(first) =>
+        throw IllegalStateException(s"the body step at ${first.position} reads a thunk of no hole that no β step beside it left")
+      case first :: after => joinedFrom(after, made :+ rewrite(first))
+      case Nil            => made
+    joinedFrom(steps.map(_.step).toList, Vector.empty)
 
   /** The reason of a step turned: an abstraction's body steps turned and in
     * reverse order, from the body they made back to the body; any other as
     * it is.
     */
-  def reasonTurned(reason: RewriteReason): RewriteReason = reason match
+  def reasonTurned[C <: NativeSpecializer & Singleton](reason: RewriteReason[C])(using C, StorageAccess): RewriteReason[C] = reason match
     case RewriteReason.Abstraction(eigenvariables, body, steps) =>
       val befores = steps.scanLeft(body)(RewriteTrace.applied)
-      val oriented = steps.zip(befores).map((step, before) => OrientedStep(step, Positions.subterm(before, step.position)))
-      RewriteReason.Abstraction(eigenvariables, befores.last, oriented.reverse.map(_.turned.step))
+      val oriented = steps.zip(befores).map((step, before) => OrientedStep.of(step, Positions.subterm(before, step.position)))
+      RewriteReason.Abstraction(eigenvariables, befores.last, joined(oriented.reverse.map(_.turned)))
     case other => other
 
 /** The proof of a round flattened into rewrites of the whole term: the tree
@@ -152,14 +267,17 @@ private object OrientedStep:
 object RewriteTrace:
 
   /** The steps of the derivation's proof, from its left term to its right
-    * term. Throws `OpentheoryArticleError` as the writer does on an edge it
-    * cannot prove.
+    * term, each step of the β rule that fills a thunk's last hole joined to
+    * the body equation's step beside it (`joined`). Throws
+    * `OpentheoryArticleError` as the writer does on an edge it cannot prove.
     */
-  def of(derivation: ArticleDerivation): Vector[RewriteStep] =
-    flattened(derivation, derivation.proof, Map.empty).result._1.map(_.step)
+  def of[C <: NativeSpecializer & Singleton](derivation: ArticleDerivation[C]): Vector[RewriteStep[C]] =
+    given C = derivation.specializer
+    given StorageAccess = derivation.access
+    OrientedStep.joined(flattened(derivation, derivation.proof, Map.empty).result._1)
 
   /** The round of the derivation: its left term, its steps, its right term. */
-  def round(derivation: ArticleDerivation): RewriteRound =
+  def round[C <: NativeSpecializer & Singleton](derivation: ArticleDerivation[C]): RewriteRound[C] =
     RewriteRound(derivation.left, of(derivation), derivation.right)
 
   /** The lemmas the derivation's steps name, in the order they first name
@@ -167,7 +285,9 @@ object RewriteTrace:
     * (`trace`) names these and may name more, the lemmas of the unions its
     * values are made by, and keeps them by their sides.
     */
-  def lemmas(derivation: ArticleDerivation): Vector[LemmaIdentifier] =
+  def lemmas[C <: NativeSpecializer & Singleton](derivation: ArticleDerivation[C]): Vector[LemmaIdentifier] =
+    given C = derivation.specializer
+    given StorageAccess = derivation.access
     plan(derivation, derivation.left, of(derivation)).flatMap(lemmasOf).distinct
 
   /** The trace of the derivation, one round from its left term, which a
@@ -179,21 +299,26 @@ object RewriteTrace:
     * (`Statements.lemma`) is not the strategy's encoding of it, which the
     * article states: a replay would then rewrite otherwise than the proof.
     */
-  def trace(derivation: ArticleDerivation): Trace =
+  def trace[C <: NativeSpecializer & Singleton](derivation: ArticleDerivation[C]): Trace[C] =
+    given C = derivation.specializer
+    given StorageAccess = derivation.access
     val (commands, building) = built(derivation)
     val traced = building.lemmas.map(lemma =>
       val (left, right) = derivation.store.lemmaSides(lemma)
       val traceLemma = TraceLemma(left, right)
-      if ArticleStore.sides(traceLemma.statement) != derivation.store.axiomStatement(Axiom.Lemma(lemma)) then
+      if derivation.store.lemmaStatementSides(traceLemma.statement) != derivation.store.axiomStatement(Axiom.Lemma(lemma)) then
         throw IllegalStateException(s"the sides of $lemma state it otherwise than the strategy's encoding")
       traceLemma
     )
     Trace(traced, building.values, Vector(commands))
 
   /** The commands of the derivation's round and what they name. */
-  private def built(derivation: ArticleDerivation): (Vector[TraceCommand], TraceBuilding) =
+  private def built[C <: NativeSpecializer & Singleton](derivation: ArticleDerivation[C])(using
+      C,
+      StorageAccess
+  ): (Vector[TraceCommand[C]], TraceBuilding[C]) =
     val origins = ValueOrigins.of(derivation)
-    plan(derivation, derivation.left, of(derivation)).foldLeft((Vector.empty[TraceCommand], TraceBuilding.empty)) {
+    plan(derivation, derivation.left, of(derivation)).foldLeft((Vector.empty[TraceCommand[C]], TraceBuilding.empty[C])) {
       case ((made, building), planned) =>
         val (command, after) = commandOf(derivation, origins, building, planned, 0, Map.empty)
         (made :+ command, after)
@@ -205,40 +330,40 @@ object RewriteTrace:
     * paths flattened so far; and the terms whose values are being made, to
     * refuse one made from itself.
     */
-  private final case class TraceBuilding(
+  private final case class TraceBuilding[C <: NativeSpecializer & Singleton](
       lemmas: Vector[LemmaIdentifier],
-      values: Vector[TraceValue],
-      valuePlaces: Map[Instruction, Int],
-      expansions: Expansions,
-      making: Set[Instruction]
+      values: Vector[TraceValue[C]],
+      valuePlaces: Map[Configured[C], Int],
+      expansions: Expansions[C],
+      making: Set[Configured[C]]
   ):
 
     /** The lemma's place, the lemma placed after the others if it has none. */
-    def lemmaPlaced(lemma: LemmaIdentifier): (Int, TraceBuilding) =
+    def lemmaPlaced(lemma: LemmaIdentifier): (Int, TraceBuilding[C]) =
       lemmas.indexOf(lemma) match
         case -1    => (lemmas.size, copy(lemmas = lemmas :+ lemma))
         case place => (place, this)
 
     /** The value's place, the value of the term placed after the others. */
-    def valuePlaced(term: Instruction, value: TraceValue): (Int, TraceBuilding) =
+    def valuePlaced(term: Configured[C], value: TraceValue[C]): (Int, TraceBuilding[C]) =
       (values.size, copy(values = values :+ value, valuePlaces = valuePlaces.updated(term, values.size)))
 
   private object TraceBuilding:
-    val empty: TraceBuilding = TraceBuilding(Vector.empty, Vector.empty, Map.empty, Map.empty, Set.empty)
+    def empty[C <: NativeSpecializer & Singleton]: TraceBuilding[C] =
+      TraceBuilding(Vector.empty, Vector.empty, Map.empty, Map.empty, Set.empty)
 
   /** Where the terms of a derivation's proof come from: the position in the
     * round's start of each of its subterms, the first in preorder; the
-    * unions that made a node, by that node's index in the forest
-    * (`ProofUnion.built`); and the eigenvariables the proof's abstractions
-    * open bodies at.
+    * unions that made a node, by that node (`ProofUnion.built`); and the
+    * eigenvariables the proof's abstractions open bodies at.
     */
-  private final case class ValueOrigins(
-      derivation: ArticleDerivation,
-      startPaths: Map[Instruction, Vector[PositionSegment]],
+  private final case class ValueOrigins[C <: NativeSpecializer & Singleton](
+      derivation: ArticleDerivation[C],
+      startPaths: Map[Configured[C], Vector[PositionSegment]],
       builtUnions: TreeMap[Int, ProofUnion],
-      eigenvariables: Set[Instruction],
+      eigenvariables: Set[Configured[C]],
       madeParents: Map[Int, Vector[(Int, PositionSegment)]],
-      startByTree: Map[Int, Instruction]
+      startByTree: Map[Int, Configured[C]]
   ):
 
     /** The root of the node's tree in the proof's forest: two nodes are in
@@ -258,47 +383,45 @@ object RewriteTrace:
       * a term of no node and for a node no union records making (an input,
       * a node a β conversion made).
       */
-    def maker(term: Instruction): Option[(ProofUnion, Instruction, Instruction, Vector[PositionSegment])] =
-      val forest = derivation.forest
-      forest.indexes.get(term).flatMap(node =>
+    def maker(term: Configured[C])(using C, StorageAccess): Option[(ProofUnion, Configured[C], Configured[C], Vector[PositionSegment])] =
+      derivation.nodeOf(term).flatMap(node =>
         builtUnions.minAfter(node).flatMap((_, union) =>
-          union.made.filter(made => forest.index(made.first) <= node).flatMap(made =>
+          union.made.filter(made => made.first <= node).flatMap(made =>
             val other = if made.last == union.second then union.first else union.second
-            ValueOrigins.madePath(made.last, term, forest.index(made.first), forest).map(at => (union, made.last, other, at))
+            ValueOrigins
+              .madePath(derivation.nodeTerm(made.last), term, made.first, derivation)
+              .map(at => (union, derivation.nodeTerm(made.last), derivation.nodeTerm(other), at))
           )
         )
       )
 
   private object ValueOrigins:
 
-    def of(derivation: ArticleDerivation): ValueOrigins =
+    def of[C <: NativeSpecializer & Singleton](derivation: ArticleDerivation[C])(using C, StorageAccess): ValueOrigins[C] =
       val forest = derivation.forest
+      val terms = derivation.store.terms
       val builtUnions = forest.unions.foldLeft(TreeMap.empty[Int, ProofUnion])((found, union) =>
-        union.built.fold(found)(built =>
-          val node = forest.index(built)
-          if found.contains(node) then found else found.updated(node, union)
-        )
+        union.built.fold(found)(node => if found.contains(node) then found else found.updated(node, union))
       )
       val eigenvariables = forest.unions.flatMap(_.justification match
-        case Justification.Abstraction(opened, _, _) => opened
+        case Justification.Abstraction(opened, _, _) => opened.map(derivation.nodeTerm)
         case _                                       => Vector.empty
       ).toSet
       val startPaths = subtermPaths(derivation.left)
       // Each node's made layer is over the nodes of its children's terms: the parents of a node are the nodes whose
       // made layer holds it, with the role it has there.
-      val madeParents = forest.nodes.zipWithIndex.foldLeft(Map.empty[Int, Vector[(Int, PositionSegment)]]) {
-        case (found, (term, parent)) =>
-          if term.opaque then found
-          else
-            val layer = term.layered
+      val madeParents = (0 until terms.nodeCount).foldLeft(Map.empty[Int, Vector[(Int, PositionSegment)]]) { (found, parent) =>
+        terms.key(terms.nodeTerm(parent)) match
+          case TermKey.Layered(layer) =>
             layer.children.zip(Positions.roles(layer)).foldLeft(found) { case (current, (child, role)) =>
-              forest.indexes.get(child).fold(current)(node => current.updated(node, current.getOrElse(node, Vector.empty) :+ (parent, role)))
+              terms.node(child).fold(current)(node => current.updated(node, current.getOrElse(node, Vector.empty) :+ (parent, role)))
             }
+          case _ => found
       }
       val origins = ValueOrigins(derivation, startPaths, builtUnions, eigenvariables, madeParents, Map.empty)
       // A subterm of the start in each tree of the forest, the first in preorder.
-      val startByTree = startPaths.toVector.sortBy(_._2.size).foldLeft(Map.empty[Int, Instruction]) { case (found, (term, _)) =>
-        forest.indexes.get(term).fold(found)(node =>
+      val startByTree = startPaths.toVector.sortBy(_._2.size).foldLeft(Map.empty[Int, Configured[C]]) { case (found, (term, _)) =>
+        derivation.nodeOf(term).fold(found)(node =>
           val root = origins.treeRoot(node)
           if found.contains(root) then found else found.updated(root, term)
         )
@@ -308,19 +431,19 @@ object RewriteTrace:
     /** The position of each subterm of the term, the first in preorder. A
       * loop over the positions pending: a term is as deep as a program.
       */
-    private def subtermPaths(term: Instruction): Map[Instruction, Vector[PositionSegment]] =
+    private def subtermPaths[C <: NativeSpecializer & Singleton](term: Configured[C])(using C, StorageAccess): Map[Configured[C], Vector[PositionSegment]] =
       @tailrec
       def walked(
-          pending: List[(Instruction, Vector[PositionSegment])],
-          found: Map[Instruction, Vector[PositionSegment]]
-      ): Map[Instruction, Vector[PositionSegment]] =
+          pending: List[(Configured[C], Vector[PositionSegment])],
+          found: Map[Configured[C], Vector[PositionSegment]]
+      ): Map[Configured[C], Vector[PositionSegment]] =
         pending match
           case Nil => found
           case (at, path) :: rest =>
             if found.contains(at) then walked(rest, found)
             else if at.opaque then walked(rest, found.updated(at, path))
             else
-              val layer = at.layered
+              val layer = Positions.layerOf(at)
               val below = layer.children.zip(Positions.roles(layer)).map((child, role) => (child, path :+ role)).toList
               walked(below ++ rest, found.updated(at, path))
       walked(List((term, Vector.empty)), Map.empty)
@@ -329,16 +452,21 @@ object RewriteTrace:
       * the step made, from the first of them on: a node older than the first
       * is one the step was given. A loop over the positions pending.
       */
-    def madePath(built: Instruction, term: Instruction, first: Int, forest: ProofForest): Option[Vector[PositionSegment]] =
+    def madePath[C <: NativeSpecializer & Singleton](
+        built: Configured[C],
+        term: Configured[C],
+        first: Int,
+        derivation: ArticleDerivation[C]
+    )(using C, StorageAccess): Option[Vector[PositionSegment]] =
       @tailrec
-      def walked(pending: List[(Instruction, Vector[PositionSegment])]): Option[Vector[PositionSegment]] =
+      def walked(pending: List[(Configured[C], Vector[PositionSegment])]): Option[Vector[PositionSegment]] =
         pending match
           case Nil => None
           case (at, path) :: rest =>
-            if at == term then Some(path)
-            else if at.opaque || forest.indexes.get(at).forall(_ < first) then walked(rest)
+            if Configured.same(at, term) then Some(path)
+            else if at.opaque || derivation.nodeOf(at).forall(_ < first) then walked(rest)
             else
-              val layer = at.layered
+              val layer = Positions.layerOf(at)
               walked(layer.children.zip(Positions.roles(layer)).map((child, role) => (child, path :+ role)).toList ++ rest)
       walked(List((built, Vector.empty)))
 
@@ -350,12 +478,12 @@ object RewriteTrace:
     * term that holds an eigenvariable, which no round's start holds, for one
     * no origin gives, and for one whose value would be made from itself.
     */
-  private def valueOf(
-      derivation: ArticleDerivation,
-      origins: ValueOrigins,
-      building: TraceBuilding,
-      term: Instruction
-  ): Option[(Int, TraceBuilding)] =
+  private def valueOf[C <: NativeSpecializer & Singleton](
+      derivation: ArticleDerivation[C],
+      origins: ValueOrigins[C],
+      building: TraceBuilding[C],
+      term: Configured[C]
+  )(using C, StorageAccess): Option[(Int, TraceBuilding[C])] =
     building.valuePlaces.get(term) match
       case Some(place) => Some((place, building))
       case None if building.making.contains(term) || Conversions.holds(term, origins.eigenvariables) => None
@@ -377,21 +505,21 @@ object RewriteTrace:
     * other term, whose value is made first, and the term's position in the
     * term the union built.
     */
-  private def fromMaker(
-      derivation: ArticleDerivation,
-      origins: ValueOrigins,
-      building: TraceBuilding,
-      term: Instruction
-  ): Option[(Int, TraceBuilding)] =
+  private def fromMaker[C <: NativeSpecializer & Singleton](
+      derivation: ArticleDerivation[C],
+      origins: ValueOrigins[C],
+      building: TraceBuilding[C],
+      term: Configured[C]
+  )(using C, StorageAccess): Option[(Int, TraceBuilding[C])] =
     origins.maker(term).flatMap((union, built, other, at) =>
       valueOf(derivation, origins, building.copy(making = building.making + term), other).flatMap((source, afterSource) =>
         ReplaySpelling.positions(built, at) match
           case Vector(spelledAt) =>
             val edge = ArticleProof.Edge(union.index)
-            val oriented = if built == union.second then edge else ArticleProof.Symmetry(edge)
+            val oriented = if Configured.same(built, derivation.nodeTerm(union.second)) then edge else ArticleProof.Symmetry(edge)
             val (steps, expansions) = flattened(derivation, oriented, afterSource.expansions).result
-            val (commands, afterCommands) = plan(derivation, other, steps.map(_.step))
-              .foldLeft((Vector.empty[TraceCommand], afterSource.copy(expansions = expansions))) {
+            val (commands, afterCommands) = plan(derivation, other, OrientedStep.joined(steps))
+              .foldLeft((Vector.empty[TraceCommand[C]], afterSource.copy(expansions = expansions))) {
                 case ((made, current), planned) =>
                   val (command, after) = commandOf(derivation, origins, current, planned, 0, Map.empty)
                   (made :+ command, after)
@@ -414,13 +542,13 @@ object RewriteTrace:
     * abstraction is no term the start holds, and the path of unions between
     * the two crosses the β rule backward, which needs that abstraction.
     */
-  private def fromRedex(
-      derivation: ArticleDerivation,
-      origins: ValueOrigins,
-      building: TraceBuilding,
-      term: Instruction
-  ): Option[(Int, TraceBuilding)] =
-    derivation.forest.indexes.get(term).flatMap(node => origins.startByTree.get(origins.treeRoot(node))).filterNot(_ == term).flatMap(
+  private def fromRedex[C <: NativeSpecializer & Singleton](
+      derivation: ArticleDerivation[C],
+      origins: ValueOrigins[C],
+      building: TraceBuilding[C],
+      term: Configured[C]
+  )(using C, StorageAccess): Option[(Int, TraceBuilding[C])] =
+    derivation.nodeOf(term).flatMap(node => origins.startByTree.get(origins.treeRoot(node))).filterNot(Configured.same(_, term)).flatMap(
       classmate =>
         val spelledTerm = ReplaySpelling.term(term)
         val spelledClassmate = ReplaySpelling.term(classmate)
@@ -428,12 +556,12 @@ object RewriteTrace:
           .find(lemma =>
             val (left, right) = derivation.store.lemmaSides(lemma)
             Conversions.names(TraceLemma(left, right).statement).exists(names =>
-              Conversions.appliedToNames(spelledTerm, names) && (Conversions.redex(spelledClassmate, names) eq spelledTerm)
+              Conversions.appliedToNames(spelledTerm, names) && Configured.same(Conversions.redex(spelledClassmate, names), spelledTerm)
             )
           )
           .flatMap(lemma =>
             valueOf(derivation, origins, building.copy(making = building.making + term), classmate).map((source, afterSource) =>
-              val converted = Converted(lemma, Conversion.RootReverseBeta(_), Vector.empty, RewriteDirection.Forward, Vector.empty)
+              val converted = Converted[C](lemma, Conversion.RootReverseBeta(_), Vector.empty, RewriteDirection.Forward, Vector.empty)
               val (command, afterCommand) = commandOf(derivation, origins, afterSource, Planned.Converted(converted), 0, Map.empty)
               afterCommand
                 .copy(making = afterCommand.making - term)
@@ -447,17 +575,17 @@ object RewriteTrace:
     * union records making, made with a larger term that has a value (a
     * reverse β redex a strategy adds as an input, say).
     */
-  private def fromParent(
-      derivation: ArticleDerivation,
-      origins: ValueOrigins,
-      building: TraceBuilding,
-      term: Instruction
-  ): Option[(Int, TraceBuilding)] =
+  private def fromParent[C <: NativeSpecializer & Singleton](
+      derivation: ArticleDerivation[C],
+      origins: ValueOrigins[C],
+      building: TraceBuilding[C],
+      term: Configured[C]
+  )(using C, StorageAccess): Option[(Int, TraceBuilding[C])] =
     @tailrec
-    def first(parents: List[(Int, PositionSegment)]): Option[(Int, TraceBuilding)] = parents match
+    def first(parents: List[(Int, PositionSegment)]): Option[(Int, TraceBuilding[C])] = parents match
       case Nil => None
       case (parent, role) :: rest =>
-        val parentTerm = derivation.forest.nodes(parent)
+        val parentTerm = derivation.nodeTerm(parent)
         val made =
           valueOf(derivation, origins, building.copy(making = building.making + term), parentTerm).flatMap((place, after) =>
             ReplaySpelling.positions(parentTerm, Vector(role)) match
@@ -468,31 +596,37 @@ object RewriteTrace:
         made match
           case Some(_) => made
           case None    => first(rest)
-    derivation.forest.indexes.get(term).fold(None)(node => first(origins.madeParents.getOrElse(node, Vector.empty).toList))
+    derivation.nodeOf(term).fold(None)(node => first(origins.madeParents.getOrElse(node, Vector.empty).toList))
 
   /** The value of the term from a subterm of the start the proof makes equal
     * to it: the steps of the path between them in the forest
     * (`ArticleProof.Connection`) replayed from the start's subterm. A term a
     * round adds as an input, which no union made and no larger term holds.
     */
-  private def fromClassmate(
-      derivation: ArticleDerivation,
-      origins: ValueOrigins,
-      building: TraceBuilding,
-      term: Instruction
-  ): Option[(Int, TraceBuilding)] =
-    derivation.forest.indexes.get(term).flatMap(node => origins.startByTree.get(origins.treeRoot(node))).filterNot(_ == term).flatMap(
-      classmate =>
-        valueOf(derivation, origins, building.copy(making = building.making + term), classmate).map((source, afterSource) =>
-          val (steps, expansions) = flattened(derivation, ArticleProof.Connection(classmate, term), afterSource.expansions).result
-          val (commands, afterCommands) = plan(derivation, classmate, steps.map(_.step))
-            .foldLeft((Vector.empty[TraceCommand], afterSource.copy(expansions = expansions))) { case ((made, current), planned) =>
-              val (command, after) = commandOf(derivation, origins, current, planned, 0, Map.empty)
-              (made :+ command, after)
-            }
-          afterCommands
-            .copy(making = afterCommands.making - term)
-            .valuePlaced(term, TraceValue(ValueSource.Value(source), commands, Vector.empty))
+  private def fromClassmate[C <: NativeSpecializer & Singleton](
+      derivation: ArticleDerivation[C],
+      origins: ValueOrigins[C],
+      building: TraceBuilding[C],
+      term: Configured[C]
+  )(using C, StorageAccess): Option[(Int, TraceBuilding[C])] =
+    derivation.nodeOf(term).flatMap(node => origins.startByTree.get(origins.treeRoot(node)).map(_ -> node)).flatMap(
+      (classmate, node) =>
+        derivation.nodeOf(classmate).filterNot(_ == node).flatMap(classmateNode =>
+          valueOf(derivation, origins, building.copy(making = building.making + term), classmate).map((source, afterSource) =>
+            val connection = ArticleProof.Connection(
+              derivation.store.terms.nodeTerm(classmateNode),
+              derivation.store.terms.nodeTerm(node)
+            )
+            val (steps, expansions) = flattened(derivation, connection, afterSource.expansions).result
+            val (commands, afterCommands) = plan(derivation, classmate, OrientedStep.joined(steps))
+              .foldLeft((Vector.empty[TraceCommand[C]], afterSource.copy(expansions = expansions))) { case ((made, current), planned) =>
+                val (command, after) = commandOf(derivation, origins, current, planned, 0, Map.empty)
+                (made :+ command, after)
+              }
+            afterCommands
+              .copy(making = afterCommands.making - term)
+              .valuePlaced(term, TraceValue(ValueSource.Value(source), commands, Vector.empty))
+          )
         )
     )
 
@@ -501,38 +635,42 @@ object RewriteTrace:
     * lemma it instantiates; or the abstraction rule, as the steps of the body
     * it opened.
     */
-  private enum Planned:
-    case Proved(step: RewriteStep)
-    case Converted(found: RewriteTrace.Converted)
-    case Abstracted(position: Vector[PositionSegment], eigenvariables: Vector[Instruction], steps: Vector[Planned])
+  private enum Planned[C <: NativeSpecializer & Singleton]:
+    case Proved(step: RewriteStep[C])
+    case Native(position: Vector[PositionSegment], value: Configured[C])
+    case Converted(found: RewriteTrace.Converted[C])
+    case Abstracted(position: Vector[PositionSegment], eigenvariables: Vector[Configured[C]], steps: Vector[Planned[C]])
 
   /** The plan of the steps from the term, in the replay's spelling
     * (`ReplaySpelling`), the spelling the replay works in: a step whose
     * replaced subterm and replacement have one spelling, a respelling
     * (`Axiom.Respell`) above all, has no command, since the replay holds its
     * two sides as one term; every other step keeps its reason, its position
-    * translated into the spelled term (`ReplaySpelling.positions`), and the β
-    * rule's step of a thunk's last hole is joined to the body step beside it
-    * (`betaJoined`). Two steps side by side that are an identity together in
-    * that spelling have no command either (`detoursDropped`). Throws
-    * `IllegalStateException` when no conversion computes a β conversion's
-    * step, when a step's subterm is at other than one position of the
-    * spelled term, and when the replay of an abstraction would open or write
-    * back another term than the proof's (the body the closure opens to is
-    * not the body's spelling the steps start from, or the body they make
-    * written back is not the thunk): the trace would replay otherwise than
-    * the proof.
+    * translated into the spelled term (`ReplaySpelling.positions`); the β
+    * rule's step of a thunk's last hole is already joined to the body step
+    * beside it (`joined`). Two steps side by side that are an identity
+    * together in that spelling have no command either (`detoursDropped`).
+    * Throws `IllegalStateException` when no conversion computes a β
+    * conversion's step, when a step's subterm is at other than one position
+    * of the spelled term, and when the replay of an abstraction would open or
+    * write back another term than the proof's (the body the closure opens to
+    * is not the body's spelling the steps start from, or the body they make
+    * written back is not the thunk): the trace would replay otherwise than the
+    * proof.
     */
-  private def plan(derivation: ArticleDerivation, start: Instruction, steps: Vector[RewriteStep]): Vector[Planned] =
-    val joined = betaJoined(steps)
+  private def plan[C <: NativeSpecializer & Singleton](
+      derivation: ArticleDerivation[C],
+      start: Configured[C],
+      steps: Vector[RewriteStep[C]]
+  )(using C, StorageAccess): Vector[Planned[C]] =
     // The term before each step is kept as a spine (`Spine`): a step rebuilds only the path to its position and
-    // interns only the subterm it reads. A step costs the depth of
+    // builds only the subterm it reads. A step costs the depth of
     // its position (`subterm`, `replaced`, `spelledPositions`: one child taken and one `Vector.updated` per segment; a
     // node turns from settled to rebuilt once, `Layer.map` over its children), plus the size of the subterm it replaces
-    // and of its replacement not yet spelled (`materialized` interns the rebuilt nodes in that subterm only; the
+    // and of its replacement not yet spelled (`materialized` builds the rebuilt nodes in that subterm only; the
     // spellings, `Spellings`, keep each term's spelling), plus the size of the code of each kind of thunk the
     // flattening meets for the first time. A layer the step only passes through is not hashed.
-    val (spelled, _, _) = joined.foldLeft((Vector.empty[SpelledStep], Spine.Settled(start): Spine, Spellings.empty)) {
+    val (spelled, _, _) = steps.foldLeft((Vector.empty[SpelledStep[C]], Spine.Settled(start): Spine[C], Spellings.empty[C])) {
       case ((found, before, known), step) =>
         val replaced = Spine.materialized(Spine.subterm(before, step.position))
         // The replay works in the replay's spelling (`ReplaySpelling`): a step that is an identity there (a
@@ -541,7 +679,7 @@ object RewriteTrace:
         val (spelledReplaced, afterReplaced) = known.term(replaced)
         val (spelledReplacement, afterReplacement) = afterReplaced.term(step.replacement)
         val (kept, knownAfter) =
-          if spelledReplaced == spelledReplacement then (None, afterReplacement)
+          if Configured.same(spelledReplaced, spelledReplacement) then (None, afterReplacement)
           else
             val (positions, knownAfter) = Spine.spelledPositions(before, step.position, afterReplacement)
             val position = positions match
@@ -561,11 +699,11 @@ object RewriteTrace:
     * position in that spelling, the subterm it replaces, and its two sides in
     * that spelling.
     */
-  private final case class SpelledStep(
-      step: RewriteStep,
-      replaced: Instruction,
-      spelledReplaced: Instruction,
-      spelledReplacement: Instruction
+  private final case class SpelledStep[C <: NativeSpecializer & Singleton](
+      step: RewriteStep[C],
+      replaced: Configured[C],
+      spelledReplaced: Configured[C],
+      spelledReplacement: Configured[C]
   )
 
   /** The steps without each two side by side at one position of which the
@@ -578,62 +716,30 @@ object RewriteTrace:
     * conversion forward and backward, the backward one writing a binding of
     * about 420,000 characters, 1.77 million of the trace's 3.5 million.
     */
-  private def detoursDropped(steps: Vector[SpelledStep]): Vector[SpelledStep] =
+  private def detoursDropped[C <: NativeSpecializer & Singleton](steps: Vector[SpelledStep[C]])(using C): Vector[SpelledStep[C]] =
     steps
-      .foldLeft(List.empty[SpelledStep]) { (kept, step) =>
+      .foldLeft(List.empty[SpelledStep[C]]) { (kept, step) =>
         kept match
           case last :: earlier
-              if last.step.position == step.step.position && (last.spelledReplaced eq step.spelledReplacement) &&
-                (last.spelledReplacement eq step.spelledReplaced) =>
+              if last.step.position == step.step.position && Configured.same(last.spelledReplaced, step.spelledReplacement) &&
+                Configured.same(last.spelledReplacement, step.spelledReplaced) =>
             earlier
           case _ => step :: kept
       }
       .reverse
       .toVector
 
-  /** The steps with each step of the β rule that fills a thunk's one hole
-    * joined to the step of the body equation that reads the thunk with no
-    * hole it leaves, at the same position: forward, the β step then the body
-    * step; backward, the body step then the β step. The joined step is the β
-    * rule's, its replacement the pair's (`Statements.betaBody`), so that no
-    * command writes the thunk with no hole, which the front end never spells.
-    * Throws `IllegalStateException` for a β step of one hole with no body
-    * step beside it: the replay, which reads the body at once, would replay
-    * otherwise than the proof.
-    */
-  private def betaJoined(steps: Vector[RewriteStep]): Vector[RewriteStep] =
-    def lastHole(step: RewriteStep): Boolean = step.reason match
-      case RewriteReason.Fill(Instruction.Thunk(_, Vector(_), _), _) => true
-      case _                                                         => false
-    def body(step: RewriteStep): Boolean = step.reason match
-      case RewriteReason.Body(_) => true
-      case _                     => false
-    @tailrec
-    def joined(rest: List[RewriteStep], made: Vector[RewriteStep]): Vector[RewriteStep] = rest match
-      case first :: second :: after
-          if lastHole(first) && body(second) && first.position == second.position &&
-            first.direction == RewriteDirection.Forward && second.direction == RewriteDirection.Forward =>
-        joined(after, made :+ first.copy(replacement = second.replacement))
-      case first :: second :: after
-          if body(first) && lastHole(second) && first.position == second.position &&
-            first.direction == RewriteDirection.Backward && second.direction == RewriteDirection.Backward =>
-        joined(after, made :+ second)
-      case first :: _ if lastHole(first) =>
-        throw IllegalStateException(s"the β step of one hole at ${first.position} has no body step beside it")
-      case first :: after => joined(after, made :+ first)
-      case Nil            => made
-    joined(steps.toList, Vector.empty)
 
   /** The plan of a step that is no identity in the replay's spelling, its
     * position already in that spelling.
     */
-  private def planned(
-      derivation: ArticleDerivation,
-      step: RewriteStep,
-      replaced: Instruction,
-      spelledReplaced: Instruction,
-      spelledReplacement: Instruction
-  ): Planned =
+  private def planned[C <: NativeSpecializer & Singleton](
+      derivation: ArticleDerivation[C],
+      step: RewriteStep[C],
+      replaced: Configured[C],
+      spelledReplaced: Configured[C],
+      spelledReplacement: Configured[C]
+  )(using C, StorageAccess): Planned[C] =
     step.reason match
       case RewriteReason.Unproved(kind) =>
         etaStep(step, spelledReplaced, spelledReplacement).filter(_ => kind == UnprovedKind.BetaConversion) match
@@ -642,7 +748,7 @@ object RewriteTrace:
             Planned.Converted(conversion(derivation, kind, step.copy(replacement = spelledReplacement), spelledReplaced))
       case RewriteReason.Abstraction(eigenvariables, body, inner) =>
         val opened = Conversions.opened(replaced, eigenvariables)
-        if !(opened eq body) then
+        if !Configured.same(opened, body) then
           throw IllegalStateException(s"the closure $replaced opens to $opened, not to the body $body its steps start from")
         val made = inner.foldLeft(body)(applied)
         val written = Conversions.abstraction(made, eigenvariables)
@@ -667,20 +773,21 @@ object RewriteTrace:
         // the front end's spelling, every trace written. No round has taken
         // a step backward, so the case stays unwitnessed; a witness comes
         // first.
-        if !(written eq step.replacement) then
+        if !Configured.same(written, step.replacement) then
           throw IllegalStateException(
-            s"the body ${spelled(made)} written back is ${spelled(written)} (${written.layer}), " +
-              s"not the thunk ${spelled(step.replacement)} (${step.replacement.layer}), ${step.direction}; " +
+            s"the body ${spelled(made)} written back is ${spelled(written)} (${layerShown(written)}), " +
+              s"not the thunk ${spelled(step.replacement)} (${layerShown(step.replacement)}), ${step.direction}; " +
               s"${inner.size} steps from ${spelled(body)}, eigenvariables $eigenvariables, " +
               s"the thunk opens to ${scala.util.Try(spelled(Conversions.opened(step.replacement, eigenvariables)))}; " +
               s"steps ${inner.map(inner => (inner.reason.getClass.getSimpleName, inner.position, inner.direction, spelled(inner.replacement)))}"
           )
         Planned.Abstracted(step.position, eigenvariables, plan(derivation, body, inner))
+      case RewriteReason.Native(_, _, _) => Planned.Native(step.position, spelledReplacement)
       case _ => Planned.Proved(step)
 
-  /** The text of a term for a message, its opaque leaves as they are. */
-  private def spelled(term: Instruction): String =
-    scala.util.Try(gezi.frontend.Lambdalattice.closedText(term)).getOrElse(term.toString)
+  /** The text of a term for a message, a storage written as its view. */
+  private def spelled[C <: NativeSpecializer & Singleton](term: Configured[C])(using C, StorageAccess): String =
+    scala.util.Try(gezi.frontend.Lambdalattice.closedTextViewed(term)).getOrElse(term.toString)
 
   /** Where two codes differ, for a message: every minimal differing pair,
     * found by descending into each differing child of two codes of one shape,
@@ -729,13 +836,9 @@ object RewriteTrace:
     case Choice(_, _)              => "choice"
 
   /** The layer of a term for a message, or the term itself when it is opaque. */
-  private def layerShown(term: Instruction): String =
+  private def layerShown[C <: NativeSpecializer & Singleton](term: Configured[C])(using C): String =
     if term.opaque then term.toString else term.layer.toString
 
-  /** Where two terms first differ, for a message: below the position, the
-    * outermost pair of subterms that are not one layer over equal children
-    * with exactly one child differing; the position and the two subterms.
-    */
   /** The step of the defunctionalized η rule that a β conversion with no
     * proof is: the replaced term and the replacement differ at one position
     * only, where one is the η-shaped thunk `λx. f x` over the other, f. A
@@ -745,41 +848,52 @@ object RewriteTrace:
     * (the reading of the entry `wren`'s inlined hot point, 2026-11-17). None for any other
     * pair.
     */
-  private def etaStep(step: RewriteStep, replaced: Instruction, replacement: Instruction): Option[RewriteStep] =
+  private def etaStep[C <: NativeSpecializer & Singleton](step: RewriteStep[C], replaced: Configured[C], replacement: Configured[C])(using
+      C,
+      StorageAccess
+  ): Option[RewriteStep[C]] =
     val (at, from, to) = difference(replaced, replacement, Vector.empty)
-    def etaOver(thunk: Instruction, filling: Instruction): Boolean = thunk.layer match
-      case Thunk(code, holes, Vector(only)) => Statements.etaShaped(code, holes) && (only eq filling)
-      case _                                => false
-    val elsewhereEqual = Positions.replaced(replaced, at, to) eq replacement
+    def etaOver(thunk: Configured[C], filling: Configured[C]): Option[RewriteReason[C]] = thunk.layer match
+      case Thunk(code, holes, fillings @ Vector(only)) if Statements.etaShaped(code, holes) && Configured.same(only, filling) =>
+        Some(RewriteReason.Eta(code, holes, fillings))
+      case _ => None
+    val elsewhereEqual = Configured.same(Positions.replaced(replaced, at, to), replacement)
     val bare = Vector(Vector.empty[PositionSegment])
     val underThunk = Vector(Vector(PositionSegment.Filling(0)))
     if !elsewhereEqual then None
-    else if etaOver(to, from) then
-      Some(RewriteStep(RewriteReason.Eta(to), step.position ++ at, RewriteDirection.Backward, to, Vector(Provenance("filling0", bare, underThunk))))
-    else if etaOver(from, to) then
-      Some(RewriteStep(RewriteReason.Eta(from), step.position ++ at, RewriteDirection.Forward, to, Vector(Provenance("filling0", underThunk, bare))))
-    else None
+    else
+      etaOver(to, from)
+        .map(reason =>
+          RewriteStep(reason, step.position ++ at, RewriteDirection.Backward, to, Vector(Provenance("filling0", bare, underThunk)))
+        )
+        .orElse(
+          etaOver(from, to).map(reason =>
+            RewriteStep(reason, step.position ++ at, RewriteDirection.Forward, to, Vector(Provenance("filling0", underThunk, bare)))
+          )
+        )
 
-  private def difference(
-      left: Instruction,
-      right: Instruction,
+  private def difference[C <: NativeSpecializer & Singleton](
+      left: Configured[C],
+      right: Configured[C],
       position: Vector[PositionSegment]
-  ): (Vector[PositionSegment], Instruction, Instruction) =
+  )(using C, StorageAccess): (Vector[PositionSegment], Configured[C], Configured[C]) =
     if left.opaque || right.opaque then (position, left, right)
     else
-      val (leftLayer, rightLayer) = (left.layered, right.layered)
+      val (leftLayer, rightLayer) = (Positions.layerOf(left), Positions.layerOf(right))
       val differing = leftLayer.children
         .zip(rightLayer.children)
         .zip(Positions.roles(leftLayer))
-        .filter { case ((leftChild, rightChild), _) => leftChild != rightChild }
+        .filter { case ((leftChild, rightChild), _) => !Configured.same(leftChild, rightChild) }
       differing match
-        case Vector(((leftChild, rightChild), role)) if leftLayer.map(_ => ()) == rightLayer.map(_ => ()) =>
+        case Vector(((leftChild, rightChild), role))
+            if LayerShape.of(leftLayer) == LayerShape.of(rightLayer) && leftLayer.children.size == rightLayer.children.size =>
           difference(leftChild, rightChild, position :+ role)
         case _ => (position, left, right)
 
-  private def lemmasOf(planned: Planned): Vector[LemmaIdentifier] = planned match
+  private def lemmasOf[C <: NativeSpecializer & Singleton](planned: Planned[C]): Vector[LemmaIdentifier] = planned match
     case Planned.Proved(RewriteStep(RewriteReason.Lemma(lemma, _), _, _, _, _)) => Vector(lemma)
     case Planned.Proved(_)                                                       => Vector.empty
+    case Planned.Native(_, _)                                                    => Vector.empty
     case Planned.Converted(found)                                                => Vector(found.lemma)
     case Planned.Abstracted(_, _, steps)                                         => steps.flatMap(lemmasOf)
 
@@ -791,36 +905,36 @@ object RewriteTrace:
     * eigenvariable or has no value (`gezi.rewritetrace.Given`, its
     * FIXME). https://github.com/Atry/private-overlay/issues/1980
     */
-  private def commandOf(
-      derivation: ArticleDerivation,
-      origins: ValueOrigins,
-      building: TraceBuilding,
-      planned: Planned,
+  private def commandOf[C <: NativeSpecializer & Singleton](
+      derivation: ArticleDerivation[C],
+      origins: ValueOrigins[C],
+      building: TraceBuilding[C],
+      planned: Planned[C],
       depth: Int,
-      renamed: Map[Instruction, Instruction]
-  ): (TraceCommand, TraceBuilding) =
-    def giving(current: TraceBuilding, term: Instruction): (Given, TraceBuilding) =
+      renamed: Map[Configured[C], Configured[C]]
+  )(using specializer: C, access: StorageAccess): (TraceCommand[C], TraceBuilding[C]) =
+    def giving(current: TraceBuilding[C], term: Configured[C]): (Given[C], TraceBuilding[C]) =
       val named =
         if renamed.nonEmpty && Conversions.holds(term, renamed.keySet) then None
         else valueOf(derivation, origins, current, term)
       named match
         case Some((place, after)) => (Given.Value(place), after)
         case None                 => (Given.Written(Conversions.leavesReplaced(ReplaySpelling.term(term), renamed)), current)
-    def bindingsGiven(current: TraceBuilding, bindings: Vector[(Int, Instruction)]): (Vector[(Int, Given)], TraceBuilding) =
-      bindings.foldLeft((Vector.empty[(Int, Given)], current)) { case ((made, before), (place, term)) =>
+    def bindingsGiven(current: TraceBuilding[C], bindings: Vector[(Int, Configured[C])]): (Vector[(Int, Given[C])], TraceBuilding[C]) =
+      bindings.foldLeft((Vector.empty[(Int, Given[C])], current)) { case ((made, before), (place, term)) =>
         val (named, after) = giving(before, term)
         (made :+ (place, named), after)
       }
-    // The thunk of a step backward of the β rule, the body equation or the η rule (`ThunkShape`): the replay reads
-    // only the code and holes of its spelling, its fillings being the equation's variables. The step's own thunk is
-    // often no node of the proof: the β rule of a function of several arguments fills one hole at a time, and the
-    // e-graph makes no node for the thunks between (`Saturation.betaWorked` extends the closure state). So a thunk of
-    // the proof with the code names the code, and the holes are written.
-    def thunkGiven(current: TraceBuilding, thunk: Option[Instruction]): (Option[ThunkShape], TraceBuilding) =
+    // The thunk of a step backward of the β rule or the η rule (`ThunkShape`): the replay reads only the code and
+    // holes of its spelling, its fillings being the equation's variables. The step's own thunk is often no node of the
+    // proof: the β rule of a function of several arguments fills one hole at a time, and the e-graph makes no node for
+    // the thunks between (`Saturation.betaWorked` extends the closure state). So a thunk of the proof with the code
+    // names the code, and the holes are written.
+    def thunkGiven(current: TraceBuilding[C], thunk: Option[Configured[C]]): (Option[ThunkShape[C]], TraceBuilding[C]) =
       // The first of the candidates that has a value, tried in order; a loop, since thousands of a program's
       // thunks may share a code and have none.
       @tailrec
-      def firstValue(candidates: Vector[Instruction]): Option[(Int, TraceBuilding)] =
+      def firstValue(candidates: Vector[Configured[C]]): Option[(Int, TraceBuilding[C])] =
         candidates.headOption match
           case None => None
           case Some(candidate) =>
@@ -831,10 +945,16 @@ object RewriteTrace:
         val spelling = ReplaySpelling.term(term)
         spelling.layer match
           case Thunk(code, holes, _) =>
-            val sameCode = derivation.forest.thunks.toVector.collect { case ((found, _), nodes) if found == code => nodes }.flatten
+            val sameCode = derivation.forest.thunks.toVector
+              .collect { case ((found, _), nodes) if found == code => nodes }
+              .flatten
+              .map(derivation.term)
+            val candidates = (Vector(term, spelling) ++ sameCode).foldLeft(Vector.empty[Configured[C]])((kept, candidate) =>
+              if kept.exists(Configured.same(_, candidate)) then kept else kept :+ candidate
+            )
             val named =
               if renamed.nonEmpty && Conversions.holds(term, renamed.keySet) then None
-              else firstValue((Vector(term, spelling) ++ sameCode).distinct)
+              else firstValue(candidates)
             named match
               case Some((place, after)) => (Some(ThunkShape(Given.Value(place), holes)), after)
               case None =>
@@ -845,44 +965,46 @@ object RewriteTrace:
       case Planned.Proved(step) =>
         val (reason, bindings) = proved(derivation, step)
         val (reasonGiven, afterReason) = reason match
-          case ReasonDraft.Lemma(lemma)      => building.lemmaPlaced(lemma) match { case (place, after) => (ProvedReason.Lemma(place), after) }
-          case ReasonDraft.Equation(number)  => (ProvedReason.Equation(number), building)
-          case ReasonDraft.Fill(thunk)       => thunkGiven(building, thunk) match { case (named, after) => (ProvedReason.Fill(named), after) }
-          case ReasonDraft.Body(thunk)       => thunkGiven(building, thunk) match { case (named, after) => (ProvedReason.Body(named), after) }
-          case ReasonDraft.Eta(thunk)        => thunkGiven(building, thunk) match { case (named, after) => (ProvedReason.Eta(named), after) }
+          case ReasonDraft.Lemma(lemma) =>
+            building.lemmaPlaced(lemma) match { case (place, after) => (ProvedReason.Lemma[C](place), after) }
+          case ReasonDraft.Equation(number) => (ProvedReason.Equation[C](number), building)
+          case ReasonDraft.Fill(thunk)      => thunkGiven(building, thunk) match { case (named, after) => (ProvedReason.Fill(named), after) }
+          case ReasonDraft.Eta(thunk)       => thunkGiven(building, thunk) match { case (named, after) => (ProvedReason.Eta(named), after) }
         val (bindingsNamed, afterBindings) = bindingsGiven(afterReason, bindings)
         (TraceCommand.Rewrite(reasonGiven, step.position, step.direction, bindingsNamed), afterBindings)
+      case Planned.Native(position, value) => (TraceCommand.Native(position, value), building)
       case Planned.Converted(found) =>
         val (place, afterLemma) = building.lemmaPlaced(found.lemma)
         val (bindingsNamed, afterBindings) = bindingsGiven(afterLemma, found.bindings)
         (TraceCommand.Convert(found.conversion(place), found.position, found.direction, bindingsNamed), afterBindings)
       case Planned.Abstracted(position, eigenvariables, steps) =>
         val inner = renamed ++ eigenvariables.zip(Conversions.eigenvariables(depth, eigenvariables.size))
-        val (commands, after) = steps.foldLeft((Vector.empty[TraceCommand], building)) { case ((made, current), step) =>
+        val (commands, after) = steps.foldLeft((Vector.empty[TraceCommand[C]], building)) { case ((made, current), step) =>
           val (command, next) = commandOf(derivation, origins, current, step, depth + 1, inner)
           (made :+ command, next)
         }
         (TraceCommand.Abstraction(position, eigenvariables.size, commands), after)
 
   /** The reason of a proved step's command before the trace places its
-    * lemma and gives its thunk (`commandOf`).
+    * lemma and gives its thunk (`commandOf`): a step backward of the β rule or
+    * the η rule its thunk, built through the configuration. A body step has
+    * none: it is joined to its β step (`OrientedStep.joined`).
     */
-  private enum ReasonDraft:
+  private enum ReasonDraft[C <: NativeSpecializer & Singleton]:
     case Lemma(lemma: LemmaIdentifier)
     case Equation(number: Int)
-    case Fill(thunk: Option[Instruction])
-    case Body(thunk: Option[Instruction])
-    case Eta(thunk: Option[Instruction])
+    case Fill(thunk: Option[Configured[C]])
+    case Eta(thunk: Option[Configured[C]])
 
   /** A step of no proof as a conversion of a lemma (`Conversion`), its
     * place in the trace's lemmas not yet known.
     */
-  private final case class Converted(
+  private final case class Converted[C <: NativeSpecializer & Singleton](
       lemma: LemmaIdentifier,
       conversion: Int => Conversion,
       position: Vector[PositionSegment],
       direction: RewriteDirection,
-      bindings: Vector[(Int, Instruction)]
+      bindings: Vector[(Int, Configured[C])]
   )
 
   /** The conversion a step of no proof instantiates: the first, over the
@@ -890,12 +1012,12 @@ object RewriteTrace:
     * computes the step's replacement from its replaced subterm, forward or
     * backward. Throws `IllegalStateException` when none does.
     */
-  private def conversion(
-      derivation: ArticleDerivation,
+  private def conversion[C <: NativeSpecializer & Singleton](
+      derivation: ArticleDerivation[C],
       kind: UnprovedKind,
-      step: RewriteStep,
-      replaced: Instruction
-  ): Converted = kind match
+      step: RewriteStep[C],
+      replaced: Configured[C]
+  )(using C, StorageAccess): Converted[C] = kind match
     // FIXME (2026-11-13): the abstraction rule of a body written back has https://github.com/Atry/private-overlay/issues/2046
     // no command yet, so a round whose proof crosses one has no trace. Candidate
     // fix: a nested
@@ -919,13 +1041,13 @@ object RewriteTrace:
           )
         }
 
-  private def conversions(
-      derivation: ArticleDerivation,
+  private def conversions[C <: NativeSpecializer & Singleton](
+      derivation: ArticleDerivation[C],
       lemma: LemmaIdentifier,
       position: Vector[PositionSegment],
-      replaced: Instruction,
-      replacement: Instruction
-  ): LazyList[Converted] =
+      replaced: Configured[C],
+      replacement: Configured[C]
+  )(using C, StorageAccess): LazyList[Converted[C]] =
     val (left, right) = derivation.store.lemmaSides(lemma)
     val statement = TraceLemma(left, right).statement
     val higherOrderVariables = Conversions.higherOrder(statement)
@@ -934,8 +1056,8 @@ object RewriteTrace:
         val conversion = (place: Int) => Conversion.HigherOrder(place, side, occurrence)
         val forward = Conversions
           .instanceBindings(pattern, replaced)
-          .filter(bound => Conversions.normalForm(pattern, bound, higherOrderVariables) eq replacement)
-          .map(_ => Converted(lemma, conversion, position, RewriteDirection.Forward, Vector.empty))
+          .filter(bound => Configured.same(Conversions.normalForm(pattern, bound, higherOrderVariables), replacement))
+          .map(_ => Converted[C](lemma, conversion, position, RewriteDirection.Forward, Vector.empty))
         // A left side's conversion backward writes no binding: the replay
         // solves the pattern on the replaced term (`Conversions.expansionSolutions`),
         // so the candidate stands only where that solution is the one and
@@ -946,9 +1068,9 @@ object RewriteTrace:
           .filter(_ =>
             side match
               case LemmaSide.Left =>
-                Conversions
-                  .expansionSolutions(pattern, replaced, higherOrderVariables)
-                  .map(Conversions.instance(pattern, _)) == Vector(replacement)
+                Conversions.expansionSolutions(pattern, replaced, higherOrderVariables).map(Conversions.instance(pattern, _)) match
+                  case Vector(only) => Configured.same(only, replacement)
+                  case _            => false
               case LemmaSide.Right => true
           )
           .map(bound =>
@@ -970,10 +1092,10 @@ object RewriteTrace:
       // A redex is applied to the names (`Conversions.appliedToNames`), checked before the abstraction of the
       // whole other side is computed: on the entry `solo`'s repeated_library_hotspots calls_1000 point that
       // abstraction, made for each step of no proof and each lemma, was half the flattening.
-      Option.when(Conversions.appliedToNames(replacement, names) && (Conversions.redex(replaced, names) eq replacement))(
-        Converted(lemma, conversion, position, RewriteDirection.Forward, Vector.empty)
-      ).to(LazyList) ++ Option.when(Conversions.appliedToNames(replaced, names) && (Conversions.redex(replacement, names) eq replaced))(
-        Converted(lemma, conversion, position, RewriteDirection.Backward, Vector.empty)
+      Option.when(Conversions.appliedToNames(replacement, names) && Configured.same(Conversions.redex(replaced, names), replacement))(
+        Converted[C](lemma, conversion, position, RewriteDirection.Forward, Vector.empty)
+      ).to(LazyList) ++ Option.when(Conversions.appliedToNames(replaced, names) && Configured.same(Conversions.redex(replacement, names), replaced))(
+        Converted[C](lemma, conversion, position, RewriteDirection.Backward, Vector.empty)
       ).to(LazyList)
     )
     higherOrder ++ rootReversed
@@ -985,12 +1107,16 @@ object RewriteTrace:
     * higher-order variables' values and where they first differ
     * (`difference`).
     */
-  private def attempts(derivation: ArticleDerivation, replaced: Instruction, replacement: Instruction): Vector[String] =
+  private def attempts[C <: NativeSpecializer & Singleton](
+      derivation: ArticleDerivation[C],
+      replaced: Configured[C],
+      replacement: Configured[C]
+  )(using C, StorageAccess): Vector[String] =
     def tried(
-        pattern: StatementTerm,
+        pattern: StatementTerm[Configured[C]],
         higherOrderVariables: Set[String],
-        from: Instruction,
-        to: Instruction,
+        from: Configured[C],
+        to: Configured[C],
         direction: RewriteDirection
     ): String =
       Statements.matchedBindings(pattern, from) match
@@ -998,7 +1124,7 @@ object RewriteTrace:
         case Some(bound) =>
           val normal = Conversions.normalForm(pattern, bound, higherOrderVariables)
           val converts = direction match
-            case RewriteDirection.Forward  => normal eq to
+            case RewriteDirection.Forward  => Configured.same(normal, to)
             case RewriteDirection.Backward => Conversions.spelledAlike(normal, to)
           if converts then "converts"
           else
@@ -1033,31 +1159,45 @@ object RewriteTrace:
       )
     }
 
-  private def proved(derivation: ArticleDerivation, step: RewriteStep): (ReasonDraft, Vector[(Int, Instruction)]) =
-    def backward(thunk: Instruction): Option[Instruction] = Option.when(step.direction == RewriteDirection.Backward)(thunk)
-    val reason = step.reason match
-      case RewriteReason.Lemma(lemma, _)     => ReasonDraft.Lemma(lemma)
-      case RewriteReason.Equation(number, _) => ReasonDraft.Equation(number)
-      case RewriteReason.Fill(thunk, _)      => ReasonDraft.Fill(backward(thunk))
-      case RewriteReason.Body(thunk)         => ReasonDraft.Body(backward(thunk))
+  private def proved[C <: NativeSpecializer & Singleton](derivation: ArticleDerivation[C], step: RewriteStep[C])(using
+      specializer: C,
+      access: StorageAccess
+  ): (ReasonDraft[C], Vector[(Int, Configured[C])]) =
+    // The thunk of a step backward, built through the configuration: a thunk of the β rule and of the η rule has holes.
+    def backward(code: Code, holes: Vector[Hole], fillings: Vector[Configured[C]]): Option[Configured[C]] =
+      Option.when(step.direction == RewriteDirection.Backward)(
+        specializer.thunk(
+          code,
+          NonEmptyHoles.of(holes).getOrElse(throw IllegalStateException(s"a thunk of the code $code with no hole is no term")),
+          fillings
+        )
+      )
+    val reason: ReasonDraft[C] = step.reason match
+      case RewriteReason.Lemma(lemma, _)                   => ReasonDraft.Lemma(lemma)
+      case RewriteReason.Equation(number, _)               => ReasonDraft.Equation(number)
+      case RewriteReason.Fill(code, holes, fillings, _)    => ReasonDraft.Fill(backward(code, holes, fillings))
+      case RewriteReason.Body(code, _) =>
+        throw IllegalStateException(s"the body step of the code $code is joined to its β step and has no command of its own")
       // A step backward whose thunk is the front end's `λx. f x` writes none:
       // the replay spells it over the replaced f (`Conversions.etaExpanded`).
-      case RewriteReason.Eta(thunk) =>
-        val canonical = thunk.layer match
-          case Thunk(code, holes, Vector(filling)) =>
+      case RewriteReason.Eta(code, holes, fillings) =>
+        val canonical = fillings match
+          case Vector(filling) =>
             Conversions.etaExpanded(filling).layer match
               case Thunk(canonicalCode, canonicalHoles, _) => canonicalCode == code && canonicalHoles == holes
               case _                                     => false
           case _ => false
-        ReasonDraft.Eta(if canonical then None else backward(thunk))
-      case RewriteReason.Respell(_) =>
+        ReasonDraft.Eta(if canonical then None else backward(code, holes, fillings))
+      case RewriteReason.Respell(_, _, _) =>
         throw IllegalArgumentException("a respelling is an identity in the replay's spelling and has no command (ReplaySpelling)")
       case RewriteReason.Unproved(kind)      => throw IllegalArgumentException(s"a step of $kind has no proof")
       case RewriteReason.Abstraction(_, _, _) => throw IllegalArgumentException("the abstraction rule has no proof")
-    // The β rule of a thunk's one hole is replayed together with the body equation that follows it (`plan`).
-    val equation = step.reason match
-      case RewriteReason.Fill(Instruction.Thunk(code, holes @ Vector(_), _), _) => Statements.betaBody(code, holes)
-      case _                                                                     => statement(derivation, step.reason)
+      case RewriteReason.Native(native, _, _) =>
+        throw IllegalArgumentException(s"the fold of the native $native is planned as a native value (`Planned.Native`), not proved")
+    // The β rule of a thunk's one hole is replayed together with the body equation that follows it (`joined`).
+    val equation: Statement[Any] = step.reason match
+      case RewriteReason.Fill(code, holes @ Vector(_), _, _) => Statements.betaBody(code, holes)
+      case _                                                 => statement(derivation, step.reason)
     val (replacedSide, _) = equation.oriented(step.direction)
     val held = Statements.variables(replacedSide).toSet
     val bound = this.bound(step.reason)
@@ -1070,13 +1210,13 @@ object RewriteTrace:
   /** The steps an edge or a path expanded to, each expansion flattened once:
     * a union's edge recurs in the paths that cross it.
     */
-  private type Expansions = Map[ArticleProof, Vector[OrientedStep]]
+  private type Expansions[C <: NativeSpecializer & Singleton] = Map[ArticleProof, Vector[OrientedStep[C]]]
 
-  private def flattened(
-      derivation: ArticleDerivation,
+  private def flattened[C <: NativeSpecializer & Singleton](
+      derivation: ArticleDerivation[C],
       proof: ArticleProof,
-      expansions: Expansions
-  ): TailRec[(Vector[OrientedStep], Expansions)] = proof match
+      expansions: Expansions[C]
+  )(using C, StorageAccess): TailRec[(Vector[OrientedStep[C]], Expansions[C])] = proof match
     case ArticleProof.Reflexivity(_) => done((Vector.empty, expansions))
     case ArticleProof.Symmetry(inner) =>
       tailcall(flattened(derivation, inner, expansions)).map((steps, after) => (steps.reverse.map(_.turned), after))
@@ -1086,7 +1226,7 @@ object RewriteTrace:
         (secondSteps, afterSecond) <- tailcall(flattened(derivation, second, afterFirst))
       yield (firstSteps ++ secondSteps, afterSecond)
     case ArticleProof.Congruence(shape, proofs) =>
-      TailRecFolds.folded(proofs.zip(roles(shape, proofs.size)).toVector, (Vector.empty[OrientedStep], expansions)) {
+      TailRecFolds.folded(proofs.zip(roles(shape, proofs.size)).toVector, (Vector.empty[OrientedStep[C]], expansions)) {
         case ((steps, current), (inner, role)) =>
           flattened(derivation, inner, current).map((innerSteps, after) =>
             (steps ++ innerSteps.map(_.under(role)), after)
@@ -1095,30 +1235,33 @@ object RewriteTrace:
     case ArticleProof.Instance(axiom, substitution) =>
       done((Vector(instanceStep(derivation, axiom, substitution)), expansions))
     case ArticleProof.Conversion(first, second, _) =>
-      val step = RewriteStep(
+      val step = RewriteStep[C](
         RewriteReason.Unproved(UnprovedKind.BetaConversion),
         Vector.empty,
         RewriteDirection.Forward,
-        second,
+        derivation.term(second),
         Vector.empty
       )
-      done((Vector(OrientedStep(step, first)), expansions))
-    case ArticleProof.Abstraction(first, second, eigenvariables, body, proof) =>
+      done((Vector(OrientedStep.of(step, derivation.term(first))), expansions))
+    case ArticleProof.Abstraction(first, second, eigenvariableTerms, bodyTerm, proof) =>
       tailcall(flattened(derivation, proof, expansions)).map((inner, after) =>
-        val made = inner.map(_.step).foldLeft(body)(applied)
-        val spelling = Conversions.opened(second, eigenvariables)
-        if !(made eq spelling) then
+        val eigenvariables = eigenvariableTerms.map(derivation.term)
+        val body = derivation.term(bodyTerm)
+        val innerSteps = OrientedStep.joined(inner)
+        val made = innerSteps.foldLeft(body)(applied)
+        val spelling = Conversions.opened(derivation.term(second), eigenvariables)
+        if !Configured.same(made, spelling) then
           throw IllegalStateException(
             s"the ${inner.size} steps of the body ${spelled(body)} make ${spelled(made)}, not its spelling ${spelled(spelling)}"
           )
         val step = RewriteStep(
-          RewriteReason.Abstraction(eigenvariables, body, inner.map(_.step)),
+          RewriteReason.Abstraction(eigenvariables, body, innerSteps),
           Vector.empty,
           RewriteDirection.Forward,
-          second,
+          derivation.term(second),
           Vector.empty
         )
-        (Vector(OrientedStep(step, first)), after)
+        (Vector(OrientedStep.of(step, derivation.term(first))), after)
       )
     case ArticleProof.Edge(_) | ArticleProof.Connection(_, _) =>
       expansions.get(proof) match
@@ -1137,83 +1280,106 @@ object RewriteTrace:
     case LayerShape.Apply                        => Vector(PositionSegment.Function, PositionSegment.Argument)
     case LayerShape.Choice | LayerShape.Parallel => Vector(PositionSegment.Left, PositionSegment.Right)
 
-  /** The step of an instance of an axiom of the import set. */
-  private def instanceStep(
-      derivation: ArticleDerivation,
+  /** The step of an instance of an axiom of the import set, its two sides
+    * read back in the round's configuration (`ArticleDerivation.term`): the
+    * thunk of no hole, the right side of the β rule into the last hole and the
+    * left side of the body equation, as data (`StepTerm.Holeless`), never as a
+    * term.
+    */
+  private def instanceStep[C <: NativeSpecializer & Singleton](
+      derivation: ArticleDerivation[C],
       axiom: Axiom,
       substitution: Vector[(String, ArticleTerm)]
-  ): OrientedStep =
+  )(using C, StorageAccess): OrientedStep[C] =
     val (left, right) = derivation.store.axiomStatement(axiom)
-    val equation = Statement(ArticleStore.statementTerm(left), ArticleStore.statementTerm(right))
-    val bindings = substitution.map((name, term) => (name, instructionOf(term)))
+    val bindings = substitution.map((name, term) => (name, instructionOf(derivation, term)))
     val bound = bindings.toMap
-    def fillings(count: Int): Vector[Instruction] = Vector.tabulate(count)(place => boundVariable(bound, s"filling$place"))
-    val reason = axiom match
+    def fillings(count: Int): Vector[Configured[C]] = Vector.tabulate(count)(place => boundVariable(bound, s"filling$place"))
+    val reason: RewriteReason[C] = axiom match
+      case Axiom.Native(native, application, result) =>
+        RewriteReason.Native(native, instructionOf(derivation, application), derivation.term(result))
       case Axiom.SetEquation(number) => RewriteReason.Equation(number, bindings)
       case Axiom.Lemma(lemma)        => RewriteReason.Lemma(lemma, bindings)
       case Axiom.Fill(code, holes) =>
-        RewriteReason.Fill(
-          Instruction.Thunk(code, holes, fillings(derivation.store.thunkArity(code, holes))),
-          boundVariable(bound, "argument")
-        )
-      case Axiom.Body(code) =>
-        RewriteReason.Body(Instruction.Thunk(code, Vector.empty, fillings(derivation.store.thunkArity(code, Vector.empty))))
-      case Axiom.Eta(code, holes) => RewriteReason.Eta(Instruction.Thunk(code, holes, fillings(1)))
-      case Axiom.Respell(code, holes) =>
-        RewriteReason.Respell(Instruction.Thunk(code, holes, fillings(derivation.store.thunkArity(code, holes))))
+        RewriteReason.Fill(code, holes, fillings(derivation.store.thunkArity(code, holes)), boundVariable(bound, "argument"))
+      case Axiom.Body(code)           => RewriteReason.Body(code, fillings(derivation.store.thunkArity(code, Vector.empty)))
+      case Axiom.Eta(code, holes)     => RewriteReason.Eta(code, holes, fillings(1))
+      case Axiom.Respell(code, holes) => RewriteReason.Respell(code, holes, fillings(derivation.store.thunkArity(code, holes)))
       case Axiom.Conversion(_, _) =>
         throw IllegalStateException(s"a conversion equation is no instance of a proof: the trace converts by replay")
+    val equation = Statement(sideRead(derivation, left), sideRead(derivation, right))
     OrientedStep(
-      RewriteStep(
-        reason,
-        Vector.empty,
-        RewriteDirection.Forward,
-        Statements.instance(equation.right, bound),
-        equation.provenance
-      ),
-      Statements.instance(equation.left, bound)
+      FlatStep(reason, Vector.empty, RewriteDirection.Forward, stepTerm(equation.right, bound), equation.provenance),
+      stepTerm(equation.left, bound)
     )
 
-  private def boundVariable(bound: Map[String, Instruction], name: String): Instruction =
+  /** A side of an equation of an article as a side of a statement over the round's terms. */
+  private def sideRead[C <: NativeSpecializer & Singleton](derivation: ArticleDerivation[C], side: ArticleTerm): StatementTerm[Configured[C]] =
+    statementOver(ArticleStore.statementTerm(side), derivation.term)
+
+  /** The side with each term it holds mapped. A trampoline: a side is as deep as a program. */
+  private def statementOver[From, To](side: StatementTerm[From], mapped: From => To): StatementTerm[To] =
+    def over(term: StatementTerm[From]): TailRec[StatementTerm[To]] = term match
+      case StatementTerm.Variable(name) => done(StatementTerm.Variable(name))
+      case StatementTerm.Stored(held)   => done(StatementTerm.Stored(mapped(held)))
+      case StatementTerm.Layered(layer) =>
+        ArticleStore.traversed(layer.children)(child => tailcall(over(child))).map(children => StatementTerm.Layered(layer.over(children)))
+    over(side).result
+
+  /** The side instantiated under the bindings: the thunk of a code with no hole as data (`StepTerm.Holeless`), any
+    * other side its term built through the configuration.
+    */
+  private def stepTerm[C <: NativeSpecializer & Singleton](side: StatementTerm[Configured[C]], bound: Map[String, Configured[C]])(using
+      C
+  ): StepTerm[C] = side match
+    case StatementTerm.Layered(Thunk(code, Vector(), fillings)) =>
+      StepTerm.Holeless(code, fillings.map(Statements.instance(_, bound)))
+    case other => StepTerm.Term(Statements.instance(other, bound))
+
+  private def boundVariable[C <: NativeSpecializer & Singleton](bound: Map[String, Configured[C]], name: String): Configured[C] =
     bound.getOrElse(name, throw IllegalStateException(s"the instance binds no $name"))
 
-  /** The closed instruction of a term over instructions. Throws
-    * `IllegalArgumentException` for a variable and for an equation.
+  /** The closed term of a term of an article over the article's terms, in the round's configuration. Throws
+    * `IllegalArgumentException` for a variable, for an equation and for a thunk of no hole, which is no term.
     */
-  def instructionOf(term: ArticleTerm): Instruction = Statements.instance(ArticleStore.statementTerm(term), Map.empty)
+  def instructionOf[C <: NativeSpecializer & Singleton](derivation: ArticleDerivation[C], term: ArticleTerm)(using C): Configured[C] =
+    Statements.instance(sideRead(derivation, term), Map.empty)
 
-  /** The axiom of the import set a reason instantiates. */
-  def axiom(reason: RewriteReason): Axiom = reason match
-    case RewriteReason.Lemma(lemma, _)                            => Axiom.Lemma(lemma)
-    case RewriteReason.Equation(number, _)                        => Axiom.SetEquation(number)
-    case RewriteReason.Fill(Instruction.Thunk(code, holes, _), _) => Axiom.Fill(code, holes)
-    case RewriteReason.Body(Instruction.Thunk(code, _, _))        => Axiom.Body(code)
-    case RewriteReason.Eta(Instruction.Thunk(code, holes, _))     => Axiom.Eta(code, holes)
-    case RewriteReason.Respell(Instruction.Thunk(code, holes, _)) => Axiom.Respell(code, holes)
-    case other => throw IllegalArgumentException(s"the reason $other holds no thunk")
+  /** The axiom of the import set a reason instantiates. Throws
+    * `IllegalArgumentException` for a native's fold, whose axiom states the
+    * article's terms, and for a reason of no axiom.
+    */
+  def axiom[C <: NativeSpecializer & Singleton](reason: RewriteReason[C]): Axiom = reason match
+    case RewriteReason.Lemma(lemma, _)             => Axiom.Lemma(lemma)
+    case RewriteReason.Equation(number, _)         => Axiom.SetEquation(number)
+    case RewriteReason.Fill(code, holes, _, _)     => Axiom.Fill(code, holes)
+    case RewriteReason.Body(code, _)               => Axiom.Body(code)
+    case RewriteReason.Eta(code, holes, _)         => Axiom.Eta(code, holes)
+    case RewriteReason.Respell(code, holes, _)     => Axiom.Respell(code, holes)
+    case other => throw IllegalArgumentException(s"the reason $other states no axiom of a step")
 
   /** The statement of the axiom a reason instantiates, as the article states
-    * it.
+    * it, over the article's terms.
     */
-  def statement(derivation: ArticleDerivation, reason: RewriteReason): Statement =
+  def statement[C <: NativeSpecializer & Singleton](derivation: ArticleDerivation[C], reason: RewriteReason[C]): Statement[TermId] =
     val (left, right) = derivation.store.axiomStatement(axiom(reason))
     Statement(ArticleStore.statementTerm(left), ArticleStore.statementTerm(right))
 
   /** The variables a reason binds, by name. */
-  def bound(reason: RewriteReason): Map[String, Instruction] =
-    def fillingsBound(thunk: Instruction): Map[String, Instruction] = thunk match
-      case Instruction.Thunk(_, _, fillings) =>
-        fillings.zipWithIndex.map((filling, place) => (s"filling$place", filling)).toMap
-      case other => throw IllegalArgumentException(s"$other is no thunk")
+  def bound[C <: NativeSpecializer & Singleton](reason: RewriteReason[C]): Map[String, Configured[C]] =
+    def fillingsBound(fillings: Vector[Configured[C]]): Map[String, Configured[C]] =
+      fillings.zipWithIndex.map((filling, place) => (s"filling$place", filling)).toMap
     reason match
-      case RewriteReason.Lemma(_, substitution)    => substitution.toMap
-      case RewriteReason.Equation(_, substitution) => substitution.toMap
-      case RewriteReason.Fill(thunk, argument)     => fillingsBound(thunk).updated("argument", argument)
-      case RewriteReason.Body(thunk)               => fillingsBound(thunk)
-      case RewriteReason.Eta(thunk)                => fillingsBound(thunk)
-      case RewriteReason.Respell(thunk)            => fillingsBound(thunk)
-      case RewriteReason.Unproved(_)               => Map.empty
-      case RewriteReason.Abstraction(_, _, _)      => Map.empty
+      case RewriteReason.Lemma(_, substitution)          => substitution.toMap
+      case RewriteReason.Equation(_, substitution)       => substitution.toMap
+      case RewriteReason.Fill(_, _, fillings, argument)  => fillingsBound(fillings).updated("argument", argument)
+      case RewriteReason.Body(_, fillings)               => fillingsBound(fillings)
+      case RewriteReason.Eta(_, _, fillings)             => fillingsBound(fillings)
+      case RewriteReason.Respell(_, _, fillings)         => fillingsBound(fillings)
+      case RewriteReason.Unproved(_)                     => Map.empty
+      case RewriteReason.Abstraction(_, _, _)            => Map.empty
+      case RewriteReason.Native(_, _, _)                 => Map.empty
 
   /** The term after the step. */
-  def applied(term: Instruction, step: RewriteStep): Instruction = Positions.replaced(term, step.position, step.replacement)
+  def applied[C <: NativeSpecializer & Singleton](term: Configured[C], step: RewriteStep[C])(using C, StorageAccess): Configured[C] =
+    Positions.replaced(term, step.position, step.replacement)

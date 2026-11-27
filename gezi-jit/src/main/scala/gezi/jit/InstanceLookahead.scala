@@ -1,10 +1,10 @@
 package gezi.jit
 
 import gezi.weakhead.Answers
+import gezi.weakhead.Attempt
 import gezi.weakhead.Computation
-import gezi.weakhead.Computed
+import gezi.ir.{NativeSpecializer}
 import gezi.weakhead.ReadingState
-import gezi.weakhead.Trampoline.tailcall
 
 /** How far the instance table pulls a missed instance's reading on its own,
   * beyond the heads its consumers ask for (`JitConfiguration.instanceLookahead`).
@@ -45,16 +45,17 @@ enum InstanceLookahead:
 object InstanceLookahead:
 
   /** The stream with its rest pulled within `steps` steps right after its
-    * first head (`WithinSteps`): the limit of the pull is the lesser of the
-    * steps after the head and the reading's own limit. A rest that ends or
-    * gives its next head within it is the stream's rest as pulled, with the
-    * state after the pull (where an instance's stream ends, the JIT has
-    * recorded its complete table); a pull that stops under that limit, below
-    * the reading's own, with no stop requested (its steps ran out, or work it
-    * could not pay for was refused) goes back to the state after the first
-    * head, the steps it spent still spent, and leaves the rest as it was;
-    * one under the reading's own limit, or one a requested stop ended, stops
-    * the stream there, as an unlimited pull would have.
+    * first head (`WithinSteps`), a speculative attempt (`ReadingState.attempted`)
+    * under a ceiling of the lesser of the steps after the head and the
+    * reading's bound. A rest that ends or gives its next head within it is
+    * the stream's rest as pulled, with the state after the pull (where an
+    * instance's stream ends, the JIT has recorded its complete table); a pull
+    * that stops at that ceiling, below the reading's bound, with no stop
+    * requested (its steps ran out, work it could not pay for was refused, or
+    * it exhausted a resource) goes back to the state after the first head,
+    * the steps it spent still spent, and leaves the rest as it was; one at
+    * the reading's bound, or one a requested stop ended, stops the stream
+    * there, as an unlimited pull would have.
     *
     * Going back drops what the pull changed in the reading's state, but not
     * a component it completed in the cache service when the reading shares
@@ -62,19 +63,12 @@ object InstanceLookahead:
     * complete least fixed point, which another reading may take as any
     * other.
     */
-  def lookedAhead[Answer](stream: Answers[ReadingState, Answer], steps: Long): Answers[ReadingState, Answer] =
+  def lookedAhead[C <: NativeSpecializer & Singleton, Answer](stream: Answers[ReadingState[C], Answer], steps: Long): Answers[ReadingState[C], Answer] =
     Answers(stream.pull.flatMap {
       case None => Computation.pure(None)
       case Some((head, rest)) =>
-        Computation(after =>
-          val limit = math.min(after.budget.spent + steps, after.budget.limit)
-          tailcall(rest.pull.run(after.copy(budget = after.budget.copy(limit = limit)))).map {
-            case Computed.Done(next, pulled) =>
-              Computed.Done(Some((head, Answers(Computation.pure(next)))), pulled.copy(budget = pulled.budget.copy(limit = after.budget.limit)))
-            case Computed.Stopped(stopped) if limit < after.budget.limit && !stopped.budget.stop.stopRequested =>
-              Computed.Done(Some((head, rest)), after.copy(budget = after.budget.copy(spent = stopped.budget.spent)))
-            case Computed.Stopped(stopped) =>
-              Computed.Stopped(stopped.copy(budget = stopped.budget.copy(limit = after.budget.limit)))
-          }
-        )
+        ReadingState.attempted(rest.pull, steps, speculative = true).map {
+          case Attempt.Finished(next) => Some((head, Answers(Computation.pure(next))))
+          case Attempt.OutOfSteps(_)  => Some((head, rest))
+        }
     })

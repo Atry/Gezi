@@ -1,5 +1,7 @@
 package gezi.weakhead
 
+import gezi.ir.NoFacts
+
 import hedgehog.Gen
 import hedgehog.Size
 import gezi.frontend.Term
@@ -18,6 +20,8 @@ import snapshot4s.generated.snapshotConfig
   * them, do untabled and finish with no head tabled).
   */
 class WeakHeadSnapshotTest extends gezi.generatedinputs.FailFastSuite with SeededSnapshots:
+
+  given NoFacts.type = NoFacts
 
   /** A budget far above what the finishing terms of at most 50 nodes take
     * and far below what would make the snapshot slow to compute.
@@ -44,7 +48,7 @@ class WeakHeadSnapshotTest extends gezi.generatedinputs.FailFastSuite with Seede
     EvaluatorTesting.headsWithin(mode, value, stepLimit) match
       case Bounded.Finished(heads) =>
         if heads.isEmpty then "no head"
-        else heads.map(head => text(DeBruijnHoas.term(head, Map.empty))).mkString("heads: ", " ; ", "")
+        else heads.map(head => text(DeBruijnHoas.term(head))).mkString("heads: ", " ; ", "")
       case Bounded.Exceeded            => s"past $stepLimit steps"
       case Bounded.Exhausted(resource) => s"out of $resource"
 

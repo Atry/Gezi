@@ -1,0 +1,33 @@
+# The application rule of the HM baseline (hindley_milner_unions), a module
+# of its own so that a type check may type applications otherwise: an
+# application of a function judged tf to an argument judged tx is judged by
+# its type, type_of of the application, written as the choice of it and the
+# unify node of tf and function_type tx (type_of of the application): both
+# are top up to contextual equivalence, and the judgment is the application
+# by absorption. hindley_milner_unions is hindley_milner_unions_judgments, this
+# module and hindley_milner_unions_occurrences; wren_scott_elimination types
+# applications by applied_type instead, with hindley_milner_unions_core.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "hindley_milner_unions") "types")
+λ function_type _ _ _ _
+. omega (omega (omega (omega corpora "library") "hindley_milner_unions") "judgments")
+λ type_of _ unify
+. export
+  λ _ rewriting _ _
+  . rewriting
+  λ _ lemmas _
+  . lemmas
+  λ s
+  . s
+    (λk. k "unions_application_typed")
+    (λx_0 x_1 x_2 x_3. (x_0 ∥ x_2 + x_0) (x_1 ∥ x_3 + x_1))
+    ( λ x_0 x_1 x_2 x_3
+      . ( (x_0 ∥ x_2 + x_0) (x_1 ∥ x_3 + x_1)
+        ∥ ( unify x_2 λ. function_type x_3 λ. type_of λ. (x_0 ∥ x_2 + x_0) (x_1 ∥ x_3 + x_1)
+          + type_of λ. (x_0 ∥ x_2 + x_0) (x_1 ∥ x_3 + x_1)
+          )
+        + (x_0 ∥ x_2 + x_0) (x_1 ∥ x_3 + x_1)
+        )
+    ) λ_ md _. md λk. k "[absorption](docs/design/gezi-hindley-milner-unions-proofs.md#absorption)"

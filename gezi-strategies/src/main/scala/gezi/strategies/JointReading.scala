@@ -12,19 +12,34 @@ package gezi.strategies
   *   reading enumerates:
   *   above it each such filling is settled to its first entry
   *   (`CodeCandidates.enumeratedOrSettled`), so that the reading stays linear in
-  *   the code's size and may miss a cheaper combination.
+  *   the code's size and may miss a cheaper combination. It also bounds the
+  *   listings by contract value of a thunk whose choices are folded by parts
+  *   (`CodeCandidates.contractListingsWithinBound`), each of which enumerates
+  *   up to it in turn, so such a thunk's reading evaluates its code at most
+  *   the square of the bound times.
   * @param wholeFoldBound
-  *   the largest such product at which a thunk the modules could fold by
+  *   the largest such product, capped by the enumeration bound
+  *   (`wholeFoldLimit`), at which a thunk the modules could fold by
   *   parts (`CodeCandidates.foldsByParts`) is read whole
   *   (`ThunkCandidates.candidates`) instead of by the dynamic program
   *   (`CodeCandidates.candidates`). Both give each reading's least cost over
   *   the combinations they enumerate (the laws `candidatesByParts` and
   *   `wholeFoldBoundKeepsLeastCosts` of `CostMonotonicityLaws`); a tie may
-  *   resolve to a different entry across the bound.
+  *   resolve to a different entry across the bound. A thunk is read whole
+  *   for this reason only at a product within the enumeration bound as well
+  *   (`wholeFoldLimit`): read whole above it, the thunk would settle fillings
+  *   the dynamic program does not at more entries, and what is settled would
+  *   not be monotone in the numbers of entries
+  *   (`gezi.extraction.CostModel.settledChildren`).
   */
 final case class JointReading(enumerationBound: Long, wholeFoldBound: Long):
   require(enumerationBound >= 1, s"the enumeration bound $enumerationBound is below 1")
   require(wholeFoldBound >= 0, s"the whole fold bound $wholeFoldBound is negative")
+
+  /** The largest product at which a thunk the modules could fold by parts
+    * is read whole: the whole fold bound, within the enumeration bound.
+    */
+  def wholeFoldLimit: Long = wholeFoldBound.min(enumerationBound)
 
 object JointReading:
 

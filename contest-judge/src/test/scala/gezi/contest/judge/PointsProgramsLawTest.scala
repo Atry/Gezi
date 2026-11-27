@@ -28,8 +28,11 @@ import scala.jdk.CollectionConverters.*
   * The sources are a repeated family drawn from a seed, with traps from a
   * second seed, `judgmentsOnly` drawn, and one judgment source per
   * evaluation source, its candidate the point's own program, so that every
-  * input has judgment rows of both origins. An input is logged by its draw,
-  * not by its points (`MemberJudgmentsLawTest`).
+  * input has judgment rows of both origins. Every iteration checks the first
+  * law also on a draw of a family every point of which gets a trap by
+  * construction (`LawFamilies.trapAtEveryPoint`), and that it writes one, so
+  * that the trap rows' references are always checked. An input is logged by
+  * its draw, not by its points (`MemberJudgmentsLawTest`).
   */
 class PointsProgramsLawTest extends GeneratedProperties:
 
@@ -70,9 +73,12 @@ class PointsProgramsLawTest extends GeneratedProperties:
       members: Vector[Boolean]
   )
 
-  private val draws: Gen[Draw] =
+  private val draws: Gen[Draw] = drawsOf(Gen.elementUnsafe(LawFamilies.names))
+
+  /** The draws of a family the generator gives. */
+  private def drawsOf(families: Gen[String]): Gen[Draw] =
     for
-      family <- Gen.elementUnsafe(LawFamilies.names)
+      family <- families
       seed <- Gen.long(Range.constant(0L, (1L << 31) - 1))
       trapSeed <- Gen.long(Range.constant(0L, (1L << 31) - 1)).filter(_ != seed)
       repetitions <- LawFamilies.repetitions(family, 3, 2)
@@ -129,51 +135,56 @@ class PointsProgramsLawTest extends GeneratedProperties:
 
   property("a file written and read gives each point its source's program, each judged program written once", _.copy(testLimit = 20)) {
     for
-      written <- draws
-        .forAllWithLog(logged)
-        .map(draw =>
-          val found = writtenDirectory(draw)
-          (draw, found, PointsFile.read(found._1))
-        )
-        .cover(20, "writes a trap", (_, _, points) => points.exists(isTrap))
+      draw <- draws.forAllWithLog(logged)
+      trapped <- drawsOf(Gen.constant(LawFamilies.trapAtEveryPoint)).forAllWithLog(logged)
     yield
-      val (draw, (directory, evaluations, judgments), points) = written
-      val programs: Map[String, gezi.ir.Instruction] =
-        (evaluations.map(source => source.name -> source.program) ++ judgments.map(source => source.name -> source.program))
-          .map((name, program) => name -> PointsFile.closedTerm(program))
-          .toMap
-      val givenNames = judgments.map(_.name).toSet
-      def owner(point: Point): String = point.question match
-        case Question.Judgment(_, _) if !givenNames.contains(point.name) => point.name.substring(0, point.name.lastIndexOf("/candidate_"))
-        case _                                                          => point.name
-      val judged = points.collect { case point @ Point(_, _, _, _, _, Question.Judgment(_, _)) => owner(point) }.distinct
-      val resolved = points.map(point =>
-        Result.assert(programs.get(owner(point)).contains(point.program)).log(s"${point.name}: not the program of ${owner(point)}")
-      )
-      val givenBack = judgments.map(source =>
-        Result.diff(
-          points.find(_.name == source.name),
-          Some(
-            Point(
-              source.name,
-              source.stage,
-              source.family,
-              source.weight,
-              PointsFile.closedTerm(source.program),
-              Question.Judgment(PointsFile.closedTerm(source.candidate), source.member)
-            )
-          )
-        )(_ == _)
-      )
-      val onlyJudgments = Result
-        .assert(!draw.judgmentsOnly || points.forall(point => point.question match
-          case Question.Judgment(_, _) => true
-          case _                       => false
-        ))
-        .log("an evaluation point written with judgmentsOnly")
-      val programRows = Result.diff(lines(directory, PointsFile.programsFileName).size - 1, judged.size)(_ == _).log("programs written")
-      Result.all((resolved ++ givenBack :+ onlyJudgments :+ programRows).toList)
+      val (trappedLaw, trappedPoints) = programsLaw(trapped)
+      programsLaw(draw)._1
+        .and(trappedLaw)
+        .and(Result.assert(trappedPoints.exists(isTrap)).log(s"${LawFamilies.trapAtEveryPoint} writes no trap"))
   }
+
+  /** The first law on the directory written from the draw, with the points
+    * read back.
+    */
+  private def programsLaw(draw: Draw): (Result, Vector[Point]) =
+    val (directory, evaluations, judgments) = writtenDirectory(draw)
+    val points = PointsFile.read(directory)
+    val programs: Map[String, Configured[NoFacts.type]] =
+      (evaluations.map(source => source.name -> source.program) ++ judgments.map(source => source.name -> source.program))
+        .map((name, program) => name -> PointsFile.closedTerm(program))
+        .toMap
+    val givenNames = judgments.map(_.name).toSet
+    def owner(point: Point): String = point.question match
+      case Question.Judgment(_, _) if !givenNames.contains(point.name) => point.name.substring(0, point.name.lastIndexOf("/candidate_"))
+      case _                                                          => point.name
+    val judged = points.collect { case point @ Point(_, _, _, _, _, Question.Judgment(_, _)) => owner(point) }.distinct
+    val resolved = points.map(point =>
+      Result.assert(programs.get(owner(point)).contains(point.program)).log(s"${point.name}: not the program of ${owner(point)}")
+    )
+    val givenBack = judgments.map(source =>
+      Result.diff(
+        points.find(_.name == source.name),
+        Some(
+          Point(
+            source.name,
+            source.stage,
+            source.family,
+            source.weight,
+            gezi.frontend.ExchangeText.line(PointsFile.closedTerm(source.program)),
+            Question.Judgment(PointsFile.closedTerm(source.candidate), source.member)
+          )
+        )
+      )(_ == _)
+    )
+    val onlyJudgments = Result
+      .assert(!draw.judgmentsOnly || points.forall(point => point.question match
+        case Question.Judgment(_, _) => true
+        case _                       => false
+      ))
+      .log("an evaluation point written with judgmentsOnly")
+    val programRows = Result.diff(lines(directory, PointsFile.programsFileName).size - 1, judged.size)(_ == _).log("programs written")
+    (Result.all((resolved ++ givenBack :+ onlyJudgments :+ programRows).toList), points)
 
   /** The tab-separated fields of a line. */
   private def columns(line: String): Vector[String] = line.split("\t", -1).toVector

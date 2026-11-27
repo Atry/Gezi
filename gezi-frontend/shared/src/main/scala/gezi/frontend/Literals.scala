@@ -5,6 +5,9 @@ import io.bullet.borer.Dom
 import io.bullet.borer.Tag
 import gezi.frontend.Term.λ
 import scala.annotation.tailrec
+import scala.util.control.TailCalls.TailRec
+import scala.util.control.TailCalls.done
+import scala.util.control.TailCalls.tailcall
 
 /** A literal of lambdalattice text: the bytes of one CBOR data item (RFC
   * 8949), the bytes the diagnostic notation of the literal gives. A literal
@@ -181,12 +184,35 @@ object Literals:
     * own depth; it stands under the abstractions of the bits, its free
     * variables shifted past them.
     */
-  def partialFunction(literal: Literal, body: DeBruijnTerm): DeBruijnTerm =
-    val taken = bits(literal)
-    val matched = Defunctionalization.shiftedFrom(body, 0, taken.size).result
-    taken.foldRight(matched)((bit, rest) =>
-      DeBruijnTerm.Lambda(
-        DeBruijnTerm.Apply(DeBruijnTerm.Apply(DeBruijnTerm.Variable(0), if bit then rest else top), if bit then top else rest)
+  def partialFunction[K](literal: Literal, body: DeBruijnTermOf[K]): DeBruijnTermOf[K] =
+    partialFunctionUnderBits(literal, shiftedDeeper(body, 0, bits(literal).size).result)
+
+  /** The term with every variable free at `depth` made `count` deeper. */
+  private def shiftedDeeper[K](term: DeBruijnTermOf[K], depth: Int, count: Int): TailRec[DeBruijnTermOf[K]] = term match
+    case DeBruijnTerm.Variable(index) =>
+      done(DeBruijnTerm.Variable[K](if index >= depth then index + count else index))
+    case DeBruijnTerm.Lambda(body) => tailcall(shiftedDeeper(body, depth + 1, count)).map(DeBruijnTerm.Lambda(_))
+    case DeBruijnTerm.Apply(left, right) =>
+      for leftShifted <- tailcall(shiftedDeeper(left, depth, count)); rightShifted <- tailcall(shiftedDeeper(right, depth, count))
+      yield DeBruijnTerm.Apply(leftShifted, rightShifted)
+    case DeBruijnTerm.Choice(left, right) =>
+      for leftShifted <- tailcall(shiftedDeeper(left, depth, count)); rightShifted <- tailcall(shiftedDeeper(right, depth, count))
+      yield DeBruijnTerm.Choice(leftShifted, rightShifted)
+    case DeBruijnTerm.Parallel(left, right) =>
+      for leftShifted <- tailcall(shiftedDeeper(left, depth, count)); rightShifted <- tailcall(shiftedDeeper(right, depth, count))
+      yield DeBruijnTerm.Parallel(leftShifted, rightShifted)
+    case _ => done(term)
+
+  /** `partialFunction` of a body already read under the abstractions of the
+    * literal's bits, as the reader reads it, so that it needs no shift.
+    */
+  private[frontend] def partialFunctionUnderBits[K](literal: Literal, matched: DeBruijnTermOf[K]): DeBruijnTermOf[K] =
+    bits(literal).foldRight(matched)((bit, rest) =>
+      DeBruijnTerm.Lambda[K](
+        DeBruijnTerm.Apply[K](
+          DeBruijnTerm.Apply[K](DeBruijnTerm.Variable[K](0), if bit then rest else top),
+          if bit then top else rest
+        )
       )
     )
 

@@ -1,0 +1,64 @@
+# The fewest coins whose values sum to a target, each usable any number of times, or none
+# when no coins do, written by the definition (the lengths of all sequences of coins summing
+# to the target are built and the least taken), and its typed version, which a native
+# computes. The helpers have the structure problems/cses/minimizing_coins gives them, so
+# that plover_minimizing_coins is the same IR term as the function a program writes.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "prelude") "fixpoint")
+λ fixpoint
+. omega (omega (omega (omega corpora "library") "prelude") "list")
+λ nil cons append map _
+. omega (omega (omega (omega corpora "library") "binary") "natural")
+λ binary_zero _ _ _ binary_set
+. omega (omega (omega (omega corpora "library") "binary") "arithmetic")
+λ merge_binary_increment merge_binary_plus _ merge_binary_equality
+. omega (omega (omega (omega corpora "library") "binary") "order")
+λ binary_less_than _ binary_minimum
+. omega (omega (omega (omega corpora "library") "native_types") "boolean")
+λ criterion_true criterion_false _ _
+. omega (omega (omega (omega corpora "library") "native_types") "list")
+λ _ _ _ list_type
+. omega (omega (omega (omega corpora "library") "plover_compositions") "plover_option_type")
+λ _ _ plover_option_type
+. ( λ tuple
+    . tuple λ. fixpoint λself function items. items nil λhead tail. append (function head) λ. self function tail
+  )
+λ concat_map
+. (λtuple. tuple λwhen_none when_some. when_none)
+λ none
+. (λtuple. tuple λvalue when_none when_some. when_some value)
+λ some
+. ( λ tuple
+    . tuple
+    λ
+    . fixpoint
+    λ self least candidates
+    . candidates least λcandidate rest. self (least (some candidate) λminimum. some λ. binary_minimum minimum candidate) rest
+  )
+λ least_from
+. ( λ tuple
+    . tuple
+    λ coins target
+    . fixpoint
+      ( λ self partial_sum
+        . binary_less_than target partial_sum nil λ. merge_binary_equality partial_sum target (cons binary_zero nil) λ. concat_map (λcoin. map merge_binary_increment λ. self λ. merge_binary_plus partial_sum coin) coins
+      ) binary_zero
+  )
+λ lengths
+# plover_minimizing_coins:
+# The function a program writes, a noinline attractor.
+. (λtuple. tuple λcoins target. least_from none λ. lengths coins target)
+λ plover_minimizing_coins
+# plover_typed_minimizing_coins:
+# The coins a list of positive naturals, the target a canonical natural, and the value an
+# option of a canonical natural: the filter at the root of this body names the family of
+# the native's result.
+. ( λ tuple
+    . tuple
+    λ coins target
+    . (plover_minimizing_coins (coins ∥ list_type (binary_set criterion_false)) (target ∥ binary_set criterion_true) ∥ plover_option_type (binary_set criterion_true))
+  )
+λ plover_typed_minimizing_coins
+. export plover_minimizing_coins plover_typed_minimizing_coins

@@ -19,7 +19,7 @@ object DeBruijnTerms:
     * free name. Throws for a variable no binder binds, for a constant, a
     * library name the corpora's generators never hold, and for a free name.
     */
-  def hoas(term: DeBruijnTerm): Term =
+  def hoas(term: ProblemDeBruijnTerm): ProblemTerm =
     hoas(
       term,
       name => throw IllegalArgumentException(s"a free name ($name) has no HOAS term in the problem corpora")
@@ -29,7 +29,7 @@ object DeBruijnTerms:
     * the term the function gives for it (`hoas` of a term alone gives none
     * and throws). Throws for a variable no binder binds and for a constant.
     */
-  def hoas(term: DeBruijnTerm, freeName: String => Term): Term = converted(term, List.empty, freeName).result
+  def hoas(term: ProblemDeBruijnTerm, freeName: String => ProblemTerm): ProblemTerm = converted(term, List.empty, freeName).result
 
   /** The HOAS term of a closed de Bruijn term `λx1. … λxn. Body`, n the
     * number of the arguments: Body with each xi the i-th argument, as a
@@ -37,9 +37,9 @@ object DeBruijnTerms:
     * instantiated. Throws when the term has fewer than n leading
     * abstractions, and as `hoas` does.
     */
-  def instantiated(term: DeBruijnTerm, arguments: Vector[Term]): Term =
+  def instantiated(term: ProblemDeBruijnTerm, arguments: Vector[ProblemTerm]): ProblemTerm =
     @scala.annotation.tailrec
-    def opened(rest: DeBruijnTerm, remaining: Vector[Term], environment: List[Term]): (DeBruijnTerm, List[Term]) =
+    def opened(rest: ProblemDeBruijnTerm, remaining: Vector[ProblemTerm], environment: List[ProblemTerm]): (ProblemDeBruijnTerm, List[ProblemTerm]) =
       remaining match
         case argument +: others =>
           rest match
@@ -54,7 +54,7 @@ object DeBruijnTerms:
       name => throw IllegalArgumentException(s"a free name ($name) has no HOAS term in the problem corpora")
     ).result
 
-  private def converted(term: DeBruijnTerm, environment: List[Term], freeName: String => Term): TailRec[Term] =
+  private def converted(term: ProblemDeBruijnTerm, environment: List[ProblemTerm], freeName: String => ProblemTerm): TailRec[ProblemTerm] =
     term match
       case DeBruijnTerm.Variable(index) =>
         environment.lift(index) match

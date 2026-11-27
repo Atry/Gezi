@@ -6,7 +6,7 @@ import hedgehog.Result
 import gezi.generatedinputs.GeneratedProperties
 import gezi.ir.Code
 import gezi.ir.Hole
-import gezi.ir.Instruction
+import gezi.generatedinputs.StandInStorages
 import gezi.ir.Store
 import gezi.ir.{Apply, Slot, Thunk}
 
@@ -22,7 +22,7 @@ import gezi.ir.{Apply, Slot, Thunk}
   */
 class MalformedThunkLawTest extends GeneratedProperties:
 
-  private val leaves: Vector[Instruction] = Vector(0, 1).map(position => Instruction.opaque(s"leaf $position"))
+  private val leaves: Vector[StandInStorages.Term] = Vector(0, 1).map(position => StandInStorages.opaque(s"leaf $position"))
 
   property("the graph rejects a thunk whose fillings are not its code's slots no hole binds") {
     val hole = Gen.element1[Hole](Hole.Bound(0), Hole.Bound(1), Hole.Ignored)
@@ -31,7 +31,7 @@ class MalformedThunkLawTest extends GeneratedProperties:
       holes <- hole.list(Range.linear(1, 2)).map(_.toVector).forAll
       fillingCount <- Gen.int(Range.linear(0, 2)).filter(count => !Code.fillingCount(code, holes).contains(count)).forAll
     yield
-      val (graph, leafNodes) = leaves.foldLeft((EGraph.empty(Store(noinline = leaves.toSet), Map.empty, explained = false), Vector.empty[Int])) {
+      val (graph, leafNodes) = leaves.foldLeft((EGraph.empty(Store(noinline = leaves.toSet, gezi.ir.TermConstruction(StandInStorages)), Map.empty, explained = false), Vector.empty[Int])) {
         case ((current, nodes), leaf) =>
           val (next, node) = current.instructionAdded(leaf)
           (next, nodes :+ node)

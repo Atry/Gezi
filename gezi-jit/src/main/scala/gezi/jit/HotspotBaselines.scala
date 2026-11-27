@@ -12,7 +12,7 @@ import gezi.weakhead.ApplicationReading
 import gezi.hotspot.ExpansionSource
 import gezi.weakhead.KnownExtremes
 import gezi.ir.Code
-import gezi.ir.Instruction
+import gezi.ir.{Configured, NativeSpecializer}
 import gezi.weakhead.Mode
 import gezi.weakhead.NoJitState
 import gezi.weakhead.ReadingExecutor
@@ -22,7 +22,8 @@ import gezi.weakhead.ReadingExecutor
   * its compiled codes among them.
   */
 object JitExecutor:
-  def of(jit: Jit): ReadingExecutor = ReadingExecutor(Mode.Jit(jit), NoJitState)
+  def of[C <: NativeSpecializer & Singleton](jit: Jit[C]): ReadingExecutor[C] =
+    ReadingExecutor(Mode.Jit, jit.readingConfiguration, NoJitState)
 
 /** The namespace of the instance table's complete tables in the cache
   * service: a key is an
@@ -33,22 +34,25 @@ object JitExecutor:
   * a table only where they would compute the same one. The memo of a pure
   * function of the key under those inputs (`CONTRIBUTING.md`, "Tables",
   * kind 2): a complete table is the least fixed point of the instance's
-  * reading, so clearing it changes only cost.
+  * reading, so clearing it changes only cost. The namespace is typed by the
+  * configuration `C` and names it by reference, so its native specializer
+  * (the configuration's `specializer`) is named by identity: the values it
+  * holds are terms of `C` and no reading of another configuration finds them.
   */
-final case class CompletedInstanceNamespace(
-    configuration: JitConfiguration,
+final case class CompletedInstanceNamespace[C <: NativeSpecializer & Singleton](
+    configuration: JitConfiguration[C],
     extremes: KnownExtremes,
     applications: ApplicationReading,
     source: ExpansionSource,
     override val retention: Retention
-) extends CacheNamespace[TabledInstance, AnswerSet[JitHead]]("jit.completed_instances")
+) extends CacheNamespace[TabledInstance[C], AnswerSet[JitHead[C]]]("jit.completed_instances")
 
 /** The configuration of the JIT's compilation as the key of its artifacts:
   * the JIT's configuration, compared by reference, as `JitRunState.of`
   * compares it (a configuration is built once and passed on), since its
   * generation strategy and backend are what a code is compiled by.
   */
-final case class JitCompilation(configuration: JitConfiguration) extends CompilerConfiguration
+final case class JitCompilation[C <: NativeSpecializer & Singleton](configuration: JitConfiguration[C]) extends CompilerConfiguration
 
 /** The namespace of the JIT's compiled codes in the cache service: a code's
   * closures (`CompiledCode`) by the code, interned, under the JIT's
@@ -63,8 +67,8 @@ final case class JitCompilation(configuration: JitConfiguration) extends Compile
   * the forms it took (`JitRunState.compiled`), a first level the JIT's
   * compilation budget counts.
   */
-final case class CompiledCodes(configuration: JitConfiguration, override val retention: Retention)
-    extends CacheNamespace[Code, CompiledCode]("jit.compiled_codes")
+final case class CompiledCodes[C <: NativeSpecializer & Singleton](configuration: JitConfiguration[C], override val retention: Retention)
+    extends CacheNamespace[Code, CompiledCode[C]]("jit.compiled_codes")
 
 /** The JIT's compilation as a compiler: a code
   * unit compiled by the configuration's generation strategy and backend
@@ -80,7 +84,8 @@ final case class CompiledCodes(configuration: JitConfiguration, override val ret
   * @param retention
   *   the retention of the namespace the compiled codes are written to
   */
-final case class JitCompiler(jitConfiguration: JitConfiguration, retention: Retention) extends Compiler[CompiledCode]:
+final case class JitCompiler[C <: NativeSpecializer & Singleton](jitConfiguration: JitConfiguration[C], retention: Retention)
+    extends Compiler[C, CompiledCode[C]]:
 
   def configuration: CompilerConfiguration = JitCompilation(jitConfiguration)
 
@@ -89,11 +94,11 @@ final case class JitCompiler(jitConfiguration: JitConfiguration, retention: Rete
     * `IllegalArgumentException` for a closure or a program unit.
     */
   def compiled(
-      residual: Instruction,
-      unit: CompilationUnit,
+      residual: Configured[C],
+      unit: CompilationUnit[C],
       dependencies: ExecutionDependencies,
       stop: gezi.saturation.StopSignal
-  ): (Compiler[CompiledCode], ExecutionDependencies, CompilationSpent) =
+  ): (Compiler[C, CompiledCode[C]], ExecutionDependencies, CompilationSpent) =
     unit match
       case CompilationUnit.Code(code) =>
         dependencies.cache.locked(CompiledCodes(jitConfiguration, retention))(_.getOrElseUpdate(code, JitRules(jitConfiguration).compiledCode(code)))

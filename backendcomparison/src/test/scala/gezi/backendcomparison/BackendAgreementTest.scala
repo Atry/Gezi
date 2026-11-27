@@ -4,7 +4,6 @@ import gezi.saturation.StopSignal
 import hedgehog.Gen
 import hedgehog.Range
 import hedgehog.Result
-import hedgehog.core.SuccessCount
 import gezi.egraph.EGraph
 import gezi.ematching.indexing.Indexing
 import gezi.orientation.LemmaSides
@@ -21,15 +20,15 @@ import gezi.saturation.Saturation
 import gezi.ir.BuiltInRule
 import gezi.ir.CodeLayer
 import gezi.ir.Code
-import gezi.ir.Instruction
 import gezi.ir.Hole
-import gezi.ir.Layer
+import gezi.ir.NonEmptyHoles
 import gezi.ir.LemmaIdentifier
 import gezi.ir.Pattern
 import gezi.ir.Store
 import gezi.generatedinputs.GeneratedProperties
 import gezi.generatedinputs.GeneratedStore
 import gezi.generatedinputs.OrientationGenerators
+import gezi.generatedinputs.StandInStorages
 import gezi.generatedinputs.StoreGenerators
 import gezi.ir.{Apply, Slot, Thunk}
 
@@ -41,15 +40,19 @@ import gezi.ir.{Apply, Slot, Thunk}
   * nodes, unions, counts, matches found and entries read, and the End), and
   * on the graph the closure backend reached gives an equal `Matching` (the
   * matches, their order, the entries read) for every node under every key
-  * of the program. Its purpose is to catch a backend that finds another
+  * of the program. Each iteration also runs a program that holds every
+  * kind of step and building by construction (`everyKindLemmas`,
+  * `withShapes`), so that every way a backend runs a program is reached.
+  * Its purpose is to catch a backend that finds another
   * match, in another order, reads another number of entries, or builds
   * other nodes or builds them in another order.
   */
 class BackendAgreementTest extends GeneratedProperties:
 
-  // Measured 2026-11-16 on 2 CPUs (contest-lean.slice, CPUs 10,11, nice 10), the 1-minute load 9 to 22 over the run, every deadline raised to 600 s: the slowest test of BackendAgreementTest, "every backend saturates to the same run and finds the same matching on every node", takes 9.309 s; the bound is 1.5 times that rounded up to 5 s.
-  // FIXME: this suite exceeds the 3 s default with no reason yet; its slow tests are to be made fast. https://github.com/Atry/private-overlay/issues/1925
-  override val munitTimeout: scala.concurrent.duration.Duration = scala.concurrent.duration.Duration(15, "s")
+  private type C = StandInStorages.type
+  private type Term = StandInStorages.Term
+
+  private given StandInStorages.type = StandInStorages
 
   /** A pattern over the store, of at most the depth, with metavariables
     * below the arity: a metavariable, an instruction of the store, an
@@ -57,9 +60,9 @@ class BackendAgreementTest extends GeneratedProperties:
     * of the store's thunks, or an eta-shaped lambda `\x. M x` over the code
     * `slot 0 slot 1`, which the orientation compiler reads as a closure.
     */
-  private def pattern(store: GeneratedStore, arity: Int, depth: Int): Gen[Pattern] =
+  private def pattern(store: GeneratedStore, arity: Int, depth: Int): Gen[Pattern[C]] =
     val instructions = store.instructions
-    val metavariable = Gen.int(Range.constant(0, arity - 1)).map(Pattern.Metavariable(_))
+    val metavariable = Gen.int(Range.constant(0, arity - 1)).map(Pattern.Metavariable[C](_))
     val reference = Gen.element(instructions.head, instructions.tail.toList).map(Pattern.InstructionReference(_))
     val leaves = List(3 -> metavariable, 2 -> reference)
     if depth <= 0 then Gen.frequency1(leaves.head, leaves.tail*)
@@ -88,7 +91,7 @@ class BackendAgreementTest extends GeneratedProperties:
   private val application =
     Code(Apply(Code(Slot(0)), Code(Slot(1))))
 
-  private def lemmas(store: GeneratedStore): Gen[Vector[LemmaSides]] =
+  private def lemmas(store: GeneratedStore): Gen[Vector[LemmaSides[C]]] =
     for
       count <- Gen.int(Range.linear(1, 4))
       sides <- (for
@@ -101,73 +104,127 @@ class BackendAgreementTest extends GeneratedProperties:
     }
 
   /** One or two inputs among the store's instructions. */
-  private def inputs(store: GeneratedStore): Gen[Vector[Instruction]] =
+  private def inputs(store: GeneratedStore): Gen[Vector[Term]] =
     val instructions = store.instructions
     Gen.element(instructions.head, instructions.tail.toList).list(Range.linear(1, 2)).map(_.toVector)
 
   private val budget = 40
 
-  stoppableProperty(
-    "every backend saturates to the same run and finds the same matching on every node",
-    _.copy(testLimit = SuccessCount(300))
-  ) { stopped =>
+  stoppableProperty("every backend saturates to the same run and finds the same matching on every node") { stopped =>
     val generated = for
       store <- StoreGenerators.store
       sides <- lemmas(store)
       inputInstructions <- inputs(store)
-    yield (store, sides, inputInstructions)
-    val covered = stepCoverage.foldLeft(generated.forAll) { case (property, (name, percentage, holds)) =>
-      property.cover(percentage, name, (store, sides, _) => holds(programOf(store, sides)))
-    }
-    for (store, sides, inputInstructions) <- covered
+      head <- Gen.element(store.instructions.head, store.instructions.tail.toList)
+    yield (store, sides, inputInstructions, head)
+    for (store, sides, inputInstructions, head) <- generated.forAll
     yield
+      val stop = StopSignal.completedWith(stopped)
       val compiled = OrientationCompilation.compiled(sides, store.store)
-      agreement(store, compiled.orientations, compiled.patternInstructions, inputInstructions, StopSignal.completedWith(stopped))
+      val everyKind = withShapes(store)
+      val everyKindCompiled = OrientationCompilation.compiled(everyKindLemmas(head), everyKind.store)
+      val everyKindProgram = Indexing.program(everyKindCompiled.orientations, everyKind.codes)
+      Result.all(
+        List(
+          agreement(store, compiled.orientations, compiled.patternInstructions, inputInstructions, stop),
+          Result.all(stepCoverage.toList.map((name, holds) => Result.assert(holds(everyKindProgram)).log(s"the constructed program has no $name"))),
+          agreement(everyKind, everyKindCompiled.orientations, everyKindCompiled.patternInstructions, everyKind.instructions, stop)
+        )
+      )
   }
 
-  stoppableProperty(
-    "every backend agrees on orientations that abstract stored terms",
-    // Lookups (determined subpatterns below a seed's delta) are in 16% of
-    // the generated programs (measured on 2026-10-31, 100 cases; the
-    // threshold is about a third); IndexedMatchingTest runs 300 cases for the
-    // same reason.
-    _.copy(testLimit = SuccessCount(300))
-  ) { stopped =>
+  stoppableProperty("every backend agrees on orientations that abstract stored terms") { stopped =>
     val generated = for
       store <- StoreGenerators.store
       orientations <- OrientationGenerators.orientationsOver(store)
     yield (store, orientations)
-    val covered = generated.forAll
-      .cover(5.0, "a lookup", (store, orientations) =>
-        steps(Indexing.program(orientations, store.codes)).exists {
-          case Step.Lookup(_, _, _) => true
-          case _                    => false
-        }
-      )
-    for (store, orientations) <- covered
+    for (store, orientations) <- generated.forAll
     yield
-      agreement(store, orientations, Vector.empty, store.instructions, StopSignal.completedWith(stopped))
+      val stop = StopSignal.completedWith(stopped)
+      // The constructed store holds (l ∥ l) l, which `(M0 ∥ M0) M0`
+      // abstracts; its seed at `M0 ∥ M0` binds M0, so the application is
+      // looked up by signature.
+      val withLookup = withShapes(store)
+      val lookupCompiled = OrientationCompilation.compiled(
+        Vector(LemmaSides(LemmaIdentifier(0), 1, Pattern.Apply(Pattern.Parallel(first, first), first), first)),
+        withLookup.store
+      )
+      val lookedUp = steps(Indexing.program(lookupCompiled.orientations, withLookup.codes)).exists {
+        case Step.Lookup(_, _, _) => true
+        case _                    => false
+      }
+      Result.all(
+        List(
+          agreement(store, orientations, Vector.empty, store.instructions, stop),
+          Result.assert(lookedUp).log("the constructed program has no lookup"),
+          agreement(withLookup, lookupCompiled.orientations, lookupCompiled.patternInstructions, withLookup.instructions, stop)
+        )
+      )
   }
+
+  private val first: Pattern[C] = Pattern.Metavariable(0)
+  private val second: Pattern[C] = Pattern.Metavariable(1)
+
+  /** The generated store with three more instructions over its first, l:
+    * the thunk `λx. x l` (the code `slot 0 slot 1`, its hole bound to slot
+    * 0), `l ∥ l`, and `(l ∥ l) l`.
+    */
+  private def withShapes(generated: GeneratedStore): GeneratedStore =
+    val leaf = generated.instructions.head
+    val paralleled = StandInStorages.parallel(leaf, leaf)
+    val added = Vector(
+      StandInStorages.thunk(application, NonEmptyHoles(Hole.Bound(0), Vector.empty), Vector(leaf)),
+      paralleled,
+      StandInStorages.application(paralleled, leaf)
+    )
+    generated.copy(instructions = (generated.instructions ++ added).distinct)
+
+  /** One lemma for each kind of `stepCoverage`, derived from the seeds
+    * (`gezi.ematching.indexing.Seeding`), the head an instruction of the
+    * store: `(M0 ∥ M0) M1 = M0`, matched from `M0 ∥ M0` through the users of
+    * its class and from the root through the members of a class;
+    * `M0 M0 + M1 = M1`, a choice's layer, and from `M0 M0` the users at a
+    * position; `(λx. M0 x) M1 = M1`, a lambda pattern, a closure state;
+    * `M0 (M1 ∥ M1) = M0`, M1 inessential and only in its one copy, a
+    * witness; `λx. x M0 = M0`, a thunk's layer; `head M0 ∥ M1 = M1`, the
+    * members of a class under the head; `head M0 = λx. x M0`, a thunk
+    * built; `head M0 M1 = (λx. x M0) M1`, an application of a thunk pattern,
+    * which the β rule reads (a matched side headed by the instruction, since
+    * the orientation compiler orients no side whose head is a metavariable).
+    */
+  private def everyKindLemmas(head: Term): Vector[LemmaSides[C]] =
+    val eta = Pattern.Thunk[C](application, Vector(Hole.Bound(1)), Vector(first))
+    val applying = Pattern.Thunk[C](application, Vector(Hole.Bound(0)), Vector(first))
+    Vector(
+      (2, Pattern.Apply(Pattern.Parallel(first, first), second), first),
+      (2, Pattern.Choice(Pattern.Apply(first, first), second), second),
+      (2, Pattern.Apply(eta, second), second),
+      (2, Pattern.Apply(first, Pattern.Parallel(second, second)), first),
+      (1, applying, first),
+      (2, Pattern.Parallel(Pattern.Apply(Pattern.InstructionReference(head), first), second), second),
+      (1, Pattern.Apply(Pattern.InstructionReference(head), first), applying),
+      (2, Pattern.Apply(Pattern.Apply(Pattern.InstructionReference(head), first), second), Pattern.Apply(applying, second))
+    ).zipWithIndex.map { case ((arity, left, right), index) => LemmaSides(LemmaIdentifier(index), arity, left, right) }
 
   /** The runs of every backend on the program of the orientations equal the
     * closure backend's, and so do their matchings on the graph it reached.
     */
   private def agreement(
       generated: GeneratedStore,
-      orientations: Vector[Orientation],
-      patternInstructions: Vector[Instruction],
-      inputInstructions: Vector[Instruction],
+      orientations: Vector[Orientation[C]],
+      patternInstructions: Vector[Term],
+      inputInstructions: Vector[Term],
       stop: StopSignal
   ): Result =
     val store = generated.store
     val program = Indexing.program(orientations, generated.codes)
     val bounds = Orientations.headArityBounds(orientations)
     val compiledPrograms = Backends.byName.map((name, backend) => (name, backend.compiled(program)))
-    def run(compiledProgram: CompiledProgram): Run =
+    def run(compiledProgram: CompiledProgram[C]): Run[C] =
       Saturation.run(
         program,
         compiledProgram,
-        BuiltInRule.all,
+        BuiltInRule.beforeOptIn,
         store,
         bounds,
         patternInstructions,
@@ -187,16 +244,13 @@ class BackendAgreementTest extends GeneratedProperties:
     )
     runsEqual.and(matchingsEqual(program, compiledPrograms, referenceProgram, reference.graph))
 
-  private def programOf(store: GeneratedStore, sides: Vector[LemmaSides]): Program =
-    Indexing.program(OrientationCompilation.compiled(sides, store.store).orientations, store.codes)
-
-  private def steps(program: Program): Vector[Step] =
-    def within(step: Step): Vector[Step] = step match
+  private def steps(program: Program[C]): Vector[Step[C]] =
+    def within(step: Step[C]): Vector[Step[C]] = step match
       case Step.Once(inner) => step +: inner.flatMap(within)
       case other            => Vector(other)
     program.seeds.values.toVector.flatten.flatMap(_.steps.flatMap(within))
 
-  private def within(building: Building): Vector[Building] = building +: (building match
+  private def within(building: Building[C]): Vector[Building[C]] = building +: (building match
     case Building.Apply(function, argument, _) => within(function) ++ within(argument)
     case Building.Parallel(left, right)        => within(left) ++ within(right)
     case Building.Choice(left, right)          => within(left) ++ within(right)
@@ -204,39 +258,29 @@ class BackendAgreementTest extends GeneratedProperties:
     case _                                     => Vector.empty)
 
   /** The buildings of the added sides and shared subterms, and of the codes. */
-  private def orientationBuildings(program: Program): Vector[Building] =
+  private def orientationBuildings(program: Program[C]): Vector[Building[C]] =
     program.orientations.flatMap(plan => plan.added +: plan.shared).flatMap(within)
 
-  private def codeBuildings(program: Program): Vector[Building] =
+  private def codeBuildings(program: Program[C]): Vector[Building[C]] =
     program.codes.values.toVector.flatMap(within)
 
-  /** The share of generated cases whose program holds each kind of step and
-    * building, at least the percentage given, so that the generator keeps
-    * reaching every way a backend runs a program. The shares measured on
-    * 2026-10-31 after the seed trees and lookups were merged (thresholds of
-    * 100%, which made Hedgehog report them, 100 cases): a closure state
-    * checked 38%, members read 37%, users read 31%, a choice's layer read
-    * 21%, a thunk's layer read 17%, an application the β rule reads 11%, a
-    * thunk built 9%, a witness and head members read 7%, position users read
-    * 2%. Each threshold is about a third of its share, so that a fresh seed
-    * falls below it rarely; the property runs 300 cases so that position
-    * users, whose third is one case in 300, are reached.
+  /** Each kind of step and building a backend runs, each held by the
+    * program of `everyKindLemmas` by construction.
     */
-  private val stepCoverage: Vector[(String, Double, Program => Boolean)] =
-    def stepExists(holds: Step => Boolean): Program => Boolean = program => steps(program).exists(holds)
+  private val stepCoverage: Vector[(String, Program[C] => Boolean)] =
+    def stepExists(holds: Step[C] => Boolean): Program[C] => Boolean = program => steps(program).exists(holds)
     Vector(
-      ("users read", 10.0, stepExists { case Step.EachUser(_, _, _) => true; case _ => false }),
-      ("members read", 12.0, stepExists { case Step.EachMember(_, _, _) => true; case _ => false }),
-      ("a closure state checked", 12.0, stepExists { case Step.HasClosure(_) => true; case _ => false }),
-      ("a witness", 2.0, stepExists { case Step.Once(_) => true; case _ => false }),
-      ("a choice's layer read", 7.0, stepExists { case Step.Layer(_, LayerTemplate.Choice, _) => true; case _ => false }),
-      ("a thunk's layer read", 5.0, stepExists { case Step.Layer(_, LayerTemplate.Thunk(_, _), _) => true; case _ => false }),
-      ("head members read", 2.0, stepExists { case Step.EachHeadMember(_, _, _) => true; case _ => false }),
-      ("position users read", 0.34, stepExists { case Step.EachPositionUser(_, _, _, _) => true; case _ => false }),
-      ("a thunk built", 3.0, program => orientationBuildings(program).exists { case Building.Thunk(_, _, _) => true; case _ => false }),
+      ("users read", stepExists { case Step.EachUser(_, _, _) => true; case _ => false }),
+      ("members read", stepExists { case Step.EachMember(_, _, _) => true; case _ => false }),
+      ("a closure state checked", stepExists { case Step.HasClosure(_) => true; case _ => false }),
+      ("a witness", stepExists { case Step.Once(_) => true; case _ => false }),
+      ("a choice's layer read", stepExists { case Step.Layer(_, LayerTemplate.Choice, _) => true; case _ => false }),
+      ("a thunk's layer read", stepExists { case Step.Layer(_, LayerTemplate.Thunk(_, _), _) => true; case _ => false }),
+      ("head members read", stepExists { case Step.EachHeadMember(_, _, _) => true; case _ => false }),
+      ("position users read", stepExists { case Step.EachPositionUser(_, _, _, _) => true; case _ => false }),
+      ("a thunk built", program => orientationBuildings(program).exists { case Building.Thunk(_, _, _) => true; case _ => false }),
       (
         "an application the β rule reads",
-        3.0,
         program => (orientationBuildings(program) ++ codeBuildings(program)).exists { case Building.Apply(_, _, true) => true; case _ => false }
       )
     )
@@ -246,10 +290,10 @@ class BackendAgreementTest extends GeneratedProperties:
     * compiled once by the caller.
     */
   private def matchingsEqual(
-      program: Program,
-      compiledPrograms: Vector[(String, CompiledProgram)],
-      referenceProgram: CompiledProgram,
-      graph: EGraph
+      program: Program[C],
+      compiledPrograms: Vector[(String, CompiledProgram[C])],
+      referenceProgram: CompiledProgram[C],
+      graph: EGraph[C]
   ): Result =
     Result.all(
       (for

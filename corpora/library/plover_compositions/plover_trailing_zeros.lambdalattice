@@ -1,0 +1,68 @@
+# The number of decimal zeros that end the factorial of a natural, written by the
+# definition (the product of 1 to n, then divisions by ten while the remainder is zero),
+# and its typed version, which a native computes. The helpers have the structure
+# problems/cses/trailing_zeros and problems/cses/common/binary_modular give them, so
+# that plover_trailing_zeros is the same IR term as the function a program writes.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "prelude") "fixpoint")
+λ fixpoint
+. omega (omega (omega (omega corpora "library") "prelude") "boolean")
+λ _ false _ _
+. omega (omega (omega (omega corpora "library") "binary") "natural")
+λ binary_zero binary_even binary_odd _ binary_set
+. omega (omega (omega (omega corpora "library") "binary") "arithmetic")
+λ merge_binary_increment _ merge_binary_times _
+. omega (omega (omega (omega corpora "library") "binary") "order")
+λ binary_less_than _ _
+. omega (omega (omega (omega corpora "library") "native_types") "boolean")
+λ criterion_true _ _ _
+. omega (omega (omega (omega corpora "library") "plover_compositions") "plover_binary_arithmetic")
+λ binary_double binary_subtract
+. (λtuple. tuple (binary_odd binary_zero))
+λ one
+. (λtuple. tuple (binary_even λ. binary_odd λ. binary_even λ. binary_odd binary_zero))
+λ ten
+. ( λ tuple
+    . tuple
+    λ quotient remainder continue
+    . binary_less_than remainder ten (continue (binary_double quotient) remainder) (continue (binary_odd quotient) (binary_subtract remainder ten false))
+  )
+λ settle
+. ( λ tuple
+    . tuple
+    λ. fixpoint
+    λ self natural
+    . natural (λcontinue. continue binary_zero binary_zero)
+      (λhalf continue. self half λquotient remainder. settle quotient (binary_double remainder) continue)
+      λhalf continue. self half λquotient remainder. settle quotient (binary_odd remainder) continue
+  )
+λ ten_quotient_remainder
+. ( λ tuple
+    . tuple
+    λ limit
+    . fixpoint
+      ( λ self factor product
+        . binary_less_than limit factor product (self (merge_binary_increment factor) (merge_binary_times product factor))
+      ) one one
+  )
+λ factorial
+. ( λ tuple
+    . tuple
+    λ. fixpoint
+    λ self number count
+    . ten_quotient_remainder number
+      λ quotient remainder
+      . remainder (self quotient (merge_binary_increment count)) (λ_. count) λ_. count
+  )
+λ zeros_of
+# plover_trailing_zeros:
+# The function a program writes, a noinline attractor.
+. (λtuple. tuple λlimit. zeros_of (factorial limit) binary_zero)
+λ plover_trailing_zeros
+# plover_typed_trailing_zeros:
+# The operand a canonical natural.
+. (λtuple. tuple λ limit. (plover_trailing_zeros (limit ∥ binary_set criterion_true) ∥ binary_set criterion_true))
+λ plover_typed_trailing_zeros
+. export plover_trailing_zeros plover_typed_trailing_zeros

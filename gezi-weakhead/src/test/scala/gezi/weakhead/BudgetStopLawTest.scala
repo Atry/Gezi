@@ -1,5 +1,8 @@
 package gezi.weakhead
 
+import gezi.ir.NoFacts
+import gezi.ir.Configured
+import gezi.ir.Value
 import hedgehog.Gen
 import hedgehog.Range
 import hedgehog.Result
@@ -10,7 +13,6 @@ import gezi.hotspot.ExecutionDependencies
 import gezi.hotspot.ExpansionSource
 import gezi.saturation.StopSignal
 import gezi.hotspot.baselines.BaselineCaches
-import gezi.ir.Instruction
 import gezi.standardlibrary.SplitMix
 
 /** The laws of a reading's budget under a fork's stop signal
@@ -32,6 +34,8 @@ import gezi.standardlibrary.SplitMix
   */
 class BudgetStopLawTest extends GeneratedProperties:
 
+  given NoFacts.type = NoFacts
+
   private val limit: Long = 20000
 
   /** A stop requested before the reading starts. */
@@ -46,9 +50,18 @@ class BudgetStopLawTest extends GeneratedProperties:
 
   private val modes: Vector[(String, Mode)] = Vector(("weak_head", Mode.WeakHead), ("tabling(weak_head)", Mode.TablingWeakHead))
 
+  private def sameRead(
+      left: (Option[Vector[Configured[NoFacts.type]]], Long),
+      right: (Option[Vector[Configured[NoFacts.type]]], Long)
+  ): Boolean =
+    left._2 == right._2 && ((left._1, right._1) match
+      case (Some(leftForms), Some(rightForms)) => EvaluatorTesting.sameInstructions(leftForms, rightForms)
+      case (None, None)                        => true
+      case _                                   => false)
+
   /** The reading's normal forms, if it finished, and the steps it spent. */
-  private def read(mode: Mode, value: Value, budget: Budget): (Option[Vector[Instruction]], Long) =
-    NormalForms.normalForms(mode, value).result(ReadingState.fresh(limit).copy(budget = budget)) match
+  private def read(mode: Mode, value: Value[NoFacts.type], budget: Budget): (Option[Vector[Configured[NoFacts.type]]], Long) =
+    NormalForms.normalForms(mode, value).result(ReadingState.fresh(limit, gezi.weakhead.ReadingConfiguration.withoutFacts).copy(budget = budget)) match
       case Computed.Done(normalForms, after) => (Some(normalForms), after.budget.spent)
       case Computed.Stopped(after)           => (None, after.budget.spent)
 
@@ -56,14 +69,14 @@ class BudgetStopLawTest extends GeneratedProperties:
     property(s"a reading under the never-stopped signal is the reading of its steps alone, under $name") {
       for term <- terms.forAll
       yield
-        val value = Defunctionalization.thunkInstruction(term)
-        Result.diff(read(mode, value, Budget.stoppedBy(limit, StopSignal.NeverStopped)), read(mode, value, Budget.of(limit)))(_ == _)
+        val value = Value.of(Defunctionalization.thunkInstruction[NoFacts.type](term))
+        Result.diff(read(mode, value, Budget.stoppedBy(limit, StopSignal.NeverStopped)), read(mode, value, Budget.of(limit)))(sameRead)
     }
 
     property(s"a reading whose stop is already requested stops within the check interval, under $name") {
       for term <- terms.forAll
       yield
-        val value = Defunctionalization.thunkInstruction(term)
+        val value = Value.of(Defunctionalization.thunkInstruction[NoFacts.type](term))
         val (_, wholeSpent) = read(mode, value, Budget.of(limit))
         val (stopped, stoppedSpent) = read(mode, value, Budget.stoppedBy(limit, AlreadyStopped))
         Result.all(
@@ -77,8 +90,8 @@ class BudgetStopLawTest extends GeneratedProperties:
     property(s"the next reading of a suite keeps a requested stop, under $name") {
       for term <- terms.forAll
       yield
-        val value = Defunctionalization.thunkInstruction(term)
-        val next = ReadingState.fresh(limit).copy(budget = Budget.stoppedBy(limit, AlreadyStopped)).nextReading(limit)
+        val value = Value.of(Defunctionalization.thunkInstruction[NoFacts.type](term))
+        val next = ReadingState.fresh(limit, gezi.weakhead.ReadingConfiguration.withoutFacts).copy(budget = Budget.stoppedBy(limit, AlreadyStopped)).nextReading(limit)
         val stoppedSpent = NormalForms.normalForms(mode, value).result(next) match
           case Computed.Done(_, after) => after.budget.spent
           case Computed.Stopped(after) => after.budget.spent
@@ -89,8 +102,8 @@ class BudgetStopLawTest extends GeneratedProperties:
       for term <- terms.forAll
       yield
         val dependencies = ExecutionDependencies(BaselineCaches.provider(), ExpansionSource.fresh())
-        val executor = ReadingExecutor(mode, NoJitState)
-        val instruction = Defunctionalization.thunkInstruction(term)
+        val executor = ReadingExecutor(mode, gezi.weakhead.ReadingConfiguration.withoutFacts, NoJitState)
+        val instruction = Defunctionalization.thunkInstruction[NoFacts.type](term)
         val (_, _, whole) = executor.executed(instruction, dependencies, hotspot.Budget(limit, countedUnits = false, StopSignal.NeverStopped))
         val (afterCancel, _, cancelled) = executor.executed(instruction, dependencies, hotspot.Budget(limit, countedUnits = false, AlreadyStopped))
         (whole.suspension, cancelled.suspension) match
@@ -100,10 +113,10 @@ class BudgetStopLawTest extends GeneratedProperties:
             Result.all(
               List(
                 Result.assert(cancelled.spent.steps <= Budget.stopCheckSteps).log(s"cancelled after ${cancelled.spent.steps}"),
-                Result.diff(cancelled.found ++ resumed.found, whole.found)(_ == _)
+                Result.diff(cancelled.found ++ resumed.found, whole.found)(EvaluatorTesting.sameInstructions)
               )
             )
-          case (None, None) => Result.diff(cancelled.found, whole.found)(_ == _)
+          case (None, None) => Result.diff(cancelled.found, whole.found)(EvaluatorTesting.sameInstructions)
           case _            => Result.success
     }
 
@@ -111,8 +124,8 @@ class BudgetStopLawTest extends GeneratedProperties:
       for term <- terms.forAll
       yield
         val dependencies = ExecutionDependencies(BaselineCaches.provider(), ExpansionSource.fresh())
-        val executor = ReadingExecutor(mode, NoJitState)
-        val (_, _, first) = executor.executed(Defunctionalization.thunkInstruction(term), dependencies, hotspot.Budget(1, countedUnits = false, StopSignal.NeverStopped))
+        val executor = ReadingExecutor(mode, gezi.weakhead.ReadingConfiguration.withoutFacts, NoJitState)
+        val (_, _, first) = executor.executed(Defunctionalization.thunkInstruction[NoFacts.type](term), dependencies, hotspot.Budget(1, countedUnits = false, StopSignal.NeverStopped))
         first.suspension match
           case None => Result.success
           case Some(suspension) =>

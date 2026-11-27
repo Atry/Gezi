@@ -5,7 +5,9 @@ import hedgehog.Range
 import hedgehog.Result
 import gezi.generatedinputs.GeneratedProperties
 import gezi.generatedinputs.HoasGenerators
-import gezi.ir.Instruction
+import gezi.ir.Configured
+import gezi.ir.NoFacts
+import gezi.ir.StorageAccess
 
 /** The laws of the exchange format (`ExchangeText`) on generated closed
   * instructions of every construct, some holding a closed part several
@@ -32,17 +34,20 @@ import gezi.ir.Instruction
   */
 class ExchangeTextLawTest extends GeneratedProperties:
 
-  private val instructions: Gen[Instruction] = SharingInstructions.instructions
+  given NoFacts.type = NoFacts
+  given StorageAccess = StorageAccess.granted()
+
+  private val instructions: Gen[Configured[NoFacts.type]] = SharingInstructions.instructions
 
   /** The text the printer writes for the instruction, the input's log. */
-  private def printedText(instruction: Instruction): String = ReadableText.printedNameless(instruction).text
+  private def printedText(instruction: Configured[NoFacts.type]): String = ReadableText.printedNameless(instruction).text
 
   property("a line reads back as its instruction, is the line written again, and holds no tab or newline", _.copy(testLimit = 20)) {
     instructions.forAllWithLog(printedText).map(instruction =>
       val written = ExchangeText.line(instruction)
       Result.all(
         List(
-          Result.diff(ExchangeText.term(written).map(_ eq instruction), Right(true))(_ == _),
+          Result.diff(ExchangeText.term[NoFacts.type](written).map(Configured.same(_, instruction)), Right(true))(_ == _),
           Result.assert(!written.exists(character => character == '\t' || character == '\n' || character == '\r'))
         )
       )
@@ -72,13 +77,17 @@ class ExchangeTextLawTest extends GeneratedProperties:
     for programs <- HoasGenerators.closedTerm.list(Range.linear(0, 4)).forAll
     yield
       val members = programs.toVector
-        .map(program => Defunctionalization.thunkInstruction(program.deBruijnTerm(Map.empty)))
+        .map(program => Defunctionalization.thunkInstruction[NoFacts.type](program.deBruijnTerm(Map.empty)))
         .filter {
-          case Instruction.Choice(_, _) => false
-          case _                        => true
+          case member =>
+            member.layer match
+              case gezi.ir.Choice(_, _) => false
+              case _                    => true
         }
       Result.diff(
-        ExchangeText.normalForms(ExchangeText.normalFormsLine(members)).map(found => found.size == members.size && found.lazyZip(members).forall(_ eq _)),
+        ExchangeText
+          .normalForms[NoFacts.type](ExchangeText.normalFormsLine(members))
+          .map(found => found.size == members.size && found.lazyZip(members).forall(Configured.same(_, _))),
         Right(true)
       )(_ == _)
   }

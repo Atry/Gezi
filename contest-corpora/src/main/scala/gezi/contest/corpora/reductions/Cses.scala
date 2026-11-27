@@ -6,12 +6,15 @@ import gezi.frontend.DeBruijnTerm
 import gezi.frontend.Defunctionalization
 import gezi.frontend.Literals
 import gezi.frontend.Term
-import gezi.ir.Instruction
 import gezi.standardlibrary.StandardLibrary
 import gezi.weakhead.Expansions
 import scala.util.control.TailCalls.TailRec
 import scala.util.control.TailCalls.done
 import scala.util.control.TailCalls.tailcall
+import gezi.ir.{Configured, NativeSpecializer, NoFacts}
+
+/** The corpora are read under no facts. */
+private given csesNoFacts: NoFacts.type = NoFacts
 
 /** The functions of `problems/cses`, the port of the CSES Problem
   * Set, that
@@ -29,74 +32,226 @@ import scala.util.control.TailCalls.tailcall
   * URI expansions the owner carries (`ProblemFamilies.sharedExpansions`) and
   * is made once, when first used.
   */
-final case class CsesProblems(root: Path, expansions: Expansions):
+final case class CsesProblems(root: Path, expansions: Expansions[gezi.ir.NoFacts.type]):
 
   /** The function the problem's file exports, as a closed instruction. */
-  private def read(problem: String): Instruction =
+  private def read(problem: String): Configured[NoFacts.type] =
     readFile(root.resolve("problems").resolve(CsesProblems.directory).resolve(problem).resolve(problem + DirectoryTree.fileExtension))
 
   /** The function the file exports, as a closed instruction. */
-  private def readFile(file: Path): Instruction = StandardLibrary.entryMember(root, file, expansions)._1
+  private def readFile(file: Path): Configured[NoFacts.type] = StandardLibrary.entryMember(root, file, expansions)._1
 
   /** `dice_combinations n`. */
-  lazy val diceCombinations: Instruction = read("dice_combinations")
+  lazy val diceCombinations: Configured[NoFacts.type] = read("dice_combinations")
 
   /** `minimizing_coins coins x`. */
-  lazy val minimizingCoins: Instruction = read("minimizing_coins")
+  lazy val minimizingCoins: Configured[NoFacts.type] = read("minimizing_coins")
 
   /** `message_route n connections`. */
-  lazy val messageRoute: Instruction = read("message_route")
+  lazy val messageRoute: Configured[NoFacts.type] = read("message_route")
 
   /** `counting_rooms map`. */
-  lazy val countingRooms: Instruction = read("counting_rooms")
+  lazy val countingRooms: Configured[NoFacts.type] = read("counting_rooms")
 
   /** `exponentiation a b`. */
-  lazy val exponentiation: Instruction = read("exponentiation")
+  lazy val exponentiation: Configured[NoFacts.type] = read("exponentiation")
 
   // The second batch.
 
   /** `coin_combinations_ordered coins x`. */
-  lazy val coinCombinationsOrdered: Instruction = read("coin_combinations_ordered")
+  lazy val coinCombinationsOrdered: Configured[NoFacts.type] = read("coin_combinations_ordered")
 
   /** `coin_combinations_unordered coins x`. */
-  lazy val coinCombinationsUnordered: Instruction = read("coin_combinations_unordered")
+  lazy val coinCombinationsUnordered: Configured[NoFacts.type] = read("coin_combinations_unordered")
 
   /** `removing_digits n`. */
-  lazy val removingDigits: Instruction = read("removing_digits")
+  lazy val removingDigits: Configured[NoFacts.type] = read("removing_digits")
 
   /** `grid_paths rows`. */
-  lazy val gridPaths: Instruction = read("grid_paths")
+  lazy val gridPaths: Configured[NoFacts.type] = read("grid_paths")
 
   /** `book_shop books x`. */
-  lazy val bookShop: Instruction = read("book_shop")
+  lazy val bookShop: Configured[NoFacts.type] = read("book_shop")
 
   /** `shortest_routes_single_source n flights`. */
-  lazy val shortestRoutesSingleSource: Instruction = read("shortest_routes_single_source")
+  lazy val shortestRoutesSingleSource: Configured[NoFacts.type] = read("shortest_routes_single_source")
 
   /** `shortest_routes_queries n roads queries`. */
-  lazy val shortestRoutesQueries: Instruction = read("shortest_routes_queries")
+  lazy val shortestRoutesQueries: Configured[NoFacts.type] = read("shortest_routes_queries")
 
   /** `counting_divisors numbers`. */
-  lazy val countingDivisors: Instruction = read("counting_divisors")
+  lazy val countingDivisors: Configured[NoFacts.type] = read("counting_divisors")
 
   /** `binomial_coefficients queries`. */
-  lazy val binomialCoefficients: Instruction = read("binomial_coefficients")
+  lazy val binomialCoefficients: Configured[NoFacts.type] = read("binomial_coefficients")
 
   /** `distinct_numbers numbers`. */
-  lazy val distinctNumbers: Instruction = read("distinct_numbers")
+  lazy val distinctNumbers: Configured[NoFacts.type] = read("distinct_numbers")
+
+  // The third batch.
+
+  /** `money_sums coins`. */
+  lazy val moneySums: Configured[NoFacts.type] = read("money_sums")
+
+  /** `rectangle_cutting a b`. */
+  lazy val rectangleCutting: Configured[NoFacts.type] = read("rectangle_cutting")
+
+  /** `increasing_subsequence numbers`. */
+  lazy val increasingSubsequence: Configured[NoFacts.type] = read("increasing_subsequence")
+
+  /** `array_description m entries`. */
+  lazy val arrayDescription: Configured[NoFacts.type] = read("array_description")
+
+  /** `building_roads n roads`. */
+  lazy val buildingRoads: Configured[NoFacts.type] = read("building_roads")
+
+  /** `road_reparation n roads`. */
+  lazy val roadReparation: Configured[NoFacts.type] = read("road_reparation")
+
+  /** `game_routes n flights`. */
+  lazy val gameRoutes: Configured[NoFacts.type] = read("game_routes")
+
+  /** `static_range_sums values queries`. */
+  lazy val staticRangeSums: Configured[NoFacts.type] = read("static_range_sums")
+
+  /** `trailing_zeros n`. */
+  lazy val trailingZeros: Configured[NoFacts.type] = read("trailing_zeros")
+
+  /** `sum_of_divisors n`. */
+  lazy val sumOfDivisors: Configured[NoFacts.type] = read("sum_of_divisors")
+
+  // The generators of the seeded top rungs.
+
+  /** The members of `problems/cses/common/seeded_input`, in the order its
+    * export gives them: `next_state`, `seeded_numbers`, `seeded_pairs`,
+    * `seeded_triples`, `seeded_grid`, `trapped_first`, `trapped_last`,
+    * `seeded_connections`, `seeded_tree`, `seeded_binomial_queries`
+    * (`SeededInput` generates the same data natively).
+    */
+  lazy val seededInput: Vector[Configured[NoFacts.type]] =
+    StandardLibrary.entryFields(
+      root,
+      root.resolve("problems").resolve(CsesProblems.directory).resolve("common").resolve("seeded_input" + DirectoryTree.fileExtension),
+      expansions,
+      CsesProblems.seededInputArity
+    )._1
+
+  /** `seeded_numbers seed count low high`. */
+  lazy val seededNumbers: Configured[NoFacts.type] = seededInput(1)
+
+  /** `seeded_pairs seed count low high`. */
+  lazy val seededPairs: Configured[NoFacts.type] = seededInput(2)
+
+  /** `seeded_triples seed count low high cost_low cost_high`. */
+  lazy val seededTriples: Configured[NoFacts.type] = seededInput(3)
+
+  /** `seeded_grid seed rows columns odds`. */
+  lazy val seededGrid: Configured[NoFacts.type] = seededInput(4)
+
+  /** `trapped_first grid`. */
+  lazy val trappedFirst: Configured[NoFacts.type] = seededInput(5)
+
+  /** `trapped_last grid`. */
+  lazy val trappedLast: Configured[NoFacts.type] = seededInput(6)
+
+  /** `seeded_connections seed count n`. */
+  lazy val seededConnections: Configured[NoFacts.type] = seededInput(7)
+
+  /** `seeded_tree seed n cost_low cost_high`. */
+  lazy val seededTree: Configured[NoFacts.type] = seededInput(8)
+
+  /** `seeded_binomial_queries seed count high`. */
+  lazy val seededBinomialQueries: Configured[NoFacts.type] = seededInput(9)
+
+  /** The members of `problems/cses/common/seeded_shapes`, in the order its
+    * export gives them: `seeded_ranges`, `seeded_ordered_connections`,
+    * `seeded_tree_edges`, `seeded_walk`, `seeded_rotation` (`SeededInput`
+    * generates the same data natively).
+    */
+  lazy val seededShapes: Vector[Configured[NoFacts.type]] =
+    StandardLibrary.entryFields(
+      root,
+      root.resolve("problems").resolve(CsesProblems.directory).resolve("common").resolve("seeded_shapes" + DirectoryTree.fileExtension),
+      expansions,
+      CsesProblems.seededShapesArity
+    )._1
+
+  /** `seeded_ranges seed count low high`. */
+  lazy val seededRanges: Configured[NoFacts.type] = seededShapes(0)
+
+  /** `seeded_ordered_connections seed count n`. */
+  lazy val seededOrderedConnections: Configured[NoFacts.type] = seededShapes(1)
+
+  /** `seeded_tree_edges seed n`. */
+  lazy val seededTreeEdges: Configured[NoFacts.type] = seededShapes(2)
+
+  /** `seeded_walk seed count bound`. */
+  lazy val seededWalk: Configured[NoFacts.type] = seededShapes(3)
+
+  /** `seeded_rotation seed n`. */
+  lazy val seededRotation: Configured[NoFacts.type] = seededShapes(4)
+
+  /** `append left right` of the prelude's lists, `corpora/library/prelude/list`,
+    * whose export is `nil cons append map length`.
+    */
+  lazy val append: Configured[NoFacts.type] =
+    StandardLibrary.entryFields(
+      root,
+      root.resolve("corpora").resolve("library").resolve("prelude").resolve("list" + DirectoryTree.fileExtension),
+      expansions,
+      5
+    )._1(2)
+
+  // The fourth batch.
+
+  /** `exponentiation_two a b c`. */
+  lazy val exponentiationTwo: Configured[NoFacts.type] = read("exponentiation_two")
+
+  /** `ferris_wheel x weights`. */
+  lazy val ferrisWheel: Configured[NoFacts.type] = read("ferris_wheel")
+
+  /** `missing_number n numbers`. */
+  lazy val missingNumber: Configured[NoFacts.type] = read("missing_number")
+
+  /** `repetitions letters`. */
+  lazy val repetitions: Configured[NoFacts.type] = read("repetitions")
+
+  /** `static_range_minimums values queries`. */
+  lazy val staticRangeMinimums: Configured[NoFacts.type] = read("static_range_minimums")
+
+  /** `string_matching text pattern`. */
+  lazy val stringMatching: Configured[NoFacts.type] = read("string_matching")
+
+  /** `subarray_sums x values`. */
+  lazy val subarraySums: Configured[NoFacts.type] = read("subarray_sums")
+
+  /** `sum_of_two_values x values`. */
+  lazy val sumOfTwoValues: Configured[NoFacts.type] = read("sum_of_two_values")
+
+  /** `tree_diameter n edges`. */
+  lazy val treeDiameter: Configured[NoFacts.type] = read("tree_diameter")
+
+  /** `tree_matching n edges`. */
+  lazy val treeMatching: Configured[NoFacts.type] = read("tree_matching")
 
   // A problem built as the CSES problems are, outside problems/cses.
 
   /** `value steps root` of `problems/speculative_untabling/weighted_paths`
     * (`WeightedPaths`).
     */
-  lazy val weightedPaths: Instruction =
+  lazy val weightedPaths: Configured[NoFacts.type] =
     readFile(root.resolve("problems").resolve(WeightedPaths.directory).resolve(WeightedPaths.problem + DirectoryTree.fileExtension))
 
 /** The directory of the problems under `problems`. */
 object CsesProblems:
 
   val directory: String = "cses"
+
+  /** The number of members `problems/cses/common/seeded_input` exports. */
+  val seededInputArity: Int = 10
+
+  /** The number of members `problems/cses/common/seeded_shapes` exports. */
+  val seededShapesArity: Int = 5
 
 /** The CSES problems' data as the problem files' headers give their
   * encodings: the library's canonical binary naturals, Booleans and Scott
@@ -126,34 +281,34 @@ object CsesEncodings:
   def some(value: DeBruijnTerm): DeBruijnTerm = DeBruijnTerm.Lambda(DeBruijnTerm.Lambda(DeBruijnTerm.Apply(DeBruijnTerm.Variable(0), value)))
 
   /** The closed normal form as a closed HOAS term, converted once. */
-  def closed(term: DeBruijnTerm): Term = Term.closed(Defunctionalization.thunkInstruction(term))
+  def closed(term: ProblemDeBruijnTerm): ProblemTerm = Term.closed(Defunctionalization.thunkInstruction(term)(using gezi.ir.NoFacts))
 
   /** The binary natural of the value, converted once. */
-  def natural(value: BigInt): Term = closed(StandardLibraryNormalForms.binary(value))
+  def natural(value: BigInt): ProblemTerm = closed(StandardLibraryNormalForms.binary(value))
 
   /** The natural of each distinct value, each converted once. */
-  def naturals(values: Vector[Int]): Map[Int, Term] = values.distinct.map(value => value -> natural(value)).toMap
+  def naturals(values: Vector[Int]): Map[Int, ProblemTerm] = values.distinct.map(value => value -> natural(value)).toMap
 
   /** The Boolean true, converted once. */
-  val trueValue: Term = closed(StandardLibraryNormalForms.boolean(true))
+  val trueValue: ProblemTerm = closed(StandardLibraryNormalForms.boolean(true))
 
   /** The Boolean false, converted once. */
-  val falseValue: Term = closed(StandardLibraryNormalForms.boolean(false))
+  val falseValue: ProblemTerm = closed(StandardLibraryNormalForms.boolean(false))
 
   /** The pair `λp. p l r`. */
-  def pair(left: Term, right: Term): Term = Term.λ(select => select(left)(right))
+  def pair(left: ProblemTerm, right: ProblemTerm): ProblemTerm = Term.λ(select => select(left)(right))
 
   /** The triple `pair a (pair b c)` of the shortest routes' flights and
     * roads, each end and the cost a natural of `naturals`.
     */
-  def triple(naturals: Map[Int, Term], from: Int, to: Int, cost: Int): Term =
+  def triple(naturals: Map[Int, ProblemTerm], from: Int, to: Int, cost: Int): ProblemTerm =
     pair(naturals(from), pair(naturals(to), naturals(cost)))
 
   /** `[f a11 … a1k, …, f aR1 … aRk]`, the function let bound once,
     * `(λf. …) Function`, and applied at each site to that site's
     * arguments, the results in the library's Scott list.
     */
-  def sites(function: Term, arguments: Vector[Vector[Term]]): Term =
+  def sites(function: ProblemTerm, arguments: Vector[Vector[ProblemTerm]]): ProblemTerm =
     Term.λ(bound => list(arguments.map(Encodings.applied(bound, _))))(function)
 
   /** The empty list `λn c. n`, converted once. It is the term `trueValue`
@@ -170,13 +325,13 @@ object CsesEncodings:
     * refused, while every program of the other four problems read back as
     * itself. With `nil` an atom, none of the 48 differs.
     */
-  val nilValue: Term = closed(StandardLibraryNormalForms.list(Vector.empty))
+  val nilValue: ProblemTerm = closed(StandardLibraryNormalForms.list(Vector.empty))
 
   /** The library's Scott list of the terms, `nil` `λn c. n` (`nilValue`)
     * and `cons h t` `λn c. c h t`, written as its cells with no library
     * term.
     */
-  def list(elements: Vector[Term]): Term =
+  def list(elements: Vector[ProblemTerm]): ProblemTerm =
     elements.foldRight(nilValue)((head, tail) => Term.λ(_ => Term.λ(cell => cell(head)(tail))))
 
 /** How the function of a CSES point is written ([[gezi.contest.corpora.reductions]]): directly,
@@ -206,19 +361,19 @@ object CsesEncodings:
 object CsesSpelling:
 
   /** The term respelled by the draws, and the draws after it. */
-  def respelled(term: DeBruijnTerm, draws: Draws): (DeBruijnTerm, Draws) =
+  def respelled(term: ProblemDeBruijnTerm, draws: Draws): (ProblemDeBruijnTerm, Draws) =
     val (result, after, _) = walked(term, draws, Map.empty).result
     (result, after)
 
-  private type Walked = TailRec[(DeBruijnTerm, Draws, Map[DeBruijnTerm, DeBruijnTerm])]
+  private type Walked = TailRec[(ProblemDeBruijnTerm, Draws, Map[ProblemDeBruijnTerm, ProblemDeBruijnTerm])]
 
   /** `λx. x`. */
-  private val identityTerm: DeBruijnTerm = DeBruijnTerm.Lambda(DeBruijnTerm.Variable(0))
+  private val identityTerm: ProblemDeBruijnTerm = DeBruijnTerm.Lambda(DeBruijnTerm.Variable(0))
 
   /** `λx y. x`. */
-  private val constantTerm: DeBruijnTerm = DeBruijnTerm.Lambda(DeBruijnTerm.Lambda(DeBruijnTerm.Variable(1)))
+  private val constantTerm: ProblemDeBruijnTerm = DeBruijnTerm.Lambda(DeBruijnTerm.Lambda(DeBruijnTerm.Variable(1)))
 
-  private def walked(term: DeBruijnTerm, draws: Draws, memo: Map[DeBruijnTerm, DeBruijnTerm]): Walked =
+  private def walked(term: ProblemDeBruijnTerm, draws: Draws, memo: Map[ProblemDeBruijnTerm, ProblemDeBruijnTerm]): Walked =
     memo.get(term) match
       case Some(found)          => done((found, draws, memo))
       case None if literal(term) => done((term, draws, memo))
@@ -244,11 +399,11 @@ object CsesSpelling:
     * `ProgramPurity`, the tops of the marker `(λ"$generic". λv. v) "$generic"`
     * looked at (scratch probe, 2026-11-21).
     */
-  private def literalApplication(term: DeBruijnTerm): Boolean = term match
+  private def literalApplication(term: ProblemDeBruijnTerm): Boolean = term match
     case DeBruijnTerm.Apply(_, _) =>
       val (head, arguments) = gezi.ir.Spine.of(term)
       @scala.annotation.tailrec
-      def consumed(current: DeBruijnTerm, remaining: List[DeBruijnTerm]): Boolean = (current, remaining) match
+      def consumed(current: ProblemDeBruijnTerm, remaining: List[ProblemDeBruijnTerm]): Boolean = (current, remaining) match
         case (_, Nil) => true
         case (DeBruijnTerm.Lambda(DeBruijnTerm.Apply(DeBruijnTerm.Apply(DeBruijnTerm.Variable(0), matched), missed)), bit :: rest)
             if missed == Literals.top && bit == bitOne =>
@@ -261,13 +416,13 @@ object CsesSpelling:
     case _ => false
 
   /** The bit 1 of a literal's variable arguments, `λt f. t`. */
-  private val bitOne: DeBruijnTerm = StandardLibraryNormalForms.boolean(true)
+  private val bitOne: ProblemDeBruijnTerm = StandardLibraryNormalForms.boolean(true)
 
   /** The bit 0 of a literal's variable arguments, `λt f. f`. */
-  private val bitZero: DeBruijnTerm = StandardLibraryNormalForms.boolean(false)
+  private val bitZero: ProblemDeBruijnTerm = StandardLibraryNormalForms.boolean(false)
 
   /** The subterm, β-expanded at one draw in four. */
-  private def expanded(term: DeBruijnTerm, draws: Draws): (DeBruijnTerm, Draws) =
+  private def expanded(term: ProblemDeBruijnTerm, draws: Draws): (ProblemDeBruijnTerm, Draws) =
     val (shape, after) = draws.number(0 to 7)
     shape match
       case 0 => (DeBruijnTerm.Apply(identityTerm, term), after)
@@ -275,11 +430,11 @@ object CsesSpelling:
       case _ => (term, after)
 
   private def pair(
-      left: DeBruijnTerm,
-      right: DeBruijnTerm,
+      left: ProblemDeBruijnTerm,
+      right: ProblemDeBruijnTerm,
       draws: Draws,
-      memo: Map[DeBruijnTerm, DeBruijnTerm],
-      make: (DeBruijnTerm, DeBruijnTerm) => DeBruijnTerm
+      memo: Map[ProblemDeBruijnTerm, ProblemDeBruijnTerm],
+      make: (ProblemDeBruijnTerm, ProblemDeBruijnTerm) => ProblemDeBruijnTerm
   ): Walked =
     for
       (walkedLeft, afterLeft, leftMemo) <- tailcall(walked(left, draws, memo))
@@ -287,20 +442,20 @@ object CsesSpelling:
     yield (make(walkedLeft, walkedRight), afterRight, rightMemo)
 
   /** The bits of a literal's variable arguments. */
-  private val bits: Set[DeBruijnTerm] = Set(StandardLibraryNormalForms.boolean(true), StandardLibraryNormalForms.boolean(false))
+  private val bits: Set[ProblemDeBruijnTerm] = Set(StandardLibraryNormalForms.boolean(true), StandardLibraryNormalForms.boolean(false))
 
   /** A literal's part, kept as it is: top or a bit. */
-  private def literal(term: DeBruijnTerm): Boolean = term == Literals.top || bits.contains(term)
+  private def literal(term: ProblemDeBruijnTerm): Boolean = term == Literals.top || bits.contains(term)
 
   /** A level of a variable arguments partial function, `λx. x R top` or
     * `λx. x top R`, never β-expanded itself.
     */
-  private def level(term: DeBruijnTerm): Boolean = term match
+  private def level(term: ProblemDeBruijnTerm): Boolean = term match
     case DeBruijnTerm.Lambda(DeBruijnTerm.Apply(DeBruijnTerm.Apply(DeBruijnTerm.Variable(0), whenOne), whenZero)) =>
       (whenOne == Literals.top) != (whenZero == Literals.top)
     case _ => false
 
-  private def walkedAnew(term: DeBruijnTerm, draws: Draws, memo: Map[DeBruijnTerm, DeBruijnTerm]): Walked = term match
+  private def walkedAnew(term: ProblemDeBruijnTerm, draws: Draws, memo: Map[ProblemDeBruijnTerm, ProblemDeBruijnTerm]): Walked = term match
     case DeBruijnTerm.Lambda(DeBruijnTerm.Apply(DeBruijnTerm.Apply(DeBruijnTerm.Variable(0), whenOne), whenZero))
         if whenZero == Literals.top && whenOne != Literals.top =>
       tailcall(walked(whenOne, draws, memo)).map((walkedOne, after, afterMemo) =>
@@ -321,7 +476,7 @@ object CsesSpelling:
   /** The closed instruction in the spelling as a closed HOAS term,
     * respelled from the draws when respelled, and the draws after it.
     */
-  def spelled(instruction: Instruction, spelling: Spelling, draws: Draws): (Term, Draws) = spelling match
+  def spelled(instruction: Configured[NoFacts.type], spelling: Spelling, draws: Draws): (ProblemTerm, Draws) = spelling match
     case Spelling.Direct => (Term.closed(instruction), draws)
     case Spelling.Respelled =>
       val (respelledTerm, after) = respelled(Defunctionalization.instructionTerm(instruction), draws)

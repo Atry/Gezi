@@ -1,9 +1,9 @@
 package gezi.traceplayer
 
+import gezi.ir.{Configured, NoFacts}
 import gezi.frontend.LambdaError
 import gezi.frontend.LambdalatticeMalformed
 import gezi.frontend.ReadableText
-import gezi.ir.Instruction
 import gezi.knowledgereading.KnowledgeReadingError
 import gezi.locations.SourceMap
 import gezi.locations.Span
@@ -11,6 +11,9 @@ import gezi.rewritetrace.ReplayedStep
 import gezi.rewritetrace.TraceSourceMaps
 import gezi.rewritetrace.TraceStart
 import gezi.rewritetrace.TraceText
+
+/** The configuration of the terms here: no facts. */
+private given traceReadingNoFacts: NoFacts.type = NoFacts
 
 /** The steps a page plays, read from its start's text and its trace's text
   * and replayed: the pure part of reading a page, run by the tests on Node.js.
@@ -110,12 +113,12 @@ object TraceReading:
   * width to make every term whole (the FIXME this replaced, 2026-11-18).
   */
 final case class Played(
-    start: Instruction,
-    steps: Vector[ReplayedStep],
+    start: Configured[NoFacts.type],
+    steps: Vector[ReplayedStep[NoFacts.type]],
     labels: Vector[Option[String]],
     source: StartSource,
     rounds: TraceRounds,
-    names: Map[Instruction, String]
+    names: Map[Configured[NoFacts.type], String]
 ):
   require(labels.size == steps.size + 1, s"${labels.size} labels for ${steps.size + 1} terms")
   require(rounds.sizes.sum == steps.size, s"rounds of ${rounds.sizes.sum} steps for ${steps.size} steps")
@@ -124,7 +127,7 @@ final case class Played(
   def size: Int = steps.size + 1
 
   /** The term step k shows. */
-  def term(step: Int): Instruction = if step == 0 then start else steps(step - 1).after
+  def term(step: Int): Configured[NoFacts.type] = if step == 0 then start else steps(step - 1).after
 
   /** The source map of the term step k shows. */
   def map(step: Int): SourceMap = maps(step)

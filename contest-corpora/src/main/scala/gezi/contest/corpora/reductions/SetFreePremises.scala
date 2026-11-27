@@ -86,15 +86,15 @@ object SetFreePremises:
     stated ++ rebuilds ++ laws
 
   /** `Repeat Times Function Numeral` (`rebuild_point_surface/2`). */
-  def pointSurface(group: ReductionGroup, point: RebuildPoint): Term =
+  def pointSurface(group: ReductionGroup, point: RebuildPoint): ProblemTerm =
     repeatedFunction(group, point.function, point.spelling, point.times)(binary(point.number))
 
   /** `Repeat Times Function`, the function a point applies to its numeral. */
-  private[reductions] def repeatedFunction(group: ReductionGroup, function: String, spelling: Spelling, times: Int): Term =
+  private[reductions] def repeatedFunction(group: ReductionGroup, function: String, spelling: Spelling, times: Int): ProblemTerm =
     repeatFunction(group.attractors, spelling)(unary(times))(appliedFunction(group, function, spelling))
 
   /** `Y (\self. \n. \f. \x. n x (\p. f (self p f x)))` (`repeat_function/2`). */
-  private def repeatFunction(attractors: Attractors, spelling: Spelling): Term =
+  private def repeatFunction(attractors: Attractors, spelling: Spelling): ProblemTerm =
     attractors.fixpoint(
       Attractors.spelledSurface(
         spelling,
@@ -106,7 +106,7 @@ object SetFreePremises:
     * `\acc. plus acc one`, otherwise the rebuild or complement tied by self
     * application (`applied_function/3`).
     */
-  private def appliedFunction(group: ReductionGroup, name: String, spelling: Spelling): Term =
+  private def appliedFunction(group: ReductionGroup, name: String, spelling: Spelling): ProblemTerm =
     val attractors = group.attractors
     name match
       case "unit" =>
@@ -124,7 +124,7 @@ object SetFreePremises:
     * constructors the facts `function_constructors/3` name
     * (`function_body/3`).
     */
-  private def functionBody(group: ReductionGroup, name: String, spelling: Spelling): Term =
+  private def functionBody(group: ReductionGroup, name: String, spelling: Spelling): ProblemTerm =
     val attractors = group.attractors
     val (evenCase, oddCase) = group.problems(family).keyed("function_constructors").get(name) match
       case Some(Vector(even, odd)) => (ProblemData.text(even), ProblemData.text(odd))

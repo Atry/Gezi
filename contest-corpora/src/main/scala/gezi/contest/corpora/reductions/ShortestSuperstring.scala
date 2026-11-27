@@ -14,7 +14,7 @@ object ShortestSuperstring:
   private val family = "shortest_superstring"
 
   /** The program under the lets of the words (`superstring_term/3`). */
-  def superstringTerm(attractors: Attractors, words: Vector[Vector[Int]], budget: Int): Term =
+  def superstringTerm(attractors: Attractors, words: Vector[Vector[Int]], budget: Int): ProblemTerm =
     lets(
       words.map(SetFree.booleanList(attractors, _)),
       wordVariables =>
@@ -32,7 +32,7 @@ object ShortestSuperstring:
   /** The set of the overlaps of left's suffixes with right's prefixes,
     * answered as lengths (`overlaps_term/1`).
     */
-  private def overlapsTerm(attractors: Attractors): Term =
+  private def overlapsTerm(attractors: Attractors): ProblemTerm =
     val prefix = attractors.functionSurface("bits_prefix", Spelling.Direct)
     val length = attractors.functionSurface("length", Spelling.Direct)
     attractors.fixpoint(
@@ -53,7 +53,7 @@ object ShortestSuperstring:
   /** `Y (\self. \used. \previous. \r. \k. full used (k r) {branches})`
     * (`tour_function/3`).
     */
-  private def tourFunction(attractors: Attractors, words: Vector[Term], overlaps: Term): Term =
+  private def tourFunction(attractors: Attractors, words: Vector[ProblemTerm], overlaps: ProblemTerm): ProblemTerm =
     def function(name: String) = attractors.functionSurface(name, Spelling.Direct)
     val full = function("bit_set_full")
     attractors.fixpoint(

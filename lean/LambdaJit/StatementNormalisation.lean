@@ -48,6 +48,10 @@ term, which a third decision finds:
   term, and then `left` and `right` are equal by ⊢_{λ-lattice-η}.
 - `statementContracted`, `statementSoundOfContracted`: the same for a statement as a pair, its
   sides abstracted, at the fixed fuel `contractionFuel`.
+- `statementReached`, `statementSoundOfReached`: whether the contractions of one abstracted side,
+  at the fixed fuel `reachFuel`, reach the other side itself, which a marker applied to a term with
+  no normal form needs: the marker's own contractions outnumber `contractionFuel`, and comparing
+  each contraction with one term costs less than comparing every pair.
 
 A statement that is itself an instance of a numbered equation is proved by a decision of its own:
 
@@ -1305,5 +1309,44 @@ accepts is (`equationSoundOfNormalisedEqual`, at any fuel). -/
 theorem statementSoundOfNormalisedLong {statement : EndToEnd.Statement}
     (normalised : statementNormalisedLong statement = true) : statement.Sound :=
   equationSoundOfNormalisedEqual normalised
+
+/-! ## One side reached from the other by contraction -/
+
+/-- The fuel of `statementReached`, on the side it contracts. Of the 111 statements of the native
+route's library (module `NativeRouteLibraryStatements`), the three that no decision before this one
+accepts, shapes_range_repelled, shapes_filter_repelled and shapes_list_tail_domain_repelled, are
+`L = $repelled L`: the marker `$repelled` in the markers' spelling applied to a term L that holds
+fixpoints, so that neither side has a normal form, and reading the constants both sides hold as
+variables reads the marker's own thunks so as well. Leftmost outermost contraction takes the
+right side, the metavariables abstracted, to the left after 565 contractions on each of the three
+(measured 2026-11-23 with `#eval`, `List.idxOf?` of the left side in the right side's
+contractions). Tried after `statementNormalisedLong` and before `statementOpenedAccepted`. -/
+def reachFuel : Nat := 1000
+
+/-- Whether leftmost outermost contraction takes one side of `statement`, the variables of both
+sides abstracted, to the other within `reachFuel` contractions. Unlike `statementContracted`, it
+compares each contraction of one side with the other side alone, so that it costs a comparison per
+contraction and not one per pair of contractions. -/
+def statementReached (statement : EndToEnd.Statement) : Bool :=
+  (contractions reachFuel
+      (abstracted statement.signature (termVariables statement.left ++ termVariables statement.right)
+        statement.right)).contains
+      (abstracted statement.signature (termVariables statement.left ++ termVariables statement.right)
+        statement.left) ||
+    (contractions reachFuel
+        (abstracted statement.signature (termVariables statement.left ++ termVariables statement.right)
+          statement.left)).contains
+      (abstracted statement.signature (termVariables statement.left ++ termVariables statement.right)
+        statement.right)
+
+/-- A statement that `statementReached` accepts is sound: one abstracted side is a contraction of
+the other, equal to it by ⊢_{λ-lattice-η} from no hypothesis (`contractionsSound`). -/
+theorem statementSoundOfReached {statement : EndToEnd.Statement}
+    (reached : statementReached statement = true) : statement.Sound := by
+  simp only [statementReached, Bool.or_eq_true, List.contains_iff_mem] at reached
+  apply equationSoundOfAbstractedDerivable
+  rcases reached with fromRight | fromLeft
+  · exact .symmetric (contractionsSound fromRight)
+  · exact contractionsSound fromLeft
 
 end LambdaJit.StatementNormalisation

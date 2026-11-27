@@ -23,8 +23,8 @@ import gezi.ir.BuiltInRule
 import gezi.ir.Code
 import gezi.ir.CodeLayer
 import gezi.ir.Direction
-import gezi.ir.Instruction
-import gezi.ir.Layer
+import gezi.ir.Configured
+import gezi.ir.NoFacts
 import gezi.ir.LemmaIdentifier
 import gezi.ir.Pattern
 import gezi.ir.Store
@@ -60,16 +60,20 @@ import gezi.ir
   */
 class ProvenanceTest extends GeneratedProperties with SeededSnapshots:
 
+  private type C = NoFacts.type
+
+  private given NoFacts.type = NoFacts
+
   private val uri: java.net.URI = java.net.URI.create("file:///generated.lambdalattice")
 
-  private val application: Pattern = Pattern.Apply(Pattern.Metavariable(0), Pattern.Metavariable(1))
+  private val application: Pattern[C] = Pattern.Apply(Pattern.Metavariable[C](0), Pattern.Metavariable[C](1))
 
   /** The choice's idempotence read backward, M N = M N + M N (a theorem of
     * the λ-lattice laws): its added side applies the function metavariable
     * M, so that the β rule reads the applications it builds, an input's
     * included, and β bodies' applications in turn.
     */
-  private val idempotence: Orientation = Orientation(
+  private val idempotence: Orientation[C] = Orientation(
     index = 0,
     lemma = LemmaIdentifier(0),
     direction = Direction.Forward,
@@ -84,20 +88,20 @@ class ProvenanceTest extends GeneratedProperties with SeededSnapshots:
   /** The graph saturated from the text by the idempotence and the β rule,
     * within 200 instances, and the provenance of its nodes.
     */
-  private def saturated(text: String, stop: StopSignal): (EGraph, Provenance) =
+  private def saturated(text: String, stop: StopSignal): (EGraph[C], Provenance) =
     val (graph, provenance, _) = saturatedWithInput(text, stop)
     (graph, provenance)
 
   /** `saturated`, with the instruction read from the text. */
-  private def saturatedWithInput(text: String, stop: StopSignal): (EGraph, Provenance, Instruction) =
+  private def saturatedWithInput(text: String, stop: StopSignal): (EGraph[C], Provenance, Configured[C]) =
     val read = Lambdalattice.located(text, FreeNames.Rejected)
-    val (instruction, map) = Defunctionalization.locatedThunkInstruction(read.term, read.spans, uri)
+    val (instruction, map) = Defunctionalization.locatedThunkInstruction(read.term, read.spans, uri)(using gezi.ir.NoFacts)
     val program = Indexing.program(Vector(idempotence), Indexing.codesMet(Vector(idempotence), Vector(instruction)))
     val run = Saturation.run(
       program,
       ClosureCompilation.compiled(program),
-      BuiltInRule.all,
-      Store(Set.empty),
+      BuiltInRule.beforeOptIn,
+      Store(Set.empty[Configured[C]], gezi.ir.TermConstruction(NoFacts)),
       Orientations.headArityBounds(Vector(idempotence)),
       Vector.empty,
       Vector(instruction),
@@ -131,8 +135,8 @@ class ProvenanceTest extends GeneratedProperties with SeededSnapshots:
         graph.nodeInstruction(node).toVector.flatMap(instruction =>
           provenance.node(node).toVector.collect { case Location.Source(_, span) =>
             val written = span.of(codePoints)
-            val read = scala.util.Try(Defunctionalization.thunkInstruction(Lambdalattice.term(written))).toOption
-            if read.exists(_ eq instruction) then None else Some(s"node $node: `$written` reads another term")
+            val read = scala.util.Try(Defunctionalization.thunkInstruction(Lambdalattice.term(written))(using gezi.ir.NoFacts)).toOption
+            if read.exists(Configured.same(_, instruction)) then None else Some(s"node $node: `$written` reads another term")
           }.flatten
         )
       )
@@ -142,21 +146,21 @@ class ProvenanceTest extends GeneratedProperties with SeededSnapshots:
   }
 
   /** The cost of a spelling is its number of layers and names. */
-  private object Size extends StatelessCostModel[Int]:
-    def cost(shape: Shape, childCosts: Vector[Int]): Int = 1 + childCosts.sum
+  private object Size extends StatelessCostModel[C, Int]:
+    def cost(shape: Shape[C], childCosts: Vector[Int]): Int = 1 + childCosts.sum
     val ordering: Ordering[Int] = Ordering.Int
-    def pricedChildren(shape: Shape): Vector[Boolean] = shape.children.map(_ => true)
+    def pricedChildren(shape: Shape[C]): Vector[Boolean] = shape.children.map(_ => true)
 
   /** The instruction of a shape over its children's, as an extraction's
     * caller spells it.
     */
-  private def shapeInstruction(shape: Shape, children: Vector[Instruction]): Instruction =
-    Shape.spelled[Instruction](shape, children, instruction => instruction, Instruction(_))
+  private def shapeInstruction(shape: Shape[C], children: Vector[Configured[C]]): Configured[C] =
+    Shape.spelledTerm(shape, children)
 
   /** Where the map does not have the shape of the instruction, its code map
     * that of the code included.
     */
-  private def shapeProblems(instruction: Instruction, map: SourceMap): Vector[String] =
+  private def shapeProblems(instruction: Configured[C], map: SourceMap): Vector[String] =
     if map.bare then Vector.empty
     else
       val code = (instruction.layer, map.code) match
@@ -175,7 +179,7 @@ class ProvenanceTest extends GeneratedProperties with SeededSnapshots:
     */
   private enum SlotValue:
     case Hole
-    case Filling(instruction: Instruction)
+    case Filling(instruction: Configured[C])
     case Unfollowed
 
   /** Where a code's map does not have the code's shape; a slot's place is a
@@ -219,7 +223,7 @@ class ProvenanceTest extends GeneratedProperties with SeededSnapshots:
       val codePoints = text.codePoints.toScala(Vector).map(_.toInt)
       val root = graph.instructionNode(instruction).fold(fail(s"the input $instruction has no node"))(graph.root)
       val extracted = CountedExtraction.fixed(graph, Set.empty, Size, StopSignal.completedWith(stopped)).getOrElse(fail("the extraction was stopped"))
-      type Pair = (Instruction, SourceMap)
+      type Pair = (Configured[C], SourceMap)
       val (state, (spelling, map)) =
         Extraction.spelled(extracted, root, Spelled[Pair, Vector[String]](Vector.empty, Map.empty))(
           (problems, shape, children) =>
@@ -231,7 +235,7 @@ class ProvenanceTest extends GeneratedProperties with SeededSnapshots:
               case Shape.Name(instruction)         => graph.instructionNode(instruction).map(graph.root)
             val misread = map.locations.toVector.collect { case Location.Source(_, span) =>
               val written = span.of(codePoints)
-              val read = scala.util.Try(Defunctionalization.thunkInstruction(Lambdalattice.term(written))).toOption
+              val read = scala.util.Try(Defunctionalization.thunkInstruction(Lambdalattice.term(written))(using gezi.ir.NoFacts)).toOption
               val readClass = read.flatMap(graph.instructionNode).map(graph.root)
               if readClass.isDefined && readClass == classRoot then None
               else Some(s"`$written` reads outside the class $classRoot")

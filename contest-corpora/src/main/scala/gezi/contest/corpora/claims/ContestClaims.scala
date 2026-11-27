@@ -3,13 +3,18 @@ package gezi.contest.corpora.claims
 import gezi.contest.corpora.common.ProblemData
 
 import gezi.weakhead.Mode
+import gezi.weakhead.NeutralValue
 import gezi.weakhead.NeutralVariable
 import gezi.weakhead.Reading
-import gezi.weakhead.Value
+import gezi.ir.Value
 import gezi.weakhead.WitnessOutcome
 import gezi.frontend.Defunctionalization
 import gezi.frontend.Term
 import gezi.frontend.Term.λ
+import gezi.ir.{Configured, NativeSpecializer, NoFacts}
+
+/** The corpora are read under no facts. */
+private given contestClaimsNoFacts: NoFacts.type = NoFacts
 
 /** A test program of rule 30 with its free variables: `build` is the test,
   * an abstraction `\a. Body`, as a function of its `freeCount` free
@@ -17,7 +22,7 @@ import gezi.frontend.Term.λ
   * occurrence, left to right). A HOAS term is closed by construction, so a
   * Prolog test's free Prolog variables are its parameters here.
   */
-final case class OpenTest(freeCount: Int, build: Vector[Term] => Term)
+final case class OpenTest(freeCount: Int, build: Vector[ProblemTerm] => ProblemTerm)
 
 /** How a claim's goal ended (`claims_answered/4`): it succeeded, the setting
   * proves the claim; it failed, finitely, the setting has no proof (not
@@ -93,7 +98,7 @@ object ContestClaims:
   def claimsAnswered(mode: Mode, tests: Vector[OpenTest], limit: Long): Vector[ClaimAnswer] =
     val roots = tests.map(testRoot)
     Reading
-      .witnessReadings(mode, roots, witness, limit)
+      .witnessReadings(mode, roots, witness, limit, gezi.weakhead.ReadingConfiguration.withoutFacts)
       .map(reading =>
         val ending = reading.outcome match
           case WitnessOutcome.Found        => Ending.Succeeded
@@ -104,7 +109,7 @@ object ContestClaims:
       )
 
   /** The judge's witness as a value. */
-  val witness: Value = Value.Neutral(ClaimWitness, Vector.empty)
+  val witness: Value[NoFacts.type] = NeutralValue(ClaimWitness, Vector.empty)
 
   /** `test_root(Test, Witness, Root)`: the test closed over its free
     * variables as `\y1. ... \yk. \x0. T x0`, interned, applied to one
@@ -112,28 +117,36 @@ object ContestClaims:
     * `test_not_an_abstraction` when the test is not an abstraction (the
     * user's decision of 2026-09-28, enforced).
     */
-  def testRoot(test: OpenTest): Value =
+  def testRoot(test: OpenTest): Value[NoFacts.type] = testRootIn(NoFacts)(test)
+
+  /** `testRoot` in the configuration of the specializer: the closed test, written with no facts, crossed into it
+    * (`NativeSpecializer.crossedAllFromNoFacts`), then applied to the neutral values and the witness there, so that
+    * no neutral value is crossed.
+    */
+  def testRootIn[C <: NativeSpecializer & Singleton](specializer: C)(test: OpenTest): Value[C] =
+    given C = specializer
     val closed = curried(test.freeCount, Vector.empty, free =>
       test.build(free) match
         case abstraction @ Term.Abstraction(_) => λ(argument => abstraction(argument))
         case other => throw IllegalArgumentException(s"test_not_an_abstraction: $other")
     )
-    val instruction = Defunctionalization.thunkInstruction(closed.deBruijnTerm(Map.empty))
-    val applied = (1 to test.freeCount).foldLeft(instruction: Value)((function, number) =>
-      Value.Apply(function, Value.Neutral(FreeValue(number), Vector.empty))
+    val written = Defunctionalization.thunkInstruction[NoFacts.type](closed.deBruijnTerm(Map.empty))(using NoFacts)
+    val instruction: Configured[C] = (specializer: C).crossedAllFromNoFacts(Vector(written))(written)
+    val applied = (1 to test.freeCount).foldLeft(Value.of(instruction))((function, number) =>
+      Value.Apply(function, NeutralValue[C](FreeValue(number), Vector.empty))
     )
-    Value.Apply(applied, witness)
+    Value.Apply(applied, NeutralValue[C](ClaimWitness, Vector.empty))
 
   /** `test_program(Test, Program, Expected)`: the test as a closed program,
     * `\y1. ... \yk. Test`, its free variables curried in their order, and
     * the curried identity `\y1. ... \yk. \a. a` it is asked for.
     */
-  def testProgram(test: OpenTest): (Term, Term) =
+  def testProgram(test: OpenTest): (ProblemTerm, ProblemTerm) =
     (curried(test.freeCount, Vector.empty, test.build), identityUnder(test.freeCount))
 
-  private def curried(remaining: Int, bound: Vector[Term], build: Vector[Term] => Term): Term =
+  private def curried(remaining: Int, bound: Vector[ProblemTerm], build: Vector[ProblemTerm] => ProblemTerm): ProblemTerm =
     if remaining == 0 then build(bound)
     else λ(variable => curried(remaining - 1, bound :+ variable, build))
 
   /** `identity_under(Count, \a. a)`. */
-  def identityUnder(count: Int): Term = (1 to count).foldLeft(λ(argument => argument))((term, _) => λ(_ => term))
+  def identityUnder(count: Int): ProblemTerm = (1 to count).foldLeft(λ(argument => argument))((term, _) => λ(_ => term))

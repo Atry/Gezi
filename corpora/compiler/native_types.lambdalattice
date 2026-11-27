@@ -33,16 +33,17 @@
 . omega (omega (omega (omega corpora "library") "native_types") "fixpoint")
 λ fixpoint
 . omega (omega (omega (omega corpora "library") "native_types") "markers")
-λ $generic $constructor $name $closure
+λ $generic $constructor $name $closure $repelled
 . omega (omega (omega (omega corpora "library") "native_types") "tags")
 λ tag_origin tag_next
 . export
-  ( λ_ _ properties_slot _. properties_slot λ_ _ _ _ _ _ _ tag_next_slot. tag_next_slot λk. k tag_next
+  ( λ_ _ properties_slot _. properties_slot λ_ _ _ _ _ _ _ _ repeller_slot. repeller_slot λk. k $repelled
+  + λ_ _ properties_slot _. properties_slot λ_ _ _ _ _ _ _ tag_next_slot _. tag_next_slot λk. k tag_next
   + λ _ _ properties_slot _
-    . properties_slot λ_ _ _ _ _ _ tag_origin_slot _. tag_origin_slot λk. k tag_origin
+    . properties_slot λ_ _ _ _ _ _ tag_origin_slot _ _. tag_origin_slot λk. k tag_origin
   + λ _ _ properties_slot _
-    . properties_slot λ_ _ _ _ _ closure_marker_slot _ _. closure_marker_slot λk. k $closure
-  + λ_ _ properties_slot _. properties_slot λ_ _ _ _ name_marker_slot _ _ _. name_marker_slot λk. k $name
+    . properties_slot λ_ _ _ _ _ closure_marker_slot _ _ _. closure_marker_slot λk. k $closure
+  + λ_ _ properties_slot _. properties_slot λ_ _ _ _ name_marker_slot _ _ _ _. name_marker_slot λk. k $name
   + λ _ rewriting_slot _ _
     . rewriting_slot
     λ _ _ leaves_slot
@@ -59,13 +60,19 @@
       + λk. k $name
       + λk. k $generic
       + λk. k $constructor
+      + λk. k $repelled
       )
   + λ _ rewriting_slot _ _
     . rewriting_slot
     λ _ lemmas_slot _
     . lemmas_slot
-      # The schemes of the declared constants: Name = Name + (Name ∥ T), absorption.
+      # The erasure of the repeller: $repelled x = x, its definition in
+      # native_types/markers and the β rule, the lemma that justifies its
+      # property repeller.
       ( λ s
+        . s (λk. k "repelled_erased") (λx_0. $repelled x_0) (λx_0. x_0) λ_ md_slot _. md_slot λk. k "[repelled](docs/design/gezi-hindley-milner-unions-proofs.md#repelled)"
+      # The schemes of the declared constants: Name = Name + (Name ∥ T), absorption.
+      + λ s
         . s
           (λk. k "list_fold_scheme") list_fold
           ( list_fold

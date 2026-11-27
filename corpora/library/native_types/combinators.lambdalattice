@@ -2,7 +2,7 @@
 . (λtuple. tuple λmixin. mixin mixin)
 λ omega
 . omega (omega (omega (omega corpora "library") "native_types") "markers")
-λ $generic _ _ _
+λ $generic _ _ _ _
 # identity:
 # The identity; its scheme forall a. a -> a is the lemma identity_scheme of
 # native_types.pl.

@@ -10,7 +10,8 @@ import gezi.frontend.Term.λ
 import gezi.generatedinputs.GeneratedProperties
 import gezi.generatedinputs.HoasGenerators
 import gezi.ir.BuiltInRule
-import gezi.ir.Instruction
+import gezi.ir.Configured
+import gezi.ir.NoFacts
 import gezi.lemmaencoding.baseline.BaselineLemmaEncoding
 import gezi.orientation.StandardOrientationCompiler
 import gezi.saturation.Run
@@ -26,6 +27,8 @@ import gezi.ir.LemmaIdentifier
   * unite them.
   */
 class BuiltInRuleLawTest extends GeneratedProperties:
+
+  private given NoFacts.type = NoFacts
 
   // Measured 2026-11-16 on 2 CPUs (contest-lean.slice, CPUs 10,11, nice 10), the 1-minute load 9 to 22 over the run, every deadline raised to 600 s: the slowest test of BuiltInRuleLawTest, "without β no union is the β rule's, with β the redex is united with its contractum", takes 5.698 s; the bound is 1.5 times that rounded up to 5 s.
   // FIXME: this suite exceeds the 3 s default with no reason yet; its slow tests are to be made fast. https://github.com/Atry/private-overlay/issues/1925
@@ -59,16 +62,16 @@ class BuiltInRuleLawTest extends GeneratedProperties:
   override def sharedFixtures: Vector[scala.concurrent.Future[Unit] => Any] = Vector(_ => closureLibrary, _ => round)
 
   private def saturated(
-      index: StandardLibraryIndex,
+      index: StandardLibraryIndex[NoFacts.type],
       lemmas: Vector[LemmaIdentifier],
       rules: Set[BuiltInRule],
-      inputs: Vector[Instruction],
+      inputs: Vector[Configured[NoFacts.type]],
       stop: StopSignal
-  ): Run =
+  ): Run[NoFacts.type] =
     FixpointEgraph.saturated(
       index,
       inputs,
-      SaturationOptions(lemmas, rules, budget, BaselineLemmaEncoding, ClosureCompilation, StandardIndexer, StandardOrientationCompiler, MemoRetention.Kept),
+      SaturationOptions(lemmas, rules, budget, BaselineLemmaEncoding, ClosureCompilation, StandardIndexer.of[gezi.ir.NoFacts.type], StandardOrientationCompiler, MemoRetention.Kept, gezi.ir.TermConstruction(gezi.ir.NoFacts)),
       explained = false,
       stop
     )
@@ -93,9 +96,9 @@ class BuiltInRuleLawTest extends GeneratedProperties:
       applied <- term.forAll
     yield
       val redex = StrategyTesting.programInput(closureLibrary, λ(bound => bound(applied))(argument))
-      val without = saturated(closureLibrary.index, round, BuiltInRule.all - BuiltInRule.Beta, Vector(redex), StopSignal.completedWith(stopped))
-      val enabled = saturated(closureLibrary.index, round, BuiltInRule.all, Vector(redex), StopSignal.completedWith(stopped))
-      def betaUnions(run: Run): Int = run.graph.unions.count(_.justification match
+      val without = saturated(closureLibrary.index, round, BuiltInRule.beforeOptIn - BuiltInRule.Beta, Vector(redex), StopSignal.completedWith(stopped))
+      val enabled = saturated(closureLibrary.index, round, BuiltInRule.beforeOptIn, Vector(redex), StopSignal.completedWith(stopped))
+      def betaUnions(run: Run[NoFacts.type]): Int = run.graph.unions.count(_.justification match
         case Justification.Beta(_) => true
         case _                     => false
       )

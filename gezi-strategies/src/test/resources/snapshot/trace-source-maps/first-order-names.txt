@@ -11,8 +11,10 @@ lemma 1: λa. (a + a) = λa. a, forward, at the root
 =>
 start
   λx_0. (λx_1. x_0) λx_1. x_0 + (λk l. k) (λx_0. (λx_1 x_2. (λx_3. x_0) λx_3. x_2 ∥ x_0)) λx_0 x_1. x_1 λ. x_0 x_0 (x_0 ∥ x_1)
-lemma 1: λa b. (λx_0 x_1. x_0) a b = λa b. a, forward, at left
-  λx_0. (λx_1. x_0) λx_1. x_0 + λx_0. (λx_1 x_2. (λx_3. x_0) λx_3. x_2 ∥ x_0)
+lemma 1: λa b. (a + b) = λa b. (b + a), backward, at the root
+  (λk l. k) (λx_0. (λx_1 x_2. (λx_3. x_0) λx_3. x_2 ∥ x_0)) λx_0 x_1. x_1 λ. x_0 x_0 (x_0 ∥ x_1) + λx_0. (λx_1. x_0) λx_1. x_0
+lemma 2: λa b. (λx_0 x_1. x_0) a b = λa b. a, forward, at right
+  λx_0. (λx_1 x_2. (λx_3. x_0) λx_3. x_2 ∥ x_0) + λx_0. (λx_1. x_0) λx_1. x_0
 
 # sample 2
 (λx_0. x_0) + (λx_0. λx_1. λx_2. ((λx_3. x_0 x_2) (x_2 x_2) + (x_0 ∥ (x_1 ∥ x_2)) + x_1 x_2))
@@ -27,7 +29,5 @@ lemma 1: λa b. (a + b) = λa b. (b + a), backward, at the root
 =>
 start
   (λt. t λx_0. x_0) λ$merkle$fc082a46. (λx_0 x_1 x_2. (λx_3. ((λx_4. x_2 x_3) x_1 ∥ (λx_4. x_2 x_3) x_1)) x_1 + (λk l. k) $merkle$fc082a46 λx_0. (λx_1 x_2. (x_0 x_2 λ. x_0 x_2 + x_2 x_0 λx_3 x_4. (x_3 + x_3))) ($merkle$fc082a46 ∥ $merkle$fc082a46))
-lemma 1: λa b. (a + b) = λa b. (b + a), backward, at the root
-  (λt. t λx_0. x_0) λ$merkle$fc082a46. ((λk l. k) $merkle$fc082a46 λx_0. (λx_1 x_2. (x_0 x_2 λ. x_0 x_2 + x_2 x_0 λx_3 x_4. (x_3 + x_3))) ($merkle$fc082a46 ∥ $merkle$fc082a46) + λx_0 x_1 x_2. (λx_3. ((λx_4. x_2 x_3) x_1 ∥ (λx_4. x_2 x_3) x_1)) x_1)
-lemma 2: λa b. (λx_0 x_1. x_0) a b = λa b. a, forward, at right
-  λx_0. x_0 + λx_0 x_1 x_2. (λx_3. ((λx_4. x_2 x_3) x_1 ∥ (λx_4. x_2 x_3) x_1)) x_1
+lemma 1: λa b. (λx_0 x_1. x_0) a b = λa b. a, forward, at left
+  λx_0 x_1 x_2. (λx_3. ((λx_4. x_2 x_3) x_1 ∥ (λx_4. x_2 x_3) x_1)) x_1 + λx_0. x_0

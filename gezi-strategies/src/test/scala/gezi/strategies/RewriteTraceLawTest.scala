@@ -13,7 +13,8 @@ import gezi.generatedinputs.HoasGenerators
 import gezi.generatedinputs.LambdalatticeText
 import gezi.generatedinputs.SeededSnapshots
 import gezi.ir.BuiltInRule
-import gezi.ir.Instruction
+import gezi.ir.Configured
+import gezi.ir.NoFacts
 import gezi.ir.LemmaIdentifier
 import gezi.lemmaencoding.baseline.BaselineLemmaEncoding
 import gezi.orientation.StandardOrientationCompiler
@@ -51,17 +52,21 @@ import snapshot4s.generated.snapshotConfig
   * The suite is in `strategies` because it runs the strategy.
   */
 class RewriteTraceLawTest extends GeneratedProperties with SeededSnapshots:
+
+  given gezi.ir.StorageAccess = gezi.ir.StorageAccess.granted()
+
+  private given NoFacts.type = NoFacts
   import RewriteTraceLawTest.*
 
-  private val lemmas: Vector[LemmaSides] = Vector(
+  private val lemmas: Vector[LemmaSides[NoFacts.type]] = Vector(
     equation(0, "λa. λb. (a + b)", "λa. λb. (b + a)"),
     equation(1, "λa. λb. λc. ((a + b) + c)", "λa. λb. λc. (a + (b + c))"),
     equation(2, "λa. (a + a)", "λa. a"),
     equation(3, "λa. λb. (λx. λy. x) a b", "λa. λb. a")
   )
 
-  private val index: StandardLibraryIndex =
-    StandardLibraryIndex(Vector.empty, lemmas, Vector.empty, Vector.empty)
+  private val index: StandardLibraryIndex[NoFacts.type] =
+    StandardLibraryIndex(NoFacts, Vector.empty, lemmas, Vector.empty, Vector.empty)
 
   /** The instances a round may add: twice the most a round of the generated
     * programs added, measured on 2026-11-13 (main 3939b8fca) on 100 programs
@@ -71,12 +76,12 @@ class RewriteTraceLawTest extends GeneratedProperties with SeededSnapshots:
     */
   private val budget: Int = 24
 
-  private val strategy: FixpointEgraph = FixpointEgraph(
+  private val strategy: FixpointEgraph[NoFacts.type] = FixpointEgraph(
     index,
     StandardSaturator(
-      SaturationOptions(lemmas.map(_.lemma), BuiltInRule.all, budget, BaselineLemmaEncoding, ClosureCompilation, StandardIndexer, StandardOrientationCompiler, MemoRetention.Kept)
+      SaturationOptions(lemmas.map(_.lemma), BuiltInRule.beforeOptIn, budget, BaselineLemmaEncoding, ClosureCompilation, StandardIndexer.of[gezi.ir.NoFacts.type], StandardOrientationCompiler, MemoRetention.Kept, gezi.ir.TermConstruction(gezi.ir.NoFacts))
     ),
-    CountedExtractor(ExtractionOptions(Vector("compression")), BaselineModules.table)
+    CountedExtractor(ExtractionOptions(Vector("compression")), BaselineModules.table[gezi.ir.NoFacts.type])
   )
 
   /** A program the lemmas rewrite: a choice of two to four closed terms, or
@@ -93,12 +98,40 @@ class RewriteTraceLawTest extends GeneratedProperties with SeededSnapshots:
     )
 
   /** The derivation of the round of the strategy on the program. */
-  private def derivation(program: String, stop: StopSignal): ArticleDerivation =
+  private def derivation(program: String, stop: StopSignal): ArticleDerivation[NoFacts.type] =
     val input = closed(program)
     val outcome = strategy.ran(Vector(input), true, stop).getOrElse(fail("the strategy gave no answer"))
     val Vector(output) = outcome.outputs: @unchecked
     val proof = outcome.proof.getOrElse(fail("the strategy gave no proof"))
     OpentheoryArticle.derivation(index, input, output, proof)
+
+  /** Purpose: catch an article writer whose article of a round the
+    * opentheory tool does not accept, or whose proof does not need its
+    * symmetries: the article of a first-order round is accepted, and, when
+    * it has a `sym`, refused with its first or its last `sym` deleted.
+    */
+  stoppableProperty(
+    "a first-order round's article is accepted by the opentheory tool and refused without a sym",
+    // Each article costs one to three runs of the tool, 0.1 s to 0.4 s each: 20 rounds took 3.2 s, over the default
+    // deadline (measured 2026-11-22, two cores, load 1.3), so the law checks 10.
+    _.copy(testLimit = hedgehog.core.SuccessCount(10))
+  ) { stopped =>
+    programs.forAllWithLog(identity).map(program =>
+      val input = closed(program)
+      val outcome = strategy.ran(Vector(input), true, StopSignal.completedWith(stopped)).getOrElse(fail("the strategy gave no answer"))
+      val Vector(output) = outcome.outputs: @unchecked
+      val proof = outcome.proof.getOrElse(fail("the strategy gave no proof"))
+      val article = OpentheoryArticle.text(index, input, output, proof)
+      val refusals =
+        if article.split("\n", -1).contains("sym") then
+          Vector(false, true).map(last => gezi.proofs.ProofTestFiles.checkedWithoutSym(article, last))
+        else Vector.empty
+      Result.all(
+        Result.diff(gezi.proofs.ProofTestFiles.textChecked(article), (0, ""))(_ == _) ::
+          refusals.toList.map((status, errors) => Result.assert(status == 1 && errors.contains("terms not alpha-equivalent")).log(errors))
+      )
+    )
+  }
 
   /** Purpose: catch a flattening that loses, duplicates, misplaces or
     * misorders a step, so that the steps no longer make the round's output
@@ -127,11 +160,11 @@ class RewriteTraceLawTest extends GeneratedProperties with SeededSnapshots:
       val run = derivation(program, StopSignal.completedWith(stopped))
       val proofSteps = RewriteTrace.of(run)
       val replacedSubterms = proofSteps
-        .zip(proofSteps.scanLeft(run.left)(RewriteTrace.applied))
+        .zip(proofSteps.scanLeft(run.left)(RewriteTrace.applied[NoFacts.type]))
         .map((step, before) => Positions.subterm(before, step.position))
       val steps = proofSteps
         .zip(replacedSubterms)
-        .foldLeft(List.empty[(gezi.proofs.RewriteStep, Instruction)]) { case (kept, (step, replaced)) =>
+        .foldLeft(List.empty[(gezi.proofs.RewriteStep[NoFacts.type], Configured[NoFacts.type])]) { case (kept, (step, replaced)) =>
           kept match
             case (last, lastReplaced) :: earlier
                 if last.position == step.position && (lastReplaced eq step.replacement) && (last.replacement eq replaced) =>
@@ -214,7 +247,7 @@ class RewriteTraceLawTest extends GeneratedProperties with SeededSnapshots:
   /** The steps whose provenance takes a variable's subtree to another
     * subtree, or reads two different subtrees for one variable.
     */
-  private def provenanceProblems(steps: Vector[ReplayedStep]): Vector[String] =
+  private def provenanceProblems(steps: Vector[ReplayedStep[NoFacts.type]]): Vector[String] =
     steps.zipWithIndex.flatMap((step, place) =>
       step.provenance.flatMap(found =>
         val sources = found.before.map(Positions.subterm(step.replaced, _)).distinct
@@ -238,14 +271,14 @@ class RewriteTraceLawTest extends GeneratedProperties with SeededSnapshots:
   }
 
   /** The round of the strategy with the lemmas of the places given. */
-  private def roundOf(places: Vector[Int]): Round =
+  private def roundOf(places: Vector[Int]): Round[NoFacts.type] =
     Round(
       FixpointEgraph(
         index,
         StandardSaturator(
-          SaturationOptions(places.map(lemmas(_).lemma), BuiltInRule.all, budget, BaselineLemmaEncoding, ClosureCompilation, StandardIndexer, StandardOrientationCompiler, MemoRetention.Kept)
+          SaturationOptions(places.map(lemmas(_).lemma), BuiltInRule.beforeOptIn, budget, BaselineLemmaEncoding, ClosureCompilation, StandardIndexer.of[gezi.ir.NoFacts.type], StandardOrientationCompiler, MemoRetention.Kept, gezi.ir.TermConstruction(gezi.ir.NoFacts))
         ),
-        CountedExtractor(ExtractionOptions(Vector("compression")), BaselineModules.table)
+        CountedExtractor(ExtractionOptions(Vector("compression")), BaselineModules.table[gezi.ir.NoFacts.type])
       ),
       None
     )
@@ -317,7 +350,7 @@ class RewriteTraceLawTest extends GeneratedProperties with SeededSnapshots:
   /** The trace of a round of the strategy with the lemmas of the places on
     * the input, and the round's output.
     */
-  private def tracedRound(places: Vector[Int], input: Instruction, stop: StopSignal): (Trace, Instruction) =
+  private def tracedRound(places: Vector[Int], input: Configured[NoFacts.type], stop: StopSignal): (Trace[NoFacts.type], Configured[NoFacts.type]) =
     val outcome = roundOf(places).strategy.ran(Vector(input), true, stop).getOrElse(fail("the strategy gave no answer"))
     val Vector(output) = outcome.outputs: @unchecked
     val proof = outcome.proof.getOrElse(fail("the strategy gave no proof"))
@@ -444,17 +477,17 @@ class RewriteTraceLawTest extends GeneratedProperties with SeededSnapshots:
     */
   private val residualBudget: Int = 2
 
-  private val residualSaturator: StandardSaturator = StandardSaturator(
+  private val residualSaturator: StandardSaturator[NoFacts.type] = StandardSaturator(
     SaturationOptions(
       residualLemmas.map(_.lemma),
-      BuiltInRule.all,
+      BuiltInRule.beforeOptIn,
       residualBudget,
       BaselineLemmaEncoding,
       ClosureCompilation,
-      StandardIndexer,
+      StandardIndexer.of[gezi.ir.NoFacts.type],
       StandardOrientationCompiler,
       MemoRetention.Kept
-    )
+    , gezi.ir.TermConstruction(gezi.ir.NoFacts))
   )
 
   /** `(λu. u) (T A)`, T a lambda of `ResidualPrograms`, whose β residual
@@ -477,15 +510,18 @@ class RewriteTraceLawTest extends GeneratedProperties with SeededSnapshots:
     */
   stoppableProperty("a β union that leaves a residual is derived, and its steps and its trace replay to it") { stopped =>
     residualPrograms.forAllWithLog(LambdalatticeText.text).map(program =>
-      val input = Defunctionalization.thunkInstruction(program.deBruijnTerm(Map.empty))
+      val input = Defunctionalization.thunkInstruction[NoFacts.type](program.deBruijnTerm(Map.empty))
       val run = residualSaturator.saturated(residualIndex, Vector(input), true, StopSignal.completedWith(stopped))
       val Vector(inputNode) = run.inputNodes: @unchecked
       val encoded = residualSaturator.lemmas(residualIndex)
-      val terms = GraphProof.proof(run.graph, Vector((input, input)), encoded).terms
+      val terms = OpentheoryArticle.derivation(residualIndex, input, input, GraphProof.proof(run.graph, Vector((input, input)), encoded)).nodeTerm
       val residuals = (0 until run.graph.nodeCount)
         .filter(node => run.graph.root(node) == run.graph.root(inputNode))
         .map(terms)
-        .collect { case residual @ Instruction.Thunk(_, holes, _) if holes.nonEmpty => residual }
+        .filter(residual => residual.layer match
+          case gezi.ir.Thunk(_, holes, _) => holes.nonEmpty
+          case _                          => false
+        )
         .distinct
       val problems = residuals.flatMap(residual =>
         val derivation =
@@ -542,11 +578,15 @@ class RewriteTraceLawTest extends GeneratedProperties with SeededSnapshots:
   */
 object RewriteTraceLawTest:
 
+  private given NoFacts.type = NoFacts
+
+  private given gezi.ir.StorageAccess = gezi.ir.StorageAccess.granted()
+
   /** The terms a command gives by writing them (`Given.Written`), its
     * abstraction's commands included.
     */
-  def writtenTerms(command: TraceCommand): Vector[Instruction] =
-    def written(named: Given): Vector[Instruction] = named match
+  def writtenTerms(command: TraceCommand[NoFacts.type]): Vector[Configured[NoFacts.type]] =
+    def written(named: Given[NoFacts.type]): Vector[Configured[NoFacts.type]] = named match
       case Given.Written(term) => Vector(term)
       case Given.Value(_)      => Vector.empty
     command match
@@ -587,15 +627,15 @@ object RewriteTraceLawTest:
     * so that hereditary re-normalization reproduces the target. Put that
     * lemma and its program shape back with that change.
     */
-  private[strategies] val higherOrderLemmas: Vector[LemmaSides] =
+  private[strategies] val higherOrderLemmas: Vector[LemmaSides[NoFacts.type]] =
     Vector(
       equation(0, "λk. λa. (λx. λz. k x) a", "λk. λa. λz. k a"),
       equation(1, "λk. λa. (λx. λz. z (k x)) a", "λk. λa. λz. z (k a)"),
       equation(2, "λk. λa. (λx. λz. z (λw. k (x w))) a", "λk. λa. λz. z (λw. k (a w))")
     )
 
-  private[strategies] val higherOrderIndex: StandardLibraryIndex =
-    StandardLibraryIndex(Vector.empty, higherOrderLemmas, Vector.empty, Vector.empty)
+  private[strategies] val higherOrderIndex: StandardLibraryIndex[NoFacts.type] =
+    StandardLibraryIndex(NoFacts, Vector.empty, higherOrderLemmas, Vector.empty, Vector.empty)
 
   /** The instances a higher-order round may add: twice the most a round of
     * the generated programs added, measured on 2026-11-13 (main 67a1dc101)
@@ -615,7 +655,7 @@ object RewriteTraceLawTest:
     * output is reached by the lemma's instance and the β conversions its
     * matching writes, which the article imports as conversion equations.
     */
-  private[strategies] val higherOrderStrategy: FixpointEgraph = FixpointEgraph(
+  private[strategies] val higherOrderStrategy: FixpointEgraph[NoFacts.type] = FixpointEgraph(
     higherOrderIndex,
     HigherOrderSaturator(
       SaturationOptions(
@@ -624,15 +664,15 @@ object RewriteTraceLawTest:
         higherOrderBudget,
         BaselineLemmaEncoding,
         ClosureCompilation,
-        StandardIndexer,
+        StandardIndexer.of[gezi.ir.NoFacts.type],
         StandardOrientationCompiler,
         MemoRetention.Kept
-      ),
+      , gezi.ir.TermConstruction(gezi.ir.NoFacts)),
       None,
       None,
       gezi.saturation.OpeningCriterionChoice.CallsAHead
     ),
-    CountedExtractor(ExtractionOptions(Vector("compression")), BaselineModules.table)
+    CountedExtractor(ExtractionOptions(Vector("compression")), BaselineModules.table[gezi.ir.NoFacts.type])
   )
 
   /** A redex a higher-order lemma rewrites: `(λx. λz. x C) N`;
@@ -662,18 +702,18 @@ object RewriteTraceLawTest:
   /** The lemma `K a b = a` of K = λx. λy. x, which rewrites a closure's body
     * once the higher-order saturator opens it.
     */
-  private[strategies] val openingLemmas: Vector[LemmaSides] =
+  private[strategies] val openingLemmas: Vector[LemmaSides[NoFacts.type]] =
     Vector(equation(0, "λa. λb. (λx. λy. x) a b", "λa. λb. a"))
 
-  private[strategies] val openingIndex: StandardLibraryIndex =
-    StandardLibraryIndex(Vector.empty, openingLemmas, Vector.empty, Vector.empty)
+  private[strategies] val openingIndex: StandardLibraryIndex[NoFacts.type] =
+    StandardLibraryIndex(NoFacts, Vector.empty, openingLemmas, Vector.empty, Vector.empty)
 
   /** The higher-order saturator that opens bodies and writes them back,
     * under the budget of `AbstractionRecordLawTest`'s rounds, whose inputs
     * these are. FIXME (2026-11-14): the budget is not measured; measure the https://github.com/Atry/private-overlay/issues/1962
     * most a generated round adds and set twice that, with the measurement.
     */
-  private[strategies] val openingStrategy: FixpointEgraph = FixpointEgraph(
+  private[strategies] val openingStrategy: FixpointEgraph[NoFacts.type] = FixpointEgraph(
     openingIndex,
     HigherOrderSaturator(
       SaturationOptions(
@@ -682,15 +722,15 @@ object RewriteTraceLawTest:
         16,
         BaselineLemmaEncoding,
         ClosureCompilation,
-        StandardIndexer,
+        StandardIndexer.of[gezi.ir.NoFacts.type],
         StandardOrientationCompiler,
         MemoRetention.Kept
-      ),
-      Some(LocalExtraction(Vector(Compression), _ => Set.empty, MemoRetention.Kept)),
+      , gezi.ir.TermConstruction(gezi.ir.NoFacts)),
+      Some(LocalExtraction(Vector(Compression.at[gezi.ir.NoFacts.type]), _ => Set.empty, SpellingRetention.KeptWithinAPass)),
       None,
       gezi.saturation.OpeningCriterionChoice.CallsAHead
     ),
-    CountedExtractor(ExtractionOptions(Vector("compression")), BaselineModules.table)
+    CountedExtractor(ExtractionOptions(Vector("compression")), BaselineModules.table[gezi.ir.NoFacts.type])
   )
 
   /** A closure whose body calls K on a closed term and its variable. */
@@ -706,7 +746,7 @@ object RewriteTraceLawTest:
   /** The input, the output and the proof of the round that writes a body
     * back, on the program.
     */
-  private[strategies] def openingRan(program: String, stopped: scala.concurrent.Future[Unit]): (Instruction, Instruction, StrategyProof) =
+  private[strategies] def openingRan(program: String, stopped: scala.concurrent.Future[Unit])(Configured[NoFacts.type], Configured[NoFacts.type], StrategyProof[NoFacts.type]) =
     val input = closed(program)
     val outcome = openingStrategy
       .ran(Vector(input), true, StopSignal.completedWith(stopped))
@@ -717,7 +757,7 @@ object RewriteTraceLawTest:
   /** The input, the output and the proof of the higher-order round on the
     * program.
     */
-  private[strategies] def higherOrderRan(program: String, stopped: scala.concurrent.Future[Unit]): (Instruction, Instruction, StrategyProof) =
+  private[strategies] def higherOrderRan(program: String, stopped: scala.concurrent.Future[Unit])(Configured[NoFacts.type], Configured[NoFacts.type], StrategyProof[NoFacts.type]) =
     val input = closed(program)
     val outcome = higherOrderStrategy
       .ran(Vector(input), true, StopSignal.completedWith(stopped))
@@ -725,9 +765,9 @@ object RewriteTraceLawTest:
     val Vector(output) = outcome.outputs: @unchecked
     (input, output, outcome.proof.getOrElse(throw IllegalStateException(s"the strategy gave no proof on $program")))
 
-  private[strategies] def closed(text: String): Instruction = Defunctionalization.thunkInstruction(Lambdalattice.term(text))
+  private[strategies] def closed(text: String): Configured[NoFacts.type] = Defunctionalization.thunkInstruction[NoFacts.type](Lambdalattice.term(text))
 
-  private[strategies] def equation(number: Int, left: String, right: String): LemmaSides =
+  private[strategies] def equation(number: Int, left: String, right: String): LemmaSides[NoFacts.type] =
     LemmaSides(LemmaIdentifier(number), closed(left), closed(right))
 
   /** The evaluator steps the reading of a trace's text may take: one per
@@ -749,8 +789,8 @@ object RewriteTraceLawTest:
   private[strategies] def readingLimit(text: String): Long = TraceText.readingLimit(text)
 
   /** The terms before each step and the term after the last. */
-  private[strategies] def replayed(round: RewriteRound): Vector[Instruction] =
-    round.steps.scanLeft(round.input)(RewriteTrace.applied)
+  private[strategies] def replayed(round: RewriteRound[NoFacts.type]): Vector[Configured[NoFacts.type]] =
+    round.steps.scanLeft(round.input)(RewriteTrace.applied[NoFacts.type])
 
   /** A lemma sound by the β rule whose right side builds `f a` with the
     * function metavariable f at its head, an application the β rule reads
@@ -758,11 +798,11 @@ object RewriteTraceLawTest:
     * `(λu. u) (T A)` makes `T A`, and the β rule fills T's first hole with A,
     * leaving a residual thunk.
     */
-  private[strategies] val residualLemmas: Vector[LemmaSides] =
+  private[strategies] val residualLemmas: Vector[LemmaSides[NoFacts.type]] =
     Vector(equation(0, "λf. λa. (λu. u) (f a)", "λf. λa. f a"))
 
-  private[strategies] val residualIndex: StandardLibraryIndex =
-    StandardLibraryIndex(Vector.empty, residualLemmas, Vector.empty, Vector.empty)
+  private[strategies] val residualIndex: StandardLibraryIndex[NoFacts.type] =
+    StandardLibraryIndex(NoFacts, Vector.empty, residualLemmas, Vector.empty, Vector.empty)
 
   /** The problems of a trace's output against the graph's term it should
     * reach. On main's graph a term may not be in the front end's spelling,
@@ -772,7 +812,7 @@ object RewriteTraceLawTest:
     * lambda terms alike could not pass (`ReplaySpellingLawTest`: the spelling keeps the
     * readback).
     */
-  private[strategies] def traceProblems(output: Instruction, term: Instruction): Option[String] =
-    def readback(of: Instruction): String = gezi.frontend.Lambdalattice.closedText(of)
+  private[strategies] def traceProblems(output: Configured[NoFacts.type], term: Configured[NoFacts.type]): Option[String] =
+    def readback(of: Configured[NoFacts.type]): String = gezi.frontend.Lambdalattice.closedTextViewed(of)
     Option.when(!(output eq gezi.rewritetrace.ReplaySpelling.term(term)))(s"the trace does not replay to the spelling of $term")
       .orElse(Option.when(readback(output) != readback(term))(s"the trace's output reads back otherwise than $term"))

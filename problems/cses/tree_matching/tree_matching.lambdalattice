@@ -1,0 +1,101 @@
+# tree_matching:
+# CSES 1130, Tree Matching (https://cses.fi/problemset/task/1130), in our own words: a
+# tree of n nodes, numbered 1 to n, given by its n - 1 edges; the most edges that can
+# be chosen so that no two chosen edges share a node, a maximum matching. The input is
+# the binary natural n (corpora/library/binary/natural), at least 1, and the edges, a
+# Scott list (corpora/library/prelude/list) of pairs `pair a b`
+# (corpora/library/prelude/pair) of binary naturals from 1 to n, which make a tree;
+# the answer, the size of a maximum matching, is a binary natural. Part of the CSES
+# port's fourth batch.
+#
+# THE PROGRAM, written by the definition: every subset of the list of edges is built,
+# those in which no two edges share a node are kept (the first edge of a subset shares
+# a node with none of the later ones, and so on for each in turn), and the greatest
+# size among them is taken. Its reading builds the 2^(n - 1) subsets of the edges; the
+# replacement the family asks for is the greedy from the leaves, which in the reverse
+# of a breadth-first order matches a node with its parent when neither is matched yet,
+# in about n steps, on fixed-width integers. The number of nodes is not read, since
+# the edges name every node that has one.
+#
+# DEFINITION 14: the program P, the point's term, is built of λ and application only:
+# its text holds no top, no choice, no parallel and no literal. It β-reduces to V, the
+# canonical binary numeral of the answer: every recursion ends, since subsets consumes
+# the finite list of edges, and every other recursion consumes a finite list; the
+# branches that a Scott boolean discards are never read. The program calls no
+# subtraction. So ⊢_β P = V, and P ≃_O V by the soundness of the derivable equations
+# for the contextual preorder of Definition 14 (Lean
+# `ContextualPreorder.contextualEquivalenceOfDerivableLatticeEta`): V is an answer, P
+# ⊑_O V. No other closed βη normal form W has P ⊑_O W: then V ⊑_O W, while Böhm's
+# theorem gives a pure context that takes V to λx y. x and W to λx y. y, and applying
+# both to λa. a and Ω makes the first solvable and the second not.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "fixpoint")
+λ fixpoint
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "boolean")
+λ true false _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons append map _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "natural")
+λ binary_zero _ _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "arithmetic")
+λ merge_binary_increment _ _ merge_binary_equality
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "order")
+λ _ binary_maximum _
+. ( λ tuple
+    . tuple
+    λ. fixpoint
+    λ self items
+    . items (cons nil nil)
+      λ head tail
+      . ( λ rest
+          . append (map (cons head) rest) rest
+        ) λ. self tail
+  )
+λ subsets
+. ( λ tuple
+    . tuple
+    λ first_edge second_edge
+    . first_edge
+      λ first_end second_end
+      . second_edge
+        λ third_end fourth_end
+        . merge_binary_equality first_end third_end true
+          ( merge_binary_equality first_end fourth_end true
+            ( merge_binary_equality second_end third_end true
+              (merge_binary_equality second_end fourth_end true false)
+            )
+          )
+  )
+λ shares
+. ( λ tuple
+    . tuple
+    λ. fixpoint
+    λ self head items
+    . items true λ other rest. shares head other false (self head rest)
+  )
+λ apart_from
+. ( λ tuple
+    . tuple
+    λ. fixpoint
+    λ self items
+    . items true λ head tail. apart_from head tail (self tail) false
+  )
+λ matching
+. ( λ tuple
+    . tuple λ. fixpoint λ self count items. items count λ _ tail. self (merge_binary_increment count) tail
+  )
+λ count_from
+. ( λ tuple
+    . tuple
+    λ. fixpoint
+    λ self most subset_list
+    . subset_list most
+      λ subset rest
+      . self (matching subset (binary_maximum most (count_from binary_zero subset)) most) rest
+  )
+λ largest
+. (λtuple. tuple λ_ edges. largest binary_zero (subsets edges))
+λ tree_matching
+. export tree_matching

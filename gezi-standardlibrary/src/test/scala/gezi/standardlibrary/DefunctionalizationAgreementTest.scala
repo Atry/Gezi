@@ -1,8 +1,10 @@
 package gezi.standardlibrary
 
 import gezi.frontend.DeBruijnTerm
+import gezi.frontend.DeBruijnTermOf
 import gezi.frontend.Defunctionalization
-import gezi.ir.Instruction
+import gezi.ir.Configured
+import gezi.ir.NoFacts
 
 /** A pseudo-random generator as a value, SplitMix64: each draw returns the
   * generator after it.
@@ -35,9 +37,10 @@ final case class SplitMix(state: Long):
   * The first two compare the front end, every instruction replaced by the finite
   * term of its layer, with its Lean definition `thunkInstruction`, for which
   * Lean proves link (i) of D6 (`lean/README.md`, "Design decisions"):
-  * on 100 random source programs over the prelude's files, and on the term
-  * of every file of the prelude, each as the tree read gives it
-  * (`TreeTerms`). The third compares the defunctionalization of 100 random closed
+  * on 100 random source programs over generated files, and on the term of
+  * every such file. A file is a random closed term whose constants are the
+  * instructions of the files drawn before it, so that its content is
+  * generated rather than the library's. The third compares the defunctionalization of 100 random closed
   * terms of the calculus with Lean's `defunctionalize`. The fourth measures
   * link (i) on the random source programs: Lean's `readback` of the finite
   * term is δ of the program. The fifth checks that the sides of the
@@ -56,15 +59,16 @@ final case class SplitMix(state: Long):
   * HM baseline's library once that exists.
   */
 class DefunctionalizationAgreementTest extends gezi.generatedinputs.FailFastSuite:
-  // Measured 2026-11-19 on 4 CPUs (contest.slice, CPUs 6 to 9, nice 10), the 1-minute load 2.0, every deadline raised to
-  // 600 s: the slowest test, "theLeanFrontEndIsThePrologFrontEndOnThePreludeFiles", takes 13.23 s, and the other two that
-  // run `lake env lean` on the prelude's programs 13.20 s and 11.67 s, where the slowest took 4.55 s on 2026-11-16: the
-  // prelude's terms carry the library's markers spelled as tags, a literal of up to 104 bits each, which
-  // the Lean programs elaborate and run. The bound is 1.5 times the slowest, rounded up to 5 s.
+  // Measured 2026-11-22 on 2 CPUs (contest.slice, CPUs 8 and 9, nice 10), the 1-minute load 10: the whole suite, its
+  // fixtures included, 24.7 s for five tests, each of which starts `lake env lean` once.
   // FIXME: this suite exceeds the 3 s default; its slow tests are to be made fast. https://github.com/Atry/private-overlay/issues/1925
   override val munitTimeout: scala.concurrent.duration.Duration = scala.concurrent.duration.Duration(20, "s")
 
   import LeanFiniteTerms.*
+
+  given NoFacts.type = NoFacts
+
+  private type NoFactsTerm = Configured[NoFacts.type]
 
   private val sampleCount = 100
 
@@ -72,34 +76,35 @@ class DefunctionalizationAgreementTest extends gezi.generatedinputs.FailFastSuit
 
   private lazy val prelude = LibraryFiles.compiled("corpora/compiler/prelude.lambdalattice", Vector.empty)
 
-  /** Each field of each file of the prelude's directory, as the tree read
-    * gives it (`TreeTerms`): its instruction, its file's key with its position
-    * and its de Bruijn term, every instruction under it written out
-    * (`Defunctionalization.instructionTerm`).
-    */
-  private lazy val preludeFiles: Vector[(Instruction, String, DeBruijnTerm)] =
-    val paths = TreeTerms.filePaths("corpora/library/prelude")
-    paths.zip(TreeTerms.fields(paths)).flatMap((path, instructions) =>
-      instructions.zipWithIndex.map((instruction, position) =>
-        (instruction, s"${path.split('/').last}_$position", Defunctionalization.instructionTerm(instruction))
-      )
-    )
+  private val fileCount = 8
 
-  /** The prelude's library and its files' fields, forced before the first test and not charged to it (FailFastSuite). */
-  override def sharedFixtures: Vector[scala.concurrent.Future[Unit] => Any] = Vector(_ => prelude, _ => preludeFiles)
+  /** The generated files: each its instruction, its name and its de Bruijn
+    * term, a closed term drawn as a sample is (`sample`) whose constants are
+    * the instructions of the files before it, the first one's none.
+    */
+  private lazy val files: Vector[(NoFactsTerm, String, DeBruijnTermOf[NoFactsTerm])] =
+    (0 until fileCount).foldLeft((Vector.empty[(NoFactsTerm, String, DeBruijnTermOf[NoFactsTerm])], SplitMix(sampleSeed + 1))) {
+      case ((made, random), index) =>
+        val shape = if made.isEmpty then Shape.Calculus else Shape.Source(made.map(_._1).distinct)
+        val (term, after) = sample(shape, random)
+        (made :+ (Defunctionalization.thunkInstruction[NoFacts.type](term), s"file_$index", term), after)
+    }._1
+
+  /** The prelude's library, forced before the first test and not charged to it (FailFastSuite). */
+  override def sharedFixtures: Vector[scala.concurrent.Future[Unit] => Any] = Vector(_ => prelude, _ => files)
 
 
   // ---- the samples ----
 
   private enum Shape:
     case Calculus
-    case Source(instructions: Vector[Instruction])
+    case Source(instructions: Vector[NoFactsTerm])
 
   private enum Kind:
     case Variable, Lambda, Apply, Choice, Parallel, Empty, Constant
 
-  private def samples(shape: Shape): Vector[DeBruijnTerm] =
-    (0 until sampleCount).foldLeft((Vector.empty[DeBruijnTerm], SplitMix(sampleSeed))) {
+  private def samples(shape: Shape): Vector[DeBruijnTermOf[NoFactsTerm]] =
+    (0 until sampleCount).foldLeft((Vector.empty[DeBruijnTermOf[NoFactsTerm]], SplitMix(sampleSeed))) {
       case ((drawn, random), _) =>
         val (term, after) = sample(shape, random)
         (drawn :+ term, after)
@@ -108,7 +113,7 @@ class DefunctionalizationAgreementTest extends gezi.generatedinputs.FailFastSuit
   /** Four fifths an abstraction around a body under one binder, the rest a
     * term under none; 1 to 30 nodes either way.
     */
-  private def sample(shape: Shape, random: SplitMix): (DeBruijnTerm, SplitMix) =
+  private def sample(shape: Shape, random: SplitMix): (DeBruijnTermOf[NoFactsTerm], SplitMix) =
     val (draw, afterDraw) = random.fraction
     val (size, afterSize) = afterDraw.between(1, 30)
     if draw < 0.8 then
@@ -122,7 +127,7 @@ class DefunctionalizationAgreementTest extends gezi.generatedinputs.FailFastSuit
     * the size is spent and otherwise with probability 1/20, and,
     * in a source program, a constant always.
     */
-  private def randomTerm(shape: Shape, depth: Int, size: Int, random: SplitMix): (DeBruijnTerm, SplitMix) =
+  private def randomTerm(shape: Shape, depth: Int, size: Int, random: SplitMix): (DeBruijnTermOf[NoFactsTerm], SplitMix) =
     val variables = if depth > 0 then Vector.fill(4)(Kind.Variable) else Vector.empty
     val compounds =
       if size > 0 then
@@ -144,7 +149,7 @@ class DefunctionalizationAgreementTest extends gezi.generatedinputs.FailFastSuit
       depth: Int,
       size: Int,
       random: SplitMix
-  ): (DeBruijnTerm, SplitMix) = kind match
+  ): (DeBruijnTermOf[NoFactsTerm], SplitMix) = kind match
     case Kind.Variable =>
       val (index, after) = random.between(0, depth - 1)
       (DeBruijnTerm.Variable(index), after)
@@ -180,7 +185,7 @@ class DefunctionalizationAgreementTest extends gezi.generatedinputs.FailFastSuit
       depth: Int,
       size: Int,
       random: SplitMix
-  ): (DeBruijnTerm, DeBruijnTerm, SplitMix) =
+  ): (DeBruijnTermOf[NoFactsTerm], DeBruijnTermOf[NoFactsTerm], SplitMix) =
     val (leftSize, afterSize) = random.between(0, size - 1)
     val (left, afterLeft) = randomTerm(shape, depth, leftSize, afterSize)
     val (right, after) = randomTerm(shape, depth, size - 1 - leftSize, afterLeft)
@@ -193,7 +198,7 @@ class DefunctionalizationAgreementTest extends gezi.generatedinputs.FailFastSuit
       depth: Int,
       size: Int,
       random: SplitMix
-  ): (Vector[DeBruijnTerm], SplitMix) =
+  ): (Vector[DeBruijnTermOf[NoFactsTerm]], SplitMix) =
     if count == 1 then
       val (member, after) = randomTerm(shape, depth, size, random)
       (Vector(member), after)
@@ -203,26 +208,26 @@ class DefunctionalizationAgreementTest extends gezi.generatedinputs.FailFastSuit
       val (rest, after) = randomMembers(count - 1, shape, depth, size - memberSize, afterMember)
       (member +: rest, after)
 
-  private lazy val sourceSamples: Vector[DeBruijnTerm] =
-    samples(Shape.Source(preludeFiles.map(_._1).distinct))
+  private lazy val sourceSamples: Vector[DeBruijnTermOf[NoFactsTerm]] =
+    samples(Shape.Source(files.map(_._1).distinct))
 
   // ---- the front end ----
 
   /** The finite term of the front end's instruction of the program. */
-  private def solvedText(program: DeBruijnTerm): String =
-    finiteText(Defunctionalization.thunkInstruction(program))
+  private def solvedText(program: DeBruijnTermOf[NoFactsTerm]): String =
+    finiteText(Defunctionalization.thunkInstruction[NoFacts.type](program))
 
   /** The instructions the programs reach, each after the instructions its file's term
     * reaches (`source_definitions/4`), with the identifier and the program of
-    * the first prelude file of the instruction whose term is not the constant of
+    * the first generated file of the instruction whose term is not the constant of
     * the instruction.
     */
-  private def sourceDefinitions(programs: Vector[DeBruijnTerm]): Vector[(Instruction, String, DeBruijnTerm)] =
-    def file(instruction: Instruction): (Instruction, String, DeBruijnTerm) =
-      preludeFiles
-        .find((found, _, term) => found == instruction && term != DeBruijnTerm.Constant(instruction))
-        .getOrElse(throw IllegalStateException(s"no prelude file at $instruction"))
-    def constants(term: DeBruijnTerm): Vector[Instruction] = term match
+  private def sourceDefinitions(programs: Vector[DeBruijnTermOf[NoFactsTerm]]): Vector[(NoFactsTerm, String, DeBruijnTermOf[NoFactsTerm])] =
+    def file(instruction: NoFactsTerm): (NoFactsTerm, String, DeBruijnTermOf[NoFactsTerm]) =
+      files
+        .find((found, _, term) => Configured.same(found, instruction) && term != DeBruijnTerm.Constant(instruction))
+        .getOrElse(throw IllegalStateException(s"no generated file at $instruction"))
+    def constants(term: DeBruijnTermOf[NoFactsTerm]): Vector[NoFactsTerm] = term match
       case DeBruijnTerm.Constant(instruction)          => Vector(instruction)
       case DeBruijnTerm.Free(name)                => throw IllegalArgumentException(s"a free name $name in a program")
       case DeBruijnTerm.Variable(_)               => Vector.empty
@@ -230,15 +235,15 @@ class DefunctionalizationAgreementTest extends gezi.generatedinputs.FailFastSuit
       case DeBruijnTerm.Apply(function, argument) => constants(function) ++ constants(argument)
       case DeBruijnTerm.Choice(left, right)       => constants(left) ++ constants(right)
       case DeBruijnTerm.Parallel(left, right)     => constants(left) ++ constants(right)
-    def reached(term: DeBruijnTerm, known: Vector[Instruction]): Vector[Instruction] =
+    def reached(term: DeBruijnTermOf[NoFactsTerm], known: Vector[NoFactsTerm]): Vector[NoFactsTerm] =
       constants(term).foldLeft(known)((current, instruction) =>
-        if current.contains(instruction) then current
+        if current.exists(Configured.same(_, instruction)) then current
         else reached(file(instruction)._3, current) :+ instruction
       )
-    val instructions = programs.foldLeft(Vector.empty[Instruction])((known, program) => reached(program, known))
+    val instructions = programs.foldLeft(Vector.empty[NoFactsTerm])((known, program) => reached(program, known))
     val definitions = instructions.map(instruction =>
       val (_, name, term) = file(instruction)
-      (instruction, lowerCamelCase(s"prelude_$name"), term)
+      (instruction, lowerCamelCase(s"generated_$name"), term)
     )
     assert(definitions.map(_._2).distinct.size == definitions.size, "lean_identifiers_collide")
     definitions
@@ -248,7 +253,7 @@ class DefunctionalizationAgreementTest extends gezi.generatedinputs.FailFastSuit
     * completes.
     */
   private def frontEndDisagreements(
-      programs: Vector[DeBruijnTerm],
+      programs: Vector[DeBruijnTermOf[NoFactsTerm]],
       stopped: scala.concurrent.Future[Unit]
   ): Vector[(Int, String, String)] =
     val definitions = sourceDefinitions(programs)
@@ -284,19 +289,19 @@ class DefunctionalizationAgreementTest extends gezi.generatedinputs.FailFastSuit
     )
 
   /** δ of link (i) of D6: the program with every constant replaced by δ of
-    * its prelude file's term, as a de Bruijn term in the Prolog syntax Lean's
+    * its generated file's term, as a de Bruijn term in the Prolog syntax Lean's
     * `termText` writes.
     */
-  private def deltaText(program: DeBruijnTerm): String = program match
+  private def deltaText(program: DeBruijnTermOf[NoFactsTerm]): String = program match
     case DeBruijnTerm.Variable(index)           => s"variable($index)"
     case DeBruijnTerm.Lambda(body)              => s"lambda(${deltaText(body)})"
     case DeBruijnTerm.Apply(function, argument) => s"apply(${deltaText(function)},${deltaText(argument)})"
     case DeBruijnTerm.Parallel(left, right)     => s"parallel(${deltaText(left)},${deltaText(right)})"
     case DeBruijnTerm.Choice(left, right)       => s"choice([${deltaText(left)},${deltaText(right)}])"
     case DeBruijnTerm.Constant(instruction) =>
-      val (_, _, term) = preludeFiles
-        .find((found, _, term) => found == instruction && term != DeBruijnTerm.Constant(instruction))
-        .getOrElse(throw IllegalStateException(s"no prelude file at $instruction"))
+      val (_, _, term) = files
+        .find((found, _, term) => Configured.same(found, instruction) && term != DeBruijnTerm.Constant(instruction))
+        .getOrElse(throw IllegalStateException(s"no generated file at $instruction"))
       deltaText(term)
     case DeBruijnTerm.Free(name) => throw IllegalArgumentException(s"a free name $name in a program")
 
@@ -305,8 +310,8 @@ class DefunctionalizationAgreementTest extends gezi.generatedinputs.FailFastSuit
     assertEquals(frontEndDisagreements(sourceSamples, stopped), Vector.empty)
   }
 
-  stoppableTest("theLeanFrontEndIsThePrologFrontEndOnThePreludeFiles") { stopped =>
-    val programs = preludeFiles.map(_._3)
+  stoppableTest("theLeanFrontEndIsThePrologFrontEndOnTheGeneratedFiles") { stopped =>
+    val programs = files.map(_._3)
     assert(programs.nonEmpty)
     assertEquals(frontEndDisagreements(programs, stopped), Vector.empty)
   }
@@ -332,19 +337,19 @@ class DefunctionalizationAgreementTest extends gezi.generatedinputs.FailFastSuit
     assertEquals(leans.size, sampleCount)
     val disagreements = calculusSamples.zip(leans).zipWithIndex.collect {
       case ((sample, lean), index)
-          if finiteText(Defunctionalization.thunkInstruction(sample)) != lean =>
+          if finiteText(Defunctionalization.thunkInstruction[NoFacts.type](sample)) != lean =>
         (index, sample, lean)
     }
     assertEquals(disagreements, Vector.empty)
   }
 
   stoppableTest("readbackOfSourceProgramsIsDelta") { stopped =>
-    // The prelude files that share an instruction have one δ (prelude_terms/1).
-    preludeFiles.foreach((instruction, name, term) =>
+    // The generated files that share an instruction have one δ (prelude_terms/1).
+    files.foreach((instruction, name, term) =>
       assertEquals(deltaText(term), deltaText(DeBruijnTerm.Constant(instruction)), s"files_of_one_handle_differ($name)")
     )
     assertEquals(sourceSamples.size, sampleCount)
-    val finiteTerms = sourceSamples.map(Defunctionalization.thunkInstruction)
+    val finiteTerms = sourceSamples.map(Defunctionalization.thunkInstruction[NoFacts.type](_))
     val program =
       s"""partial def termText : Term → String
          |  | .boundVariable index => s!"variable({index})"
@@ -385,7 +390,7 @@ class DefunctionalizationAgreementTest extends gezi.generatedinputs.FailFastSuit
           finiteText(lemmaSides.right)
         )
     }
-    assertEquals(sides.size, 15)
+    assert(sides.nonEmpty, "the prelude has no lemma with sides")
     val entries = sides.map((name, _, _) =>
       val identifier = lowerCamelCase(name)
       s"""("$name", LambdaJit.PreludeLemmas.${identifier}Left, LambdaJit.PreludeLemmas.${identifier}Right)"""

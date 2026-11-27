@@ -1,20 +1,21 @@
 package gezi.weakhead
 
+import gezi.ir.{NativeSpecializer, Value}
 
 /** How a reading ended (reading.pl's outcomes). */
-enum ReadingOutcome:
+enum ReadingOutcome[C <: NativeSpecializer & Singleton]:
 
   /** The evaluation finished: its distinct parallel sets, their heads plain
     * values, in the order first found, reduced by `WeakHead.bottomAbsorbed`;
     * none when it has none (under tabling(weak_head), a decision that the
     * term has no head; under weak_head, a finite failure).
     */
-  case Heads(heads: Vector[ParallelSet])
+  case Heads(heads: Vector[ParallelSet[C]])
 
   /** The evaluation did not finish within its budget of steps (the Prolog
     * reading's `inference_limit`).
     */
-  case StepLimit
+  case StepLimit()
 
   /** A resource ran out first (the Prolog reading's `exhausted(Resource)`).
     */
@@ -58,8 +59,7 @@ final case class WitnessReading(outcome: WitnessOutcome, spent: Long)
   *
   * `termReading` takes every parallel set, so its outcome never depends on
   * the order they come in: it depends on the term, the mode and the budget.
-  * Each reading of `termReading` starts from no table and hands its heads
-  * out as plain values (`WeakHead.headsExpanded`).
+  * Each reading of `termReading` starts from no table.
   *
   * The judge's question "does some parallel set read out as the witness" is
   * answered by `witnessReadings`. A parallel set reads out as the witness
@@ -89,27 +89,33 @@ object Reading:
   /** The reading of the root from no table, within the limit of steps,
     * knowing top (`ReadingState.knowingTop`).
     */
-  def termReading(mode: Mode, root: Value, limit: Long): ReadingOutcome =
-    WeakHead.heads(mode, root).collected.result(ReadingState.knowingTop(limit)) match
+  def termReading[C <: NativeSpecializer & Singleton](
+      mode: Mode,
+      root: Value[C],
+      limit: Long,
+      configuration: ReadingConfiguration[C]
+  )(using C): ReadingOutcome[C] =
+    WeakHead.heads(mode, root).collected.result(ReadingState.knowingTop(limit, configuration)) match
       case Computed.Done(heads, _) =>
-        ReadingOutcome.Heads(WeakHead.bottomAbsorbed(WeakHead.headsExpanded(mode, heads).distinct))
+        ReadingOutcome.Heads(WeakHead.bottomAbsorbed(heads.distinct))
       case Computed.Stopped(after) =>
         after.exhausted match
           case Some(resource) => ReadingOutcome.Exhausted(resource)
-          case None           => ReadingOutcome.StepLimit
+          case None           => ReadingOutcome.StepLimit()
 
   /** The readings of a suite (the object's comment), for each root in order,
     * each within the limit of steps; the witness is a neutral value with no
     * argument, a value a closed program cannot name. Throws `EvaluationError`
     * with `NotAWitness` for another witness, before any root is read.
     */
-  def witnessReadings(
+  def witnessReadings[C <: NativeSpecializer & Singleton](
       mode: Mode,
-      roots: Vector[Value],
-      witness: Value,
-      limit: Long
-  ): Vector[WitnessReading] =
-    witnessReadingsFrom(mode, roots, witness, limit, NoJitState)._1
+      roots: Vector[Value[C]],
+      witness: Value[C],
+      limit: Long,
+      configuration: ReadingConfiguration[C]
+  )(using C): Vector[WitnessReading] =
+    witnessReadingsFrom(mode, roots, witness, limit, NoJitState, configuration)._1
 
   /** `witnessReadings` with the suite starting from the JIT state given
     * rather than none, and the JIT state the suite left: the JIT's compiled
@@ -117,18 +123,19 @@ object Reading:
     * from one suite to the next, as the Prolog JIT kept its compiled
     * predicates in the process.
     */
-  def witnessReadingsFrom(
+  def witnessReadingsFrom[C <: NativeSpecializer & Singleton](
       mode: Mode,
-      roots: Vector[Value],
-      witness: Value,
+      roots: Vector[Value[C]],
+      witness: Value[C],
       limit: Long,
-      jitState: JitState
-  ): (Vector[WitnessReading], JitState) =
+      jitState: JitState[C],
+      configuration: ReadingConfiguration[C]
+  )(using C): (Vector[WitnessReading], JitState[C]) =
     val witnessHead = witness match
-      case Value.Neutral(variable, arguments) if arguments.isEmpty => Head.Neutral(variable, arguments)
-      case _ => throw EvaluationError(EvaluationErrorReason.NotAWitness(witness))
+      case NeutralValue(variable, arguments) if arguments.isEmpty => Head.Neutral(variable, arguments)
+      case _ => throw EvaluationError(EvaluationErrorReason.NotAWitness(witness.representation))
     val (readings, last) = roots
-      .foldLeft((Vector.empty[WitnessReading], ReadingState.knowingTop(limit).copy(jitState = jitState))) {
+      .foldLeft((Vector.empty[WitnessReading], ReadingState.knowingTop(limit, configuration).copy(jitState = jitState))) {
         case ((readings, state), root) =>
           val reading = state.nextReading(limit)
           readsOut(mode, root, witnessHead).result(reading) match
@@ -146,11 +153,13 @@ object Reading:
   /** Some parallel set of the term reads out as the witness: the first one
     * found that does settles it, under every mode.
     */
-  private def readsOut(mode: Mode, term: Value, witness: Head): Computation[ReadingState, Boolean] =
+  private def readsOut[C <: NativeSpecializer & Singleton](mode: Mode, term: Value[C], witness: Head[C])(using
+      C
+  ): Computation[ReadingState[C], Boolean] =
     WeakHead.heads(mode, term).exists(set => Computation.pure(setReadsOut(set, witness)))
 
   /** Whether every head of the parallel set is the witness. */
-  private def setReadsOut(set: ParallelSet, witness: Head): Boolean =
+  private def setReadsOut[C <: NativeSpecializer & Singleton](set: ParallelSet[C], witness: Head[C]): Boolean =
     set.heads.forall(_ == witness)
 
   /** The budget of steps that stands for a budget stated in seconds: the

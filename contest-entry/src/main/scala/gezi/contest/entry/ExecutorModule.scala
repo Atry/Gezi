@@ -2,9 +2,9 @@ package gezi.contest.entry
 
 import java.nio.file.Path
 import gezi.hotspot.Executor
-import gezi.ir.Instruction
 import gezi.jit.Jit
 import gezi.narrowblocks.ProgramCompilation
+import gezi.ir.{Configured, NativeSpecializer, NoFacts}
 
 /** An executor outside the framework that an entry's data chooses by the
   * constructor `module` of the executors' list (`ExecutorOption.Module`):
@@ -19,7 +19,7 @@ import gezi.narrowblocks.ProgramCompilation
   * module's by a synthetic label, `(λ"$name". M) "$name"`, which the host
   * never reads. An entry imports the same file and writes the term it gives
   * as the selector, so that the entry's selector and the module's are one
-  * interned instruction; the framework finds the module by that identity
+  * interned term; the framework finds the module by that identity
   * alone (`ExecutorModules`), never by a name or a string of the entry's
   * data.
   */
@@ -35,14 +35,14 @@ trait ExecutorModule:
     */
   def selectorFile: Path
 
-  /** The module's executor, built from the parameters the entry wrote, a
-    * closed term the module reads by structure itself (`KnowledgeReading`;
-    * a term the module cannot read throws `EntryDataError`), and from the
-    * framework's inputs (`ExecutorModuleInputs`). Its suspensions are the
-    * module's own type; the generic entry runs it as any `Executor`,
-    * whatever that type.
+  /** The module's executor for the configuration `C` of the inputs' JIT, built from the parameters the entry
+    * wrote, a closed term of the entry's data (read under no facts, like the rest of it) that the module reads by
+    * structure itself (`KnowledgeReading`; a term the module cannot read throws `EntryDataError`), and from the
+    * framework's inputs (`ExecutorModuleInputs`). The factory is polymorphic in `C`: a module is registered once
+    * and serves every configuration. Its suspensions are the module's own type; the generic entry runs it as any
+    * `Executor`, whatever that type.
     */
-  def executor(parameters: Instruction, inputs: ExecutorModuleInputs): Executor[?]
+  def executor[C <: NativeSpecializer & Singleton](parameters: Configured[NoFacts.type], inputs: ExecutorModuleInputs[C]): Executor[C, ?]
 
 /** What the framework hands an executor module beside the parameters the
   * entry wrote (`ExecutorModule.executor`): what the framework's own
@@ -66,20 +66,20 @@ trait ExecutorModule:
   *   this configuration; under `Upfront` the
   *   rounds have already run on the programs it reads
   */
-final case class ExecutorModuleInputs(jit: Jit, reading: ReadingOptions, compilation: ProgramCompilation)
+final case class ExecutorModuleInputs[C <: NativeSpecializer & Singleton](jit: Jit[C], reading: ReadingOptions, compilation: ProgramCompilation[C])
 
-/** The executor modules registered, by the interned instruction of each
+/** The executor modules registered, by the interned term of each
   * one's selector.
   * The host compares a selector by identity only: two modules whose
   * selector files give one term are refused when the table is made, and a
   * selector no module gives is refused when it is looked up.
   */
-final case class ExecutorModules(bySelector: Map[Instruction, ExecutorModule]):
+final case class ExecutorModules(bySelector: Map[Configured[NoFacts.type], ExecutorModule]):
 
   /** The module whose selector is the term given. Throws `EntryDataError`
     * for a term no registered module gives as its selector.
     */
-  def chosen(selector: Instruction): ExecutorModule = ModuleSelectors.chosen("executor", bySelector, selector)
+  def chosen(selector: Configured[NoFacts.type]): ExecutorModule = ModuleSelectors.chosen("executor", bySelector, selector)
 
 object ExecutorModules:
 

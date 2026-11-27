@@ -2,7 +2,12 @@ package gezi.frontend
 
 import gezi.ir.Code
 import gezi.ir.Hole
-import gezi.ir.Instruction
+import gezi.ir.Configured
+import gezi.ir.IrLayer
+import gezi.ir.NativeSpecializer
+import gezi.ir.NativeStorage
+import gezi.ir.ScottReading
+import gezi.ir.StorageAccess
 import gezi.locations.BinderOrigin
 import gezi.locations.Location
 import gezi.locations.MadeBy
@@ -75,6 +80,19 @@ import scala.util.hashing.MurmurHash3
   *     it twice (SHARING).
   *     The binders of a partial function's bits that no complete literal
   *     takes are named by their literal and bit, as NAMES says.
+  *
+  *   - STORAGES. A native storage is read one layer at a time as the printer recurses, the one place a storage's
+  *     content is read recursively: the printer is a formatter that writes text and builds no term. Two readings
+  *     (`Reading`). The display reading writes a storage as its view `value ∥ criterion` (the specializer's
+  *     `viewOf`), the text of the term the storage stands for, every `∥ T` kept. The Scott ADT reading writes it as
+  *     its untyped Scott ADT layer `λc1 … ck. ci f1 … fn` (`scottReadingOf`), its fields written recursively, and a
+  *     parallel node `v ∥ E` as v; the layer is spelled as `Defunctionalization` spells the same term (equal fields
+  *     one slot), so that its name and sharing are those of that term.
+  *   - THE TABLE OF A WRITE. A storage's layer is no interned object, so the printer counts, hashes and names the
+  *     nodes of a table of its own for the one write (`Table`): objects whose layers hold the same parts are one node,
+  *     as in the interned term the text stands for, so a storage and the parallel or thunk it is written as are
+  *     one, and two storages of one view are one. A write may hold terms read under both readings (the line of Scott
+  *     ADT values and a remainder): a node is the reading and the object, so a storage met under both is two nodes.
   *
   * The text is a sequence of pieces, each a token or the opening or closing
   * of a node of the structure the player's view draws (`Node`): the right
@@ -153,21 +171,24 @@ object ReadableText:
 
   /** A shared instruction the text binds: its name, the instruction, and
     * the map of its occurrences merged, from which its binders are named.
+    * The instruction is the first object of the shared node in the walk, under the reading the node was met under
+    * (a node is a class of objects whose layers, as written, have the same parts), so that a storage
+    * written as its view is the storage itself.
     * For display and provenance only: nothing is chosen by it.
     */
-  final case class SharedValue(name: String, instruction: Instruction, map: SourceMap)
+  final case class SharedValue[C <: NativeSpecializer & Singleton](name: String, instruction: Configured[C], map: SourceMap)
 
   /** The printed term: its pieces, the number of shared instructions bound
     * at its start, the instruction printed, the name of each shared
     * instruction, and the shared instructions in the order the text binds
     * them, each after those it refers to.
     */
-  final case class Printed(
+  final case class Printed[C <: NativeSpecializer & Singleton](
       pieces: Vector[Piece],
       bindings: Int,
-      root: Instruction,
-      sharedNames: Map[Instruction, String],
-      sharedValues: Vector[SharedValue]
+      root: Configured[C],
+      sharedNames: Map[Configured[C], String],
+      sharedValues: Vector[SharedValue[C]]
   ):
 
     /** The text the tokens spell, on one line. */
@@ -283,11 +304,11 @@ object ReadableText:
       * the way down, else in the body. Throws `IllegalArgumentException` for
       * a path that leads below a leaf.
       */
-    def place(path: Vector[Int]): Place =
+    def place(path: Vector[Int])(using C, StorageAccess): Place =
       path
         .foldLeft((root, Place(None, Vector.empty))) { case ((current, found), index) =>
           val child = Option
-            .unless(current.opaque)(current.layered.children)
+            .unless(current.opaque)(childrenOf(current))
             .flatMap(_.lift(index))
             .getOrElse(throw IllegalArgumentException(s"the path $path leads below the term $current"))
           (child, sharedNames.get(child).fold(found.copy(path = found.path :+ index))(name => Place(Some(name), Vector.empty)))
@@ -300,14 +321,17 @@ object ReadableText:
     * (`Defunctionalization.instructionTerm`'s errors) and for a binder the
     * map gives no origin.
     */
-  def printed(instruction: Instruction, map: SourceMap): Printed =
-    printedWith(instruction, map, None, true, KnownNames.Bound(Map.empty), Set.empty)
+  def printed[C <: NativeSpecializer & Singleton](instruction: Configured[C], map: SourceMap)(using C, StorageAccess): Printed[C] =
+    printedWith(instruction, map, None, true, KnownNames.Bound(Map.empty), Set.empty, Reading.Display)
 
   /** `printed`, each instruction `known` names called by its name there
     * (`KnownNames`).
     */
-  def printed(instruction: Instruction, map: SourceMap, known: KnownNames): Printed =
-    printedWith(instruction, map, None, true, known, Set.empty)
+  def printed[C <: NativeSpecializer & Singleton](instruction: Configured[C], map: SourceMap, known: KnownNames[C])(using
+      C,
+      StorageAccess
+  ): Printed[C] =
+    printedWith(instruction, map, None, true, known, Set.empty, Reading.Display)
 
   /** `printed` with the instructions `inlined` holds written in place
     * wherever they occur, not bound, though the term refers to them more
@@ -318,8 +342,13 @@ object ReadableText:
     * `printed(instruction, map, known)` does. An instruction that `known`
     * binds stays bound.
     */
-  def printed(instruction: Instruction, map: SourceMap, known: KnownNames, inlined: Set[Instruction]): Printed =
-    printedWith(instruction, map, None, true, known, inlined)
+  def printed[C <: NativeSpecializer & Singleton](
+      instruction: Configured[C],
+      map: SourceMap,
+      known: KnownNames[C],
+      inlined: Set[Configured[C]]
+  )(using C, StorageAccess): Printed[C] =
+    printedWith(instruction, map, None, true, known, inlined, Reading.Display)
 
   /** The names a caller gives instructions for a person to read: the library
     * terms a trace's lemmas name (`gezi.rewritetrace.TraceText`, the names
@@ -335,19 +364,19 @@ object ReadableText:
     * the JVM, and only a text is escaped into one, so that `$marker$name_at`
     * is never escaped twice into `$u0024marker$u0024name_at`.
     */
-  enum KnownNames:
+  enum KnownNames[C <: NativeSpecializer & Singleton]:
 
     /** Each instruction bound at the text's start by its name, as a shared
       * instruction is, however often the term refers to it: the text
       * stays a closed term that reads back as the instruction.
       */
-    case Bound(names: Map[Instruction, String])
+    case Bound(names: Map[Configured[C], String])
 
     /** Each instruction written by its name where it occurs and never bound,
       * as an opaque instruction is: a text for a person, whose names a
       * reader would have to bind.
       */
-    case Written(names: Map[Instruction, String])
+    case Written(names: Map[Configured[C], String])
 
   /** The term printed with no names to name its binders from: a term no text
     * wrote, such as a program given as a de Bruijn term, whose every binder
@@ -358,22 +387,58 @@ object ReadableText:
     * come from once read (`gezi.locations.BinderOrigin.Written`). Throws
     * `IllegalArgumentException` for an instruction that is no closed term.
     */
-  def printedNameless(instruction: Instruction): Printed =
-    printedWith(instruction, SourceMap.unlocated, Some("x"), true, KnownNames.Bound(Map.empty), Set.empty)
+  def printedNameless[C <: NativeSpecializer & Singleton](instruction: Configured[C])(using C, StorageAccess): Printed[C] =
+    printedWith(instruction, SourceMap.unlocated, Some("x"), true, KnownNames.Bound(Map.empty), Set.empty, Reading.Display)
 
   /** `printedNameless`, each instruction `known` names called by its name
     * there (`KnownNames`).
     */
-  def printedNameless(instruction: Instruction, known: KnownNames): Printed =
-    printedWith(instruction, SourceMap.unlocated, Some("x"), true, known, Set.empty)
+  def printedNameless[C <: NativeSpecializer & Singleton](instruction: Configured[C], known: KnownNames[C])(using
+      C,
+      StorageAccess
+  ): Printed[C] =
+    printedWith(instruction, SourceMap.unlocated, Some("x"), true, known, Set.empty, Reading.Display)
 
   /** `printedNameless` with no mark of a subterm's place (`Piece.At`): the
     * text of the exchange format (`ExchangeText`), which no view reads, so
     * that the places are not computed. The text, the bindings and the names
     * are `printedNameless`'s.
     */
-  def printedNamelessUnmarked(instruction: Instruction): Printed =
-    printedWith(instruction, SourceMap.unlocated, Some("x"), false, KnownNames.Bound(Map.empty), Set.empty)
+  def printedNamelessUnmarked[C <: NativeSpecializer & Singleton](instruction: Configured[C])(using C, StorageAccess): Printed[C] =
+    printedWith(instruction, SourceMap.unlocated, Some("x"), false, KnownNames.Bound(Map.empty), Set.empty, Reading.Display)
+
+  /** `printedNamelessUnmarked` with the storages read as `reading` says (`Reading`): the exchange format's text of a
+    * term under the display reading, `ExchangeText.line`'s, and under the Scott ADT reading, the line of a Scott ADT
+    * value's members, `ExchangeText.scottADTLine`'s.
+    */
+  private[frontend] def printedNamelessUnmarked[C <: NativeSpecializer & Singleton](instruction: Configured[C], reading: Reading)(using
+      C,
+      StorageAccess
+  ): Printed[C] =
+    printedWith(instruction, SourceMap.unlocated, Some("x"), false, KnownNames.Bound(Map.empty), Set.empty, reading)
+
+  /** The text of the answer line that holds both the Scott ADT values of an output and its remainder: the choice of
+    * the `members`, read as Scott ADT values (`Reading.ScottADT`), and the `remainder`, read as a display
+    * (`Reading.Display`, every `∥ T` kept), the members first, one table for the write, so that what the two parts
+    * refer to more than once is bound once. A storage that both parts hold is two nodes, its Scott ADT layer and its
+    * view. The members are given in the order the line writes them.
+    */
+  private[frontend] def printedMixedUnmarked[C <: NativeSpecializer & Singleton](members: Vector[Configured[C]], remainder: Configured[C])(using
+      C,
+      StorageAccess
+  ): Printed[C] =
+    val table = tabled(members.map((Reading.ScottADT, _)) :+ ((Reading.Display, remainder)), true)
+    printedOver(table, remainder, SourceMap.unlocated, Some("x"), false, KnownNames.Bound(Map.empty), Set.empty)
+
+  /** The lambdalattice text of one Scott ADT value written alone, each storage in it read as its untyped Scott ADT
+    * layer and each parallel node `v ∥ E` as v, every occurrence written where it occurs (no sharing): the key the
+    * members of a line are ordered by, `Lambdalattice.text` of the term the front end's readback gives for the member.
+    * It is the text of the member's own term, which a caller that holds the member as a tree sorts by.
+    */
+  def scottADTText[C <: NativeSpecializer & Singleton](member: Configured[C])(using C, StorageAccess): String =
+    val table = tabled(member, Reading.ScottADT)
+    val term = spelledReadback(table.objectOf(table.roots.head), SourceMap.unlocated, Set.empty, Writing(Reading.ScottADT, table.passedUnder(Reading.ScottADT)))._1
+    Lambdalattice.text(term, Map.empty)
 
   /** The term read from the source text written back in the printer's
     * layout, for a formatter:
@@ -393,10 +458,16 @@ object ReadableText:
     * a term with fewer than `enclosing` abstractions at its root and for a
     * binder with no origin.
     */
-  def writtenBack(instruction: Instruction, map: SourceMap, source: SourceText, enclosing: Int): Printed =
-    val (term, binders, _) = Defunctionalization.locatedInstructionTerm(instruction, map, Set.empty)
-    val context = Context(Map.empty, Set.empty, topWritten(Set.empty), None, Some(source))
-    val (body, path, scope) = (1 to enclosing).foldLeft((term, TermPath.root(PlaceTree.Empty, binders), Scope(Vector.empty, Set.empty, Set.empty))) {
+  def writtenBack[C <: NativeSpecializer & Singleton](
+      instruction: Configured[C],
+      map: SourceMap,
+      source: SourceText,
+      enclosing: Int
+  )(using C, StorageAccess): Printed[C] =
+    val (readback, binders, _) = Defunctionalization.locatedInstructionTerm(instruction, map, Set.empty)
+    val term = constantsConverted(readback, Map.empty[Configured[C], NodeId]).result
+    val context = Context[C](Map.empty, Set.empty, topWritten[C](None, Defunctionalization.instructionTerm(topInstruction(summon[C])), Map.empty), None, Some(source))
+    val (body, path, scope) = (1 to enclosing).foldLeft((term, TermPath.root(PlaceTree.Empty, binders), Scope[C](Vector.empty, Set.empty, Set.empty))) {
       // An enclosing name keeps its spelling where a nearer enclosing name
       // has it too (a directory named as one it is under): the text sees the
       // nearer one only, as it was read.
@@ -405,7 +476,7 @@ object ReadableText:
       case ((other, at, _), _) => throw IllegalArgumentException(s"no enclosing abstraction at ${at.steps}: $other")
     }
     val pieces = rendered(body, path, scope, Position.Whole, false, Vector.empty, List.empty, context).result.reverse.toVector
-    Printed(pieces, 0, instruction, Map.empty, Vector.empty)
+    Printed[C](pieces, 0, instruction, Map.empty, Vector.empty)
 
   /** The binding the printer writes at the root of a text, `(λt. t V) λm.
     * BODY`, read back and contracted with its map (two β steps): BODY with V
@@ -414,49 +485,92 @@ object ReadableText:
     * spells it (`Defunctionalization.relocatedMap`); none for a root of
     * another shape.
     */
-  def contracted(instruction: Instruction, map: SourceMap): Option[(Instruction, SourceMap)] =
+  def contracted[C <: NativeSpecializer & Singleton](instruction: Configured[C], map: SourceMap)(using
+      specializer: C
+  ): Option[(Configured[C], SourceMap)] =
     instruction match
-      case Instruction.Apply(helper @ Instruction.Thunk(_, Vector(_), Vector(value)), Instruction.Thunk(code, Hole.Bound(slot) +: rest, fillings))
+      case AppliedTerm(helper @ ThunkTerm(_, Vector(_), Vector(value)), ThunkTerm(code, Hole.Bound(slot) +: rest, fillings))
           if Defunctionalization.instructionTerm(helper) ==
             DeBruijnTerm.Lambda(DeBruijnTerm.Apply(DeBruijnTerm.Variable(0), Defunctionalization.instructionTerm(value))) =>
         val helperMap = map.children.lift(0).getOrElse(SourceMap.unlocated)
         val valueMap = helperMap.children.lift(0).getOrElse(SourceMap.unlocated)
         val bodyMap = map.children.lift(1).getOrElse(SourceMap.unlocated)
         val position = Defunctionalization.fillingPosition(rest, slot)
-        val residue = Instruction.Thunk(code, rest, fillings.patch(position, Vector(value), 0))
+        val residue = thunkOrInstance(code, rest, fillings.patch(position, Vector(value), 0))
         val residueMap = SourceMap(
           bodyMap.locations,
           bodyMap.code,
           bodyMap.children.padTo(fillings.size, SourceMap.unlocated).patch(position, Vector(valueMap), 0),
           bodyMap.binders.drop(1)
         )
-        val spelled = Defunctionalization.thunkInstruction(Defunctionalization.instructionTerm(residue))
+        // The readback keeps a storage as a constant and every parallel it holds is the residue's own.
+        val spelled = Defunctionalization.thunkInstruction[C](Defunctionalization.instructionTerm(residue))
         Some((spelled, Defunctionalization.relocatedMap(residue, residueMap, spelled)))
       case _ => None
 
+  /** The application of a term of the configuration, and its two parts. */
+  private object AppliedTerm:
+    def unapply[C <: NativeSpecializer & Singleton](term: Configured[C]): Option[(Configured[C], Configured[C])] = term.layer match
+      case gezi.ir.Apply(function, argument) => Some((function, argument))
+      case _                                 => None
+
+  /** The thunk of a term of the configuration, and its parts. */
+  private object ThunkTerm:
+    def unapply[C <: NativeSpecializer & Singleton](term: Configured[C]): Option[(Code, Vector[Hole], Vector[Configured[C]])] =
+      term.layer match
+        case gezi.ir.Thunk(code, holes, fillings) => Some((code, holes, fillings))
+        case _                                    => None
+
+  /** The thunk of the code over the holes, or, with no hole, the instance of the code over its fillings: a term has no
+    * thunk without holes.
+    */
+  private def thunkOrInstance[C <: NativeSpecializer & Singleton](
+      code: Code,
+      holes: Vector[Hole],
+      fillings: Vector[Configured[C]]
+  )(using specializer: C): Configured[C] =
+    specializer.thunkOrInstance(code, holes, fillings)
+
   /** `printed`, a binder with no origin named `unnamed` when it is given,
     * each subterm's place marked when `marked` holds, the instructions
-    * `inlined` holds never chosen as shared.
+    * `inlined` holds never chosen as shared, the storages read as `reading`
+    * says. The instructions are counted, hashed and named as the nodes of the
+    * table of this one write (`tabled`), not as the objects they are.
     */
-  private def printedWith(
-      instruction: Instruction,
+  private def printedWith[C <: NativeSpecializer & Singleton](
+      instruction: Configured[C],
       map: SourceMap,
       unnamed: Option[String],
       marked: Boolean,
-      known: KnownNames,
-      inlined: Set[Instruction]
-  ): Printed =
-    val (counts, order) = counted(instruction)
-    val (bound, written) = known match
-      case KnownNames.Bound(names)   => (names, Map.empty[Instruction, String])
-      case KnownNames.Written(names) => (Map.empty[Instruction, String], names)
-    val inner = innerLevels(order)
-    val shared = order.filter(instruction =>
-      (counts.getOrElse(instruction, 0) > 1 || bound.contains(instruction)) && !named(instruction) &&
-        !written.contains(instruction) && !literalPart(instruction) && !inner.contains(instruction) &&
-        !(inlined.contains(instruction) && !bound.contains(instruction))
+      known: KnownNames[C],
+      inlined: Set[Configured[C]],
+      reading: Reading
+  )(using C, StorageAccess): Printed[C] =
+    printedOver(tabled(instruction, reading), instruction, map, unnamed, marked, known, inlined)
+
+  /** `printedWith` over the table of the write, `instruction` the term `Printed.root` names. */
+  private def printedOver[C <: NativeSpecializer & Singleton](
+      table: Table[C],
+      instruction: Configured[C],
+      map: SourceMap,
+      unnamed: Option[String],
+      marked: Boolean,
+      known: KnownNames[C],
+      inlined: Set[Configured[C]]
+  )(using C, StorageAccess): Printed[C] =
+    val (boundNames, writtenNames) = known match
+      case KnownNames.Bound(names)   => (names, Map.empty[Configured[C], String])
+      case KnownNames.Written(names) => (Map.empty[Configured[C], String], names)
+    val bound = boundNames.flatMap((term, name) => table.representativeOf(term).map(_ -> name))
+    val written = writtenNames.flatMap((term, name) => table.representativeOf(term).map(_ -> name))
+    val inlinedNodes = inlined.flatMap(table.representativeOf)
+    val inner = innerLevels(table)
+    val shared = table.order.filter(node =>
+      (table.counts.getOrElse(node, 0) > 1 || bound.contains(node)) && !table.named(node) &&
+        !written.contains(node) && !table.literalParts.contains(node) && !inner.contains(node) &&
+        !(inlinedNodes.contains(node) && !bound.contains(node))
     )
-    printedSharing(instruction, map, order, shared, contentHashes(order), unnamed, marked, bound, written)
+    printedSharing(instruction, map, table, shared, contentHashes(table), unnamed, marked, bound, written)
 
   /** The origins and locations of a readback's nodes: `Unknown` for the
     * readback of an unlocated map, whose every node has none, so that
@@ -470,70 +584,613 @@ object ReadableText:
     * those it refers to once written in place. Such an instruction is top,
     * which the IR refers to inside complete literals as well, references the
     * literals' notation does not write. The shared instructions only
-    * decrease, so the printing ends.
+    * decrease, so the printing ends. `shared`, `bound` and `written` are
+    * nodes of the table, each standing for all the objects of its class.
     */
   @scala.annotation.tailrec
-  private def printedSharing(
-      instruction: Instruction,
+  private def printedSharing[C <: NativeSpecializer & Singleton](
+      instruction: Configured[C],
       map: SourceMap,
-      order: Vector[Instruction],
-      shared: Vector[Instruction],
-      hashes: Map[Instruction, Int],
+      table: Table[C],
+      shared: Vector[NodeId],
+      hashes: Map[NodeId, Int],
       unnamed: Option[String],
       marked: Boolean,
-      bound: Map[Instruction, String],
-      written: Map[Instruction, String]
-  ): Printed =
+      bound: Map[NodeId, String],
+      written: Map[NodeId, String]
+  )(using C, StorageAccess): Printed[C] =
     val sharedSet = shared.toSet
     // The instructions written as names: the shared ones and the known ones
-    // written by name, each a constant of the terms read back.
-    val stops = sharedSet ++ written.keySet
-    val constantNames = constantsNamed(order, shared, hashes, bound, written)
-    val reserved = constantNames.values.toSet
-    val (body, bodyBinders, bodyStopMaps) = Defunctionalization.locatedInstructionTerm(instruction, map, stops)
+    // written by name, each a constant of the terms the renderer writes, a
+    // node of the table.
+    val stopNodes = sharedSet ++ written.keySet
+    def stopsUnder(reading: Reading): Set[Configured[C]] = table.objectsOf(reading, stopNodes)
+    val nodeNames = constantsNamed(table, shared, hashes, bound, written)
+    val reserved = nodeNames.values.toSet
+    // The readback of a node under the reading it was met under, its stops
+    // the nodes written as names, its constants renamed to nodes.
+    def read(node: NodeId, nodeMap: SourceMap): (Term[C], TermMap, Map[NodeId, SourceMap]) =
+      val (reading, source) = table.origins(node)
+      val (term, binders, stopMaps) = spelledReadback(source, nodeMap, stopsUnder(reading), Writing(reading, table.passedUnder(reading)))
+      (constantsConverted(term, table.renaming(reading)).result, binders, table.nodeMaps(reading, stopMaps))
+    val parts = table.roots.map(root =>
+      if table.roots.size > 1 && stopNodes.contains(root) then (DeBruijnTerm.Constant(root): Term[C], TermMap.Unknown, Map.empty[NodeId, SourceMap])
+      else read(root, map)
+    )
+    val body = parts.map(_._1).reduceRight((left, right) => DeBruijnTerm.Choice(left, right))
+    val bodyBinders = if parts.size == 1 then parts.head._2 else TermMap.Unknown
+    val bodyNodeMaps = parts.foldLeft(Map.empty[NodeId, SourceMap]) { case (found, (_, _, partMaps)) =>
+      partMaps.foldLeft(found) { case (joined, (stop, stopMap)) => joined.updated(stop, joined.get(stop).fold(stopMap)(_.merged(stopMap))) }
+    }
     // A shared instruction is referred to only by the body and by the shared
     // instructions bound after it, so its maps are all known once those are
     // read.
-    val (boundValues, _) = shared.foldRight((List.empty[Bound], bodyStopMaps)) { case (value, (later, maps)) =>
+    val (boundValues, _) = shared.foldRight((List.empty[Bound[C]], bodyNodeMaps)) { case (value, (later, maps)) =>
       val valueMap = maps.getOrElse(value, SourceMap.unlocated)
-      val (term, binders, stopMaps) = Defunctionalization.locatedInstructionTerm(value, valueMap, stops)
+      val (term, binders, stopMaps) = read(value, valueMap)
       val joined = stopMaps.foldLeft(maps) { case (found, (stop, stopMap)) =>
         found.updated(stop, found.get(stop).fold(stopMap)(_.merged(stopMap)))
       }
-      val name = constantNames(value)
-      val places = if marked then placed(value, stops, Some(name)) else PlaceTree.Empty
-      (Bound(name, term, readbackBinders(valueMap, binders), places, value, valueMap) :: later, joined)
+      val name = nodeNames(value)
+      val places = if marked then placed(table.objectOf(value), stopsUnder(table.defaultReading), Some(name)) else PlaceTree.Empty
+      (Bound(name, term, readbackBinders(valueMap, binders), places, table.objectOf(value), valueMap) :: later, joined)
     }
-    val bodyPlaces = if marked then placed(instruction, stops, None) else PlaceTree.Empty
-    val context = Context(constantNames, reserved, topWritten(stops), unnamed, None)
+    val bodyPlaces = if marked then placed(instruction, stopsUnder(table.defaultReading), None) else PlaceTree.Empty
+    val top = topInstruction(summon[C]: C)
+    val topTerms = topWritten[C](
+      table.representativeOf(top).filter(stopNodes.contains),
+      Defunctionalization.instructionTerm(top, stopsUnder(table.defaultReading)),
+      table.renaming(table.defaultReading)
+    )
+    val context = Context[C](nodeNames, reserved, topTerms, unnamed, None)
     val bodyRoot = TermPath.root(bodyPlaces, readbackBinders(map, bodyBinders))
     val (kept, references) = referenced(boundValues.toVector, body, bodyRoot.binders, context)
-    val once = shared.filter(value => !bound.contains(value) && references.get(constantNames(value)).contains(1))
-    if once.nonEmpty then printedSharing(instruction, map, order, shared.filterNot(once.toSet), hashes, unnamed, marked, bound, written)
+    val once = shared.filter(value => !bound.contains(value) && references.get(nodeNames(value)).contains(1))
+    if once.nonEmpty then printedSharing(instruction, map, table, shared.filterNot(once.toSet), hashes, unnamed, marked, bound, written)
     else
       val pieces = bindingsWritten(kept, fresh("t", reserved), body, bodyRoot, context).result.reverse.toVector
-      Printed(
+      Printed[C](
         pieces,
         kept.size,
         instruction,
-        constantNames.filter((value, _) => sharedSet.contains(value)),
-        kept.map(binding => SharedValue(binding.name, binding.instruction, binding.map))
+        table.objectNames(nodeNames.filter((node, _) => sharedSet.contains(node))),
+        kept.map(binding => SharedValue[C](binding.name, binding.instruction, binding.map))
       )
+
+  // ---- the table of one write ----
+
+  /** How the printer reads a native storage, which is a leaf of its term's layer (`Configured.layer`): the one
+    * place a storage's content is read, one layer at a time, as the formatter that writes text recurses.
+    */
+  private[frontend] enum Reading:
+
+    /** A storage is written as its view `value ∥ criterion` (`viewOf`), the term it stands for, every `∥ T` kept: the
+      * display of any term, the remainder of an output.
+      */
+    case Display
+
+    /** A storage is written as its untyped Scott ADT layer `λc1 … ck. ci f1 … fn` (`scottReadingOf`), its fields
+      * written recursively, and a parallel node `v ∥ E` as v: a Scott ADT value of the line's members. The layer of a
+      * storage is the layer `Defunctionalization` spells for the same term (the code, the holes and the closed fields
+      * as fillings, equal fields one slot), so that it has the content hash and the name the same term spelled by the
+      * front end has.
+      */
+    case ScottADT
+
+  /** A node of the table of one write: the formatter's own value, the index of the node among the nodes of the table,
+    * not a term of the IR. Every count, hash, name and sharing of a write is that of a node, and the constants of the
+    * terms the renderer writes are nodes.
+    */
+  private final case class NodeId(number: Int)
+
+  /** One layer as the printer writes it, over parts of type `Child` (the objects of the walk, then the nodes of the
+    * table): the layer of an instruction, a storage's view as the parallel it is written as (`Reading.Display`), or a
+    * storage's Scott ADT layer (`Fielded`, which the table respells as the thunk it stands for).
+    */
+  private enum WrittenLayer[C <: NativeSpecializer & Singleton, Child]:
+    case Leaf(term: Configured[C])
+    case Applied(function: Child, argument: Child)
+    case Chosen(left: Child, right: Child)
+    case Paralleled(left: Child, right: Child)
+    case Abstracted(code: Code, holes: Vector[Hole], fillings: Vector[Child])
+
+    /** A storage read as `λc1 … ck. ci f1 … fn`: k cases, the chosen case i from 0, the fields in order. */
+    case Fielded(cases: Int, chosen: Int, fields: Vector[Child])
+
+    /** Every part the layer holds, whether the text refers to it or not. */
+    def allChildren: Vector[Child] = this match
+      case Leaf(_)                     => Vector.empty
+      case Applied(function, argument) => Vector(function, argument)
+      case Chosen(left, right)         => Vector(left, right)
+      case Paralleled(left, right)     => Vector(left, right)
+      case Abstracted(_, _, fillings)  => fillings
+      case Fielded(_, _, fields)       => fields
+
+    /** The layer over the parts the function gives for the ones it holds. */
+    def mapped[Other](change: Child => Other): WrittenLayer[C, Other] = this match
+      case Leaf(term)                        => Leaf(term)
+      case Applied(function, argument)       => Applied(change(function), change(argument))
+      case Chosen(left, right)               => Chosen(change(left), change(right))
+      case Paralleled(left, right)           => Paralleled(change(left), change(right))
+      case Abstracted(code, holes, fillings) => Abstracted(code, holes, fillings.map(change))
+      case Fielded(cases, chosen, fields)    => Fielded(cases, chosen, fields.map(change))
+
+  /** What two nodes of the table have in common when they are one: the kind of layer and the numbers of its parts, so
+    * that two layers over the same parts are one node whichever objects they are. A leaf is its own number.
+    */
+  private enum NodeKey:
+    case Leaf(number: Int)
+    case Applied(function: Int, argument: Int)
+    case Chosen(left: Int, right: Int)
+    case Paralleled(left: Int, right: Int)
+    case Abstracted(code: Code, holes: Vector[Hole], fillings: Vector[Int])
+
+  /** The table of one write: the nodes of the terms the printer writes, identified by their layer and their parts, so
+    * that the count of the references to a closed instruction, its content hash and its name are those of the interned
+    * term the text stands for, whether its parts are storages or the terms the storages are written as. It is the
+    * interning of the layers the formatter reads and gives, private to the write (the formatter builds no IR).
+    * A node is named by a `NodeId` and read from the first object of its class in the order of the walk, under the
+    * reading it was met under. A write may hold roots read under both readings (the line of Scott ADT values and a
+    * remainder); an object is then met under each reading and a node is the pair of the reading and the object, so
+    * that a storage both parts hold is two nodes.
+    *
+    * @param defaultReading
+    *   the reading of the first root, for the callers that give the objects of one reading only
+    * @param roots
+    *   the node of each root, in order
+    * @param representative
+    *   the node each object met under a reading stands for, a parallel node the Scott ADT reading passes through standing
+    *   for the node of its left side
+    * @param origins
+    *   the reading and the first object each node is read from
+    * @param nodes
+    *   the layer of each node over nodes; a storage's Scott ADT layer as the thunk the front end spells for it
+    * @param order
+    *   the nodes, each after those its layer refers to
+    * @param counts
+    *   the times each node is referred to by the nodes above it, a filling counted as often as its code writes its slot,
+    *   and each root once more when the roots are the members of a choice
+    * @param passed
+    *   the parallel nodes the Scott ADT reading passed through
+    * @param literalParts
+    *   the nodes that are a bit or an application whose last argument is a bit
+    */
+  private final case class Table[C <: NativeSpecializer & Singleton](
+      defaultReading: Reading,
+      roots: Vector[NodeId],
+      representative: Map[(Reading, Configured[C]), NodeId],
+      origins: Map[NodeId, (Reading, Configured[C])],
+      nodes: Map[NodeId, WrittenLayer[C, NodeId]],
+      order: Vector[NodeId],
+      counts: Map[NodeId, Int],
+      passed: Map[Reading, Set[Configured[C]]],
+      literalParts: Set[NodeId]
+  ):
+
+    /** Whether the node is written as a name of the term itself: an opaque term of the IR. */
+    def named(node: NodeId): Boolean = nodes(node) match
+      case WrittenLayer.Leaf(_) => true
+      case _                    => false
+
+    /** The first object the node is read from, under its own reading. */
+    def objectOf(node: NodeId): Configured[C] = origins(node)._2
+
+    /** The parallel nodes passed through under the reading. */
+    def passedUnder(reading: Reading): Set[Configured[C]] = passed.getOrElse(reading, Set.empty)
+
+    /** The node an object stands for under the default reading, none for an object the walk did not meet. */
+    def representativeOf(term: Configured[C]): Option[NodeId] = representative.get((defaultReading, term))
+
+    /** The objects met under the reading that stand for one of the nodes. */
+    def objectsOf(reading: Reading, selected: Set[NodeId]): Set[Configured[C]] =
+      representative.collect { case ((read, term), node) if read == reading && selected.contains(node) => term }.toSet
+
+    /** The node each object met under the reading stands for. */
+    def renaming(reading: Reading): Map[Configured[C], NodeId] =
+      representative.collect { case ((read, term), node) if read == reading => term -> node }
+
+    /** The name of each object of the default reading that stands for a named node. */
+    def objectNames(names: Map[NodeId, String]): Map[Configured[C], String] =
+      representative.collect { case ((read, term), node) if read == defaultReading && names.contains(node) => term -> names(node) }
+
+    /** The maps of the objects joined by their nodes, the maps of one node merged. */
+    def nodeMaps(reading: Reading, maps: Map[Configured[C], SourceMap]): Map[NodeId, SourceMap] =
+      maps.foldLeft(Map.empty[NodeId, SourceMap]) { case (found, (term, map)) =>
+        val node = representative((reading, term))
+        found.updated(node, found.get(node).fold(map)(_.merged(map)))
+      }
+
+  /** The table of the write of the roots, each under its reading (a choice's members when `chained`). Each distinct
+    * object is walked once under each reading, depth first, in the order the references are written, a storage read
+    * one layer when it is met; each is then given the node of the first object whose layer has the same parts, its
+    * parts being nodes already given (the objects are met after their parts). A storage read as a Scott ADT layer is
+    * respelled as the front end spells it: its distinct fields, in order of first occurrence, the fillings, the code
+    * reading the field's slot at each occurrence.
+    */
+  private def tabled[C <: NativeSpecializer & Singleton](roots: Vector[(Reading, Configured[C])], chained: Boolean)(using
+      specializer: C,
+      access: StorageAccess
+  ): Table[C] =
+    val readings = roots.map(_._1).distinct
+    val resolvedRoots = roots.map((reading, root) => (reading, resolvedThrough(root, reading, Vector.empty)))
+    // Phase one, under each reading: the objects, each after those it refers to, and the layer of each over the objects
+    // it refers to.
+    @scala.annotation.tailrec
+    def walked(
+        reading: Reading,
+        pending: List[(Configured[C], Boolean)],
+        visited: Set[Configured[C]],
+        found: Vector[Configured[C]],
+        layers: Map[Configured[C], WrittenLayer[C, Configured[C]]],
+        through: Map[Configured[C], Configured[C]]
+    ): (Vector[Configured[C]], Map[Configured[C], WrittenLayer[C, Configured[C]]], Map[Configured[C], Configured[C]]) =
+      pending match
+        case Nil                         => (found, layers, through)
+        case (term, true) :: rest        => walked(reading, rest, visited, found :+ term, layers, through)
+        case (term, false) :: rest if visited.contains(term) => walked(reading, rest, visited, found, layers, through)
+        case (term, false) :: rest =>
+          val (layer, passed) = layerRead(term, reading)
+          val children = referred(layer).map((child, _) => (child, false))
+          walked(reading, children.toList ++ ((term, true) :: rest), visited + term, found, layers.updated(term, layer), through ++ passed)
+    val walks = readings.map { reading =>
+      val starts = resolvedRoots.filter(_._1 == reading).map(_._2)
+      val startPassed = starts.flatMap((start, passed) => passed.map(_ -> start)).toMap
+      reading -> walked(reading, starts.map((start, _) => (start, false)).toList, Set.empty, Vector.empty, Map.empty, startPassed)
+    }.toMap
+    // Phase two: the nodes, the readings one after the other.
+    val entries = readings.flatMap(reading => walks(reading)._1.map(term => (reading, term)))
+    val classes = entries.foldLeft(Classes.empty[C]) { case (sofar, (reading, term)) =>
+      val layer = respelled(walks(reading)._2(term).mapped(child => sofar.representative((reading, child))))
+      // An opaque term met under both readings is one node.
+      val key = layer match
+        case WrittenLayer.Leaf(leaf) => NodeKey.Leaf(sofar.leaves.get(leaf).fold(sofar.order.size)(_.number))
+        case other                   => keyOf(other)
+      sofar.byKey.get(key) match
+        case Some(node) => sofar.copy(representative = sofar.representative.updated((reading, term), node))
+        case None =>
+          val node = NodeId(sofar.order.size)
+          Classes(
+            sofar.representative.updated((reading, term), node),
+            sofar.byKey.updated(key, node),
+            sofar.keys.updated(node, key),
+            sofar.nodes.updated(node, layer),
+            sofar.order :+ node,
+            sofar.origins.updated(node, (reading, term)),
+            layer match
+              case WrittenLayer.Leaf(leaf) => sofar.leaves.updated(leaf, node)
+              case _                       => sofar.leaves
+          )
+    }
+    val representative = classes.representative ++ readings.flatMap(reading =>
+      walks(reading)._3.map((parallel, target) => (reading, parallel) -> classes.representative((reading, target)))
+    )
+    val rootNodes = resolvedRoots.map((reading, resolution) => representative((reading, resolution._1)))
+    val referenceCounts = classes.order.foldLeft(Map.empty[NodeId, Int]) { (sofar, node) =>
+      referred(classes.nodes(node)).foldLeft(sofar) { case (before, (child, times)) => before.updated(child, before.getOrElse(child, 0) + times) }
+    }
+    val counts = if chained then rootNodes.foldLeft(referenceCounts)((sofar, node) => sofar.updated(node, sofar.getOrElse(node, 0) + 1)) else referenceCounts
+    val bitKeys: Set[NodeKey] = bitInstructions(specializer).flatMap(bit =>
+      bit.layer match
+        case gezi.ir.Thunk(code, holes, fillings) if fillings.isEmpty => Some(NodeKey.Abstracted(code, holes, Vector.empty))
+        case _                                                         => None
+    )
+    val bitNumbers = classes.order.filter(node => bitKeys.contains(classes.keys(node))).map(_.number).toSet
+    val literalParts = classes.order.filter(node =>
+      classes.keys(node) match
+        case key if bitKeys.contains(key)       => true
+        case NodeKey.Applied(_, argument)       => bitNumbers.contains(argument)
+        case _                                  => false
+    ).toSet
+    Table(
+      readings.head,
+      rootNodes,
+      representative,
+      classes.origins,
+      classes.nodes,
+      classes.order,
+      counts,
+      walks.view.mapValues(_._3.keySet).toMap,
+      literalParts
+    )
+
+  /** The table of the write of one root under the reading. */
+  private def tabled[C <: NativeSpecializer & Singleton](root: Configured[C], reading: Reading)(using C, StorageAccess): Table[C] =
+    tabled(Vector((reading, root)), false)
+
+  /** The nodes given so far, by the numbers of their parts. */
+  private final case class Classes[C <: NativeSpecializer & Singleton](
+      representative: Map[(Reading, Configured[C]), NodeId],
+      byKey: Map[NodeKey, NodeId],
+      keys: Map[NodeId, NodeKey],
+      nodes: Map[NodeId, WrittenLayer[C, NodeId]],
+      order: Vector[NodeId],
+      origins: Map[NodeId, (Reading, Configured[C])],
+      leaves: Map[Configured[C], NodeId]
+  )
+
+  private object Classes:
+    def empty[C <: NativeSpecializer & Singleton]: Classes[C] =
+      Classes(Map.empty, Map.empty, Map.empty, Map.empty, Vector.empty, Map.empty, Map.empty)
+
+  /** The term the reading reads the term as, and the parallel nodes it passes through: under the Scott ADT reading
+    * a parallel node `v ∥ E` is v; the display reads every term as itself.
+    */
+  @scala.annotation.tailrec
+  private def resolvedThrough[C <: NativeSpecializer & Singleton](
+      term: Configured[C],
+      reading: Reading,
+      passed: Vector[Configured[C]]
+  ): (Configured[C], Vector[Configured[C]]) =
+    reading match
+      case Reading.Display => (term, passed)
+      case Reading.ScottADT =>
+        term.layer match
+          case gezi.ir.Parallel(left, _) => resolvedThrough(left, reading, passed :+ term)
+          case _                         => (term, passed)
+
+  /** The layer of the object as the reading writes it, over the terms the reading reads its parts as, and each parallel
+    * node passed through on the way to a part, with the part it stands for. A storage is read one layer here and
+    * nowhere else.
+    */
+  private def layerRead[C <: NativeSpecializer & Singleton](term: Configured[C], reading: Reading)(using
+      specializer: C,
+      access: StorageAccess
+  ): (WrittenLayer[C, Configured[C]], Vector[(Configured[C], Configured[C])]) =
+    val layer: WrittenLayer[C, Configured[C]] =
+      if term.opaque then WrittenLayer.Leaf(term)
+      else
+        term.layer match
+          case storage: NativeStorage =>
+            reading match
+              case Reading.Display =>
+                val view = (specializer: C).viewOf(storage)
+                WrittenLayer.Paralleled(view.value, view.criterion)
+              case Reading.ScottADT =>
+                (specializer: C).scottReadingOf(storage) match
+                  case ScottReading.Layer(cases, chosen, fields) => WrittenLayer.Fielded(cases, chosen, fields)
+                  case ScottReading.Members(_) =>
+                    throw IllegalStateException(s"a group of storages stands below the top of a member: `ScottADTChoices.of` splits a group and never leaves one under a constructor, so this member is no `ScottADTChoices` member: $term")
+          case gezi.ir.Apply(function, argument)    => WrittenLayer.Applied(function, argument)
+          case gezi.ir.Choice(left, right)          => WrittenLayer.Chosen(left, right)
+          case gezi.ir.Parallel(left, right)        => WrittenLayer.Paralleled(left, right)
+          case gezi.ir.Thunk(code, holes, fillings) => WrittenLayer.Abstracted(code, holes, fillings)
+          case other                                => throw IllegalStateException(s"no layer to walk: $other")
+    val resolutions = layer.allChildren.map(child => child -> resolvedThrough(child, reading, Vector.empty))
+    val targets = resolutions.map((child, resolution) => child -> resolution._1).toMap
+    (layer.mapped(targets), resolutions.flatMap((_, resolution) => resolution._2.map(_ -> resolution._1)))
+
+  /** The layer of a node over nodes: a storage's Scott ADT layer respelled as the thunk the front end spells for
+    * `λc1 … ck. ci f1 … fn`, whose code applies the slot of the chosen case's binder, slot 0, to the slot of each
+    * field in turn, a field's slot numbered by its first occurrence, one slot for equal fields, the chosen case's
+    * binder the only one read and so the only hole that is not ignored (`Defunctionalization.thunkInstruction`).
+    * The fields are already nodes.
+    */
+  private def respelled[C <: NativeSpecializer & Singleton](layer: WrittenLayer[C, NodeId]): WrittenLayer[C, NodeId] =
+    layer match
+      case WrittenLayer.Fielded(cases, chosen, fields) =>
+        val (fillings, slots) = fields.foldLeft((Vector.empty[NodeId], Map.empty[NodeId, Int])) { case ((kept, numbered), field) =>
+          if numbered.contains(field) then (kept, numbered) else (kept :+ field, numbered.updated(field, kept.size + 1))
+        }
+        val code = fields.foldLeft(Code.Slot(0): Code)((function, field) => Code.Apply(function, Code.Slot(slots(field))))
+        val holes = Vector.tabulate(cases)(position => if position == chosen then Hole.Bound(0) else Hole.Ignored)
+        WrittenLayer.Abstracted(code, holes, fillings)
+      case other => other
+
+  /** The key of a node that is no leaf, from the numbers of its parts. */
+  private def keyOf[C <: NativeSpecializer & Singleton](layer: WrittenLayer[C, NodeId]): NodeKey = layer match
+    case WrittenLayer.Leaf(_)                           => throw IllegalStateException("a leaf is keyed by the table")
+    case WrittenLayer.Applied(function, argument)       => NodeKey.Applied(function.number, argument.number)
+    case WrittenLayer.Chosen(left, right)               => NodeKey.Chosen(left.number, right.number)
+    case WrittenLayer.Paralleled(left, right)           => NodeKey.Paralleled(left.number, right.number)
+    case WrittenLayer.Abstracted(code, holes, fillings) => NodeKey.Abstracted(code, holes, fillings.map(_.number))
+    case WrittenLayer.Fielded(_, _, _)                  => throw IllegalStateException("a storage's Scott ADT layer is respelled as a thunk before it is keyed")
+
+  /** The parts the layer refers to, each with the times the text writes it. A storage refers to the two parts of its
+    * view, as the parallel the printer writes for it does, or to its fields, as the thunk it is written as does.
+    */
+  private def referred[C <: NativeSpecializer & Singleton, Child](layer: WrittenLayer[C, Child]): Vector[(Child, Int)] =
+    layer match
+      case WrittenLayer.Leaf(_)                     => Vector.empty
+      case WrittenLayer.Applied(function, argument) => Vector((function, 1), (argument, 1))
+      case WrittenLayer.Chosen(left, right)         => Vector((left, 1), (right, 1))
+      case WrittenLayer.Paralleled(left, right)     => Vector((left, 1), (right, 1))
+      case WrittenLayer.Fielded(_, _, fields)       => fields.map((_, 1))
+      case WrittenLayer.Abstracted(code, holes, fillings) =>
+        val reads = slotReads(code)
+        val filledSlots = (0 until (holes.count(_ != Hole.Ignored) + fillings.size))
+          .filterNot(slot => holes.contains(Hole.Bound(slot)))
+        filledSlots.zip(fillings).map((slot, filling) => (filling, reads.getOrElse(slot, 0)))
+          .filter((_, times) => times > 0)
+          .toVector
+
 
   // ---- sharing ----
 
-  /** Whether the instruction is written as a name: an opaque instruction,
-    * a URI node included.
+  /** The term the renderer writes: its constants are the nodes of the table of the write, which carry the names. The
+    * configuration `C` the term was read under no longer shows in it.
     */
-  private def named(instruction: Instruction): Boolean = instruction.opaque
+  private type Term[C <: NativeSpecializer & Singleton] = DeBruijnTermOf[NodeId]
+
+  /** The readback of an instruction, its constants the objects of the walk (`Defunctionalization.instructionTerm`). */
+  private type Readback[C <: NativeSpecializer & Singleton] = DeBruijnTermOf[Configured[C]]
+
+  /** A storage written out as its view `value ∥ criterion`, a parallel of its two parts: the layer the printer
+    * writes for a storage, which is no layer of the IR.
+    */
+  private final case class StoredParallel[+Child](value: Child, criterion: Child)
+
+  /** The term's layer as the printer writes it: a storage is the parallel of its view's two parts, every other term its
+    * own layer. The one place a storage's view is read, one layer at a time, as the formatter that writes text
+    * recurses over views.
+    */
+  private def layerOf[C <: NativeSpecializer & Singleton](term: Configured[C])(using
+      specializer: C,
+      access: StorageAccess
+  ): IrLayer[Configured[C]] | StoredParallel[Configured[C]] =
+    term.layer match
+      case storage: NativeStorage =>
+        val view = (specializer: C).viewOf(storage)
+        StoredParallel(view.value, view.criterion)
+      case other => other
+
+  /** The terms the layer written by the printer holds, in the order of `Layer.children`. */
+  private[frontend] def childrenOf[C <: NativeSpecializer & Singleton](term: Configured[C])(using C, StorageAccess): Vector[Configured[C]] =
+    term.layer match
+      case storage: NativeStorage =>
+        val view = (summon[C]: C).viewOf(storage)
+        Vector(view.value, view.criterion)
+      case other => other.children
+
+  /** The terms the term holds under the reading: under `Reading.Display` those of `childrenOf`; under
+    * `Reading.ScottADT` those of the term it is read as (a parallel node `v ∥ E` is v), a storage's fields in order, a
+    * group of storages its members.
+    */
+  private[frontend] def childrenOf[C <: NativeSpecializer & Singleton](term: Configured[C], reading: Reading)(using
+      specializer: C,
+      access: StorageAccess
+  ): Vector[Configured[C]] =
+    reading match
+      case Reading.Display => childrenOf(term)
+      case Reading.ScottADT =>
+        val (read, _) = resolvedThrough(term, reading, Vector.empty)
+        read.layer match
+          case storage: NativeStorage =>
+            (specializer: C).scottReadingOf(storage) match
+              case ScottReading.Layer(_, _, fields) => fields
+              case ScottReading.Members(members)    => members
+          case other => other.children
+
+  /** The parts of a parallel the printer writes: a parallel layer or a storage's view. */
+  private object WrittenParallel:
+    def unapply[C <: NativeSpecializer & Singleton](layer: IrLayer[Configured[C]] | StoredParallel[Configured[C]]): Option[(Configured[C], Configured[C])] =
+      layer match
+        case StoredParallel(value, criterion)  => Some((value, criterion))
+        case gezi.ir.Parallel(left, right)     => Some((left, right))
+        case _                                 => None
+
+  /** What the readback writes out besides the instructions of the IR: how the storages are read, and the parallel
+    * nodes the Scott ADT reading passes through (a parallel node `v ∥ E` is read as v), each a constant of the
+    * readback that the writer replaces by what it stands for.
+    */
+  private final case class Writing[C <: NativeSpecializer & Singleton](reading: Reading, passed: Set[Configured[C]])
+
+  /** The readback of the instruction with each storage that is no stop written out as the reading says (its view
+    * `StoredParallel` under `Reading.Display`, its untyped Scott ADT layer under `Reading.ScottADT`), the term, its map
+    * and the maps of the stops met. A storage's parts have no map.
+    */
+  private def spelledReadback[C <: NativeSpecializer & Singleton](
+      instruction: Configured[C],
+      map: SourceMap,
+      stops: Set[Configured[C]],
+      writing: Writing[C]
+  )(using C, StorageAccess): (Readback[C], TermMap, Map[Configured[C], SourceMap]) =
+    instruction.layer match
+      case _: NativeStorage => (storageWritten(instruction, stops, writing).result, TermMap.Unknown, Map.empty)
+      case _ =>
+        val (term, binders, stopMaps) = Defunctionalization.locatedInstructionTerm(instruction, map, stops ++ writing.passed)
+        (storagesWritten(term, stops, writing).result, binders, stopMaps)
+
+  /** The term with each constant that is a storage, or a parallel node the reading passes through, and no stop
+    * replaced by what the reading writes for it.
+    */
+  private def storagesWritten[C <: NativeSpecializer & Singleton](term: Readback[C], stops: Set[Configured[C]], writing: Writing[C])(using
+      C,
+      StorageAccess
+  ): TailRec[Readback[C]] =
+    term match
+      case DeBruijnTerm.Constant(constant) if stops.contains(constant) => done(term)
+      case DeBruijnTerm.Constant(constant) =>
+        constant.layer match
+          case _: NativeStorage                          => tailcall(storageWritten(constant, stops, writing))
+          case _ if writing.passed.contains(constant)    => tailcall(partWritten(constant, stops, writing))
+          case _                                         => done(term)
+      case DeBruijnTerm.Lambda(body) => tailcall(storagesWritten(body, stops, writing)).map(DeBruijnTerm.Lambda(_))
+      case DeBruijnTerm.Apply(left, right) =>
+        for leftWritten <- tailcall(storagesWritten(left, stops, writing)); rightWritten <- tailcall(storagesWritten(right, stops, writing))
+        yield DeBruijnTerm.Apply(leftWritten, rightWritten)
+      case DeBruijnTerm.Choice(left, right) =>
+        for leftWritten <- tailcall(storagesWritten(left, stops, writing)); rightWritten <- tailcall(storagesWritten(right, stops, writing))
+        yield DeBruijnTerm.Choice(leftWritten, rightWritten)
+      case DeBruijnTerm.Parallel(left, right) =>
+        for leftWritten <- tailcall(storagesWritten(left, stops, writing)); rightWritten <- tailcall(storagesWritten(right, stops, writing))
+        yield DeBruijnTerm.Parallel(leftWritten, rightWritten)
+      case _ => done(term)
+
+  /** The term with each constant replaced by the node the names give it: the readback's constants are the objects the
+    * walk met under the reading, and the renderer writes nodes. Throws `IllegalStateException` for a constant that
+    * is no object the walk met, which has no name.
+    */
+  private def constantsConverted[C <: NativeSpecializer & Singleton](term: Readback[C], nodes: Map[Configured[C], NodeId]): TailRec[Term[C]] =
+    term match
+      case DeBruijnTerm.Constant(constant) =>
+        done(DeBruijnTerm.Constant(nodes.getOrElse(constant, throw IllegalStateException(s"no name for $constant"))))
+      case DeBruijnTerm.Lambda(body)       => tailcall(constantsConverted(body, nodes)).map(DeBruijnTerm.Lambda(_))
+      case DeBruijnTerm.Apply(left, right) =>
+        for leftConverted <- tailcall(constantsConverted(left, nodes)); rightConverted <- tailcall(constantsConverted(right, nodes))
+        yield DeBruijnTerm.Apply(leftConverted, rightConverted)
+      case DeBruijnTerm.Choice(left, right) =>
+        for leftConverted <- tailcall(constantsConverted(left, nodes)); rightConverted <- tailcall(constantsConverted(right, nodes))
+        yield DeBruijnTerm.Choice(leftConverted, rightConverted)
+      case DeBruijnTerm.Parallel(left, right) =>
+        for leftConverted <- tailcall(constantsConverted(left, nodes)); rightConverted <- tailcall(constantsConverted(right, nodes))
+        yield DeBruijnTerm.Parallel(leftConverted, rightConverted)
+      case DeBruijnTerm.Variable(index) => done(DeBruijnTerm.Variable[NodeId](index))
+      case DeBruijnTerm.Free(name)      => done(DeBruijnTerm.Free(name))
+
+  /** A part of a storage, or a parallel node the Scott ADT reading passes through, written out: a stop a constant, a
+    * storage as the reading writes it, a parallel node (under the Scott ADT reading) as its left side, any other
+    * instruction by its readback with every storage in it written out in turn.
+    */
+  private def partWritten[C <: NativeSpecializer & Singleton](side: Configured[C], stops: Set[Configured[C]], writing: Writing[C])(using
+      C,
+      StorageAccess
+  ): TailRec[Readback[C]] =
+    if stops.contains(side) then done(DeBruijnTerm.Constant(side))
+    else
+      side.layer match
+        case _: NativeStorage => tailcall(storageWritten(side, stops, writing))
+        case gezi.ir.Parallel(left, _) if writing.reading == Reading.ScottADT => tailcall(partWritten(left, stops, writing))
+        case _ =>
+          tailcall(storagesWritten(Defunctionalization.instructionTerm(side, stops ++ writing.passed), stops, writing))
+
+  /** The storage written out as the reading says, each part's readback with every storage in it written out in turn,
+    * a part that is a stop a constant. Under `Reading.Display` the parallel of its view's two parts. Under
+    * `Reading.ScottADT` its untyped Scott ADT layer `λc1 … ck. ci f1 … fn`, read one layer from its native data
+    * (`scottReadingOf`), its fields written recursively: the term the front end's readback gives the thunk of that
+    * layer (`Defunctionalization.instructionTerm`), a field being closed and so standing as it is under the binders.
+    */
+  private def storageWritten[C <: NativeSpecializer & Singleton](storage: Configured[C], stops: Set[Configured[C]], writing: Writing[C])(using
+      specializer: C,
+      access: StorageAccess
+  ): TailRec[Readback[C]] =
+    writing.reading match
+      case Reading.Display =>
+        childrenOf(storage) match
+          case Vector(value, criterion) =>
+            for valueWritten <- tailcall(partWritten(value, stops, writing)); criterionWritten <- tailcall(partWritten(criterion, stops, writing))
+            yield DeBruijnTerm.Parallel(valueWritten, criterionWritten)
+          case other => throw IllegalStateException(s"a storage's view has two parts, found $other")
+      case Reading.ScottADT =>
+        storage.layer match
+          case held: NativeStorage =>
+            (specializer: C).scottReadingOf(held) match
+              case ScottReading.Layer(cases, chosen, fields) =>
+                Trampoline.traversed(fields)(field => partWritten(field, stops, writing)).map(parts =>
+                  val applied = parts.foldLeft(DeBruijnTerm.Variable[Configured[C]](cases - 1 - chosen): Readback[C])(DeBruijnTerm.Apply(_, _))
+                  (0 until cases).foldLeft(applied)((inner, _) => DeBruijnTerm.Lambda(inner))
+                )
+              case ScottReading.Members(_) =>
+                throw IllegalStateException(s"a group of storages stands below the top of a member: `ScottADTChoices.of` splits a group and never leaves one under a constructor, so this member is no `ScottADTChoices` member: $storage")
+          case other => throw IllegalStateException(s"no storage to write: $other")
 
   /** Whether the instruction is a bit or an application whose last
     * argument is a bit: part of a literal of arguments, never shared.
     */
-  private def literalPart(instruction: Instruction): Boolean =
-    bitInstructions.contains(instruction) || (instruction match
-      case Instruction.Apply(_, argument) => bitInstructions.contains(argument)
-      case _                              => false
+  private[frontend] def literalPart[C <: NativeSpecializer & Singleton](instruction: Configured[C])(using specializer: C): Boolean =
+    val bits = bitInstructions(specializer: C)
+    bits.contains(instruction) || (instruction.layer match
+      case gezi.ir.Apply(_, argument) => bits.contains(argument)
+      case _                          => false
     )
 
   /** The levels of the variable arguments partial functions under the root
@@ -543,20 +1200,24 @@ object ReadableText:
     * `λv. v`). A partial function's first level is the whole function and
     * is shared as any instruction.
     */
-  private def innerLevels(order: Vector[Instruction]): Set[Instruction] =
-    order.flatMap(levelRest).collect { case DeBruijnTerm.Constant(rest) if levelRest(rest).nonEmpty => rest }.toSet
+  private def innerLevels[C <: NativeSpecializer & Singleton](table: Table[C])(using C): Set[NodeId] =
+    table.order.flatMap(node =>
+      val (reading, source) = table.origins(node)
+      levelRest(source).collect { case DeBruijnTerm.Constant(rest) if levelRest(rest).nonEmpty => table.representative.get((reading, rest)) }.flatten
+    ).toSet
 
   /** The rest of a level of a variable arguments partial function,
     * `λx. x REST top` or `λx. x top REST`, as the level's term holds it: a
     * filling when it is closed.
     */
-  private def levelRest(instruction: Instruction): Option[DeBruijnTerm] = instruction match
-    case Instruction.Thunk(code, Vector(Hole.Bound(slot)), fillings) if levelShaped(code, slot) =>
-      Defunctionalization.instructionTerm(instruction, fillings.toSet) match
-        case DeBruijnTerm.Lambda(DeBruijnTerm.Apply(DeBruijnTerm.Apply(DeBruijnTerm.Variable(0), first), second)) =>
-          if topForms.contains(second) then Some(first) else if topForms.contains(first) then Some(second) else None
-        case _ => None
-    case _ => None
+  private def levelRest[C <: NativeSpecializer & Singleton](instruction: Configured[C])(using C): Option[Readback[C]] =
+    instruction.layer match
+      case gezi.ir.Thunk(code, Vector(Hole.Bound(slot)), fillings) if levelShaped(code, slot) =>
+        Defunctionalization.instructionTerm(instruction, fillings.toSet) match
+          case DeBruijnTerm.Lambda(DeBruijnTerm.Apply(DeBruijnTerm.Apply(DeBruijnTerm.Variable(0), first), second)) =>
+            if isTopForm(second) then Some(first) else if isTopForm(first) then Some(second) else None
+          case _ => None
+      case _ => None
 
   /** Whether the code of a thunk with one hole, bound to the slot, has a
     * level's shape `λx. x A B` at its root: the slot applied to two
@@ -576,39 +1237,57 @@ object ReadableText:
   /** top as a level of a partial function holds it: a filling, or written in
     * the level's code.
     */
-  private lazy val topForms: Set[DeBruijnTerm] =
-    Set(DeBruijnTerm.Constant(topInstruction), Defunctionalization.instructionTerm(topInstruction))
+  private def isTopForm[C <: NativeSpecializer & Singleton](term: Readback[C])(using specializer: C): Boolean =
+    term match
+      case DeBruijnTerm.Constant(constant) => Configured.same(constant, topInstruction(specializer))
+      case other                           => other == topReadback
 
-  /** The instructions of the bits, `λt. λf. t` and `λt. λf. f`. */
-  private lazy val bitInstructions: Set[Instruction] =
-    Set(Literals.one, Literals.zero).map(Defunctionalization.thunkInstruction)
+  /** The readback of top, which holds no constant, so that it is the same term under every configuration. */
+  private lazy val topReadback: DeBruijnTermOf[Configured[gezi.ir.NoFacts.type]] =
+    Defunctionalization.instructionTerm[gezi.ir.NoFacts.type](Configured.fromPure(gezi.ir.NoFacts)(topPure))(using gezi.ir.NoFacts)
 
-  /** The instruction of top, the miss of a partial function's bit. */
-  private lazy val topInstruction: Instruction = Defunctionalization.thunkInstruction(Literals.top)
+  /** The pure term of top, the miss of a partial function's bit. */
+  private lazy val topPure: gezi.ir.Pure = Defunctionalization.pure(Literals.top)
 
-  /** The terms top is written as under the shared instructions: their
-    * constant when top is one of them, else its term.
+  /** The pure terms of the bits, `λt. λf. t` and `λt. λf. f`. */
+  private lazy val bitPures: Set[gezi.ir.Pure] = Set(Literals.one, Literals.zero).map(Defunctionalization.pure(_))
+
+  /** The instructions of the bits under the configuration. */
+  private def bitInstructions[C <: NativeSpecializer & Singleton](specializer: C): Set[Configured[C]] =
+    bitPures.map(Configured.fromPure(specializer)(_))
+
+  /** The instruction of top under the configuration. */
+  private def topInstruction[C <: NativeSpecializer & Singleton](specializer: C): Configured[C] =
+    Configured.fromPure(specializer)(topPure)
+
+  /** The terms top is written as: the constant of its node when top is one of the shared nodes (`shared` gives that
+    * node), else its readback, whose constants the renaming gives their nodes.
     */
-  private def topWritten(shared: Set[Instruction]): Set[DeBruijnTerm] =
-    if shared.contains(topInstruction) then Set(DeBruijnTerm.Constant(topInstruction))
-    else Set(Defunctionalization.instructionTerm(topInstruction, shared))
+  private def topWritten[C <: NativeSpecializer & Singleton](
+      shared: Option[NodeId],
+      readback: => Readback[C],
+      renaming: Map[Configured[C], NodeId]
+  ): Set[Term[C]] =
+    shared match
+      case Some(node) => Set(DeBruijnTerm.Constant(node))
+      case None       => Set(constantsConverted(readback, renaming).result)
 
   /** The bindings some written text refers to: the body's, or a kept later
     * binding's, a binding referring only to those before it; and the times
     * the written text refers to each name of a constant. `bodyBinders` is
     * the map of the body's readback.
     */
-  private def referenced(
-      bound: Vector[Bound],
-      body: DeBruijnTerm,
+  private def referenced[C <: NativeSpecializer & Singleton](
+      bound: Vector[Bound[C]],
+      body: Term[C],
       bodyBinders: TermMap,
-      context: Context
-  ): (Vector[Bound], Map[String, Int]) =
-    def names(term: DeBruijnTerm, binders: TermMap): Map[String, Int] =
+      context: Context[C]
+  ): (Vector[Bound[C]], Map[String, Int]) =
+    def names(term: Term[C], binders: TermMap): Map[String, Int] =
       rendered(
         term,
         TermPath.root(PlaceTree.Empty, binders),
-        Scope(Vector.empty, context.reserved, Set.empty),
+        Scope[C](Vector.empty, context.reserved, Set.empty),
         Position.Whole,
         false,
         Vector.empty,
@@ -619,7 +1298,7 @@ object ReadableText:
         .groupMapReduce(identity)(_ => 1)(_ + _)
     def added(counts: Map[String, Int], more: Map[String, Int]): Map[String, Int] =
       more.foldLeft(counts) { case (sum, (name, times)) => sum.updated(name, sum.getOrElse(name, 0) + times) }
-    val (references, kept) = bound.foldRight((names(body, bodyBinders), List.empty[Bound])) { case (binding, (needed, kept)) =>
+    val (references, kept) = bound.foldRight((names(body, bodyBinders), List.empty[Bound[C]])) { case (binding, (needed, kept)) =>
       if needed.contains(binding.name) then (added(needed, names(binding.value, binding.binders)), binding :: kept) else (needed, kept)
     }
     (kept.toVector, references)
@@ -629,12 +1308,12 @@ object ReadableText:
     * term's shape (`placed`), the instruction, and the map of its
     * occurrences merged.
     */
-  private final case class Bound(
+  private final case class Bound[C <: NativeSpecializer & Singleton](
       name: String,
-      value: DeBruijnTerm,
+      value: Term[C],
       binders: TermMap,
       places: PlaceTree,
-      instruction: Instruction,
+      instruction: Configured[C],
       map: SourceMap
   )
 
@@ -703,29 +1382,35 @@ object ReadableText:
     * the cost is the readback's size; a trampoline, since an instruction is
     * as deep as a term.
     */
-  private[frontend] def placed(instruction: Instruction, stops: Set[Instruction], binding: Option[String]): PlaceTree =
-    def walked(current: Instruction, path: Vector[Int]): TailRec[PlaceTree] =
+  private[frontend] def placed[C <: NativeSpecializer & Singleton](
+      instruction: Configured[C],
+      stops: Set[Configured[C]],
+      binding: Option[String]
+  )(using C, StorageAccess): PlaceTree =
+    def walked(current: Configured[C], path: Vector[Int]): TailRec[PlaceTree] =
       val here = Some(Place(binding, path))
-      current match
-        case leaf if leaf.opaque || (stops.contains(leaf) && path.nonEmpty) => done(PlaceTree.Branch(here, PlaceTree.Empty, PlaceTree.Empty))
-        case Instruction.Apply(left, right)    => paired(left, right, here, path)
-        case Instruction.Choice(left, right)   => paired(left, right, here, path)
-        case Instruction.Parallel(left, right) => paired(left, right, here, path)
-        case Instruction.Thunk(code, holes, fillings) =>
-          val slots = Defunctionalization.slotValues(
-            holes,
-            Vector.fill(holes.size)(SlotReading.Unfilled),
-            fillings.zipWithIndex.map((filling, position) => SlotReading.Filled(filling, path :+ position))
-          )
-          codeWalked(code, slots).map(body =>
-            if holes.isEmpty then
-              body match
-                case PlaceTree.Empty                     => PlaceTree.Branch(here, PlaceTree.Empty, PlaceTree.Empty)
-                case PlaceTree.Branch(None, left, right) => PlaceTree.Branch(here, left, right)
-                case filled                              => filled
-            else abstractions(holes.size, here, body)
-          )
-    def paired(left: Instruction, right: Instruction, here: Option[Place], path: Vector[Int]): TailRec[PlaceTree] =
+      if current.opaque || (stops.contains(current) && path.nonEmpty) then done(PlaceTree.Branch(here, PlaceTree.Empty, PlaceTree.Empty))
+      else
+        layerOf(current) match
+          case gezi.ir.Apply(left, right)  => paired(left, right, here, path)
+          case gezi.ir.Choice(left, right) => paired(left, right, here, path)
+          case WrittenParallel(left, right) => paired(left, right, here, path)
+          case gezi.ir.Thunk(code, holes, fillings) =>
+            val slots = Defunctionalization.slotValues(
+              holes,
+              Vector.fill(holes.size)(SlotReading.Unfilled),
+              fillings.zipWithIndex.map((filling, position) => SlotReading.Filled(filling, path :+ position))
+            )
+            codeWalked(code, slots).map(body =>
+              if holes.isEmpty then
+                body match
+                  case PlaceTree.Empty                     => PlaceTree.Branch(here, PlaceTree.Empty, PlaceTree.Empty)
+                  case PlaceTree.Branch(None, left, right) => PlaceTree.Branch(here, left, right)
+                  case filled                              => filled
+              else abstractions(holes.size, here, body)
+            )
+          case other => throw IllegalStateException(s"no layer to walk: $other")
+    def paired(left: Configured[C], right: Configured[C], here: Option[Place], path: Vector[Int]): TailRec[PlaceTree] =
       for
         leftTree <- tailcall(walked(left, path :+ 0))
         rightTree <- tailcall(walked(right, path :+ 1))
@@ -736,7 +1421,7 @@ object ReadableText:
     // of the outer code holds, found once for the thunk as the readback
     // finds them (`Defunctionalization.codeTermOf`), so that a read costs no
     // walk through the thunks around it.
-    def codeWalked(code: Code, slots: Vector[SlotReading]): TailRec[PlaceTree] = code match
+    def codeWalked(code: Code, slots: Vector[SlotReading[Configured[C]]]): TailRec[PlaceTree] = code match
       case Code.Slot(index) =>
         slots(index) match
           case SlotReading.Unfilled                 => done(PlaceTree.Empty)
@@ -756,7 +1441,7 @@ object ReadableText:
         )
         tailcall(codeWalked(inner, innerSlots)).map(abstractions(holes.size, None, _))
       case other => throw IllegalStateException(s"no code layer to walk: $other")
-    def codePaired(left: Code, right: Code, slots: Vector[SlotReading]): TailRec[PlaceTree] =
+    def codePaired(left: Code, right: Code, slots: Vector[SlotReading[Configured[C]]]): TailRec[PlaceTree] =
       for
         leftTree <- tailcall(codeWalked(left, slots))
         rightTree <- tailcall(codeWalked(right, slots))
@@ -767,10 +1452,10 @@ object ReadableText:
     * instruction's filling with its path in the IR, or the code of an inner
     * thunk's filling with what the slots of the code around it hold.
     */
-  private enum SlotReading:
+  private enum SlotReading[+Term]:
     case Unfilled
-    case Filled(filling: Instruction, path: Vector[Int])
-    case Written(filling: Code, slots: Vector[SlotReading])
+    case Filled(filling: Term, path: Vector[Int])
+    case Written(filling: Code, slots: Vector[SlotReading[Term]])
 
   /** The tree of `count` abstractions over the body, the first writing the
     * place given.
@@ -783,48 +1468,16 @@ object ReadableText:
   /** The times each instruction under the root is referred to by the
     * instructions above it, a filling counted as often as its code writes
     * its slot; and the instructions in an order where each comes after
-    * those it refers to. Each distinct instruction is walked once.
+    * those it refers to. Each distinct instruction is walked once. The
+    * instructions are the nodes of the display's table (`tabled`): of the
+    * objects with one layer over the same parts, the first stands for them.
     */
-  private def counted(root: Instruction): (Map[Instruction, Int], Vector[Instruction]) =
-    @scala.annotation.tailrec
-    def walked(
-        pending: List[(Instruction, Boolean)],
-        counts: Map[Instruction, Int],
-        visited: Set[Instruction],
-        order: Vector[Instruction]
-    ): (Map[Instruction, Int], Vector[Instruction]) =
-      pending match
-        case Nil => (counts, order)
-        case (instruction, true) :: rest => walked(rest, counts, visited, order :+ instruction)
-        case (instruction, false) :: rest =>
-          if visited.contains(instruction) then walked(rest, counts, visited, order)
-          else
-            val references = referred(instruction)
-            val updated = references.foldLeft(counts) { case (before, (child, times)) =>
-              before.updated(child, before.getOrElse(child, 0) + times)
-            }
-            val children = references.map((child, _) => (child, false)).toList
-            walked(children ++ ((instruction, true) :: rest), updated, visited + instruction, order)
-    walked(List((root, false)), Map.empty, Set.empty, Vector.empty)
-
-  /** The instructions the instruction's term refers to, each with the times
-    * it is written.
-    */
-  private def referred(instruction: Instruction): Vector[(Instruction, Int)] =
-    if named(instruction) then Vector.empty
-    else
-      instruction match
-        case Instruction.Apply(function, argument) => Vector((function, 1), (argument, 1))
-        case Instruction.Choice(left, right)       => Vector((left, 1), (right, 1))
-        case Instruction.Parallel(left, right)     => Vector((left, 1), (right, 1))
-        case Instruction.Thunk(code, holes, fillings) =>
-          val reads = slotReads(code)
-          val filledSlots = (0 until (holes.count(_ != Hole.Ignored) + fillings.size))
-            .filterNot(slot => holes.contains(Hole.Bound(slot)))
-          filledSlots.zip(fillings).map((slot, filling) => (filling, reads.getOrElse(slot, 0)))
-            .filter((_, times) => times > 0)
-            .toVector
-        case other => throw IllegalStateException(s"no layer to walk: $other")
+  private[frontend] def counted[C <: NativeSpecializer & Singleton](root: Configured[C])(using
+      C,
+      StorageAccess
+  ): (Map[Configured[C], Int], Vector[Configured[C]]) =
+    val table = tabled(root, Reading.Display)
+    (table.counts.map((node, times) => table.objectOf(node) -> times), table.order.map(table.objectOf))
 
   /** The times the code's readback writes each of its slots, counted up to
     * 2: a slot read where the code reads it, and as often as an inner
@@ -866,15 +1519,16 @@ object ReadableText:
     * SHARING and NAMES say, the head of their spine named by its name when it is one of
     * these.
     */
-  private def constantsNamed(
-      order: Vector[Instruction],
-      shared: Vector[Instruction],
-      hashes: Map[Instruction, Int],
-      bound: Map[Instruction, String],
-      written: Map[Instruction, String]
-  ): Map[Instruction, String] =
-    val leaves = order.filter(named).map(instruction =>
-      instruction -> NameSpelling.escaped(instruction.layer match
+  private def constantsNamed[C <: NativeSpecializer & Singleton](
+      table: Table[C],
+      shared: Vector[NodeId],
+      hashes: Map[NodeId, Int],
+      bound: Map[NodeId, String],
+      written: Map[NodeId, String]
+  ): Map[NodeId, String] =
+    val order = table.order
+    val leaves = order.filter(table.named).map(node =>
+      node -> NameSpelling.escaped(table.objectOf(node).layer match
         case gezi.ir.Opaque(name) => name
         case gezi.ir.UriNode(uri) => uri.toString
         case other                     => throw IllegalStateException(s"no name for $other"))
@@ -890,7 +1544,7 @@ object ReadableText:
     }
     val headNames = withKnown._1
     unknownShared.foldLeft(withKnown) { case ((names, taken), value) =>
-      val head = headName(value, headNames)
+      val head = headName(value, table, headNames)
       val name = LazyList
         .from(1)
         .map(ordinal => NameSpelling.shared(NameSpelling.Shared(head, hashes(value), ordinal)))
@@ -899,15 +1553,16 @@ object ReadableText:
       (names.updated(value, name), taken + name)
     }._1
 
-  /** The name of the head of the instruction's application spine when it is
+  /** The name of the head of the node's application spine when it is
     * one of `leafNames`.
     */
   @scala.annotation.tailrec
-  private def headName(instruction: Instruction, leafNames: Map[Instruction, String]): Option[String] =
-    instruction match
-      case leaf if leafNames.contains(leaf)   => Some(leafNames(leaf))
-      case Instruction.Apply(function, _)     => headName(function, leafNames)
-      case _                                  => None
+  private def headName[C <: NativeSpecializer & Singleton](node: NodeId, table: Table[C], leafNames: Map[NodeId, String]): Option[String] =
+    if leafNames.contains(node) then Some(leafNames(node))
+    else
+      table.nodes(node) match
+        case WrittenLayer.Applied(function, _) => headName(function, table, leafNames)
+        case _                                 => None
 
   /** The base, or the base with `_2`, `_3` and so on, the first not taken. */
   private def fresh(base: String, taken: Set[String]): String =
@@ -916,33 +1571,38 @@ object ReadableText:
 
   // ---- content hashes ----
 
-  /** The content hash of each instruction of the order, which puts each
+  /** The content hash of each node of the table, which puts each
     * after its parts, from its layer
     * and the hashes of its parts, never from an identity's hash code, so
     * that the JVM and Scala.js give one name to one term in every process.
     */
-  private def contentHashes(order: Vector[Instruction]): Map[Instruction, Int] =
-    order.foldLeft((Map.empty[Instruction, Int], Map.empty[Code, Int])) { case ((hashes, codeHashes), instruction) =>
-      val (hash, updatedCodes) = instructionHash(instruction, hashes, codeHashes)
-      (hashes.updated(instruction, hash), updatedCodes)
+  private def contentHashes[C <: NativeSpecializer & Singleton](table: Table[C]): Map[NodeId, Int] =
+    table.order.foldLeft((Map.empty[NodeId, Int], Map.empty[Code, Int])) { case ((hashes, codeHashes), node) =>
+      val (hash, updatedCodes) = layerHash(table.nodes(node), hashes, codeHashes)
+      (hashes.updated(node, hash), updatedCodes)
     }._1
 
-  private def instructionHash(
-      instruction: Instruction,
-      hashes: Map[Instruction, Int],
+  private def layerHash[C <: NativeSpecializer & Singleton](
+      layer: WrittenLayer[C, NodeId],
+      hashes: Map[NodeId, Int],
       codeHashes: Map[Code, Int]
   ): (Int, Map[Code, Int]) =
     def mixed(tag: Int, parts: Seq[Int]): Int =
       MurmurHash3.finalizeHash(parts.foldLeft(MurmurHash3.mix(0x6a1e5, tag))(MurmurHash3.mix), parts.size + 1)
-    instruction.layer match
-      case gezi.ir.Opaque(name) => (mixed(1, Seq(MurmurHash3.stringHash(name))), codeHashes)
-      case gezi.ir.UriNode(uri) => (mixed(2, Seq(MurmurHash3.stringHash(uri.toString))), codeHashes)
-      case gezi.ir.Apply(function, argument) => (mixed(3, Seq(hashes(function), hashes(argument))), codeHashes)
-      case gezi.ir.Choice(left, right)       => (mixed(4, Seq(hashes(left), hashes(right))), codeHashes)
-      case gezi.ir.Parallel(left, right)     => (mixed(5, Seq(hashes(left), hashes(right))), codeHashes)
-      case gezi.ir.Thunk(code, holes, fillings) =>
+    layer match
+      case WrittenLayer.Leaf(term) =>
+        term.layer match
+          case gezi.ir.Opaque(name) => (mixed(1, Seq(MurmurHash3.stringHash(name))), codeHashes)
+          case gezi.ir.UriNode(uri) => (mixed(2, Seq(MurmurHash3.stringHash(uri.toString))), codeHashes)
+          case other                => throw IllegalStateException(s"no layer to hash: $other")
+      case WrittenLayer.Applied(function, argument) => (mixed(3, Seq(hashes(function), hashes(argument))), codeHashes)
+      case WrittenLayer.Chosen(left, right)         => (mixed(4, Seq(hashes(left), hashes(right))), codeHashes)
+      // A storage hashes as the parallel its view is, so that its name is the one of the term written out.
+      case WrittenLayer.Paralleled(left, right)     => (mixed(5, Seq(hashes(left), hashes(right))), codeHashes)
+      case WrittenLayer.Abstracted(code, holes, fillings) =>
         val (codeHash, updatedCodes) = codeHashOf(code, codeHashes)
         (mixed(6, Seq(codeHash) ++ holes.map(holeHash) ++ fillings.map(hashes)), updatedCodes)
+      case WrittenLayer.Fielded(_, _, _) => throw IllegalStateException("a storage's Scott ADT layer is respelled as a thunk before it is hashed")
 
   private def holeHash(hole: Hole): Int = hole match
     case Hole.Bound(slot) => slot + 1
@@ -987,10 +1647,10 @@ object ReadableText:
     * printed nameless (`printedNameless`), and the text the term was read
     * from when it is written back (`writtenBack`).
     */
-  private final case class Context(
-      constantNames: Map[Instruction, String],
+  private final case class Context[C <: NativeSpecializer & Singleton](
+      constantNames: Map[NodeId, String],
       reserved: Set[String],
-      top: Set[DeBruijnTerm],
+      top: Set[Term[C]],
       unnamed: Option[String],
       source: Option[SourceText]
   )
@@ -1046,20 +1706,20 @@ object ReadableText:
     * their places marked, 86 s with this, measured 2026-11-19, while the
     * places still cost the square of the depth).
     */
-  private final case class Scope(
+  private final case class Scope[C <: NativeSpecializer & Singleton](
       names: Vector[String],
       taken: Set[String],
-      plainLevels: Set[DeBruijnTerm],
+      plainLevels: Set[Term[C]],
       suffixes: Map[String, Int] = Map.empty
   ):
-    def bound(name: String): Scope = copy(names = names :+ name, taken = taken + name)
+    def bound(name: String): Scope[C] = copy(names = names :+ name, taken = taken + name)
     def variable(index: Int): String = names(names.size - 1 - index)
 
     /** The base, or the base with `_2`, `_3` and so on, the first not
       * taken (`fresh`), and the scope that knows every suffix below it
       * taken.
       */
-    def fresh(base: String): (String, Scope) =
+    def fresh(base: String): (String, Scope[C]) =
       if !taken.contains(base) then (base, this)
       else
         val number = LazyList.from(suffixes.getOrElse(base, 2)).find(number => !taken.contains(s"${base}_$number")).get
@@ -1083,18 +1743,18 @@ object ReadableText:
     * body, in one spine: `(λt. t V) λm.` for each, the last binder merged with
     * the body's own leading binders.
     */
-  private def bindingsWritten(
-      bound: Vector[Bound],
+  private def bindingsWritten[C <: NativeSpecializer & Singleton](
+      bound: Vector[Bound[C]],
       helper: String,
-      body: DeBruijnTerm,
+      body: Term[C],
       bodyRoot: TermPath,
-      context: Context
+      context: Context[C]
   ): TailRec[List[Piece]] =
-    val start = Scope(Vector.empty, context.reserved, Set.empty)
+    val start = Scope[C](Vector.empty, context.reserved, Set.empty)
     bound match
       case Vector() => rendered(body, bodyRoot, start, Position.Whole, false, Vector.empty, List.empty, context)
       case _ =>
-        val helperScope = Scope(Vector(helper), context.reserved + helper, Set.empty)
+        val helperScope = Scope[C](Vector(helper), context.reserved + helper, Set.empty)
         val written = Trampoline.folded(bound.zipWithIndex, List[Piece](Piece.Open(Node.Spine))) {
           case (before, (Bound(name, value, binders, places, _, _), index)) =>
               val opened = Piece.Token(" ") :: (parameters(Vector(helper)) reverse_::: (Piece.Open(Node.Spine) ::
@@ -1116,13 +1776,13 @@ object ReadableText:
     * abstraction takes them before its own; anything else gets them as a
     * parameter list of their own.
     */
-  private def afterBinders(
-      term: DeBruijnTerm,
+  private def afterBinders[C <: NativeSpecializer & Singleton](
+      term: Term[C],
       path: TermPath,
-      scope: Scope,
+      scope: Scope[C],
       pending: Vector[String],
       before: List[Piece],
-      context: Context
+      context: Context[C]
   ): TailRec[List[Piece]] =
     term match
       case DeBruijnTerm.Lambda(_) => rendered(term, path, scope, Position.Body, true, pending, before, context)
@@ -1325,7 +1985,7 @@ object ReadableText:
   /** The pieces before, a source mark put first where the source text spells
     * the node at the path (`writtenBack`).
     */
-  private def sourceMarked(path: TermPath, before: List[Piece], context: Context): List[Piece] =
+  private def sourceMarked[C <: NativeSpecializer & Singleton](path: TermPath, before: List[Piece], context: Context[C]): List[Piece] =
     context.source.flatMap(_.span(path.binders.nodeLocations)).fold(before)(span => Piece.Source(span.start) :: before)
 
   /** The pieces, in reverse, of the term at the position. `continuing` says
@@ -1333,15 +1993,15 @@ object ReadableText:
     * of the scope already bound but not yet written, which an abstraction
     * writes before its own.
     */
-  private def rendered(
-      term: DeBruijnTerm,
+  private def rendered[C <: NativeSpecializer & Singleton](
+      term: Term[C],
       path: TermPath,
-      scope: Scope,
+      scope: Scope[C],
       position: Position,
       continuing: Boolean,
       pending: Vector[String],
       before: List[Piece],
-      context: Context
+      context: Context[C]
   ): TailRec[List[Piece]] =
     // A term in parentheses is rendered again at its path inside them, where
     // it is marked.
@@ -1353,15 +2013,15 @@ object ReadableText:
     renderedUnmarked(term, path, scope, position, continuing, pending, marked, context)
 
   /** `rendered` after the mark of the term's place. */
-  private def renderedUnmarked(
-      term: DeBruijnTerm,
+  private def renderedUnmarked[C <: NativeSpecializer & Singleton](
+      term: Term[C],
       path: TermPath,
-      scope: Scope,
+      scope: Scope[C],
       position: Position,
       continuing: Boolean,
       pending: Vector[String],
       before: List[Piece],
-      context: Context
+      context: Context[C]
   ): TailRec[List[Piece]] =
     term match
       case DeBruijnTerm.Variable(index) => done(atom(scope.variable(index), sourceMarked(path, before, context)))
@@ -1415,23 +2075,23 @@ object ReadableText:
   private def spelledAtom(spelled: Spelled, before: List[Piece]): List[Piece] = spelledPieces(spelled) reverse_::: before
 
   /** The term in parentheses. */
-  private def parenthesized(term: DeBruijnTerm, path: TermPath, scope: Scope, before: List[Piece], context: Context): TailRec[List[Piece]] =
+  private def parenthesized[C <: NativeSpecializer & Singleton](term: Term[C], path: TermPath, scope: Scope[C], before: List[Piece], context: Context[C]): TailRec[List[Piece]] =
     tailcall(rendered(term, path, scope, Position.Whole, false, Vector.empty, Piece.Token("(") :: Piece.Open(Node.Parenthesized) :: before, context))
       .map(written => Piece.Close :: Piece.Token(")") :: written)
 
   /** The binders of adjacent abstractions from the term, the pending ones
     * first, each named, and the body under them with its path and scope.
     */
-  private def binders(
-      term: DeBruijnTerm,
+  private def binders[C <: NativeSpecializer & Singleton](
+      term: Term[C],
       path: TermPath,
-      scope: Scope,
+      scope: Scope[C],
       pending: Vector[String],
-      context: Context
-  ): (Vector[Spelled], DeBruijnTerm, TermPath, Scope) =
+      context: Context[C]
+  ): (Vector[Spelled], Term[C], TermPath, Scope[C]) =
     @scala.annotation.tailrec
-    def collected(current: DeBruijnTerm, currentPath: TermPath, currentScope: Scope, names: Vector[Spelled])
-        : (Vector[Spelled], DeBruijnTerm, TermPath, Scope) =
+    def collected(current: Term[C], currentPath: TermPath, currentScope: Scope[C], names: Vector[Spelled])
+        : (Vector[Spelled], Term[C], TermPath, Scope[C]) =
       current match
         case DeBruijnTerm.Lambda(body) =>
           val (found, plain) = context.source match
@@ -1439,7 +2099,7 @@ object ReadableText:
             case None =>
               if currentScope.plainLevels.contains(current) then (None, Vector.empty)
               else literalBinders(current, currentPath, context)
-          val scope = currentScope.copy(plainLevels = currentScope.plainLevels ++ plain)
+          val scope = currentScope.copy[C](plainLevels = currentScope.plainLevels ++ plain)
           found match
             case Some(LiteralBinders(texts, bits, rest, restPath)) =>
               // The bits' binders, which the rest does not read, bound with
@@ -1465,7 +2125,7 @@ object ReadableText:
     * writes them: their texts as binders, the number of their bits, and the
     * term after the bits with its path.
     */
-  private final case class LiteralBinders(texts: Vector[Spelled], bits: Int, rest: DeBruijnTerm, restPath: TermPath)
+  private final case class LiteralBinders[C <: NativeSpecializer & Singleton](texts: Vector[Spelled], bits: Int, rest: Term[C], restPath: TermPath)
 
   /** The longest run of complete literals at the start of a chain of
     * abstractions that is a variable arguments partial function, `λx. x REST
@@ -1473,14 +2133,14 @@ object ReadableText:
     * bits' binders, none when there is no such literal; and the rests of the
     * chain's levels after them, which are written as plain abstractions.
     */
-  private def literalBinders(
-      term: DeBruijnTerm,
+  private def literalBinders[C <: NativeSpecializer & Singleton](
+      term: Term[C],
       path: TermPath,
-      context: Context
-  ): (Option[LiteralBinders], Vector[DeBruijnTerm]) =
+      context: Context[C]
+  ): (Option[LiteralBinders[C]], Vector[Term[C]]) =
     @scala.annotation.tailrec
-    def levels(current: DeBruijnTerm, currentPath: TermPath, found: Vector[(Boolean, DeBruijnTerm, TermPath)])
-        : Vector[(Boolean, DeBruijnTerm, TermPath)] =
+    def levels(current: Term[C], currentPath: TermPath, found: Vector[(Boolean, Term[C], TermPath)])
+        : Vector[(Boolean, Term[C], TermPath)] =
       current match
         case DeBruijnTerm.Lambda(DeBruijnTerm.Apply(DeBruijnTerm.Apply(DeBruijnTerm.Variable(0), first), second))
             if context.top.contains(second) =>
@@ -1498,23 +2158,23 @@ object ReadableText:
       .getOrElse(Vector.empty)
     val bits = bitsOf(taken)
     val literals = Option.when(bits > 0)(found(bits - 1)).map((_, rest, restPath) =>
-      LiteralBinders(taken.map(item => Spelled(LiteralWriting.binder(item), None, false)), bits, rest, restPath)
+      LiteralBinders[C](taken.map(item => Spelled(LiteralWriting.binder(item), None, false)), bits, rest, restPath)
     )
     (literals, found.drop(bits).map(_._2))
 
   /** An argument of an application spine as written: a term, or a literal
     * standing for a run of bit arguments.
     */
-  private enum Argument:
-    case Written(term: DeBruijnTerm, path: TermPath)
+  private enum Argument[C <: NativeSpecializer & Singleton]:
+    case Written(term: Term[C], path: TermPath)
     case LiteralText(text: Spelled)
 
   /** The arguments, each run of bit arguments that starts with complete
     * literals written as those literals; a bit no literal takes stays a term.
     */
-  private def literalArguments(arguments: Vector[(DeBruijnTerm, TermPath)]): Vector[Argument] =
+  private def literalArguments[C <: NativeSpecializer & Singleton](arguments: Vector[(Term[C], TermPath)]): Vector[Argument[C]] =
     @scala.annotation.tailrec
-    def grouped(rest: Vector[(DeBruijnTerm, TermPath)], found: Vector[Argument]): Vector[Argument] =
+    def grouped(rest: Vector[(Term[C], TermPath)], found: Vector[Argument[C]]): Vector[Argument[C]] =
       rest.headOption match
         case None => found
         case Some((term, path)) =>
@@ -1532,17 +2192,17 @@ object ReadableText:
     * bit arguments located at one literal of the text written as the
     * literal's text, every other argument a term.
     */
-  private def sourceLiteralArguments(
-      arguments: Vector[(DeBruijnTerm, TermPath)],
+  private def sourceLiteralArguments[C <: NativeSpecializer & Singleton](
+      arguments: Vector[(Term[C], TermPath)],
       source: SourceText
-  ): Vector[Argument] =
-    def literalSpan(argument: (DeBruijnTerm, TermPath)): Option[Span] =
+  ): Vector[Argument[C]] =
+    def literalSpan(argument: (Term[C], TermPath)): Option[Span] =
       bit(argument._1).flatMap(_ => source.span(argument._2.binders.nodeLocations)).filter(source.literal(_).isDefined)
     def spelled(span: Span): Spelled =
       val text = source.literal(span).getOrElse(throw IllegalStateException(s"no literal at $span"))
       Spelled(text, Some(span.start), !LiteralWriting.bareArgument(text))
     @scala.annotation.tailrec
-    def grouped(rest: Vector[(DeBruijnTerm, TermPath)], found: Vector[Argument]): Vector[Argument] =
+    def grouped(rest: Vector[(Term[C], TermPath)], found: Vector[Argument[C]]): Vector[Argument[C]] =
       rest.headOption match
         case None => found
         case Some(argument @ (term, path)) =>
@@ -1559,7 +2219,7 @@ object ReadableText:
     * partial function, `λx. x REST top` for a 1 and `λx. x top REST` for a 0,
     * down to the rest; none for another abstraction.
     */
-  private def sourceLiteralBinder(term: DeBruijnTerm, path: TermPath, source: SourceText): Option[LiteralBinders] =
+  private def sourceLiteralBinder[C <: NativeSpecializer & Singleton](term: Term[C], path: TermPath, source: SourceText): Option[LiteralBinders[C]] =
     path.binders.nodeOrigins.collectFirst { case BinderOrigin.LiteralBit(bytes, 0, location) => (bytes, location) }.flatMap((bytes, location) =>
       source.span(Set(location)).flatMap(span => source.literal(span).map(span -> _)).flatMap((span, text) =>
         val bits = bytes.flatMap(byte => (7 to 0 by -1).map(position => ((byte >> position) & 1) == 1))
@@ -1586,7 +2246,7 @@ object ReadableText:
       case _ => None
 
   /** The bit a term spells: `λt. λf. t` 1, `λt. λf. f` 0. */
-  private def bit(term: DeBruijnTerm): Option[Boolean] = term match
+  private def bit[C <: NativeSpecializer & Singleton](term: Term[C]): Option[Boolean] = term match
     case DeBruijnTerm.Lambda(DeBruijnTerm.Lambda(DeBruijnTerm.Variable(1))) => Some(true)
     case DeBruijnTerm.Lambda(DeBruijnTerm.Lambda(DeBruijnTerm.Variable(0))) => Some(false)
     case _                                                                  => None
@@ -1596,9 +2256,9 @@ object ReadableText:
     bits.grouped(8).filter(_.size == 8).map(_.foldLeft(0)((byte, bit) => 2 * byte + (if bit then 1 else 0)).toByte).toVector
 
   /** Whether the term reads one of the `count` binders right above it. */
-  private def refersTo(term: DeBruijnTerm, count: Int): Boolean =
+  private def refersTo[C <: NativeSpecializer & Singleton](term: Term[C], count: Int): Boolean =
     @scala.annotation.tailrec
-    def searched(pending: List[(DeBruijnTerm, Int)]): Boolean = pending match
+    def searched(pending: List[(Term[C], Int)]): Boolean = pending match
       case Nil => false
       case (current, depth) :: rest =>
         current match
@@ -1644,7 +2304,7 @@ object ReadableText:
     * place keeps the one written there when no other name in its scope has
     * it. With the scope that knows the suffixes taken (`Scope.fresh`).
     */
-  private def binderName(names: Vector[String], scope: Scope): (String, Scope) =
+  private def binderName[C <: NativeSpecializer & Singleton](names: Vector[String], scope: Scope[C]): (String, Scope[C]) =
     val spelled = names.map(name => if name == "_" || NameSpelling.isName(name) then name else NameSpelling.escaped(name))
     val least = spelled.headOption.getOrElse(throw IllegalArgumentException("a binder has no name to choose from"))
     spelled.find(name => name == "_" || !scope.taken.contains(name)) match
@@ -1652,10 +2312,10 @@ object ReadableText:
       case None       => scope.fresh(least)
 
   /** The head of an application spine and its arguments, each with its path. */
-  private def spine(term: DeBruijnTerm, path: TermPath): ((DeBruijnTerm, TermPath), Vector[(DeBruijnTerm, TermPath)]) =
+  private def spine[C <: NativeSpecializer & Singleton](term: Term[C], path: TermPath): ((Term[C], TermPath), Vector[(Term[C], TermPath)]) =
     @scala.annotation.tailrec
-    def collected(current: DeBruijnTerm, currentPath: TermPath, arguments: List[(DeBruijnTerm, TermPath)])
-        : ((DeBruijnTerm, TermPath), Vector[(DeBruijnTerm, TermPath)]) =
+    def collected(current: Term[C], currentPath: TermPath, arguments: List[(Term[C], TermPath)])
+        : ((Term[C], TermPath), Vector[(Term[C], TermPath)]) =
       current match
         case DeBruijnTerm.Apply(function, argument) =>
           collected(function, currentPath.below(0), (argument, currentPath.below(1)) :: arguments)
@@ -1667,10 +2327,10 @@ object ReadableText:
     * written after its `+` (`Lambdalattice`, the paragraph on chains), each
     * operand after the first in parentheses when it is itself a chain.
     */
-  private def chained(term: DeBruijnTerm, path: TermPath, scope: Scope, before: List[Piece], context: Context): TailRec[List[Piece]] =
+  private def chained[C <: NativeSpecializer & Singleton](term: Term[C], path: TermPath, scope: Scope[C], before: List[Piece], context: Context[C]): TailRec[List[Piece]] =
     @scala.annotation.tailrec
-    def collected(current: DeBruijnTerm, currentPath: TermPath, steps: List[(String, DeBruijnTerm, TermPath)])
-        : ((DeBruijnTerm, TermPath), List[(String, DeBruijnTerm, TermPath)]) =
+    def collected(current: Term[C], currentPath: TermPath, steps: List[(String, Term[C], TermPath)])
+        : ((Term[C], TermPath), List[(String, Term[C], TermPath)]) =
       current match
         case DeBruijnTerm.Choice(left, right)   => collected(right, currentPath.below(1), ("+", left, currentPath.below(0)) :: steps)
         case DeBruijnTerm.Parallel(left, right) => collected(left, currentPath.below(0), ("∥", right, currentPath.below(1)) :: steps)

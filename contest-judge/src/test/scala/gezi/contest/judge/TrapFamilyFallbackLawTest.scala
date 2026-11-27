@@ -18,8 +18,12 @@ import gezi.generatedinputs.GeneratedProperties
   * (`DrawnPoint.trapCandidates`, the CSES families') are dropped, since the
   * writer takes them before the second instance and the fallback would not
   * be reached (`ComputedTrapsLawTest` checks them). Its purpose is to catch
-  * a trap that is in the reference or that no peer read; the coverage of
-  * draws that write a trap catches a fallback that never writes one.
+  * a trap that is in the reference or that no peer read. Every iteration
+  * checks the law also on a draw of `LawFamilies.trapAtEveryPoint`, whose
+  * points are pure with one computed normal form, a list of one answer,
+  * which no peer's normal form (an abstraction nest around a variable) is,
+  * so that it writes a trap by construction, which catches a fallback that
+  * never writes one.
   */
 class TrapFamilyFallbackLawTest extends GeneratedProperties:
 
@@ -46,22 +50,35 @@ class TrapFamilyFallbackLawTest extends GeneratedProperties:
     yield (1 to depth).foldLeft[DeBruijnTerm](DeBruijnTerm.Variable(index))((body, _) => DeBruijnTerm.Lambda(body)))
       .list(Range.constant(1, 4)).map(_.toVector.distinct)
 
-  private val draws: Gen[(String, Long, Vector[DeBruijnTerm])] =
+  private val draws: Gen[(String, Long, Vector[DeBruijnTerm])] = drawsOf(Gen.elementUnsafe(LawFamilies.names))
+
+  /** The draws of a family the generator gives. */
+  private def drawsOf(families: Gen[String]): Gen[(String, Long, Vector[DeBruijnTerm])] =
     for
-      family <- Gen.elementUnsafe(LawFamilies.names)
+      family <- families
       seed <- Gen.long(Range.constant(0L, (1L << 31) - 1))
       peerNormalForms <- normalForms
     yield (family, seed, peerNormalForms)
 
   property("a trap of a point repeated by its second instance is a normal form of a peer", _.copy(testLimit = 20)) {
     for
-      found <- draws.forAll.map(draw => (draw, written(draw))).cover(50, "writes a trap", (_, written) => written._2.nonEmpty)
+      draw <- draws.forAll
+      trapped <- drawsOf(Gen.constant(LawFamilies.trapAtEveryPoint)).forAll
     yield
-      val ((_, _, peerNormalForms), (references, traps)) = found
-      Result.all(traps.map((evaluation, candidate) =>
-        Result.assert(peerNormalForms.contains(candidate) && !references(evaluation).contains(candidate)).log(s"$evaluation: a trap outside the peers' normal forms or in the reference")
-      ).toList)
+      val (trappedLaw, trappedTraps) = fallbackLaw(trapped)
+      fallbackLaw(draw)._1
+        .and(trappedLaw)
+        .and(Result.assert(trappedTraps.nonEmpty).log(s"${LawFamilies.trapAtEveryPoint} writes no trap"))
   }
+
+  /** The law on the file written from the draw, with its traps. */
+  private def fallbackLaw(draw: (String, Long, Vector[DeBruijnTerm])): (Result, Vector[(String, DeBruijnTerm)]) =
+    val (_, _, peerNormalForms) = draw
+    val (references, traps) = written(draw)
+    val law = Result.all(traps.map((evaluation, candidate) =>
+      Result.assert(peerNormalForms.contains(candidate) && !references(evaluation).contains(candidate)).log(s"$evaluation: a trap outside the peers' normal forms or in the reference")
+    ).toList)
+    (law, traps)
 
   /** The references of the evaluation points written, and the traps as (evaluation point, candidate). */
   private def written(draw: (String, Long, Vector[DeBruijnTerm])): (Map[String, Set[DeBruijnTerm]], Vector[(String, DeBruijnTerm)]) =

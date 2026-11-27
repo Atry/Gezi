@@ -1,24 +1,28 @@
 package gezi.proofs
 
 import gezi.ir.Code
-import gezi.ir.Instruction
 import gezi.ir.Hole
 import gezi.ir.Layer
 import gezi.ir.LemmaIdentifier
+import gezi.ir.NotTerm
 import gezi.rewritetrace.UnprovedKind
 import gezi.ir
 
-/** A term an article writes: an instruction of the store; a variable of type
-  * term, named; a layer over terms; or the equation of two terms. A layer
-  * holds its code by identifier; no layer is a noinline leaf.
+/** A term an article writes: a term of the article's `ProofTerms`; a
+  * variable of type term, named; a layer over terms; or the equation of two
+  * terms. A layer holds its code by identifier; no layer is a noinline leaf.
   */
 enum ArticleTerm:
-  case Stored(instruction: Instruction)
+  case Stored(term: TermId)
   case Variable(name: String)
   case Layered(layer: Layer[ArticleTerm])
   case Equation(left: ArticleTerm, right: ArticleTerm)
 
-/** A pattern the matcher reads: a metavariable; an instruction; a lambda pattern
+object ArticleTerm:
+  /** A term an article writes is no IR term. */
+  given NotTerm[ArticleTerm] = NotTerm.granted
+
+/** A pattern the matcher reads: a metavariable; a term of the article; a lambda pattern
   * `\x. M x` of the metavariable `index` (the eta-shaped thunk pattern
   * `thunk(apply(slot(F), slot(H)), [H], [metavariable(Index)])`, F not H),
   * with its thunk layer; or one layer over
@@ -30,7 +34,7 @@ enum ArticleTerm:
   */
 enum MatchPattern:
   case Metavariable(index: Int)
-  case Reference(instruction: Instruction)
+  case Reference(term: TermId)
   case Lambda(index: Int, thunk: Layer[MatchPattern])
   case Layered(layer: Layer[MatchPattern])
 
@@ -40,6 +44,10 @@ enum MatchPattern:
     case Reference(_)        => Vector.empty
     case Lambda(_, thunk)    => thunk.children.flatMap(_.mentions)
     case Layered(layer)      => layer.children.flatMap(_.mentions)
+
+object MatchPattern:
+  /** A pattern is no IR term. */
+  given NotTerm[MatchPattern] = NotTerm.granted
 
 /** The constructor of a layer with its atoms: a thunk's code and holes. */
 enum LayerShape:
@@ -59,13 +67,15 @@ object LayerShape:
     case ir.Apply(_, _)           => Apply
     case ir.Choice(_, _)          => Choice
     case ir.Parallel(_, _)        => Parallel
+    // A storage's view `v ∥ T` is the parallel the storage stands for.
+    case ir.StorageView(_, _)     => Parallel
     case ir.NoinlineLeaf(instruction) =>
       throw IllegalArgumentException(s"a noinline leaf $instruction is no layer of an article")
 
   /** The layer of the shape over the children, which are as many as the
     * shape has.
     */
-  def layer[Child](shape: LayerShape, children: Vector[Child]): Layer[Child] =
+  def layer[Child](shape: LayerShape, children: Vector[Child])(using NotTerm[Child]): Layer[Child] =
     (shape, children) match
       case (Thunk(code, holes), _)                 => ir.Thunk(code, holes, children)
       case (Apply, Vector(function, argument))     => ir.Apply(function, argument)
@@ -112,7 +122,21 @@ enum Axiom:
     * `EndToEnd.conversionChecked`).
     * It has no variable, so each union states its own.
     */
-  case Conversion(redex: Instruction, reduct: Instruction)
+  case Conversion(redex: TermId, reduct: TermId)
+
+  /** The application `application`, a define bound to the native named
+    * applied to storages, a term over terms of the article, equals the
+    * storage `result` of the native's value
+    * on them. It rests on two sources: the native's obligation
+    * `native = define`, which its binding states on unfiltered values and
+    * which is trusted; and the unique spelling's pattern theorem
+    * `C ȳ ∥ T ≃_O C ȳ` (`docs/design/gezi-set-equations-proofs.md`, section
+    * 23, a theorem of Definition 14 with no derivation in ⊢), at each
+    * argument and at the result, under the premise the fold requires
+    * (`UniqueSpellingPremise`). It has no variable, so each fold states its
+    * own.
+    */
+  case Native(native: String, application: ArticleTerm, result: TermId)
 
 /** A proof of an equation of terms, before it is written. */
 enum ArticleProof:
@@ -129,15 +153,15 @@ enum ArticleProof:
   /** The two terms the union names are equal. */
   case Edge(union: Int)
 
-  /** The path between two terms of the forest. */
-  case Connection(first: Instruction, second: Instruction)
+  /** The path between the nodes of two terms in the forest (`ProofForest.node`). */
+  case Connection(first: TermId, second: TermId)
 
   /** The two terms of a union by β conversion are equal, `reduct` the one
     * of them the other reduces to: the trace keeps it as a step that
     * converts, and the writer imports the reduction as its conversion
     * equation (`Axiom.Conversion`), turned where `reduct` is `first`.
     */
-  case Conversion(first: Instruction, second: Instruction, reduct: Instruction)
+  case Conversion(first: TermId, second: TermId, reduct: TermId)
 
   /** The closure `first` equals the thunk `second` written back by the
     * abstraction rule ξ from the closure's body opened at the eigenvariables,
@@ -145,10 +169,10 @@ enum ArticleProof:
     * trace keeps over the body's steps and the writer refuses.
     */
   case Abstraction(
-      first: Instruction,
-      second: Instruction,
-      eigenvariables: Vector[Instruction],
-      body: Instruction,
+      first: TermId,
+      second: TermId,
+      eigenvariables: Vector[TermId],
+      body: TermId,
       proof: ArticleProof
   )
 
@@ -168,7 +192,7 @@ object ArticleProof:
     case Symmetry(inner)  => inner
     case _                => Symmetry(proof)
 
-  def connection(first: Instruction, second: Instruction): ArticleProof =
+  def connection(first: TermId, second: TermId): ArticleProof =
     if first == second then Reflexivity(ArticleTerm.Stored(first))
     else Connection(first, second)
 
@@ -288,27 +312,40 @@ object HolTypeTerm:
   */
 enum ArticleErrorReason:
   case NotAProofOfOneEquation(equations: Int)
-  case TermTwice(term: Instruction)
   case UnionsOutOfOrder(expected: Int, found: Int)
-  case NotANode(term: Instruction)
+  case NotANode(term: TermId)
+  /** A union that names a number that is no node of the proof. */
+  case NotANodeNumber(node: Int)
   case UnionWithinAClass(union: Int)
-  case SidesNotJoined(leftAt: Instruction, rightAt: Instruction)
-  case CongruenceNotProved(union: Int, first: Instruction, second: Instruction)
+  case SidesNotJoined(leftAt: TermId, rightAt: TermId)
+  case CongruenceNotProved(union: Int, first: TermId, second: TermId)
   case BindingsDiffer(union: Int, lemma: LemmaIdentifier, bindings: Int, arity: Int)
   case LemmaBindingNotRecorded(union: Int, lemma: LemmaIdentifier)
-  case BetaNotProved(union: Int, application: Instruction, body: Instruction)
+  case BetaNotProved(union: Int, application: TermId, body: TermId)
   case NotAJustification(union: Int, justification: Justification)
+  /** The union replaced a closure unit by its compilation's artifact, whose
+    * proof the writer does not have.
+    */
+  case CompiledUnitNotProved(union: Int, function: TermId)
+
+  /** A pattern view's union whose first node is no `s ∥ T′` over the
+    * storage `s` of its second, or whose storage's view is no parallel.
+    */
+  case PatternViewNotProved(union: Int, view: TermId, storage: TermId)
+
+  /** A storage view's union whose two nodes' terms are not both parallels. */
+  case StorageViewNotProved(union: Int, storage: TermId, view: TermId)
   case UnboundMetavariable(index: Int)
-  case InstanceNotMatched(union: Int, pattern: MatchPattern, node: Instruction)
+  case InstanceNotMatched(union: Int, pattern: MatchPattern, node: TermId)
   case NotALemma(lemma: LemmaIdentifier)
   case NoEncoding(lemma: LemmaIdentifier)
   case ClosureInEncoding(lemma: LemmaIdentifier, index: Int)
   case AxiomPoppedBeforeUse(axiom: Axiom)
-  case SideNotMatched(node: Instruction)
-  case NotConnected(first: Instruction, second: Instruction)
+  case SideNotMatched(node: TermId)
+  case NotConnected(first: TermId, second: TermId)
   case FillingsDiffer(code: Code, holes: Vector[Hole], fillings: Int)
   case MoreHolesThanSlots(code: Code, holes: Vector[Hole])
-  case Unproved(kind: UnprovedKind, first: Instruction, second: Instruction)
+  case Unproved(kind: UnprovedKind, first: TermId, second: TermId)
 
 /** The writer's refusal. */
 final case class OpentheoryArticleError(reason: ArticleErrorReason)

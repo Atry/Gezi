@@ -7,12 +7,13 @@ import gezi.frontend.Lambdalattice
 import gezi.frontend.Term
 import gezi.knowledgereading.KnowledgeReading
 import gezi.weakhead.Computation
-import gezi.weakhead.Value
+import gezi.ir.Value
 import gezi.weakhead.Values
 import scala.annotation.tailrec
 import scala.util.control.TailCalls.TailRec
 import scala.util.control.TailCalls.done
 import scala.util.control.TailCalls.tailcall
+import gezi.ir.{Configured, NativeSpecializer, NoFacts}
 
 /** A type of the classic Hindley-Milner reference: `natural`, `boolean`,
   * `list(Element)`, `arrow(Argument, Result)` or a type variable.
@@ -244,9 +245,9 @@ object ClassicHindleyMilner:
   /** A value of the table read back to its instruction, so that a later
     * reading starts from it alone.
     */
-  private def opened(value: Value): Value = Values.instruction(value)
+  private def opened(value: Value[NoFacts.type])(using NoFacts.type): Value[NoFacts.type] = Value.of(Values.instruction(value))
 
-  private def text(value: Value): String = KnowledgeReading.run(KnowledgeReading.text(value), readingLimit)
+  private def text(value: Value[NoFacts.type])(using NoFacts.type): String = KnowledgeReading.run(KnowledgeReading.text(value), readingLimit)
 
   /** The type schemes of the table by the names its rows write: the one
     * field of the tuple the file returns (`KnowledgeReading.soleField`).
@@ -263,7 +264,8 @@ object ClassicHindleyMilner:
     * taken by `ClassicHindleyMilnerBenchmark` alone.
     */
   private def namedSchemes(libraryTypes: Path): Map[String, TypeScheme] =
-    val file = Defunctionalization.thunkInstruction(Lambdalattice.term(Files.readString(libraryTypes)))
+    given NoFacts.type = NoFacts
+    val file = Value.of(Defunctionalization.thunkInstruction(Lambdalattice.term(Files.readString(libraryTypes)))(using gezi.ir.NoFacts))
     val rows = KnowledgeReading.run(
       KnowledgeReading.soleField(file).flatMap(KnowledgeReading.items).flatMap(items =>
         Computation.traversed(items)(item => KnowledgeReading.fields(item, 2).map(_.map(opened)))
@@ -285,9 +287,9 @@ object ClassicHindleyMilner:
     * first met, and the numbers given.
     */
   private def schemeBody(
-      scheme: Value,
+      scheme: Value[NoFacts.type],
       generics: Map[String, Int]
-  ): (ClassicType, Map[String, Int]) =
+  )(using NoFacts.type): (ClassicType, Map[String, Int]) =
     val fields = KnowledgeReading.run(KnowledgeReading.alternative(scheme, 1), readingLimit)._2.map(opened)
     fields.headOption.map(text) match
       case Some("natural") if fields.size == 1 => (ClassicType.Natural, generics)
@@ -310,7 +312,7 @@ object ClassicHindleyMilner:
     * `IllegalArgumentException` for a library name with no scheme in the
     * table and for a term outside the language.
     */
-  def programType(program: Term, schemes: Map[String, TypeScheme]): Option[InferredType] =
+  def programType(program: ProgramTerm, schemes: Map[String, TypeScheme]): Option[InferredType] =
     termType(program, Nil, 0, Substitution.empty, schemes).result.map((substitution, classicType) =>
       InferredType(classicType, substitution)
     )
@@ -319,7 +321,7 @@ object ClassicHindleyMilner:
     * environment of their binders' types, innermost first.
     */
   private def termType(
-      term: Term,
+      term: ProgramTerm,
       environment: List[ClassicType],
       depth: Int,
       substitution: Substitution,

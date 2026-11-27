@@ -5,9 +5,13 @@ import hedgehog.Range
 import hedgehog.Result
 import gezi.frontend.ReadableText
 import gezi.generatedinputs.GeneratedProperties
-import gezi.ir.Instruction
+import gezi.ir.Configured
+import gezi.ir.NoFacts
+import gezi.rewritetrace.Trace
 import gezi.rewritetrace.TraceStart
 import gezi.rewritetrace.TraceText
+
+private given boxFoldingLawTestNoFacts: NoFacts.type = NoFacts
 
 /** The laws of the boxes view's folding (`BoxFolding`)
   * on generated traces
@@ -29,7 +33,7 @@ class BoxFoldingLawTest extends GeneratedProperties:
   /** Whether the box, its references replaced by the boxes of their
     * bindings, is the instruction's tree.
     */
-  private def drawsTree(box: BoxFolding.Box, instruction: Instruction, bound: Map[String, BoxFolding.Box]): Boolean =
+  private def drawsTree(box: BoxFolding.Box, instruction: Configured[NoFacts.type], bound: Map[String, BoxFolding.Box]): Boolean =
     box.shown match
       case BoxFolding.Shown.Layer(drawn, _, _) =>
         val children = if instruction.opaque then Vector.empty else instruction.layer.children
@@ -38,20 +42,34 @@ class BoxFoldingLawTest extends GeneratedProperties:
       case BoxFolding.Shown.Reference(name, _) => bound.get(name).exists(drawsTree(_, instruction, bound))
 
   /** Every path of the term, by the indices of `Layer.children`. */
-  private def paths(instruction: Instruction): Vector[Vector[Int]] =
+  private def paths(instruction: Configured[NoFacts.type]): Vector[Vector[Int]] =
     val children = if instruction.opaque then Vector.empty else instruction.layer.children
     Vector(Vector.empty) ++ children.zipWithIndex.flatMap((child, index) => paths(child).map(index +: _))
 
   /** Every box of the tree. */
   private def boxes(box: BoxFolding.Box): Vector[BoxFolding.Box] = box +: box.under.flatMap(boxes)
 
+  /** Every iteration checks a trace from a generated start and one from a
+    * start that refers to a closed instruction twice as a child of two layers
+    * (`TermSequences.sharingTrace`), which the printer binds as a shared
+    * instruction by construction (ReadableText, SHARING).
+    */
   property("the folded boxes draw each step's term once at each place, inlined instructions unbound") {
     for
-      (start, trace) <- Gen.choice1(TermSequences.trace, TermSequences.sharingTrace)
+      (start, trace) <- TermSequences.trace.forAllWithLog((start, trace) => s"${TraceStart.written(start, None)}\n${TraceText.written(trace)}")
+      (sharingStart, sharingTrace) <- TermSequences.sharingTrace
         .forAllWithLog((start, trace) => s"${TraceStart.written(start, None)}\n${TraceText.written(trace)}")
-        .cover(30, "the start binds a shared instruction", (start, _) => ReadableText.printedNameless(start).sharedValues.nonEmpty)
       selection <- Gen.int(Range.linear(0, Int.MaxValue)).forAll
-    yield TraceReading.played(TraceStart.written(start, None), TraceText.written(trace)) match
+    yield folded(start, trace, selection)
+      .and(folded(sharingStart, sharingTrace, selection))
+      .and(Result.assert(ReadableText.printedNameless(sharingStart).sharedValues.nonEmpty).log("the start (x t) t binds no shared instruction"))
+  }
+
+  /** The law on the steps of one trace, folded with the shared instructions
+    * the selection's bits inline.
+    */
+  private def folded(start: Configured[NoFacts.type], trace: Trace[NoFacts.type], selection: Int): Result =
+    TraceReading.played(TraceStart.written(start, None), TraceText.written(trace)) match
       case Left(unreadable) => Result.failure.log(s"the texts do not read: ${unreadable.error}")
       case Right(played) =>
         Result.all(
@@ -85,4 +103,3 @@ class BoxFoldingLawTest extends GeneratedProperties:
               .log(s"step $step")
           )
         )
-  }

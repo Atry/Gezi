@@ -3,10 +3,12 @@ package gezi.standardlibrary
 import java.nio.file.Path
 import gezi.directorysugar.DirectoryTree
 import gezi.frontend.DeBruijnTerm
+import gezi.frontend.DeBruijnTermOf
 import gezi.frontend.Lambdalattice
 import gezi.frontend.Literal
 import gezi.frontend.SyntaxSpans
 import gezi.locations.Span
+import gezi.ir.{Configured, NoFacts}
 
 /** A lemma declaration as a knowledge file's text writes it: the lemma's
   * name and the spans, in the text's code points, of its two sides.
@@ -47,8 +49,8 @@ object LemmaSources:
   def textsUnder(
       visible: Path,
       roots: Vector[Path],
-      index: StandardLibraryIndex
-  ): Map[(gezi.ir.Instruction, gezi.ir.Instruction), gezi.locations.LemmaText] =
+      index: StandardLibraryIndex[NoFacts.type]
+  ): Map[(Configured[NoFacts.type], Configured[NoFacts.type]), gezi.locations.LemmaText[NoFacts.type]] =
     val lemmas = index.lemmaNames.flatMap(named => index.lemmaSides.find(_.lemma == named.lemma).map(sides => (named, sides)))
     val quoted = lemmas.map((named, _) => s"\"${named.name}\"")
     val files = roots
@@ -80,8 +82,8 @@ object LemmaSources:
   def texts(
       visible: Path,
       files: Vector[Path],
-      lemmas: Vector[(LemmaNamed, LemmaSides)]
-  ): Map[gezi.ir.LemmaIdentifier, gezi.locations.LemmaText] =
+      lemmas: Vector[(LemmaNamed, LemmaSides[NoFacts.type])]
+  ): Map[gezi.ir.LemmaIdentifier, gezi.locations.LemmaText[NoFacts.type]] =
     val sidesOf = lemmas.map((named, sides) => named.lemma -> sides).toMap
     attributed(visible, files, lemmas).toVector
       .groupBy((_, found) => found._1)
@@ -121,18 +123,24 @@ object LemmaSources:
   private def namesOf(
       side: DeBruijnTerm,
       spans: SyntaxSpans,
-      instruction: gezi.ir.Instruction,
+      instruction: Configured[NoFacts.type],
       slice: Span => String
-  ): Vector[(String, gezi.ir.Instruction)] =
-    def walked(term: DeBruijnTerm, at: SyntaxSpans, read: DeBruijnTerm, depth: Int): Vector[(String, gezi.ir.Instruction)] =
-      val closed = (term.layer, read.layer) match
+  ): Vector[(String, Configured[NoFacts.type])] =
+    given NoFacts.type = NoFacts
+    def walked(
+        term: DeBruijnTerm,
+        at: SyntaxSpans,
+        read: DeBruijnTermOf[Configured[NoFacts.type]],
+        depth: Int
+    ): Vector[(String, Configured[NoFacts.type])] =
+      val closed: DeBruijnTermOf[Configured[NoFacts.type]] = (term.layer, read.layer) match
         case (gezi.frontend.Variable(_), _)    => read
         case (_, gezi.frontend.Constant(part)) => layerTerm(part)
         case _                                 => read
       (term.layer, closed.layer) match
         case (gezi.frontend.Variable(index), gezi.frontend.Constant(part)) if index >= depth => Vector(slice(at.span) -> part)
         case (gezi.frontend.Variable(index), _) if index >= depth =>
-          Vector(slice(at.span) -> gezi.frontend.Defunctionalization.thunkInstruction(closed))
+          Vector(slice(at.span) -> gezi.frontend.Defunctionalization.thunkInstruction[NoFacts.type](closed))
         case (gezi.frontend.Variable(index), gezi.frontend.Variable(other)) if index == other => Vector.empty
         case (gezi.frontend.Lambda(body), gezi.frontend.Lambda(closedBody)) =>
           walked(body, at.child(0), closedBody, depth + 1)
@@ -151,13 +159,13 @@ object LemmaSources:
     * with them as stops). The parts are closed, so no variable of the layer
     * reaches into them.
     */
-  private def layerTerm(instruction: gezi.ir.Instruction): DeBruijnTerm =
-    val parts: Set[gezi.ir.Instruction] = instruction match
-      case gezi.ir.Instruction.Apply(function, argument) => Set(function, argument)
-      case gezi.ir.Instruction.Choice(left, right)       => Set(left, right)
-      case gezi.ir.Instruction.Parallel(left, right)     => Set(left, right)
-      case gezi.ir.Instruction.Thunk(_, _, fillings)     => fillings.toSet
-      case _                                             => Set.empty
+  private def layerTerm(instruction: Configured[NoFacts.type])(using NoFacts.type): DeBruijnTermOf[Configured[NoFacts.type]] =
+    val parts: Set[Configured[NoFacts.type]] = instruction.layer match
+      case gezi.ir.Apply(function, argument) => Set(function, argument)
+      case gezi.ir.Choice(left, right)       => Set(left, right)
+      case gezi.ir.Parallel(left, right)     => Set(left, right)
+      case gezi.ir.Thunk(_, _, fillings)     => fillings.toSet
+      case _                                 => Set.empty
     gezi.frontend.Defunctionalization.instructionTerm(instruction, parts)
 
   /** The code points of the text, in which the spans count. */
@@ -190,16 +198,17 @@ object LemmaSources:
   def attributed(
       visible: Path,
       files: Vector[Path],
-      lemmas: Vector[(LemmaNamed, LemmaSides)]
+      lemmas: Vector[(LemmaNamed, LemmaSides[NoFacts.type])]
   ): Map[gezi.ir.LemmaIdentifier, (Path, LemmaDeclarationSource)] =
     // A file is read as the library reads it, which evaluates its imports,
     // only when its text declares one of the names: the text is the cheap
     // reading. One reading state runs through the files, so that the
     // library files their imports reach are expanded once (each file read
     // under a fresh state took 0.7 s to 1.5 s, cores 4-7, 2026-11-17).
+    given NoFacts.type = NoFacts
     val names = lemmas.map(_._1.name).toSet
     val (read, _) = files.foldLeft(
-      (Vector.empty[(Path, Map[String, (gezi.ir.Instruction, gezi.ir.Instruction)], Map[String, LemmaDeclarationSource])],
+      (Vector.empty[(Path, Map[String, (Configured[NoFacts.type], Configured[NoFacts.type])], Map[String, LemmaDeclarationSource])],
        gezi.knowledgereading.KnowledgeReading.compilationState)
     ) { case ((gathered, state), file) =>
       val texts =
@@ -217,7 +226,7 @@ object LemmaSources:
         .flatMap((file, sides, texts) =>
           texts
             .get(named.name)
-            .filter(_ => sides.get(named.name).exists((left, right) => (left eq lemmaSides.left) && (right eq lemmaSides.right)))
+            .filter(_ => sides.get(named.name).exists((left, right) => Configured.same(left, lemmaSides.left) && Configured.same(right, lemmaSides.right)))
             .map(found => named.lemma -> (file, found))
         )
         .headOption

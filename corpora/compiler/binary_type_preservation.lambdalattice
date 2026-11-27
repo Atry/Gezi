@@ -1,0 +1,49 @@
+# The type-preservation lemmas of the binary naturals: each writes the
+# criterion of a constructor's result into the term, `binary_set P` at the
+# result's parameter, so that the JIT reads a binary constructor's result
+# place from the filter at its node and does not derive it in the host from
+# the operands' values (BinaryNaturalFamily.builtParameter). binary_even's
+# field is at false (positive) and its result at true or false: the lemmas
+# write both. A lemma rewrites x to x ∥ T, so its filter survives the
+# extraction, which drops an absorbed choice x + (x ∥ T); it is sound because
+# T ⊑ x, which needs the field filtered. Theorems of λ-lattice-unit-η, proved
+# in docs/design/gezi-type-preservation-proofs.md. No preset enables this file
+# yet: the JIT does not read the filters it writes.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "binary") "natural")
+λ binary_zero binary_even binary_odd _ binary_set
+. omega (omega (omega (omega corpora "library") "native_types") "boolean")
+λ true false _ _
+. export
+λ _ rewriting _ _
+. rewriting
+λ _ lemmas _
+. lemmas
+  ( λ s
+    . s
+      (λk. k "binary_zero_typed")
+      binary_zero
+      (binary_zero ∥ binary_set true) λ_ md _. md λk. k "[binary_zero_typed](docs/design/gezi-type-preservation-proofs.md#binary_zero_typed)"
+  + λ s
+    . s
+      (λk. k "binary_odd_typed_canonical")
+      (λx_0. binary_odd (x_0 ∥ binary_set true))
+      (λx_0. (binary_odd (x_0 ∥ binary_set true) ∥ binary_set true)) λ_ md _. md λk. k "[binary_odd_typed](docs/design/gezi-type-preservation-proofs.md#binary_odd_typed)"
+  + λ s
+    . s
+      (λk. k "binary_odd_typed_positive")
+      (λx_0. binary_odd (x_0 ∥ binary_set true))
+      (λx_0. (binary_odd (x_0 ∥ binary_set true) ∥ binary_set false)) λ_ md _. md λk. k "[binary_odd_typed](docs/design/gezi-type-preservation-proofs.md#binary_odd_typed)"
+  + λ s
+    . s
+      (λk. k "binary_even_typed_canonical")
+      (λx_0. binary_even (x_0 ∥ binary_set false))
+      (λx_0. (binary_even (x_0 ∥ binary_set false) ∥ binary_set true)) λ_ md _. md λk. k "[binary_even_typed](docs/design/gezi-type-preservation-proofs.md#binary_even_typed)"
+  + λ s
+    . s
+      (λk. k "binary_even_typed_positive")
+      (λx_0. binary_even (x_0 ∥ binary_set false))
+      (λx_0. (binary_even (x_0 ∥ binary_set false) ∥ binary_set false)) λ_ md _. md λk. k "[binary_even_typed](docs/design/gezi-type-preservation-proofs.md#binary_even_typed)"
+  )

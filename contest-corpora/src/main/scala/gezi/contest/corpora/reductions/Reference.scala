@@ -30,7 +30,7 @@ enum Reference:
   * in contest-judge), so a candidate is never trusted to be outside the
   * reference.
   */
-final case class DrawnPoint(program: Term, reference: Reference, trapCandidates: Vector[DeBruijnTerm] = Vector.empty)
+final case class DrawnPoint(program: ProblemTerm, reference: Reference, trapCandidates: Vector[DeBruijnTerm] = Vector.empty)
 
 /** A point of a corpus family, which the judge's points writer writes by
   * the corpus's name (`CorpusSources` in contest-judge): its name and what

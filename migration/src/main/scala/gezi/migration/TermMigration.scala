@@ -12,7 +12,6 @@ import gezi.frontend.Defunctionalization
 import gezi.frontend.FreeNames
 import gezi.frontend.Lambdalattice
 import gezi.ir.Direction
-import gezi.ir.Instruction
 import gezi.ir.Layer
 import gezi.ir.Pattern
 import gezi.ir.Store
@@ -26,6 +25,10 @@ import gezi.saturation.Saturation
 import gezi.saturation.StopSignal
 import scala.util.matching.Regex
 import gezi.ir.{Apply, Choice, NoinlineLeaf, Parallel, Thunk}
+import gezi.ir.{Configured, NativeSpecializer, NoFacts}
+
+/** The configuration of the terms here: no facts. */
+private given termMigrationNoFacts: NoFacts.type = NoFacts
 
 /** A place the migration rewrote: the span of the matched text in the text
   * given, and the span of its replacement in the text migrated.
@@ -73,9 +76,9 @@ object TermMigration:
     * left to right, and `IllegalStateException` when the migrated text and
     * the original are not one class within the budget's instances.
     */
-  def migrated(text: String, uri: java.net.URI, lemma: LemmaSides, store: Store, budget: Int): Migrated =
+  def migrated(text: String, uri: java.net.URI, lemma: LemmaSides[NoFacts.type], store: Store[NoFacts.type], budget: Int): Migrated =
     val located = Lambdalattice.located(text, FreeNames.Rejected)
-    val (instruction, map) = Defunctionalization.locatedThunkInstruction(located.term, located.spans, uri)
+    val (instruction, map) = Defunctionalization.locatedThunkInstruction[NoFacts.type](located.term, located.spans, uri)
     val compiledOrientations = OrientationCompilation.compiled(Vector(lemma), store)
     val forward = compiledOrientations.orientations
       .filter(_.direction == Direction.Forward)
@@ -116,14 +119,15 @@ object TermMigration:
     * which are the orientations' kinds, a new node being matched by both,
     * the instruction's key under `Add` only, where the indexer files it.
     */
-  private def matchesAt(compiled: CompiledProgram, graph: EGraph, node: Int): Vector[Match] =
-    val shapeKeys = graph.layer(node) match
-      case Apply(_, _)           => SeedKey.Apply +: graph.nodeHeads(node).map(SeedKey.Headed(_))
-      case Parallel(_, _)        => Vector(SeedKey.Parallel)
-      case Choice(_, _)          => Vector(SeedKey.Choice)
-      case Thunk(code, holes, _) => Vector(SeedKey.Thunk(code, holes))
+  private def matchesAt(compiled: CompiledProgram[NoFacts.type], graph: EGraph[NoFacts.type], node: Int): Vector[Match] =
+    val shapeKeys: Vector[SeedKey[NoFacts.type]] = graph.layer(node) match
+      case Apply(_, _)           => SeedKey.Apply[NoFacts.type]() +: graph.nodeHeads(node).map(SeedKey.Headed(_))
+      case Parallel(_, _)        => Vector(SeedKey.Parallel[NoFacts.type]())
+      case Choice(_, _)          => Vector(SeedKey.Choice[NoFacts.type]())
+      case Thunk(code, holes, _) => Vector(SeedKey.Thunk[NoFacts.type](code, holes))
       case NoinlineLeaf(_)               => Vector.empty
-    val closure = if graph.hasClosure(graph.root(node)) then Vector(SeedKey.Closure) else Vector.empty
+      case view: gezi.ir.StorageView[?]  => throw IllegalStateException(s"a node's layer is never a storage's view: $view")
+    val closure: Vector[SeedKey[NoFacts.type]] = if graph.hasClosure(graph.root(node)) then Vector(SeedKey.Closure[NoFacts.type]()) else Vector.empty
     val instructionKeys = graph.nodeInstruction(node).toVector.map(SeedKey.InstructionNode(_))
     val keyed = Vector(SeedKind.Merge, SeedKind.Add).flatMap(kind => (shapeKeys ++ closure).map(kind -> _)) ++
       instructionKeys.map(SeedKind.Add -> _)
@@ -142,7 +146,7 @@ object TermMigration:
     * when a metavariable R mentions has no such span.
     */
   private def replacement(
-      right: Pattern,
+      right: Pattern[NoFacts.type],
       found: Match,
       site: Span,
       provenance: Provenance,
@@ -155,7 +159,7 @@ object TermMigration:
     )
     val mentioned = metavariables(right)
     Option.when(mentioned.forall(index => slices.lift(index).flatten.isDefined)) {
-      val placeholders = Vector.tabulate(found.bindings.size)(index => Instruction.opaque(placeholderName(index)))
+      val placeholders = Vector.tabulate(found.bindings.size)(index => NoFacts.opaque(placeholderName(index)))
       val printed = Lambdalattice.text(
         Defunctionalization.instructionTerm(instantiated(right, placeholders)),
         placeholders.zipWithIndex.map((placeholder, index) => placeholder -> placeholderName(index)).toMap
@@ -182,7 +186,7 @@ object TermMigration:
 
   private val placeholderPattern: Regex = """metavariable_(\d+)_""".r
 
-  private def metavariables(pattern: Pattern): Set[Int] = pattern match
+  private def metavariables(pattern: Pattern[NoFacts.type]): Set[Int] = pattern match
     case Pattern.Metavariable(index) => Set(index)
     case other                       => other.children.flatMap(metavariables).toSet
 
@@ -190,17 +194,21 @@ object TermMigration:
     * given for it. Throws `IllegalArgumentException` for a closure, which no
     * lemma side holds (`LemmaSides`).
     */
-  private[migration] def instantiated(pattern: Pattern, values: Vector[Instruction]): Instruction = pattern match
-    case Pattern.Metavariable(index)          => values(index)
+  private[migration] def instantiated[C <: NativeSpecializer & Singleton](pattern: Pattern[C], values: Vector[Configured[C]])(using
+      specializer: C
+  ): Configured[C] = pattern match
+    case Pattern.Metavariable(index)               => values(index)
     case Pattern.InstructionReference(instruction) => instruction
     case Pattern.Apply(function, argument) =>
-      Instruction(Apply(instantiated(function, values), instantiated(argument, values)))
+      specializer.application(instantiated(function, values), instantiated(argument, values))
     case Pattern.Choice(left, right) =>
-      Instruction(Choice(instantiated(left, values), instantiated(right, values)))
+      specializer.choice(instantiated(left, values), instantiated(right, values))
     case Pattern.Parallel(left, right) =>
-      Instruction(Parallel(instantiated(left, values), instantiated(right, values)))
+      specializer.parallel(instantiated(left, values), instantiated(right, values))
     case Pattern.Thunk(code, holes, fillings) =>
-      Instruction(Thunk(code, holes, fillings.map(instantiated(_, values))))
+      gezi.ir.NonEmptyHoles.of(holes) match
+        case Some(present) => specializer.thunk(code, present, fillings.map(instantiated(_, values)))
+        case None          => specializer.instance(code, fillings.map(instantiated(_, values)))
     case Pattern.Closure(index) => throw IllegalArgumentException(s"a lemma side holds the closure $index")
 
   /** The sites no other site contains, one for each span, in the order of
@@ -244,13 +252,13 @@ object TermMigration:
   private def checked(
       text: String,
       migratedText: String,
-      program: Program,
-      compiled: CompiledProgram,
-      initial: EGraph,
-      instruction: Instruction,
+      program: Program[NoFacts.type],
+      compiled: CompiledProgram[NoFacts.type],
+      initial: EGraph[NoFacts.type],
+      instruction: Configured[NoFacts.type],
       budget: Int
   ): Unit =
-    val migratedInstruction = Defunctionalization.thunkInstruction(Lambdalattice.term(migratedText))
+    val migratedInstruction = Defunctionalization.thunkInstruction[NoFacts.type](Lambdalattice.term(migratedText))
     val run = Saturation.runFrom(
       program,
       compiled,

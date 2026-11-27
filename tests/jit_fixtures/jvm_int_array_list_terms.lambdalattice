@@ -1,0 +1,24 @@
+# The library terms GroupBlockArrayListKindsTest writes its programs with, each imported from
+# its own file of corpora/library and exported at its position of the file's Scott tuple, whose
+# names the test's term table keeps: the naturals' criterion function, the booleans and their criterion, the Scott
+# lists and the array lists' criterion function, the 32-bit words' criterion and their addition.
+# FIXME: the imports project "corpora" off the variable gezi, the name https://github.com/Atry/private-overlay/issues/1924
+# of the project root's own directory; they break if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "natural")
+λ _ _ _ _ binary_set
+. omega (omega (omega (omega (omega gezi "corpora") "library") "native_types") "boolean")
+λ true false boolean_type _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "native_types") "list")
+λ nil cons _ list_type
+. omega (omega (omega (omega (omega gezi "corpora") "library") "native_types") "array_list")
+λ array_list
+. omega (omega (omega (omega (omega gezi "corpora") "library") "fixed_width") "jvm_int_type")
+λ jvm_int_type
+. omega (omega (omega (omega (omega gezi "corpora") "library") "fixed_width") "int32_arithmetic")
+λ int32_add _ _ _
+. export
+λ s
+. s binary_set true false boolean_type nil cons list_type array_list jvm_int_type int32_add

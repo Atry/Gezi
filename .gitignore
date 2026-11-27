@@ -5,6 +5,7 @@ secret/
 .bsp/
 .metals/
 .bloop/
+metals.sbt
 *.scala.semanticdb
 shared-worktrees/
 .jupyter/

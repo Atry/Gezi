@@ -7,7 +7,8 @@ import hedgehog.core.SuccessCount
 import gezi.frontend.Term
 import gezi.generatedinputs.GeneratedProperties
 import gezi.generatedinputs.HoasGenerators
-import gezi.ir.Instruction
+import gezi.ir.{Configured, NoFacts, Pure, Value}
+import gezi.frontend.TermOf
 import gezi.jit.JitTesting.*
 import gezi.jit.NativesTesting.*
 import gezi.weakhead.Bounded
@@ -40,6 +41,10 @@ class BuiltInstructionDispatchLawTest extends GeneratedProperties:
 
   private lazy val library = nativesOn
 
+  private lazy val encoding: StorageEncoding = encodingOf(library)
+
+  private given encoding.type = encoding
+
   /** The steps the JIT's reading of an input may take: an input it does not
     * read within them proves nothing either way. A tenth of
     * `NativesTesting.normalFormLimit`: the first run of this law at that
@@ -48,23 +53,31 @@ class BuiltInstructionDispatchLawTest extends GeneratedProperties:
   private val readingLimit: Long = 200000
 
   /** The terms bound by the library's `natives`, each once. */
-  private lazy val nativeBound: Vector[Instruction] = library.index.nativeBound.map(_.instruction).distinct
+  private lazy val nativeBound: Vector[Pure] = library.index.nativeBound.map(_.instruction).distinct
 
-  private lazy val argumentLeaves: Vector[Term] =
-    nativeRouteLeaves.filter {
-      case Term.Closed(instruction) => !nativeBound.contains(instruction)
+  /** The leaves of the generated programs: the native route's library terms, closed terms of no facts, but the
+    * native-bound ones.
+    */
+  private lazy val argumentLeaves: Vector[TermOf[Configured[NoFacts.type]]] =
+    nativeRouteLeaves[NoFacts.type](using NoFacts).filter {
+      case Term.Closed(instruction) => !nativeBound.exists(pure => Configured.same(Configured.fromPure(NoFacts)(pure), instruction)(using NoFacts))
       case _                        => true
     }
 
   /** The term built again one layer from the JIT's own constructors over its
     * parts, as a reading builds a value.
     */
-  private def builtOneLayer(term: Instruction): JitValue = term.layered match
-    case gezi.ir.Apply(function, argument) => JitValue.Apply(function, argument)
-    case gezi.ir.Parallel(left, right)     => JitValue.Parallel(left, right)
-    case gezi.ir.Choice(left, right)       => JitValue.Choice(Vector(left, right))
-    case gezi.ir.Thunk(code, holes, fillings) => JitValue.Thunk(code, holes, fillings)
-    case other                                     => throw IllegalStateException(s"a native-bound term with no layer: $other")
+  private def builtOneLayer(term: Configured[encoding.type]): JitValue[encoding.type] = term.layer match
+    case gezi.ir.Apply(function, argument)    => JitValue.Apply(Value.of(function), Value.of(argument))
+    case gezi.ir.Parallel(left, right)        => parallelOfValues(encoding)(Value.of(left), Value.of(right))
+    case gezi.ir.Choice(left, right)          => JitValue.Choice(Vector(Value.of(left), Value.of(right)))
+    case gezi.ir.Thunk(code, holes, fillings) => JitValue.Thunk(code, holes, fillings.map(Value.of))
+    case other                                => throw IllegalStateException(s"a native-bound term with no layer: $other")
+
+  /** The program of terms of no facts, its constants crossed into the configuration. */
+  private def crossed(program: TermOf[Configured[NoFacts.type]]): TermOf[Configured[encoding.type]] =
+    // The program is converted with no facts and its instruction crossed, each node in its spelling here.
+    Term.closed(JitTesting.instructionCrossed(encoding)(JitTesting.termInstruction[NoFacts.type](program)(using NoFacts)))
 
   property("a built value equal to a native-bound term is that term and reads only answers of the reference", _.copy(testLimit = SuccessCount(10))) {
     for
@@ -72,15 +85,17 @@ class BuiltInstructionDispatchLawTest extends GeneratedProperties:
       nodes <- Gen.int(Range.linear(1, 6)).forAll
       open <- HoasGenerators.openTermOver(0, nodes, argumentLeaves).forAll
     yield
-      val built = builtOneLayer(bound)
-      val program = Term.closed(bound)(open(Vector.empty))
-      val value = termValue(program)
-      val read = normalFormsSpent(Mode.Jit(Jit(configurationOf(library))), value, readingLimit).outcome
+      val boundTerm = Configured.fromPure(encoding)(bound)
+      val built = builtOneLayer(boundTerm)
+      val program = Term.closed(Configured.fromPure(NoFacts)(bound))(open(Vector.empty))
+      val value = termValue[encoding.type](crossed(program))
+      val jit = Jit(configurationOf(encoding))
+      val read = normalFormsSpent(jit, value, readingLimit).outcome
       val refuted = read match
         case Bounded.Finished(normalForms) =>
-          normalForms.filter(normalForm => referenceReads(value, normalForm, confirmationLimit) == Confirmation.NotRead)
+          normalForms.filter(normalForm => referenceReads(referenceConfiguration(jit), value, normalForm, confirmationLimit) == Confirmation.NotRead)
         case _ => Vector.empty
       Result
-        .all(List(Result.assert(built eq bound).log(s"built $built, term $bound"), Result.assert(refuted.isEmpty).log(s"refuted: $refuted")))
+        .all(List(Result.assert(Value.same(built, Value.of(boundTerm))).log(s"built $built, term $bound"), Result.assert(refuted.isEmpty).log(s"refuted: $refuted")))
         .log(s"read: $read")
   }

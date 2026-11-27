@@ -75,6 +75,8 @@ abstract class MixinBuiltinFamilySuite[Site](
 ) extends GeneratedProperties
     with snapshot4s.munit.SnapshotAssertions:
 
+  given gezi.ir.NoFacts.type = gezi.ir.NoFacts
+
   // Measured 2026-11-21 on 2 CPUs (contest.slice, CPUs 0,1, nice 10), the machine's 1-minute load 28 to 44 over the run (other
   // sessions' unpinned processes), the three subclasses in one test JVM on 328176555: the slowest test, the reference law of the
   // suite that ran first (MixinBuiltinBinaryReferenceTest's "each twin's program reads its computed reference", its seed log
@@ -98,11 +100,11 @@ abstract class MixinBuiltinFamilySuite[Site](
   /** The tables the laws' readings may hold. */
   private val tableLimit: Int = MixinBuiltinFamilySuite.tableLimit
 
-  private def normalForms(program: Term): Either[String, Set[DeBruijnTerm]] =
+  private def normalForms(program: Term): Either[String, Set[gezi.frontend.DeBruijnTermOf[gezi.ir.Configured[gezi.ir.NoFacts.type]]]] =
     NormalForms
       .normalForms(Mode.TablingWeakHead, Reduction.programRoot(program))
-      .result(ReadingState.knowingTop(Decoding.limit).copy(tableLimit = tableLimit)) match
-      case Computed.Done(forms, _) => Right(forms.map(Defunctionalization.instructionTerm).toSet)
+      .result(ReadingState.knowingTop(Decoding.limit, gezi.weakhead.ReadingConfiguration.withoutFacts).copy(tableLimit = tableLimit)) match
+      case Computed.Done(forms, _) => Right(forms.map(form => Defunctionalization.instructionTerm[gezi.ir.NoFacts.type](form)).toSet)
       case Computed.Stopped(after) => Left(s"the reading stopped: ${after.exhausted}, ${after.budget.spent} steps, ${after.tables.held} tables")
 
   private def readAs(program: Term, expected: Set[DeBruijnTerm]): Result = normalForms(program) match

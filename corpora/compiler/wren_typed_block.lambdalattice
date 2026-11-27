@@ -58,7 +58,7 @@
 . export
   ( λ _ _ properties _
     . properties
-    λ _ _ _ typed_branch _ _ _ _
+    λ _ _ _ typed_branch _ _ _ _ _
     . typed_branch
     λ k
     . k wren_typed_branch

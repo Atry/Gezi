@@ -1,6 +1,7 @@
 package gezi.jmh.pipeline
 
 import java.nio.file.Path
+import gezi.ir.NoFacts
 import gezi.programfamilies.ClassicHindleyMilner
 import gezi.programfamilies.CompiledConfiguration
 import gezi.programfamilies.Configuration
@@ -98,7 +99,7 @@ class ItemInput:
   lazy val afterFrontEnd: FrontEnd = Pipeline.frontEnd(compiled, item.program)
 
   /** The item's run input compiled by the index and the closure backend. */
-  lazy val indexed: Compiled = Pipeline.indexCompiled(compiled, afterFrontEnd)
+  lazy val indexed: Compiled[NoFacts.type] = Pipeline.indexCompiled(compiled, afterFrontEnd)
 
   /** Every input built before the trial, so that no iteration builds one. */
   @Setup(Level.Trial)

@@ -20,6 +20,8 @@ import gezi.standardlibrary.LibraryFiles
   */
 class SelectedStatementsCertificateTest extends gezi.generatedinputs.FailFastSuite:
 
+  private given gezi.ir.StorageAccess = gezi.ir.StorageAccess.granted()
+
   // Measured 2026-11-17 on 2 CPUs (contest.slice, CPUs 10,11, nice 10): the suite, the library's compilation
   // included, takes 50.9 s, 43.1 s and 42.5 s at the 1-minute load 7.5, 4.6 and 3.5 (Lake elaborating the 15
   // statements' soundness, lean4export, and nanoda). The bound is 1.5 times the slowest, rounded up to 5 s.
@@ -41,6 +43,7 @@ class SelectedStatementsCertificateTest extends gezi.generatedinputs.FailFastSui
     assert(lemmaNames.nonEmpty, "the articles import no library lemma")
     val statements = LeanStatements.selectedText(
       library,
+      library.index,
       LeanStatementsChecks.baselineEncodings(library),
       ProofTestFiles.repository,
       lemmaNames

@@ -6,14 +6,13 @@ import gezi.frontend.Defunctionalization
 import gezi.frontend.Lambdalattice
 import gezi.frontend.Literals
 import gezi.ir.BuiltInRule
-import gezi.ir.Instruction
 import gezi.knowledgereading.KnowledgeReading
 import gezi.knowledgereading.KnowledgeReadingError
-import gezi.knowledgereading.Reading
 import gezi.standardlibrary.StandardLibrary
 import gezi.weakhead.Computation
 import gezi.weakhead.ReadingState
-import gezi.weakhead.Value
+import gezi.ir.Value
+import gezi.ir.{ChoiceSpine, Configured, NoFacts}
 
 /** An entry written as data, with no Scala of its own, its compiler written
   * with lemmas and natives: the compiler the file `entry.lambdalattice` in
@@ -42,14 +41,22 @@ import gezi.weakhead.Value
   * @param compilationPlace
   *   where the program is compiled by the lemma rounds, read off the
   *   backend's field `execution`
+  * @param occurrenceTagging
+  *   how the program is tagged as occurrences before the lemma rounds, read
+  *   off the backend's field `execution`
+  * @param groupBlocks
+  *   the JIT's group block mechanism, read off the backend's field
+  *   `execution`
   */
 final case class EntryData(
     rounds: Vector[EntryRound],
-    backend: Instruction,
+    backend: Configured[NoFacts.type],
     jit: JitOptions,
     reading: ReadingOptions,
     executor: ExecutorOption,
-    compilationPlace: CompilationPlaceOption
+    compilationPlace: CompilationPlaceOption,
+    occurrenceTagging: OccurrenceTaggingOption,
+    groupBlocks: GroupBlocksOption = GroupBlocksOption.None
 ):
 
   /** The knowledge the entry's library is compiled from, one term: the
@@ -60,7 +67,8 @@ final case class EntryData(
     * round's lemmas and leaves are still the round's own,
     * `StandardLibrary.lemmas` and `leaves` of its knowledge).
     */
-  def knowledge: Instruction = Instruction.Choice.nested((backend +: rounds.map(_.knowledge)).distinct)
+  def knowledge: Configured[NoFacts.type] =
+    ChoiceSpine.nested[Configured[NoFacts.type]]((backend +: rounds.map(_.knowledge)).distinct, NoFacts.choice(_, _))
 
 /** A lemma round, `round(knowledge, implementations, behaviour)` of the
   * schema: its knowledge, one term, a knowledge mixin whose slots `leaves`
@@ -71,7 +79,7 @@ final case class EntryData(
   * built-in rule; and the implementations its saturation and extraction use,
   * the indexer's among them, a round's and not the compiler's, each mapped by `Defaults`.
   */
-final case class EntryRound(knowledge: Instruction, settings: RoundSettings)
+final case class EntryRound(knowledge: Configured[NoFacts.type], settings: RoundSettings)
 
 /** A round's settings, every field of the round but its knowledge. */
 final case class RoundSettings(
@@ -84,8 +92,9 @@ final case class RoundSettings(
     lemmaEncoding: LemmaEncodingImplementation,
     ematching: EmatchingImplementation,
     respellings: MemoRetentionOption,
-    writeBackSpellings: MemoRetentionOption,
-    openingCriterion: OpeningCriterionOption
+    writeBackSpellings: WriteBackSpellingsOption,
+    openingCriterion: OpeningCriterionOption,
+    constantStorageStop: Boolean = false
 )
 
 // THE OPTIONS AS SCOTT CONSTRUCTORS. Each published list below is a Scott
@@ -127,11 +136,20 @@ enum OrientationCompilerImplementation:
   * constructors of corpora/compiler/entry_options/memo_retention
   * (`gezi.egraph.MemoRetention`):
   * `Kept` or `NotKept`. A round chooses it for its graph's respellings of
-  * thunk layers (`respellings`) and for the spellings its write-backs share
-  * within a pass (`write_back_spellings`).
+  * thunk layers (`respellings`).
   */
 enum MemoRetentionOption:
   case Kept, NotKept
+
+/** How long the spellings a round's write-backs find are kept, the
+  * constructors of corpora/compiler/entry_options/write_back_spellings
+  * (`gezi.strategies.SpellingRetention`): `KeptWithinAPass`, from one body
+  * to the next within a pass; `NotKept`, dropped after every body; and
+  * `KeptAcrossPasses`, from one pass to the next as well, the entries of the
+  * classes the graph changed since, and of those that read them, dropped.
+  */
+enum WriteBackSpellingsOption:
+  case KeptWithinAPass, NotKept, KeptAcrossPasses
 
 /** Which closures a round opens, the constructors of
   * corpora/compiler/entry_options/opening_criterion
@@ -183,7 +201,7 @@ enum ExtractorImplementation:
     * selector is the interned instruction the module's selector file gives;
     * the host compares it by identity and reads no string of it.
     */
-  case Module(selector: Instruction, parameters: Instruction)
+  case Module(selector: Configured[NoFacts.type], parameters: Configured[NoFacts.type])
 
 /** The published encodings of a lemma's two closed terms into patterns, the
   * constructors of corpora/compiler/entry_options/lemma_encoding: `Baseline`,
@@ -266,6 +284,17 @@ enum InstanceRetentionOption:
 enum NativeBlocksOption:
   case None
 
+/** The published ways the answers of the JIT's instance table outlive a
+  * version of the contents the URI nodes expand to
+  * (`gezi.jit.InstanceReuse`), the constructors of
+  * corpora/compiler/entry_options/instance_reuse: `WithinVersion`, every
+  * answer dropped under a new version; `VerifiedAcrossVersions`, the answers
+  * kept with what they read and verified before they are used.
+  */
+enum InstanceReuseOption:
+  case WithinVersion
+  case VerifiedAcrossVersions
+
 /** The options of the framework's JIT, `jit_options` of the schema: every
   * one is written, there is no default.
   *
@@ -282,7 +311,8 @@ final case class JitOptions(
     budget: Int,
     checkpoints: CheckpointOption,
     nativeBlocks: NativeBlocksOption,
-    lookahead: LookaheadOption
+    lookahead: LookaheadOption,
+    instanceReuse: InstanceReuseOption
 )
 
 /** The published ways the weak-head machines take an application apart
@@ -367,13 +397,24 @@ final case class ReadingOptions(
   */
 enum ExecutorOption:
   case Jit
-  case Module(selector: Instruction, parameters: Instruction)
+  case Module(selector: Configured[NoFacts.type], parameters: Configured[NoFacts.type])
+
+/** The published units the upfront compilation compiles, the constructors of
+  * corpora/compiler/entry_options/unit_selection: `WholeProgram`, the program
+  * as one unit, the rounds run on each point; `LetBoundClosure`, the function
+  * a program's top-level let binds (`gezi.narrowblocks.BoundFunctionUnit`),
+  * compiled once per configuration into the cache service and replaced in
+  * each point by its artifact (`gezi.narrowblocks.ClosureUnits`), a program
+  * with no such let compiled whole.
+  */
+enum UnitSelectionOption:
+  case WholeProgram, LetBoundClosure
 
 /** The published places an entry's program is compiled by its lemma rounds,
   * the constructors of corpora/compiler/entry_options/compilation_place:
   * `Upfront`, the
   * generic entry runs the rounds and hands the executor the program they
-  * give; `ByExecutor`, the generic entry runs no round and hands the executor
+  * give, compiling the units its field selects; `ByExecutor`, the generic entry runs no round and hands the executor
   * the program uncompiled, the entry's prepared compilation among the
   * executor's inputs (`ExecutorModuleInputs.compilation`), so that an
   * executor may interpret within a small budget and compile only what does
@@ -382,7 +423,48 @@ enum ExecutorOption:
   * uncompiled program.
   */
 enum CompilationPlaceOption:
-  case Upfront, ByExecutor
+  case Upfront(units: UnitSelectionOption)
+  case ByExecutor
+
+/** The published occurrence taggings of an entry's program before its lemma
+  * rounds, the constructors of corpora/compiler/entry_options/occurrence_tagging:
+  * `Untagged`, the program as the cell gives it; `NamesAndClosures`, each
+  * lambda chain and each shared part of the program tagged as an occurrence
+  * (`gezi.frontend.ProgramOccurrences`), the library's terms left untagged
+  * inside (`Defaults.occurrencesTagged`).
+  */
+enum OccurrenceTaggingOption:
+  case Untagged, NamesAndClosures
+
+
+/** The published group backends, the constructors of
+  * corpora/compiler/entry_options/group_backend: `Scalar`, the JVM scalar
+  * backend, the reference semantics of every backend
+  * (`gezi.narrowblocks.groups.ScalarGroupBackend`); `JvmArray`, the JVM
+  * array backend (`gezi.narrowblocks.groups.JvmArrayGroupBackend`).
+  */
+enum GroupBackendOption:
+  case Scalar, JvmArray
+
+/** The published group block mechanisms of an entry's JIT, the constructors
+  * of corpora/compiler/entry_options/group_blocks: `None`, the JIT runs no
+  * group block (`gezi.jit.NoGroupBlocks`); `Enabled`, a written closed thunk
+  * applied to enough arguments runs as a group block when the group grammar
+  * compiles it, on the group backend `backend`
+  * (`gezi.narrowblocks.groups.GroupBlockMechanism`), the steps the blocks
+  * of a reading waste together (entries that give no value) at most
+  * `sharePercent` percent of the reading's budget, and a recursion whose arguments are all lists keeping its finished
+  * calls in a dense table of at most `denseCells` cells (none at 0) beside
+  * the map (`gezi.narrowblocks.groups.GroupMemoOption`).
+  */
+enum GroupBlocksOption:
+  /** DEPRECATED, as `gezi.jit.NoGroupBlocks` is: a reading under it loses
+    * answers a multi-valued argument has.
+    * FIXME: https://github.com/Atry/private-overlay/issues/2221
+    */
+  @deprecated("loses answers a multi-valued argument has; select group blocks", "2026-11-24")
+  case None
+  case Enabled(sharePercent: Int = 50, denseCells: Long = 65536, backend: GroupBackendOption = GroupBackendOption.Scalar)
 
 /** Why a file `entry.lambdalattice` is not an entry: the field and what is
   * wrong with it. The file is the entry author's input, so a wrong field is
@@ -391,6 +473,13 @@ enum CompilationPlaceOption:
 final case class EntryDataError(reason: String) extends IllegalArgumentException(reason)
 
 object EntryData:
+
+  /** The reading of an entry's data, which is read under no facts: its terms are the library's and the entry's own
+    * data, which exist before any facts do.
+    */
+  private type Reading[Result] = gezi.knowledgereading.Reading[NoFacts.type, Result]
+
+  private given NoFacts.type = NoFacts
 
   /** The entry of the directory's `entry.lambdalattice`, read by projection
     * off the tree whose visible subtree is the directory's parent,
@@ -402,7 +491,7 @@ object EntryData:
     * and as `at` does. Read under the reading state given, which it
     * returns.
     */
-  def read(entryDirectory: Path, state: ReadingState): (EntryData, ReadingState) =
+  def read(entryDirectory: Path, state: ReadingState[NoFacts.type]): (EntryData, ReadingState[NoFacts.type]) =
     val directory = entryDirectory.toAbsolutePath.normalize
     val file = directory.resolve("entry.lambdalattice")
     if Files.isRegularFile(directory.resolve("entry.pl")) then
@@ -417,7 +506,7 @@ object EntryData:
     * term (`entryData`). Throws as `StandardLibrary.entryTerm` and
     * `entryData` do.
     */
-  def at(visible: Path, entry: Path, state: ReadingState): (EntryData, ReadingState) =
+  def at(visible: Path, entry: Path, state: ReadingState[NoFacts.type]): (EntryData, ReadingState[NoFacts.type]) =
     val StandardLibrary.EntryReading(term, afterEntry, _, _) = StandardLibrary.entryTerm(visible, entry, state)
     entryData(term, Set.empty, afterEntry)
 
@@ -426,22 +515,19 @@ object EntryData:
     * from `KnowledgeReading.startingState`. Throws as `entryData` does.
     */
   def lambdalatticeRead(text: String): EntryData =
-    entryData(Defunctionalization.thunkInstruction(Lambdalattice.term(text)), Set.empty, KnowledgeReading.startingState)._1
+    entryData(Defunctionalization.thunkInstruction[NoFacts.type](Lambdalattice.term(text)), Set.empty, KnowledgeReading.startingState)._1
 
   /** The evaluator steps an `entry.lambdalattice` may take to read: its
     * compiler's tuple, its rounds' list, each round's tuple and options
     * coproduct, and the backend's tuple and options coproduct; the knowledge
     * of its rounds and its backend is read by the library under the
-    * library's own limit. MEASURED 2026-11-21 with the group `execution`,
-    * by a scratch munit
-    * probe in contest-entry, not committed: `EntryData.read` of each in-tree
-    * entry from `Defaults.entryDataState`, the spent budget of `entryData`'s
-    * one `KnowledgeReading.run`: contest-entries-fixture's (three rounds)
-    * 3,101 steps, contest-entries-solo's (two rounds) 1,984,
-    * contest-entries-wren's (four rounds) 3,165, each 10 steps more than at
-    * cf503b563, before the group (3,091, 1,974 and 3,155). Read by key,
-    * before the options became a fixed-width mixin, they took
-    * 10,590 to 11,524. The limit is about 5 times the largest reading.
+    * library's own limit. MEASURED 2026-11-21, before the slots
+    * `construction` and `constant_storage_stop` were added, by a scratch
+    * munit probe in contest-entry, not committed: `EntryData.read` of each
+    * in-tree entry from `Defaults.entryDataState`, the spent budget of
+    * `entryData`'s one `KnowledgeReading.run`, at most 3,165 steps
+    * (contest-entries-wren's, four rounds); not measured again since the two
+    * slots were added. The limit is about 5 times that largest reading.
     */
   private val lambdalatticeReadingLimit: Long = 16000L
 
@@ -464,13 +550,13 @@ object EntryData:
     * round            λs. s knowledge options
     *   options          groups implementations behaviour
     *   implementations  slots indexer orientation_compiler saturator extractor lemma_encoding ematching
-    *   behaviour        slots opening rules respellings write_back_spellings opening_criterion
+    *   behaviour        slots opening rules respellings write_back_spellings opening_criterion constant_storage_stop
     * backend          λs. s knowledge options
     *   options          groups jit instances reading execution
     *   jit              slots dispatch implementation granularity native_blocks budget trial
-    *   instances        slots instance_table instance_retention checkpoints lookahead
+    *   instances        slots instance_table instance_retention checkpoints lookahead instance_reuse
     *   reading          slots application table_sharing table_retention continuation parallel
-    *   execution        slots executor compilation_place
+    *   execution        slots executor compilation_place occurrence_tagging group_blocks
     * }}}
     *
     * A contribution to a slot is an injection into its group and the group's
@@ -497,16 +583,16 @@ object EntryData:
     * two different values, a body that is a choice of two values, and a
     * value of another shape.
     */
-  def entryData(entry: Instruction, names: Set[Instruction], state: ReadingState): (EntryData, ReadingState) =
+  def entryData(entry: Configured[NoFacts.type], names: Set[Configured[NoFacts.type]], state: ReadingState[NoFacts.type]): (EntryData, ReadingState[NoFacts.type]) =
     try
       KnowledgeReading.run(
-        KnowledgeReading.soleField(entry).flatMap(compiler(_, names)),
+        KnowledgeReading.soleField(Value.of(entry)).flatMap(compiler(_, names)),
         lambdalatticeReadingLimit,
         state
       )
     catch case KnowledgeReadingError(reason) => throw EntryDataError(s"entry.lambdalattice: $reason")
 
-  private def compiler(entry: Value, names: Set[Instruction]): Reading[EntryData] =
+  private def compiler(entry: Value[NoFacts.type], names: Set[Configured[NoFacts.type]]): Reading[EntryData] =
     for
       compilerFields <- KnowledgeReading.fields(entry, 2)
       Vector(roundsValue, backendValue) = (compilerFields: @unchecked)
@@ -518,31 +604,42 @@ object EntryData:
       Vector(jitSlots, instanceSlots, readingSlots, executionSlots) = (groups: @unchecked)
       jit <- options(jitSlots, instanceSlots)
       reading <- readingOptions(readingSlots)
-      Vector(executorBodies, compilationPlaceBodies) = (executionSlots: @unchecked)
+      Vector(executorBodies, compilationPlaceBodies, occurrenceTaggingBodies, groupBlocksBodies) = (executionSlots: @unchecked)
       executor <- single("executor", executorBodies)(executor(_, names))
-      compilationPlace <- single("compilation_place", compilationPlaceBodies)(
-        constructor("compilation_place", _, CompilationPlaceOption.values.toVector)
+      compilationPlace <- single("compilation_place", compilationPlaceBodies)(compilationPlace)
+      occurrenceTagging <- single("occurrence_tagging", occurrenceTaggingBodies)(
+        constructor("occurrence_tagging", _, OccurrenceTaggingOption.values.toVector)
       )
-    yield EntryData(rounds, KnowledgeReading.term(knowledge, names), jit, reading, executor, compilationPlace)
+      groupBlocks <- single("group_blocks", groupBlocksBodies)(groupBlocks)
+    yield
+      // FIXME: a closure unit's tags are numbered with the whole program's, so they change with the let's body and https://github.com/Atry/private-overlay/issues/2216
+      // the cache never hits; the two options are refused together until the unit is cut before the tagging.
+      if compilationPlace == CompilationPlaceOption.Upfront(UnitSelectionOption.LetBoundClosure) &&
+        occurrenceTagging == OccurrenceTaggingOption.NamesAndClosures
+      then
+        throw EntryDataError(
+          "entry.lambdalattice: compilation_place upfront let_bound_closure with occurrence_tagging names_and_closures: a closure unit's tags change with each point, so its artifact is never read again"
+        )
+      EntryData(rounds, KnowledgeReading.term(knowledge, names), jit, reading, executor, compilationPlace, occurrenceTagging, groupBlocks)
 
   /** The widths of the groups of a round's options, `implementations` and
     * `behaviour`.
     */
-  val roundGroupWidths: Vector[Int] = Vector(6, 5)
+  val roundGroupWidths: Vector[Int] = Vector(6, 6)
 
   /** The widths of the groups of the backend's options, `jit`, `instances`,
     * `reading` and `execution`.
     */
-  val backendGroupWidths: Vector[Int] = Vector(6, 4, 5, 2)
+  val backendGroupWidths: Vector[Int] = Vector(6, 5, 5, 4)
 
-  private def round(value: Value, names: Set[Instruction]): Reading[EntryRound] =
+  private def round(value: Value[NoFacts.type], names: Set[Configured[NoFacts.type]]): Reading[EntryRound] =
     for
       roundFields <- KnowledgeReading.fields(value, 2)
       Vector(knowledge, optionsValue) = (roundFields: @unchecked)
       groups <- KnowledgeReading.coproductGroupSlots(optionsValue, roundGroupWidths)
       Vector(implementations, behaviour) = (groups: @unchecked)
       Vector(indexerBodies, orientationBodies, saturatorBodies, extractorBodies, encodingBodies, ematchingBodies) = (implementations: @unchecked)
-      Vector(openingBodies, rulesBodies, respellingsBodies, writeBackBodies, openingCriterionBodies) = (behaviour: @unchecked)
+      Vector(openingBodies, rulesBodies, respellingsBodies, writeBackBodies, openingCriterionBodies, stopBodies) = (behaviour: @unchecked)
       opening <- single("opening", openingBodies)(truth("opening", _))
       rules <- Computation.traversed(rulesBodies)(KnowledgeReading.alternatives(_, BuiltInRule.values.size)).map(_.flatten)
       indexer <- single("indexer", indexerBodies)(constructor("indexer", _, IndexerImplementation.values.toVector))
@@ -555,19 +652,26 @@ object EntryData:
       ematching <- single("ematching", ematchingBodies)(constructor("ematching", _, EmatchingImplementation.values.toVector))
       respellings <- single("respellings", respellingsBodies)(constructor("respellings", _, MemoRetentionOption.values.toVector))
       writeBackSpellings <- single("write_back_spellings", writeBackBodies)(
-        constructor("write_back_spellings", _, MemoRetentionOption.values.toVector)
+        constructor("write_back_spellings", _, WriteBackSpellingsOption.values.toVector)
       )
       openingCriterion <- single("opening_criterion", openingCriterionBodies)(
         constructor("opening_criterion", _, OpeningCriterionOption.values.toVector)
       )
+      constantStorageStop <- single("constant_storage_stop", stopBodies)(truth("constant_storage_stop", _))
+      builtInRules = rules.map {
+        case (position, Vector()) => BuiltInRule.values(position)
+        case (_, other)           => throw EntryDataError(s"entry.lambdalattice: a built-in rule has ${other.size} fields")
+      }.toSet
+      _ =
+        if constantStorageStop && builtInRules.contains(BuiltInRule.StorageView) then
+          throw EntryDataError(
+            "entry.lambdalattice: a round chooses both constant_storage_stop and the rule storage_view, whose purposes are opposite"
+          )
     yield EntryRound(
       KnowledgeReading.term(knowledge, names),
       RoundSettings(
         opening,
-        rules.map {
-          case (position, Vector()) => BuiltInRule.values(position)
-          case (_, other)           => throw EntryDataError(s"entry.lambdalattice: a built-in rule has ${other.size} fields")
-        }.toSet,
+        builtInRules,
         indexer,
         orientationCompiler,
         saturator,
@@ -576,24 +680,25 @@ object EntryData:
         ematching,
         respellings,
         writeBackSpellings,
-        openingCriterion
+        openingCriterion,
+        constantStorageStop
       )
     )
 
   /** The JIT's options of the bodies of the slots of the groups `jit` and
     * `instances`.
     */
-  private def options(jit: Vector[Vector[Value]], instances: Vector[Vector[Value]]): Reading[JitOptions] =
-    def positive(field: String, value: Value): Reading[BigInt] =
+  private def options(jit: Vector[Vector[Value[NoFacts.type]]], instances: Vector[Vector[Value[NoFacts.type]]]): Reading[JitOptions] =
+    def positive(field: String, value: Value[NoFacts.type]): Reading[BigInt] =
       once(field, KnowledgeReading.integerWritten(value)).map(read =>
         if read > 0 then read else throw EntryDataError(s"the JIT option $field is $read, not a positive integer")
       )
-    def nonNegative(field: String, value: Value): Reading[BigInt] =
+    def nonNegative(field: String, value: Value[NoFacts.type]): Reading[BigInt] =
       once(field, KnowledgeReading.integerWritten(value)).map(read =>
         if read >= 0 then read else throw EntryDataError(s"the JIT option $field is $read, not a non-negative integer")
       )
     val Vector(dispatchBodies, implementationBodies, granularityBodies, nativeBlocksBodies, budgetBodies, trialBodies) = (jit: @unchecked)
-    val Vector(instanceTableBodies, instanceRetentionBodies, checkpointsBodies, lookaheadBodies) = (instances: @unchecked)
+    val Vector(instanceTableBodies, instanceRetentionBodies, checkpointsBodies, lookaheadBodies, instanceReuseBodies) = (instances: @unchecked)
     for
       dispatch <- single("dispatch", dispatchBodies)(constructor("dispatch", _, DispatchOption.values.toVector))
       implementation <- single("implementation", implementationBodies)(constructor("implementation", _, BackendOption.values.toVector))
@@ -604,6 +709,7 @@ object EntryData:
       budget <- single("budget", budgetBodies)(nonNegative("budget", _))
       checkpoints <- single("checkpoints", checkpointsBodies)(checkpoints)
       lookahead <- single("lookahead", lookaheadBodies)(lookahead)
+      instanceReuse <- single("instance_reuse", instanceReuseBodies)(constructor("instance_reuse", _, InstanceReuseOption.values.toVector))
       nativeBlocks <- single("native_blocks", nativeBlocksBodies)(constructor("native_blocks", _, NativeBlocksOption.values.toVector))
     yield JitOptions(
       dispatch,
@@ -615,7 +721,8 @@ object EntryData:
       if budget.isValidInt then budget.toInt else throw EntryDataError(s"the JIT option budget is $budget, above the largest it may be"),
       checkpoints,
       nativeBlocks,
-      lookahead
+      lookahead,
+      instanceReuse
     )
 
   /** The extraction of a round's field `extractor`: `narrow_block` or
@@ -626,7 +733,7 @@ object EntryData:
     * not written, is no constructor of the list, or has bounds of another
     * shape.
     */
-  private def extractor(value: Value, names: Set[Instruction]): Reading[ExtractorImplementation] =
+  private def extractor(value: Value[NoFacts.type], names: Set[Configured[NoFacts.type]]): Reading[ExtractorImplementation] =
     once("extractor", KnowledgeReading.alternativeWritten(value, 3)).flatMap {
       case (position @ (0 | 1), Vector(enumeration, wholeFold)) =>
         for
@@ -651,7 +758,7 @@ object EntryData:
     * `EntryDataError` for a field that is not written, is no constructor of
     * the list, or has an interval of another shape.
     */
-  private def checkpoints(value: Value): Reading[CheckpointOption] =
+  private def checkpoints(value: Value[NoFacts.type]): Reading[CheckpointOption] =
     once("checkpoints", KnowledgeReading.alternativeWritten(value, 2)).flatMap {
       case (0, Vector()) => Computation.pure(CheckpointOption.Profitable)
       case (1, Vector(interval)) =>
@@ -668,7 +775,7 @@ object EntryData:
     * field that is not written, is no constructor of the list, or has steps
     * of another shape.
     */
-  private def lookahead(value: Value): Reading[LookaheadOption] =
+  private def lookahead(value: Value[NoFacts.type]): Reading[LookaheadOption] =
     once("lookahead", KnowledgeReading.alternativeWritten(value, 2)).flatMap {
       case (0, Vector()) => Computation.pure(LookaheadOption.Lazily)
       case (1, Vector(steps)) =>
@@ -685,7 +792,7 @@ object EntryData:
     * `never_dropped`. Throws `EntryDataError` for a field that is not written,
     * is no constructor of the list, or has a size of another shape.
     */
-  private def instanceRetention(value: Value): Reading[InstanceRetentionOption] =
+  private def instanceRetention(value: Value[NoFacts.type]): Reading[InstanceRetentionOption] =
     once("instance_retention", KnowledgeReading.alternativeWritten(value, 2)).flatMap {
       case (0, Vector(size)) =>
         once("instance_retention's size", KnowledgeReading.integerWritten(size)).map(read =>
@@ -697,10 +804,39 @@ object EntryData:
         throw EntryDataError(s"entry.lambdalattice: the field instance_retention's alternative $position has ${other.size} fields")
     }
 
+  /** The group blocks of the field `group_blocks`: `no_group_blocks`, or
+    * `group_blocks_enabled` with its share, an integer literal from 1 to 100
+    * percent, its dense cells, a natural literal of 32 bits, and its backend,
+    * a constructor of entry_options/group_backend. Throws
+    * `EntryDataError` for a field that is not written, is no constructor of
+    * the list, or has a field of another shape.
+    */
+  private def groupBlocks(value: Value[NoFacts.type]): Reading[GroupBlocksOption] =
+    once("group_blocks", KnowledgeReading.alternativeWritten(value, 2)).flatMap {
+      case (0, Vector()) => Computation.pure(GroupBlocksOption.None)
+      case (1, Vector(share, cells, backend)) =>
+        once("group_blocks's share", KnowledgeReading.integerWritten(share)).flatMap(sharePercent =>
+          once("group_blocks's dense cells", KnowledgeReading.integerWritten(cells)).flatMap(denseCells =>
+            once("group_blocks's backend", KnowledgeReading.alternativeWritten(backend, GroupBackendOption.values.size)).map {
+              case (position, Vector()) =>
+                if sharePercent < 1 || sharePercent > 100 then
+                  throw EntryDataError(s"entry.lambdalattice: the group blocks' share is $sharePercent, not a percent from 1 to 100")
+                else if denseCells < 0 || !denseCells.isValidInt then
+                  throw EntryDataError(s"entry.lambdalattice: the group blocks' dense cells are $denseCells, not a natural of 32 bits, the cells a table holds")
+                else GroupBlocksOption.Enabled(sharePercent.toInt, denseCells.toLong, GroupBackendOption.fromOrdinal(position))
+              case (position, other) =>
+                throw EntryDataError(s"entry.lambdalattice: the group blocks' backend, alternative $position, has ${other.size} fields")
+            }
+          )
+        )
+      case (position, other) =>
+        throw EntryDataError(s"entry.lambdalattice: the field group_blocks's alternative $position has ${other.size} fields")
+    }
+
   /** The reading's options of the bodies of the slots of the group
     * `reading`.
     */
-  private def readingOptions(reading: Vector[Vector[Value]]): Reading[ReadingOptions] =
+  private def readingOptions(reading: Vector[Vector[Value[NoFacts.type]]]): Reading[ReadingOptions] =
     val Vector(applicationBodies, tableSharingBodies, tableRetentionBodies, continuationBodies, parallelBodies) = (reading: @unchecked)
     for
       application <- single("application", applicationBodies)(constructor("application", _, ApplicationOption.values.toVector))
@@ -715,7 +851,7 @@ object EntryData:
     * (`KnowledgeReading.term`). Throws `EntryDataError` for a field that is
     * not written or is no constructor of the list.
     */
-  private def executor(value: Value, names: Set[Instruction]): Reading[ExecutorOption] =
+  private def executor(value: Value[NoFacts.type], names: Set[Configured[NoFacts.type]]): Reading[ExecutorOption] =
     once("executor", KnowledgeReading.alternativeWritten(value, 2)).map {
       case (0, Vector()) => ExecutorOption.Jit
       case (1, Vector(selector, parameters)) =>
@@ -724,12 +860,26 @@ object EntryData:
         throw EntryDataError(s"entry.lambdalattice: the field executor's alternative $position has ${other.size} fields")
     }
 
+  /** The place of the field `compilation_place`: `upfront` with the units
+    * of its one field, a constructor of `unit_selection`, or `by_executor`.
+    * Throws `EntryDataError` for a field that is not written, is no
+    * constructor of the list, or has a field of another shape.
+    */
+  private def compilationPlace(value: Value[NoFacts.type]): Reading[CompilationPlaceOption] =
+    once("compilation_place", KnowledgeReading.alternativeWritten(value, 2)).flatMap {
+      case (0, Vector(units)) =>
+        constructor("unit_selection", units, UnitSelectionOption.values.toVector).map(CompilationPlaceOption.Upfront(_))
+      case (1, Vector()) => Computation.pure(CompilationPlaceOption.ByExecutor)
+      case (position, other) =>
+        throw EntryDataError(s"entry.lambdalattice: the field compilation_place's alternative $position has ${other.size} fields")
+    }
+
   /** The retention of the field `table_retention`: `kept_all`, `none_kept`,
     * or `dropped_at_percent` with its share, an integer literal from 1 to
     * 100. Throws `EntryDataError` for a field that is not written, is no
     * constructor of the list, or has a share of another shape.
     */
-  private def tableRetention(value: Value): Reading[TableRetentionOption] =
+  private def tableRetention(value: Value[NoFacts.type]): Reading[TableRetentionOption] =
     once("table_retention", KnowledgeReading.alternativeWritten(value, 3)).flatMap {
       case (0, Vector()) => Computation.pure(TableRetentionOption.KeptAll)
       case (1, Vector()) => Computation.pure(TableRetentionOption.NoneKept)
@@ -749,7 +899,7 @@ object EntryData:
     * different values, so that a conflict between contributions is reported,
     * never settled by the order of the heads.
     */
-  private def single[Read](slot: String, bodies: Vector[Value])(read: Value => Reading[Read]): Reading[Read] =
+  private def single[Read](slot: String, bodies: Vector[Value[NoFacts.type]])(read: Value[NoFacts.type] => Reading[Read]): Reading[Read] =
     Computation.traversed(bodies)(read).map(_.distinct match
       case Vector(value) => value
       case Vector()      => throw EntryDataError(s"entry.lambdalattice: the option $slot is not written")
@@ -763,7 +913,7 @@ object EntryData:
   private def once[Read](field: String, reading: Reading[Option[Read]]): Reading[Read] =
     reading.map(_.getOrElse(throw EntryDataError(s"entry.lambdalattice: the field $field is not written")))
 
-  private def truth(field: String, value: Value): Reading[Boolean] =
+  private def truth(field: String, value: Value[NoFacts.type]): Reading[Boolean] =
     once(field, KnowledgeReading.alternativeWritten(value, 2)).map {
       case (position, Vector()) => position == 0
       case (_, other)           => throw EntryDataError(s"entry.lambdalattice: the field $field is no boolean: it has ${other.size} fields")
@@ -774,7 +924,7 @@ object EntryData:
     * `EntryDataError` for a field that is not written or is no constructor
     * of no field.
     */
-  private def constructor[Option](field: String, value: Value, published: Vector[Option]): Reading[Option] =
+  private def constructor[Option](field: String, value: Value[NoFacts.type], published: Vector[Option]): Reading[Option] =
     once(field, KnowledgeReading.alternativeWritten(value, published.size)).map {
       case (position, Vector()) => published(position)
       case (_, other)           => throw EntryDataError(s"entry.lambdalattice: the field $field is no constructor: it has ${other.size} fields")
@@ -784,6 +934,8 @@ object EntryData:
   * for the code that writes one: a test's entry, or a conversion.
   */
 object EntryText:
+
+  private given NoFacts.type = NoFacts
 
   /** The constructor of the case's position among its list's cases, written
     * closed, `λalternative_0. … λalternative_n. alternative_position`: the
@@ -880,8 +1032,9 @@ object EntryText:
       OptionSlot(0, 5, constructor(settings.ematching.ordinal, EmatchingImplementation.values.size)),
       OptionSlot(1, 0, truth(settings.opening)),
       OptionSlot(1, 2, constructor(settings.respellings.ordinal, MemoRetentionOption.values.size)),
-      OptionSlot(1, 3, constructor(settings.writeBackSpellings.ordinal, MemoRetentionOption.values.size)),
-      OptionSlot(1, 4, constructor(settings.openingCriterion.ordinal, OpeningCriterionOption.values.size))
+      OptionSlot(1, 3, constructor(settings.writeBackSpellings.ordinal, WriteBackSpellingsOption.values.size)),
+      OptionSlot(1, 4, constructor(settings.openingCriterion.ordinal, OpeningCriterionOption.values.size)),
+      OptionSlot(1, 5, truth(settings.constantStorageStop))
     ) ++ rules
 
   /** A round, `λs. s knowledge options`: its knowledge the choice of the
@@ -904,10 +1057,17 @@ object EntryText:
   /** The slots the backend's options write, in
     * `EntryData.backendGroupWidths`' groups `jit`, `instances`, `reading`
     * and `execution`, the executor's slot written with the text given
-    * (`jitExecutor`, `moduleExecutor`) and the compilation's place with the
-    * constructor of the option given.
+    * (`jitExecutor`, `moduleExecutor`), the compilation's place and the
+    * occurrence tagging with the constructors of the options given.
     */
-  def backendSlots(jit: JitOptions, reading: ReadingOptions, executor: String, compilationPlace: CompilationPlaceOption): Vector[OptionSlot] =
+  def backendSlots(
+      jit: JitOptions,
+      reading: ReadingOptions,
+      executor: String,
+      compilationPlace: CompilationPlaceOption,
+      occurrenceTagging: OccurrenceTaggingOption,
+      groupBlocks: GroupBlocksOption = GroupBlocksOption.None
+  ): Vector[OptionSlot] =
     val checkpoints = jit.checkpoints match
       case CheckpointOption.Profitable           => constructor(0, 2)
       case CheckpointOption.EverySteps(interval) => s"((λinterval. λprofitable. λevery_steps. every_steps interval) ${integer(BigInt(interval))})"
@@ -922,6 +1082,14 @@ object EntryText:
       case TableRetentionOption.NoneKept => constructor(1, 3)
       case TableRetentionOption.DroppedAtPercent(percent) =>
         s"((λpercent. λkept_all. λnone_kept. λdropped_at_percent. dropped_at_percent percent) ${integer(BigInt(percent))})"
+    val groupBlocksText = groupBlocks match
+      case GroupBlocksOption.None => constructor(0, 2)
+      case GroupBlocksOption.Enabled(sharePercent, denseCells, backend) =>
+        s"((λshare_percent. λdense_cells. λbackend. λno_group_blocks. λgroup_blocks_enabled. group_blocks_enabled share_percent dense_cells backend) ${integer(BigInt(sharePercent))} ${integer(BigInt(denseCells))} ${constructor(backend.ordinal, GroupBackendOption.values.size)})"
+    val place = compilationPlace match
+      case CompilationPlaceOption.Upfront(units) =>
+        s"((λunits. λupfront. λby_executor. upfront units) ${constructor(units.ordinal, UnitSelectionOption.values.size)})"
+      case CompilationPlaceOption.ByExecutor => constructor(1, 2)
     Vector(
       OptionSlot(0, 0, constructor(jit.dispatch.ordinal, DispatchOption.values.size)),
       OptionSlot(0, 1, constructor(jit.implementation.ordinal, BackendOption.values.size)),
@@ -933,13 +1101,16 @@ object EntryText:
       OptionSlot(1, 1, instanceRetention),
       OptionSlot(1, 2, checkpoints),
       OptionSlot(1, 3, lookahead),
+      OptionSlot(1, 4, constructor(jit.instanceReuse.ordinal, InstanceReuseOption.values.size)),
       OptionSlot(2, 0, constructor(reading.application.ordinal, ApplicationOption.values.size)),
       OptionSlot(2, 1, constructor(reading.tableSharing.ordinal, TableSharingOption.values.size)),
       OptionSlot(2, 2, tableRetention),
       OptionSlot(2, 3, constructor(reading.continuation.ordinal, ContinuationOption.values.size)),
       OptionSlot(2, 4, constructor(reading.parallel.ordinal, ParallelOption.values.size)),
       OptionSlot(3, 0, executor),
-      OptionSlot(3, 1, constructor(compilationPlace.ordinal, CompilationPlaceOption.values.size))
+      OptionSlot(3, 1, place),
+      OptionSlot(3, 2, constructor(occurrenceTagging.ordinal, OccurrenceTaggingOption.values.size)),
+      OptionSlot(3, 3, groupBlocksText)
     )
 
   /** The entry of the rounds (`round`), in order, and of the backend, its

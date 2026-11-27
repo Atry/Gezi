@@ -9,7 +9,6 @@ import gezi.contest.entry.generic.GenericEntryProvider
 import gezi.frontend.Defunctionalization
 import gezi.frontend.Term
 import gezi.frontend.Term.*
-import gezi.ir.Instruction
 import gezi.jit.NativesProvider
 import gezi.narrowblocks.ProgramCompilation
 import gezi.narrowblocks.ProgramCompiler
@@ -32,6 +31,7 @@ import org.openjdk.jmh.annotations.OutputTimeUnit
 import org.openjdk.jmh.annotations.Scope
 import org.openjdk.jmh.annotations.State
 import org.openjdk.jmh.annotations.Warmup
+import gezi.ir.{Configured, NativeSpecializer, Value}
 
 /** The recursive count of `NativeRouteCompilationTest`
   * (`aRecursiveFunctionsRunCostsALevelDoNotGrow`), a function the program
@@ -54,14 +54,14 @@ import org.openjdk.jmh.annotations.Warmup
 @State(Scope.Benchmark)
 class CompiledRunInputs:
 
-  private lazy val entry: GenericEntry =
+  private lazy val entry: GenericEntry[?] =
     val (data, afterEntry) =
       EntryData.read(FixedPointLines.buildRoot.resolve(CompiledRunInputs.entryDirectory), Defaults.entryDataState)
     GenericEntryProvider.initialized(data, gezi.contest.entry.ExecutorModules.registeredFor(FixedPointLines.buildRoot.resolve(CompiledRunInputs.entryDirectory)), gezi.contest.entry.ExtractorModules.registeredFor(FixedPointLines.buildRoot.resolve(CompiledRunInputs.entryDirectory)), NativesProvider.loaded, ArticleDestination.Discarded, afterEntry, gezi.contest.entry.Defaults.caches())
 
-  lazy val small: CompiledRun = CompiledRunInputs.compiled(entry, CompiledRunInputs.smallSize)
+  lazy val small: CompiledRun[?] = CompiledRunInputs.compiled(entry, CompiledRunInputs.smallSize)
 
-  lazy val large: CompiledRun = CompiledRunInputs.compiled(entry, CompiledRunInputs.largeSize)
+  lazy val large: CompiledRun[?] = CompiledRunInputs.compiled(entry, CompiledRunInputs.largeSize)
 
   // TODO: the compiled runs with a native block mechanism stand here again
   // once a mechanism chooses a block's strategy only from a property proved
@@ -73,7 +73,7 @@ class CompiledRunInputs:
 /** A program compiled by the fixture entry's lemma rounds: its size, the
   * term the JIT runs, the JIT state after one reading of it and the entry.
   */
-final case class CompiledRun(size: Int, refined: Instruction, warmed: JitState, entry: GenericEntry)
+final case class CompiledRun[C <: NativeSpecializer & Singleton](size: Int, refined: Configured[C], warmed: JitState[C], entry: GenericEntry[C])
 
 object CompiledRunInputs:
 
@@ -115,10 +115,11 @@ object CompiledRunInputs:
   /** The program at the size, compiled by the entry's lemma rounds and read
     * once.
     */
-  def compiled(entry: GenericEntry, size: Int): CompiledRun =
-    val program = Defunctionalization.thunkInstruction(recursiveCount(size).deBruijnTerm(Map.empty))
+  def compiled[C <: NativeSpecializer & Singleton](entry: GenericEntry[C], size: Int): CompiledRun[C] =
+    given C = entry.specializer
+    val program = Defunctionalization.thunkInstruction[C](recursiveCount(size).deBruijnTerm(Map.empty))
     val (refined, _) =
-      ProgramCompiler.compiledProgram(ProgramCompilation(entry.index, entry.rounds, entry.natives), program, explained = false, StopSignal.NeverStopped)
+      ProgramCompiler.compiledProgram(ProgramCompilation(entry.index, entry.rounds, entry.natives, entry.encoding), program, explained = false, StopSignal.NeverStopped)
     val (_, afterFirst) = CompiledRunBenchmark.read(entry, refined, NoJitState)
     CompiledRun(size, refined, afterFirst.jitState, entry)
 
@@ -130,8 +131,8 @@ object CompiledRunInputs:
   * the JIT state of a first reading, so the codes it needs are compiled and
   * only their run is timed; the compilation (the lemma rounds) is outside
   * the timed calls. The cost of one level is the difference between the two
-  * sizes divided by the difference of the sizes; `CompiledRunCountsTest`
-  * records the steps of each reading.
+  * sizes divided by the difference of the sizes; `CompiledRunStepsLawTest`
+  * checks that a level costs no more steps at the larger size.
   */
 @BenchmarkMode(Array(BenchmarkModeKind.AverageTime)) // the JMH protocol's exception (the user, 2026-10-31: "好的，用sbt-jmh，需要配合JMH协议时，必要时可以作为例外使用可变数据结构")
 @Fork(value = 3, jvmArgsAppend = Array("-Xmx1g", "-XX:+UseSerialGC")) // the JMH protocol's exception (the user, 2026-10-31: "好的，用sbt-jmh，需要配合JMH协议时，必要时可以作为例外使用可变数据结构")
@@ -142,19 +143,19 @@ class CompiledRunBenchmark:
 
   /** The compiled run at size 8. */
   @Benchmark
-  def compiledSmall(input: CompiledRunInputs): Vector[Instruction] = CompiledRunBenchmark.timed(input.small)
+  def compiledSmall(input: CompiledRunInputs): Vector[Configured[?]] = CompiledRunBenchmark.timed(input.small)
 
   /** The compiled run at size 32. */
   @Benchmark
-  def compiledLarge(input: CompiledRunInputs): Vector[Instruction] = CompiledRunBenchmark.timed(input.large)
+  def compiledLarge(input: CompiledRunInputs): Vector[Configured[?]] = CompiledRunBenchmark.timed(input.large)
 
   /** The compiled run at size 8, read to its first head only. */
   @Benchmark
-  def firstHeadSmall(input: CompiledRunInputs): ParallelSet = CompiledRunBenchmark.firstHead(input.small)._1
+  def firstHeadSmall(input: CompiledRunInputs): ParallelSet[?] = CompiledRunBenchmark.firstHead(input.small)._1
 
   /** The compiled run at size 32, read to its first head only. */
   @Benchmark
-  def firstHeadLarge(input: CompiledRunInputs): ParallelSet = CompiledRunBenchmark.firstHead(input.large)._1
+  def firstHeadLarge(input: CompiledRunInputs): ParallelSet[?] = CompiledRunBenchmark.firstHead(input.large)._1
 
   // TODO: the benchmarks of the compiled runs with native blocks stand here
   // again with those runs (`CompiledRunInputs`, the TODO there).
@@ -170,7 +171,8 @@ class CompiledRunBenchmark:
 object CompiledRunBenchmark:
 
   /** The normal forms of the compiled program, read from the warmed state. */
-  def timed(run: CompiledRun): Vector[Instruction] =
+  def timed[C <: NativeSpecializer & Singleton](run: CompiledRun[C]): Vector[Configured[C]] =
+    given C = run.entry.specializer
     val (normalForms, _) = read(run.entry, run.refined, run.warmed)
     normalForms
 
@@ -180,11 +182,12 @@ object CompiledRunBenchmark:
     * the rest of the normal form back. Throws `IllegalStateException` when
     * the reading stops or gives no head.
     */
-  def firstHead(run: CompiledRun): (ParallelSet, ReadingState) =
+  def firstHead[C <: NativeSpecializer & Singleton](run: CompiledRun[C]): (ParallelSet[C], ReadingState[C]) =
+    given C = run.entry.specializer
     run.entry.jit
-      .heads(run.refined)
+      .heads(Value.of(run.refined))
       .pull
-      .result(ReadingState.fresh(run.entry.readingLimit).copy(jitState = run.warmed)) match
+      .result(ReadingState.fresh(run.entry.readingLimit, run.entry.jit.readingConfiguration).copy(jitState = run.warmed.readingStarted)) match
       case Computed.Done(Some((head, _)), after) => (head, after)
       case Computed.Done(None, after)            => throw IllegalStateException(s"no head after ${after.budget.spent} steps")
       case Computed.Stopped(after)               => throw IllegalStateException(s"the reading stopped after ${after.budget.spent} steps")
@@ -200,9 +203,9 @@ object CompiledRunBenchmark:
     * `IllegalStateException` when the reading stops, since a stopped reading
     * times nothing the question needs.
     */
-  def read(entry: GenericEntry, refined: Instruction, jitState: JitState): (Vector[Instruction], ReadingState) =
+  def read[C <: NativeSpecializer & Singleton](entry: GenericEntry[C], refined: Configured[C], jitState: JitState[C])(using C): (Vector[Configured[C]], ReadingState[C]) =
     NormalForms
-      .normalForms(Mode.Jit(entry.jit), refined)
-      .result(ReadingState.fresh(entry.readingLimit).copy(jitState = jitState)) match
+      .normalForms(Mode.Jit(entry.jit), Value.of(refined))
+      .result(ReadingState.fresh(entry.readingLimit, entry.jit.readingConfiguration).copy(jitState = jitState.readingStarted)) match
       case Computed.Done(normalForms, after) => (normalForms, after)
       case Computed.Stopped(after)           => throw IllegalStateException(s"the reading stopped after ${after.budget.spent} steps")

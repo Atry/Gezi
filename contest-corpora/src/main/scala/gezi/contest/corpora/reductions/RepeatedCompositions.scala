@@ -21,7 +21,7 @@ enum SiteDatum:
   case Booleans(bits: Vector[Int])
 
   /** The datum's Scott term. */
-  def term(attractors: Attractors): Term = this match
+  def term(attractors: Attractors): ProblemTerm = this match
     case UnaryNumber(value)  => unary(value)
     case BinaryNumber(value) => binary(value)
     case Booleans(bits)      => SetFree.booleanList(attractors, bits)
@@ -179,7 +179,7 @@ object CompositionLibrary:
     * arithmetic function, which is the standard library define's body in
     * every spelling (`SetFree.libraryFunction`).
     */
-  def call(group: ReductionGroup, spelling: Spelling, name: String, arguments: Vector[Term]): Term =
+  def call(group: ReductionGroup, spelling: Spelling, name: String, arguments: Vector[ProblemTerm]): ProblemTerm =
     applied(SetFree.libraryFunction(group, name, spelling), arguments)
 
   /** The body of the define named applied to the arguments. For a binary
@@ -195,11 +195,11 @@ object CompositionLibrary:
     * applied to it. For a `fixpoint` define the function itself still occurs
     * in the body, as the recursion argument.
     */
-  def expandedBody(group: ReductionGroup, spelling: Spelling, name: String, arguments: Vector[Term]): Term =
+  def expandedBody(group: ReductionGroup, spelling: Spelling, name: String, arguments: Vector[ProblemTerm]): ProblemTerm =
     if SetFree.standardBinaryArithmetic.contains(name) then applied(group.standardLibrary.binaryArithmetic(name), arguments)
     else attractorExpandedBody(group.attractors, spelling, name, arguments)
 
-  private def attractorExpandedBody(attractors: Attractors, spelling: Spelling, name: String, arguments: Vector[Term]): Term =
+  private def attractorExpandedBody(attractors: Attractors, spelling: Spelling, name: String, arguments: Vector[ProblemTerm]): ProblemTerm =
     val kind = attractors.entries.collectFirst { case (`name`, entryKind) => entryKind }
       .getOrElse(throw IllegalArgumentException(s"no attractor $name"))
     kind match
@@ -218,10 +218,10 @@ object CompositionLibrary:
     * applied in the object language.
     */
   @scala.annotation.tailrec
-  private def substituted(term: Term, arguments: Vector[Term]): Term =
+  private def substituted(term: ProblemTerm, arguments: Vector[ProblemTerm]): ProblemTerm =
     (term, arguments) match
       case (_, Vector())                              => term
-      case (Term.Abstraction(body), argument +: rest) => substituted(body(argument), rest)
+      case (Term.Abstraction(_), argument +: rest)    => substituted(Term.instantiated(term, argument), rest)
       case _                                          => applied(term, arguments)
 
 /** A stage one family whose sites take data of their own: the repeated
@@ -230,7 +230,7 @@ object CompositionLibrary:
 trait RepeatedComposition extends RepeatedVariant:
 
   /** The data of each site, each a Scott list of the site's data terms. */
-  def siteData(group: ReductionGroup, seed: Long, repetitions: Int): Vector[Term]
+  def siteData(group: ReductionGroup, seed: Long, repetitions: Int): Vector[ProblemTerm]
 
 /** A stage one family whose draws are a value of `Drawn`, every library
   * function written in the spelling.
@@ -251,7 +251,7 @@ abstract class RepeatedCompositionFamily[Drawn](val spelling: Spelling)
   /** The data of each site, in order. */
   protected def data(drawn: Drawn): Vector[Vector[SiteDatum]]
 
-  final def siteData(group: ReductionGroup, seed: Long, repetitions: Int): Vector[Term] =
+  final def siteData(group: ReductionGroup, seed: Long, repetitions: Int): Vector[ProblemTerm] =
     data(drawnOf(group, seed, repetitions)).map(site => SetFree.scottList(group.attractors, site.map(_.term(group.attractors))))
 
   /** The nominal ranges of the stage one families: R up to 256 and the
@@ -260,14 +260,14 @@ abstract class RepeatedCompositionFamily[Drawn](val spelling: Spelling)
   final val nominal: NominalRanges = NominalRanges(Repetition.repetitions, CompositionLibrary.dataParameters)
 
   /** The program of the sites: their Scott list, each site written out. */
-  protected final def listed(group: ReductionGroup, sites: Vector[Term]): Term = SetFree.scottList(group.attractors, sites)
+  protected final def listed(group: ReductionGroup, sites: Vector[ProblemTerm]): ProblemTerm = SetFree.scottList(group.attractors, sites)
 
   /** `count` distinct draws of the data of the types. */
   protected final def distinctData(draws: Draws, count: Int, dataTypes: Vector[SiteDataType]): Vector[Vector[SiteDatum]] =
     draws.distinct(count)(CompositionLibrary.data(_, nominal, dataTypes))._1
 
   /** The function named applied to the arguments, inline. */
-  protected final def call(group: ReductionGroup, name: String, arguments: Term*): Term =
+  protected final def call(group: ReductionGroup, name: String, arguments: ProblemTerm*): ProblemTerm =
     CompositionLibrary.call(group, spelling, name, arguments.toVector)
 
   /** The one datum of each site. */
@@ -305,12 +305,12 @@ final class RepeatedIdenticalSubterms(spelling: Spelling)
     val (constant, afterConstant) = CompositionLibrary.datum(afterInner, nominal, inner.input)
     Drawn(combination, inner, constant, distinctData(afterConstant, repetitions, Vector(combination.right)).map(single))
 
-  private def site(group: ReductionGroup, drawn: Drawn, datum: SiteDatum): Term =
+  private def site(group: ReductionGroup, drawn: Drawn, datum: SiteDatum): ProblemTerm =
     call(group, drawn.combination.name, call(group, drawn.inner.name, drawn.constant.term(group.attractors)), datum.term(group.attractors))
 
-  protected def repeated(group: ReductionGroup, drawn: Drawn): Term = listed(group, drawn.data.map(site(group, drawn, _)))
+  protected def repeated(group: ReductionGroup, drawn: Drawn): ProblemTerm = listed(group, drawn.data.map(site(group, drawn, _)))
 
-  protected def singles(group: ReductionGroup, drawn: Drawn): Vector[Term] = drawn.data.map(site(group, drawn, _))
+  protected def singles(group: ReductionGroup, drawn: Drawn): Vector[ProblemTerm] = drawn.data.map(site(group, drawn, _))
 
   protected def data(drawn: Drawn): Vector[Vector[SiteDatum]] = drawn.data.map(Vector(_))
 
@@ -365,13 +365,13 @@ final class RepeatedClosures(spelling: Spelling) extends RepeatedCompositionFami
     val (right, afterRight) = CompositionLibrary.unaryFunction(afterLeft, _ == captured, outer.right)
     Drawn(outer, left, right, distinctData(afterRight, repetitions, Vector(captured)).map(single))
 
-  private def body(group: ReductionGroup, drawn: Drawn, captured: Term): Term =
+  private def body(group: ReductionGroup, drawn: Drawn, captured: ProblemTerm): ProblemTerm =
     call(group, drawn.outer.name, call(group, drawn.left.name, captured), call(group, drawn.right.name, captured))
 
-  protected def repeated(group: ReductionGroup, drawn: Drawn): Term =
+  protected def repeated(group: ReductionGroup, drawn: Drawn): ProblemTerm =
     listed(group, drawn.captured.map(value => λ(captured => body(group, drawn, captured))(value.term(group.attractors))))
 
-  protected def singles(group: ReductionGroup, drawn: Drawn): Vector[Term] =
+  protected def singles(group: ReductionGroup, drawn: Drawn): Vector[ProblemTerm] =
     drawn.captured.map(value => body(group, drawn, value.term(group.attractors)))
 
   protected def data(drawn: Drawn): Vector[Vector[SiteDatum]] = drawn.captured.map(Vector(_))
@@ -432,11 +432,11 @@ final class RepeatedLibraryCompositions(spelling: Spelling)
     val (name, inputs) = define
     Drawn(name, distinctData(afterDefine, repetitions, inputs))
 
-  protected def repeated(group: ReductionGroup, drawn: Drawn): Term =
+  protected def repeated(group: ReductionGroup, drawn: Drawn): ProblemTerm =
     val attractors = group.attractors
     listed(group, drawn.data.map(site => CompositionLibrary.expandedBody(group, spelling, drawn.define, site.map(_.term(attractors)))))
 
-  protected def singles(group: ReductionGroup, drawn: Drawn): Vector[Term] =
+  protected def singles(group: ReductionGroup, drawn: Drawn): Vector[ProblemTerm] =
     drawn.data.map(site => call(group, drawn.define, site.map(_.term(group.attractors))*))
 
   protected def data(drawn: Drawn): Vector[Vector[SiteDatum]] = drawn.data
@@ -458,7 +458,7 @@ final case class GeneralComposition(outer: BinaryFunction, left: UnaryFunction, 
   /** The composition over a site's two data, written inline: no abstraction
     * binds it and no define names it.
     */
-  def site(group: ReductionGroup, spelling: Spelling, leftDatum: SiteDatum, rightDatum: SiteDatum): Term =
+  def site(group: ReductionGroup, spelling: Spelling, leftDatum: SiteDatum, rightDatum: SiteDatum): ProblemTerm =
     val attractors = group.attractors
     CompositionLibrary.call(
       group,
@@ -518,13 +518,13 @@ final class RepeatedGeneralCompositions(spelling: Spelling)
     val (composition, afterComposition) = GeneralComposition.drawn(draws)
     Drawn(composition, distinctData(afterComposition, repetitions, composition.inputs))
 
-  private def site(group: ReductionGroup, drawn: Drawn, data: Vector[SiteDatum]): Term = data match
+  private def site(group: ReductionGroup, drawn: Drawn, data: Vector[SiteDatum]): ProblemTerm = data match
     case Vector(left, right) => drawn.composition.site(group, spelling, left, right)
     case other               => throw IllegalArgumentException(s"not the two data of a site: $other")
 
-  protected def repeated(group: ReductionGroup, drawn: Drawn): Term = listed(group, drawn.data.map(site(group, drawn, _)))
+  protected def repeated(group: ReductionGroup, drawn: Drawn): ProblemTerm = listed(group, drawn.data.map(site(group, drawn, _)))
 
-  protected def singles(group: ReductionGroup, drawn: Drawn): Vector[Term] = drawn.data.map(site(group, drawn, _))
+  protected def singles(group: ReductionGroup, drawn: Drawn): Vector[ProblemTerm] = drawn.data.map(site(group, drawn, _))
 
   protected def data(drawn: Drawn): Vector[Vector[SiteDatum]] = drawn.data
 
@@ -571,7 +571,7 @@ final class RepeatedNestedCompositions(spelling: Spelling)
     val innerData = distinctData(afterCombination, 2 * repetitions, composition.inputs)
     Drawn(composition, combination, innerData.grouped(2).map(_.flatten).toVector)
 
-  private def site(group: ReductionGroup, drawn: Drawn, data: Vector[SiteDatum]): Term = data match
+  private def site(group: ReductionGroup, drawn: Drawn, data: Vector[SiteDatum]): ProblemTerm = data match
     case Vector(firstLeft, firstRight, secondLeft, secondRight) =>
       CompositionLibrary.call(
         group,
@@ -584,9 +584,9 @@ final class RepeatedNestedCompositions(spelling: Spelling)
       )
     case other => throw IllegalArgumentException(s"not the four data of an outer site: $other")
 
-  protected def repeated(group: ReductionGroup, drawn: Drawn): Term = listed(group, drawn.data.map(site(group, drawn, _)))
+  protected def repeated(group: ReductionGroup, drawn: Drawn): ProblemTerm = listed(group, drawn.data.map(site(group, drawn, _)))
 
-  protected def singles(group: ReductionGroup, drawn: Drawn): Vector[Term] = drawn.data.map(site(group, drawn, _))
+  protected def singles(group: ReductionGroup, drawn: Drawn): Vector[ProblemTerm] = drawn.data.map(site(group, drawn, _))
 
   protected def data(drawn: Drawn): Vector[Vector[SiteDatum]] = drawn.data
 

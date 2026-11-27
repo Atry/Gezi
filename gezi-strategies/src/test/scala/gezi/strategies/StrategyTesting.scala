@@ -2,14 +2,16 @@ package gezi.strategies
 
 import gezi.standardlibrary.LibraryFiles
 import gezi.standardlibrary.StandardLibrary
-import gezi.frontend.DeBruijnTerm
+import gezi.frontend.DeBruijnTermOf
 import gezi.frontend.Defunctionalization
 import gezi.frontend.OccurrenceMarkers
 import gezi.frontend.Occurrences
-import gezi.frontend.Term
-import gezi.ir.Instruction
+import gezi.frontend.TermOf
+import gezi.ir.NoFacts
 import gezi.knowledgereading.KnowledgeReading
-import gezi.weakhead.Value
+import gezi.ir.Configured
+import gezi.ir.NativeSpecializer
+import gezi.ir.Value
 
 /** The helpers the strategies' tests share (`tests/saturation_runs.pl` and
   * the helpers of the Prolog tests): libraries compiled from the standard
@@ -17,6 +19,9 @@ import gezi.weakhead.Value
   * occurrence tagging, and the readings of the ordering modules' fold states.
   */
 object StrategyTesting:
+
+  /** A HOAS term of the tests: its constants are closed terms under no facts, the library's terms read by projection. */
+  type ProgramTerm = TermOf[Configured[NoFacts.type]]
 
   /** The library of the knowledge file at the path relative to Gezi's
     * root, extension included, the one field of its tuple, with no backend's
@@ -38,17 +43,27 @@ object StrategyTesting:
     * (`program_instruction/2`). The program names nothing: the library terms
     * it holds are closed instructions (`Term.Closed`).
     */
-  def programInput(library: StandardLibrary, program: Term): Instruction =
-    Defunctionalization.thunkInstruction(taggedTerm(library, program))
+  def programInput(library: StandardLibrary, program: ProgramTerm): Configured[NoFacts.type] =
+    programInputIn[NoFacts.type](library, program)(using NoFacts)
+
+  /** `programInput` in the configuration in scope: the program's constants are terms of that configuration, and the
+    * library's occurrence markers, pure keys, enter it by `Configured.fromPure`.
+    */
+  def programInputIn[C <: NativeSpecializer & Singleton](library: StandardLibrary, program: TermOf[Configured[C]])(using C): Configured[C] =
+    val term = program.deBruijnTerm(Map.empty)
+    val tagged = occurrenceMarkers(library) match
+      case None          => term
+      case Some(markers) => Occurrences.tagged(term, markers)
+    Defunctionalization.thunkInstruction[C](tagged)
 
   /** The de Bruijn term of the closed program, its occurrences tagged when
     * the library declares the occurrence roles (`program_term/2`).
     */
-  def taggedTerm(library: StandardLibrary, program: Term): DeBruijnTerm =
+  def taggedTerm(library: StandardLibrary, program: ProgramTerm): DeBruijnTermOf[Configured[NoFacts.type]] =
     val term = program.deBruijnTerm(Map.empty)
     occurrenceMarkers(library) match
       case None          => term
-      case Some(markers) => Occurrences.tagged(term, markers)
+      case Some(markers) => Occurrences.tagged(term, markers)(using NoFacts)
 
   /** The fixture entry of the tests' round of the key under Gezi's
     * directory, one file a round: its member of the key is the round's
@@ -80,11 +95,11 @@ object StrategyTesting:
     * test of a key at each member (the design's cost, as
     * `KnowledgeReading.compilationTableLimit` says).
     */
-  def round(key: String): Instruction =
+  def round(key: String): Configured[NoFacts.type] =
     val root = LibraryFiles.buildRoot
     val StandardLibrary.EntryReading(entry, afterEntry, _, _) = StandardLibrary.entryTerm(root, root.resolve(roundFile(key)), KnowledgeReading.compilationState)
     KnowledgeReading
-      .run(KnowledgeReading.memberTerm(entry), roundMemberLimit, afterEntry)
+      .run(KnowledgeReading.memberTerm(Value.of(entry)(using NoFacts)), roundMemberLimit, afterEntry)(using NoFacts)
       ._1
 
   /** The occurrence markers the library declares, checked against its
@@ -104,20 +119,20 @@ object StrategyTesting:
   /** The value of the fold state of the whole term at the module
     * (`module_value/3`).
     */
-  def moduleValue(module: NormalityModule, reading: TermReading, term: OrderTerm): OrderValue =
+  def moduleValue(module: NormalityModule[NoFacts.type], reading: TermReading[NoFacts.type], term: OrderTerm[NoFacts.type]): OrderValue =
     module.value(module.folded(term, reading))
 
   /** The rank of the fold state of the whole term at the module
     * (`term_ranks/3` at one module).
     */
-  def moduleRank(module: NormalityModule, reading: TermReading, term: OrderTerm): OrderValue =
+  def moduleRank(module: NormalityModule[NoFacts.type], reading: TermReading[NoFacts.type], term: OrderTerm[NoFacts.type]): OrderValue =
     module.rank(module.folded(term, reading))
 
   /** The fold state of the term computed one layer at a time, each child a
     * leaf of its own state (`term_folded/3`).
     */
-  def termFolded(module: NormalityModule, reading: TermReading, term: OrderTerm): FoldState =
-    def folded(child: OrderTerm): OrderTerm = OrderTerm.Folded(termFolded(module, reading, child), TermReading.identityContract(child))
+  def termFolded(module: NormalityModule[NoFacts.type], reading: TermReading[NoFacts.type], term: OrderTerm[NoFacts.type]): FoldState =
+    def folded(child: OrderTerm[NoFacts.type]): OrderTerm[NoFacts.type] = OrderTerm.Folded[NoFacts.type](termFolded(module, reading, child), TermReading.identityContract(child))
     val layer = term match
       case OrderTerm.Apply(function, argument)   => OrderTerm.Apply(folded(function), folded(argument))
       case OrderTerm.Parallel(left, right, range)   => OrderTerm.Parallel(folded(left), folded(right), range)
@@ -129,11 +144,11 @@ object StrategyTesting:
   /** The value of the fold state computed one layer at a time
     * (`term_folded_values/3` at one module).
     */
-  def foldedValue(module: NormalityModule, reading: TermReading, term: OrderTerm): OrderValue =
+  def foldedValue(module: NormalityModule[NoFacts.type], reading: TermReading[NoFacts.type], term: OrderTerm[NoFacts.type]): OrderValue =
     module.value(termFolded(module, reading, term))
 
   /** The rank of the fold state computed one layer at a time
     * (`term_folded_ranks/3` at one module).
     */
-  def foldedRank(module: NormalityModule, reading: TermReading, term: OrderTerm): OrderValue =
+  def foldedRank(module: NormalityModule[NoFacts.type], reading: TermReading[NoFacts.type], term: OrderTerm[NoFacts.type]): OrderValue =
     module.rank(termFolded(module, reading, term))

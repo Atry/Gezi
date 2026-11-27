@@ -20,7 +20,7 @@ import java.nio.file.Path
   * built by that group's port. Its reads keep their complete tables in the
   * cache service its owner carries (`ProblemFamilies`).
   */
-final class HardCorpus(root: Path, expansions: Expansions, cache: Cache):
+final class HardCorpus(root: Path, expansions: Expansions[gezi.ir.NoFacts.type], cache: Cache):
 
   val problems: ProblemFamilies = ProblemFamilies(root, expansions, cache)
 

@@ -1,8 +1,9 @@
 package gezi.weakhead
 
+import gezi.ir.NoFacts
+import gezi.ir.Configured
 import hedgehog.Result
 import gezi.generatedinputs.GeneratedProperties
-import gezi.ir.Instruction
 
 /** The two options of `ContinuationReading` on generated programs in
   * continuation passing style (`ContinuationPrograms`), read by
@@ -26,12 +27,14 @@ import gezi.ir.Instruction
   */
 class ContinuationReadingLawTest extends GeneratedProperties:
 
+  given NoFacts.type = NoFacts
+
   /** The steps of one reading, `ApplicationReadingLawTest`'s limit. */
   private val limit: Long = 20000
 
-  private def heads(term: Instruction, continuations: ContinuationReading): Bounded[Vector[ParallelSet]] =
-    val start = ReadingState.knowingTop(limit).copy(continuations = continuations)
-    WeakHead.heads(Mode.TablingWeakHead, term).collected.result(start) match
+  private def heads(term: Configured[NoFacts.type], continuations: ContinuationReading): Bounded[Vector[ParallelSet[NoFacts.type]]] =
+    val start = ReadingState.knowingTop(limit, gezi.weakhead.ReadingConfiguration.withoutFacts).copy(continuations = continuations)
+    WeakHead.heads(Mode.TablingWeakHead, gezi.ir.Value.of(term)).collected.result(start) match
       case Computed.Done(found, _) => Bounded.Finished(found)
       case Computed.Stopped(after) => EvaluatorTesting.stopped(after)
 
@@ -41,7 +44,7 @@ class ContinuationReadingLawTest extends GeneratedProperties:
       val term = EvaluatorTesting.instructionOf(program)
       (heads(term, ContinuationReading.Substituted), heads(term, ContinuationReading.Packed)) match
         case (Bounded.Finished(substituted), Bounded.Finished(packed)) =>
-          Result.diff(packed.toSet -- substituted.toSet, Set.empty[ParallelSet])(_ == _)
+          Result.diff(packed.toSet -- substituted.toSet, Set.empty[ParallelSet[NoFacts.type]])(_ == _)
         case _ => Result.success
   }
 

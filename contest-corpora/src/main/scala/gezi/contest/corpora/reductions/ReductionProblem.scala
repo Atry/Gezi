@@ -6,13 +6,18 @@ import gezi.weakhead.NormalForms
 import gezi.weakhead.Reading
 import gezi.weakhead.ReadingState
 import gezi.weakhead.Resource
-import gezi.weakhead.Value
+import gezi.ir.Value
 import gezi.weakhead.oldcorpora.ConstructorTree
 import gezi.weakhead.oldcorpora.ScottDecoding
 import gezi.frontend.DeBruijnTerm
+import gezi.frontend.DeBruijnTermOf
 import gezi.frontend.Lambdalattice
 import gezi.frontend.Defunctionalization
 import gezi.frontend.Term
+import gezi.ir.{Configured, NoFacts}
+
+/** The corpora are read under no facts. */
+private given reductionProblemNoFacts: NoFacts.type = NoFacts
 
 /** The limits of a problem, `limits(Seconds, StackMegabytes,
   * TableMegabytes)`: the contest's facts. The Scala judge reads the seconds
@@ -35,7 +40,7 @@ enum NormalFormReading:
   /** The reading finished: the distinct normal forms, read back, in the
     * order first read; none is a reading that found none.
     */
-  case Finished(normalForms: Vector[DeBruijnTerm])
+  case Finished(normalForms: Vector[DeBruijnTermOf[Configured[NoFacts.type]]])
 
   /** The reading ran past its budget of steps. */
   case StepLimit
@@ -68,7 +73,7 @@ enum Expected:
   */
 final case class ReductionProblem(
     point: String,
-    program: Term,
+    program: ProblemTerm,
     typeName: String,
     expected: Expected,
     limits: Limits
@@ -91,8 +96,8 @@ object Reduction:
     * evaluator, the instruction of its thunk IR. The program holds no library
     * name.
     */
-  def programRoot(program: Term): Value =
-    Defunctionalization.thunkInstruction(program.deBruijnTerm(Map.empty))
+  def programRoot(program: ProblemTerm): Value[NoFacts.type] =
+    Value.of(Defunctionalization.thunkInstruction[NoFacts.type](program.deBruijnTerm(Map.empty)))
 
   /** `answered_normal_form(Setting, Surface, NormalForm)`, the set asked
     * whole: every normal form the normal-form reader reads of the program's
@@ -102,9 +107,9 @@ object Reduction:
     * answered, so a program whose reading does not end within the limit
     * answers nothing (`StepLimit`), which is no claim.
     */
-  def answeredNormalForms(mode: Mode, program: Term, limit: Long): NormalFormReading =
+  def answeredNormalForms(mode: Mode, program: ProblemTerm, limit: Long): NormalFormReading =
     val root = programRoot(program)
-    NormalForms.normalForms(mode, root).result(ReadingState.knowingTop(limit)) match
+    NormalForms.normalForms(mode, root).result(ReadingState.knowingTop(limit, gezi.weakhead.ReadingConfiguration.withoutFacts)) match
       case Computed.Done(normalForms, _) =>
         NormalFormReading.Finished(normalForms.map(Defunctionalization.instructionTerm).distinct)
       case Computed.Stopped(after) =>
@@ -118,10 +123,10 @@ object Reduction:
     * decoded, in order, or none for a stop. A head that is no constructor
     * reads as `IllFormed`.
     */
-  def decodedTrees(mode: Mode, program: Term, typeName: String, limit: Long): Option[Vector[ConstructorTree]] =
+  def decodedTrees(mode: Mode, program: ProblemTerm, typeName: String, limit: Long): Option[Vector[ConstructorTree]] =
     val root = programRoot(program)
     ScottDecoding.decoded(mode, root, Scott.dataType(typeName)).collected
-      .result(ReadingState.knowingTop(limit)) match
+      .result(ReadingState.knowingTop(limit, gezi.weakhead.ReadingConfiguration.withoutFacts)) match
       case Computed.Done(trees, _) => Some(trees)
       case Computed.Stopped(_)     => None
 
@@ -162,9 +167,9 @@ object Reduction:
     * variable 0 not free in M (`normal_form_term/1`). A choice, a parallel or
     * a constant is no normal form, as the Prolog has no clause for them.
     */
-  def normalFormTerm(term: DeBruijnTerm): Boolean = normalUnder(term, 0)
+  def normalFormTerm(term: ProblemDeBruijnTerm): Boolean = normalUnder(term, 0)
 
-  private def normalUnder(term: DeBruijnTerm, depth: Int): Boolean = term match
+  private def normalUnder(term: ProblemDeBruijnTerm, depth: Int): Boolean = term match
     case DeBruijnTerm.Variable(index) => index >= 0 && index < depth
     case DeBruijnTerm.Apply(function, argument) =>
       (function match
@@ -175,11 +180,11 @@ object Reduction:
       !etaRedexBody(body) && normalUnder(body, depth + 1)
     case _ => false
 
-  private def etaRedexBody(body: DeBruijnTerm): Boolean = body match
+  private def etaRedexBody(body: ProblemDeBruijnTerm): Boolean = body match
     case DeBruijnTerm.Apply(function, DeBruijnTerm.Variable(0)) => !occursFree(function, 0)
     case _                                                     => false
 
-  private def occursFree(term: DeBruijnTerm, index: Int): Boolean = term match
+  private def occursFree(term: ProblemDeBruijnTerm, index: Int): Boolean = term match
     case DeBruijnTerm.Variable(found)           => found == index
     case DeBruijnTerm.Apply(function, argument) => occursFree(function, index) || occursFree(argument, index)
     case DeBruijnTerm.Lambda(body)              => occursFree(body, index + 1)

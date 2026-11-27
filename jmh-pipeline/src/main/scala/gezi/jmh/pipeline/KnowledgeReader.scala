@@ -1,6 +1,5 @@
 package gezi.jmh.pipeline
 
-import gezi.ir.Instruction
 import gezi.weakhead.ApplicationReading
 import gezi.weakhead.Computation
 import gezi.weakhead.Computed
@@ -9,9 +8,13 @@ import gezi.weakhead.Mode
 import gezi.weakhead.NeutralVariable
 import gezi.weakhead.ParallelView
 import gezi.weakhead.ReadingState
-import gezi.weakhead.Value
+import gezi.ir.Value
 import gezi.weakhead.Values
 import gezi.weakhead.WeakHead
+import gezi.ir.{Configured, NativeSpecializer, ChoiceSpine, NoFacts}
+
+/** The configuration of the terms here: no facts. */
+private given knowledgeReaderNoFacts: NoFacts.type = NoFacts
 
 /** The fresh neutral handler of the slot at the position, from 0.
   *
@@ -70,26 +73,26 @@ object KnowledgeReader:
     * the mode and the option of taking applications apart, within the limit
     * of steps.
     */
-  def read(
+  def read[C <: NativeSpecializer & Singleton](
       mode: Mode,
       applications: ApplicationReading,
       slotReading: SlotReading,
-      knowledge: Instruction,
+      knowledge: Configured[C],
       layout: Vector[KnowledgeSlot],
       limit: Long
-  ): KnowledgeReading =
+  )(using C): KnowledgeReading =
     val (read, after) = finished(mode, applications, slotReading, knowledge, layout, limit)
     KnowledgeReading(read, after.budget.spent, after.tables.held)
 
   /** What the reading read and the state it ended in. */
-  private def finished(
+  private def finished[C <: NativeSpecializer & Singleton](
       mode: Mode,
       applications: ApplicationReading,
       slotReading: SlotReading,
-      knowledge: Instruction,
+      knowledge: Configured[C],
       layout: Vector[KnowledgeSlot],
       limit: Long
-  ): (KnowledgeRead, ReadingState) =
+  )(using C): (KnowledgeRead, ReadingState[C]) =
     val computation = for
       contents <- slotContents(mode, slotReading, knowledge, layout.size)
       lemmas <- Computation.traversed(layout.zip(contents).collect {
@@ -100,18 +103,18 @@ object KnowledgeReader:
       layout.zip(contents).collect { case (KnowledgeSlot.WithProperty(property), members) => (property, members) },
       layout.zip(contents).collect { case (KnowledgeSlot.Implemented(native), members) => (native, members) }
     )
-    computation.result(ReadingState.knowingTop(limit).copy(applications = applications)) match
+    computation.result(ReadingState.knowingTop(limit, gezi.weakhead.ReadingConfiguration.withoutFacts).copy(applications = applications)) match
       case Computed.Done(read, after) => (read, after)
       case Computed.Stopped(after) =>
         throw IllegalStateException(s"the knowledge term was not read within $limit steps (${after.exhausted})")
 
   /** The members of each slot, in the order of the slots. */
-  private def slotContents(
+  private def slotContents[C <: NativeSpecializer & Singleton](
       mode: Mode,
       slotReading: SlotReading,
-      knowledge: Instruction,
+      knowledge: Configured[C],
       width: Int
-  ): Computation[ReadingState, Vector[Vector[Instruction]]] = slotReading match
+  )(using C): Computation[ReadingState[C], Vector[Vector[Configured[C]]]] = slotReading match
     case SlotReading.OneSlotEach =>
       Computation.traversed((0 until width).toVector)(position =>
         heads(mode, selfApplication(knowledge, width, Set(position))).map(found =>
@@ -135,29 +138,33 @@ object KnowledgeReader:
     * `top ∥ b` was one parallel set of top's head and b's, which `handled`
     * refused.
     */
-  private def selfApplication(knowledge: Instruction, width: Int, handledPositions: Set[Int]): Value =
+  private def selfApplication[C <: NativeSpecializer & Singleton](knowledge: Configured[C], width: Int, handledPositions: Set[Int])(using C): Value[C] =
     val self = knowledge
-    (0 until width).foldLeft(Value.Apply(self, self): Value)((function, position) =>
+    (0 until width).foldLeft(Value.Apply(self, self): Value[C])((function, position) =>
       Value.Apply(
         function,
-        if handledPositions.contains(position) then Value.Neutral(SlotHandler(position), Vector.empty)
-        else KnowledgeInLambdalattice.noAnswer
+        if handledPositions.contains(position) then NeutralValue(SlotHandler(position), Vector.empty)
+        else KnowledgeInLambdalattice.noAnswer[C]
       )
     )
 
   /** The position of a slot's head and the members of its b. */
-  private def handled(head: Head, handledPositions: Set[Int]): (Int, Vector[Instruction]) = head match
+  private def handled[C <: NativeSpecializer & Singleton](head: Head[C], handledPositions: Set[Int])(using C): (Int, Vector[Configured[C]]) = head match
     case Head.Neutral(SlotHandler(position), Vector(body)) if handledPositions.contains(position) =>
       // The members of b's right `+` spine, which top ends
       // (`KnowledgeInLambdalattice.term`).
-      Values.instruction(body) match
-        case Instruction.ChoiceMembers(members :+ ended) if ended == KnowledgeInLambdalattice.noAnswer => (position, members)
-        case other => throw IllegalStateException(s"a slot's b is no chain ended by top: $other")
+      val chain = Values.instruction(body)
+      ChoiceSpine.members[Configured[C]](chain, term => term.layer match
+        case gezi.ir.Choice(left, right) => Some((left, right))
+        case _                           => None
+      ) match
+        case members :+ ended if Configured.same(ended, KnowledgeInLambdalattice.noAnswer[C]) => (position, members)
+        case _ => throw IllegalStateException(s"a slot's b is no chain ended by top: $chain")
     case other => throw IllegalStateException(s"a slot's head is not its handler applied to a b: $other")
 
   /** The two sides of a lemma's Scott pair. */
-  private def opened(mode: Mode, pair: Instruction): Computation[ReadingState, (Instruction, Instruction)] =
-    heads(mode, Value.Apply(pair, Value.Neutral(PairSelector, Vector.empty))).map {
+  private def opened[C <: NativeSpecializer & Singleton](mode: Mode, pair: Configured[C])(using C): Computation[ReadingState[C], (Configured[C], Configured[C])] =
+    heads(mode, Value.Apply(pair, NeutralValue(PairSelector, Vector.empty))).map {
       case Vector(Head.Neutral(PairSelector, Vector(left, right))) =>
         (Values.instruction(left), Values.instruction(right))
       case other => throw IllegalStateException(s"a lemma is no Scott pair: $other")
@@ -167,9 +174,9 @@ object KnowledgeReader:
     * `IllegalStateException` for a parallel set that is not one head: the
     * knowledge terms of the benchmark are written without a parallel.
     */
-  private def heads(mode: Mode, term: Value): Computation[ReadingState, Vector[Head]] =
+  private def heads[C <: NativeSpecializer & Singleton](mode: Mode, term: Value[C])(using C): Computation[ReadingState[C], Vector[Head[C]]] =
     WeakHead.heads(mode, term).collected.map(found =>
-      WeakHead.headsExpanded(mode, found).map(set =>
+      found.map(set =>
         set.view match
           case ParallelView.Single(head) => head
           case _ => throw IllegalStateException(s"a parallel set of the knowledge is not one head: $set")

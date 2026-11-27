@@ -22,34 +22,39 @@ import snapshot4s.generated.snapshotConfig
   */
 class TableCostSnapshotTest extends gezi.generatedinputs.FailFastSuite with snapshot4s.munit.SnapshotAssertions:
 
+  private val encoding = JitTesting.noFactsEncoding
+
+  private given encoding.type = encoding
+
   private val terms =
     EvaluatorTesting.draws(40, 20261102L)(random => randomLatticeApplication(16, random))
 
-  private def configuration(trial: Long): JitConfiguration =
-    JitConfiguration(
-      noFacts,
+  private def configuration(trial: Long): JitConfiguration[encoding.type] =
+    JitConfiguration[encoding.type](
+      encoding,
       10000,
       PredicatePerCode,
       ClosureBackend,
       DispatchMode.NoDispatch,
       instanceTable = true,
-      instanceTableTrial = trial
+      instanceTableTrial = trial,
+      storageAccess = gezi.ir.StorageAccess.granted()
     )
 
   /** One line a term, the table kept from one term to the next. */
   private def lines(trial: Long): Vector[String] =
     val jit = Jit(configuration(trial))
     terms.zipWithIndex
-      .foldLeft((Vector.empty[String], NoJitState: JitState)) { case ((written, state), (term, index)) =>
+      .foldLeft((Vector.empty[String], NoJitState: JitState[encoding.type])) { case ((written, state), (term, index)) =>
         val value = valuesOf(Vector(instructionOf(term))) match
           case Vector(only) => only
           case other        => fail(s"one value per term, not ${other.size}")
-        val read = NativesTesting.normalFormsSpent(Mode.Jit(jit), value, 200000, state)
+        val read = NativesTesting.normalFormsSpent(jit, value, 200000, state)
         val outcome = read.outcome match
           case Bounded.Finished(normalForms) => s"finished(${normalForms.size})"
           case other                         => other.productPrefix
         val costs = read.jitState match
-          case run: JitRunState => run.tableCosts.values.toVector
+          case run: JitRunState[?] => run.tableCosts.values.toVector
           case NoJitState       => Vector.empty
           case other            => fail(s"the JIT left another state: $other")
         val line = Vector(

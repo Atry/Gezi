@@ -1,0 +1,40 @@
+# The typed versions of five natives bound to bare defines: each applies the
+# define to its operands under their filters and filters the result, so that
+# the native's result filter stands in the term.
+#
+# A typed version refines its define and does not equal it. On a choice of
+# operands, a define that branches on an operand and then uses the whole
+# operand, as merge_binary_times does, has answers outside its result type. So
+# a program reaches a typed version only through a typed branch, f + typed f.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "binary") "natural")
+λ _ _ _ _ binary_set
+. omega (omega (omega (omega corpora "library") "binary") "arithmetic")
+λ merge_binary_increment _ merge_binary_times merge_binary_equality
+. omega (omega (omega (omega corpora "library") "native_types") "boolean")
+λ true _ boolean_type _
+. omega (omega (omega (omega corpora "library") "native_types") "natural")
+λ _ _ _ nat_type
+. omega (omega (omega (omega corpora "library") "native_arithmetic") "native_arithmetic")
+λ double even
+. (λtuple. tuple λ number. (merge_binary_increment (number ∥ binary_set true) ∥ binary_set true))
+λ plover_typed_increment
+. ( λ tuple
+    . tuple
+    λ first second
+    . (merge_binary_equality (first ∥ binary_set true) (second ∥ binary_set true) ∥ boolean_type)
+  )
+λ plover_typed_equality
+. ( λ tuple
+    . tuple
+    λ first second
+    . (merge_binary_times (first ∥ binary_set true) (second ∥ binary_set true) ∥ binary_set true)
+  )
+λ plover_typed_times
+. (λtuple. tuple λ number. (double (number ∥ nat_type) ∥ nat_type))
+λ plover_typed_double
+. (λtuple. tuple λ number. (even (number ∥ nat_type) ∥ boolean_type))
+λ plover_typed_even
+. export plover_typed_increment plover_typed_equality plover_typed_times plover_typed_double plover_typed_even

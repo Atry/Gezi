@@ -57,7 +57,7 @@ final class Attractors(corpora: Corpora):
   /** The prelude's fixpoint combinator `Y`, which ties an attractor of
     * recursion `fixpoint` (`function_surface/3`).
     */
-  def fixpoint: Term = corpora.prelude.fixpoint
+  def fixpoint: ProblemTerm = corpora.prelude.fixpoint
 
   private def file: ProblemFamily = corpora.contestAttractors
 
@@ -116,7 +116,7 @@ final class Attractors(corpora: Corpora):
     * form, a closed de Bruijn term of the front end, written in the table as
     * the program it is.
     */
-  def attractorFunction(name: String): DeBruijnTerm =
+  def attractorFunction(name: String): ProblemDeBruijnTerm =
     Defunctionalization.instructionTerm(
       corpora.contestAttractorNormalForms.row("attractor_function", Map(0 -> name))(1).instruction
     )
@@ -124,7 +124,7 @@ final class Attractors(corpora: Corpora):
   /** `attractor_library(Library)`: name and function, in the order of
     * definition.
     */
-  def attractorLibrary: Vector[(String, DeBruijnTerm)] = entries.map((name, _) => name -> attractorFunction(name))
+  def attractorLibrary: Vector[(String, ProblemDeBruijnTerm)] = entries.map((name, _) => name -> attractorFunction(name))
 
   /** `attractor_source(Name, Surface)`, the first row for the name: a closed
     * surface term whose beta eta normal form is the attractor's function, as
@@ -133,12 +133,12 @@ final class Attractors(corpora: Corpora):
     * Throws for a name
     * with no source.
     */
-  def attractorSource(name: String): Term = file.template("attractor_source", Map(0 -> name), Map.empty, 1)
+  def attractorSource(name: String): ProblemTerm = file.template("attractor_source", Map(0 -> name), Map.empty, 1)
 
   /** `attractor_surface(Name, Spelling)`: the attractor's function in the
     * spelling.
     */
-  def attractorSurface(name: String, spelling: Spelling): Term =
+  def attractorSurface(name: String, spelling: Spelling): ProblemTerm =
     Attractors.surface(Attractors.spelled(spelling, attractorFunction(name)))
 
   /** `function_surface(Name, Spelling)`: the function the attractor stands
@@ -146,7 +146,7 @@ final class Attractors(corpora: Corpora):
     * `git show 91b3f11e1^:lambda_jit/corpora/contest_attractors.pl`), every
     * copy in the spelling.
     */
-  def functionSurface(name: String, spelling: Spelling): Term =
+  def functionSurface(name: String, spelling: Spelling): ProblemTerm =
     val kindOfName = entries.collectFirst { case (`name`, entryKind) => entryKind }
       .getOrElse(throw IllegalArgumentException(s"no attractor $name"))
     kindOfName match
@@ -158,21 +158,21 @@ final class Attractors(corpora: Corpora):
       case AttractorKind.Function(dependencies, AttractorRecursion.Fixpoint) =>
         fixpoint(templateApplied(name, dependencies, spelling))
 
-  private def templateApplied(name: String, dependencies: Vector[String], spelling: Spelling): Term =
+  private def templateApplied(name: String, dependencies: Vector[String], spelling: Spelling): ProblemTerm =
     dependencies.foldLeft(attractorSurface(name, spelling))((term, dependency) => term(functionSurface(dependency, spelling)))
 
 /** The spellings of closed de Bruijn terms. */
 object Attractors:
 
   /** `spelled(Spelling, Term)`. */
-  def spelled(spelling: Spelling, term: DeBruijnTerm): DeBruijnTerm = spelling match
+  def spelled(spelling: Spelling, term: ProblemDeBruijnTerm): ProblemDeBruijnTerm = spelling match
     case Spelling.Direct    => term
     case Spelling.Respelled => respelled(term)
 
   /** `respelled(Term)`: every application whose head is a variable has its
     * head wrapped as `((\z. z) x)`.
     */
-  def respelled(term: DeBruijnTerm): DeBruijnTerm = term match
+  def respelled(term: ProblemDeBruijnTerm): ProblemDeBruijnTerm = term match
     case DeBruijnTerm.Lambda(body) => DeBruijnTerm.Lambda(respelled(body))
     case DeBruijnTerm.Apply(_, _) =>
       val (head, arguments) = Spine.of(term)
@@ -186,11 +186,11 @@ object Attractors:
     * (`common.DeBruijnTerms.hoas`). Throws for a variable no binder binds
     * and for a constant.
     */
-  def surface(term: DeBruijnTerm): Term = DeBruijnTerms.hoas(term)
+  def surface(term: ProblemDeBruijnTerm): ProblemTerm = DeBruijnTerms.hoas(term)
 
   /** `spelled_surface(Spelling, Surface)`: the closed term in the spelling,
     * for a problem that writes a term of its own as the library writes an
     * attractor.
     */
-  def spelledSurface(spelling: Spelling, surfaceTerm: Term): Term =
+  def spelledSurface(spelling: Spelling, surfaceTerm: ProblemTerm): ProblemTerm =
     surface(spelled(spelling, surfaceTerm.deBruijnTerm(Map.empty)))

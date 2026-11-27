@@ -5,17 +5,19 @@ import gezi.weakhead.Computation
 import gezi.weakhead.Computed
 import gezi.weakhead.Head
 import gezi.weakhead.Mode
+import gezi.weakhead.NeutralValue
 import gezi.weakhead.NeutralVariable
 import gezi.weakhead.ParallelSet
 import gezi.weakhead.ReadingState
 import gezi.weakhead.Resource
-import gezi.weakhead.Value
+import gezi.ir.Value
 import gezi.weakhead.WeakHead
 import gezi.frontend.Term
 import gezi.ir.TailRecFolds
 import scala.util.control.TailCalls.TailRec
 import scala.util.control.TailCalls.done
 import scala.util.control.TailCalls.tailcall
+import gezi.ir.{Configured, NativeSpecializer}
 
 /** A Scott data type of the problem corpora, its constructors in the order
   * the encoding takes its cases.
@@ -136,18 +138,18 @@ object ScottDecoding:
   /** The constructor trees of the closed term at the data type under the
     * mode, one at a time.
     */
-  def decoded(mode: Mode, term: Value, dataType: ScottDataType): Answers[ReadingState, ConstructorTree] =
+  def decoded[C <: NativeSpecializer & Singleton](mode: Mode, term: Value[C], dataType: ScottDataType)(using C): Answers[ReadingState[C], ConstructorTree] =
     decodedAt(mode, 0, term, dataType)
 
-  private def decodedAt(
+  private def decodedAt[C <: NativeSpecializer & Singleton](
       mode: Mode,
       level: Int,
-      term: Value,
+      term: Value[C],
       dataType: ScottDataType
-  ): Answers[ReadingState, ConstructorTree] =
+  )(using C): Answers[ReadingState[C], ConstructorTree] =
     val constructors = dataType.constructors
     val applied = constructors.foldLeft(term)((function, constructor) =>
-      Value.Apply(function, Value.Neutral(ScottCase(level, constructor.name), Vector.empty))
+      Value.Apply(function, NeutralValue[C](ScottCase(level, constructor.name), Vector.empty))
     )
     WeakHead.heads(mode, applied).flatMap(setTree(mode, level, constructors, _))
 
@@ -157,12 +159,12 @@ object ScottDecoding:
     * answer and this decoding, which gives its trees one at a time, gives
     * none (a known incompleteness).
     */
-  private def setTree(
+  private def setTree[C <: NativeSpecializer & Singleton](
       mode: Mode,
       level: Int,
       constructors: Vector[ScottConstructor],
-      set: ParallelSet
-  ): Answers[ReadingState, ConstructorTree] =
+      set: ParallelSet[C]
+  )(using C): Answers[ReadingState[C], ConstructorTree] =
     set.heads.toList match
       case Nil           => Answers.empty
       case single :: Nil => headTree(mode, level, constructors, single)
@@ -180,12 +182,12 @@ object ScottDecoding:
           )
         )
 
-  private def headTree(
+  private def headTree[C <: NativeSpecializer & Singleton](
       mode: Mode,
       level: Int,
       constructors: Vector[ScottConstructor],
-      head: Head
-  ): Answers[ReadingState, ConstructorTree] = head match
+      head: Head[C]
+  )(using C): Answers[ReadingState[C], ConstructorTree] = head match
     case gezi.weakhead.Neutral(ScottCase(`level`, name), fields) =>
       constructors.find(_.name == name) match
         case Some(constructor) if constructor.fieldTypes.size == fields.size =>
@@ -199,25 +201,25 @@ object ScottDecoding:
     * once, without `IllFormed`: a head that is no constructor of the level
     * claims no normal form, so it is no tree the heads can share.
     */
-  private def headTrees(
+  private def headTrees[C <: NativeSpecializer & Singleton](
       mode: Mode,
       level: Int,
       constructors: Vector[ScottConstructor],
-      head: Head
-  ): Computation[ReadingState, Vector[ConstructorTree]] =
+      head: Head[C]
+  )(using C): Computation[ReadingState[C], Vector[ConstructorTree]] =
     headTree(mode, level, constructors, head).collected
       .map(_.distinct.filter(_ != ConstructorTree.IllFormed))
 
   /** The trees of the fields from the index on, each later field decoded for
     * each tree of the earlier ones.
     */
-  private def fieldsDecoded(
+  private def fieldsDecoded[C <: NativeSpecializer & Singleton](
       mode: Mode,
       level: Int,
-      fields: Vector[(Value, ScottDataType)],
+      fields: Vector[(Value[C], ScottDataType)],
       index: Int,
       subtrees: Vector[ConstructorTree]
-  ): Answers[ReadingState, Vector[ConstructorTree]] =
+  )(using C): Answers[ReadingState[C], Vector[ConstructorTree]] =
     if index >= fields.size then Answers.single(subtrees)
     else
       val (field, fieldType) = fields(index)
@@ -233,12 +235,12 @@ object ScottDecoding:
     * had no limit).
     */
   def meaningConfirmed(
-      term: Value,
+      term: Value[gezi.ir.NoFacts.type],
       dataType: ScottDataType,
       tree: ConstructorTree,
       limit: Long
-  ): Confirmation =
-    decoded(Mode.TablingWeakHead, term, dataType).collected.result(ReadingState.fresh(limit)) match
+  )(using gezi.ir.NoFacts.type): Confirmation =
+    decoded(Mode.TablingWeakHead, term, dataType).collected.result(ReadingState.fresh(limit, gezi.weakhead.ReadingConfiguration.withoutFacts)) match
       case Computed.Done(trees, _) =>
         if trees.distinct == Vector(tree) then Confirmation.Confirmed else Confirmation.NotConfirmed
       case Computed.Stopped(after) =>

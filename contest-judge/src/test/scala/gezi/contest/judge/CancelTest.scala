@@ -1,6 +1,8 @@
 package gezi.contest.judge
 
 import hedgehog.Gen
+import gezi.ir.Configured
+import gezi.ir.NoFacts
 import hedgehog.Range
 import java.nio.file.Files
 import java.nio.file.Path
@@ -30,7 +32,7 @@ import snapshot4s.generated.snapshotConfig
   */
 final class CancelProbe extends EntryProvider:
 
-  def initial(entryDirectory: Path, cache: Cache, articles: ArticleDestination): Entry =
+  def initial(entryDirectory: Path, cache: Cache, articles: ArticleDestination): Entry[?] =
     Files.readString(entryDirectory.resolve("behaviour")) match
       case "honour" => CancelProbe.Honouring(cache, called = false)
       case "ignore" => CancelProbe.Ignoring(cache)
@@ -43,18 +45,18 @@ object CancelProbe:
   /** The entry that honours the cancel on its first call, and whether that
     * call was made.
     */
-  final case class Honouring(cache: Cache, called: Boolean) extends Entry:
-    def run(cell: DeBruijnTerm, source: gezi.hotspot.ExpansionSource, stop: StopSignal): Interaction =
+  final case class Honouring(cache: Cache, called: Boolean) extends Entry[NoFacts.type]:
+    def run(cell: gezi.frontend.DeBruijnTermOf[Configured[NoFacts.type]], source: gezi.hotspot.ExpansionSource, stop: StopSignal): Interaction[NoFacts.type] =
       if !called then spunUntil(stop)
       Interaction.Finished(Cells.unreducedOutput(cell, Cells.initialState), Vector(Count("probe_calls_before", if called then 1L else 0L)), copy(called = true))
 
   /** The entry that spins forever on every call, the signal ignored. */
-  final case class Ignoring(cache: Cache) extends Entry:
-    def run(cell: DeBruijnTerm, source: gezi.hotspot.ExpansionSource, stop: StopSignal): Interaction = spun(0L)
+  final case class Ignoring(cache: Cache) extends Entry[NoFacts.type]:
+    def run(cell: gezi.frontend.DeBruijnTermOf[Configured[NoFacts.type]], source: gezi.hotspot.ExpansionSource, stop: StopSignal): Interaction[NoFacts.type] = spun(0L)
 
   /** The entry whose JVM is killed with SIGKILL on every call. */
-  final case class Dying(cache: Cache) extends Entry:
-    def run(cell: DeBruijnTerm, source: gezi.hotspot.ExpansionSource, stop: StopSignal): Interaction = killed()
+  final case class Dying(cache: Cache) extends Entry[NoFacts.type]:
+    def run(cell: gezi.frontend.DeBruijnTermOf[Configured[NoFacts.type]], source: gezi.hotspot.ExpansionSource, stop: StopSignal): Interaction[NoFacts.type] = killed()
 
   /** Has `kill -9` kill this JVM, and waits for the signal. */
   private def killed(): Nothing =
@@ -126,7 +128,7 @@ class CancelTest extends gezi.generatedinputs.FailFastSuite with SeededSnapshots
   private val program = DeBruijnTerm.Lambda(DeBruijnTerm.Variable(0))
 
   /** The program's instruction, which a point holds. */
-  private val programInstruction: gezi.ir.Instruction = gezi.frontend.Defunctionalization.thunkInstruction(program)
+  private val programInstruction: Configured[NoFacts.type] = gezi.frontend.Defunctionalization.thunkInstruction(program)(using gezi.ir.NoFacts)
 
   /** The rows of the pass, each with its point, outcome, budget flag and
     * cancel, then the lifecycle events of each JVM, by its standard error's
@@ -143,7 +145,7 @@ class CancelTest extends gezi.generatedinputs.FailFastSuite with SeededSnapshots
     def familyName(position: Int) = if oneFamily then "family_0" else s"family_$position"
     val points = kinds.toVector.zipWithIndex.map((evaluation, position) =>
       val question = if evaluation then Question.Evaluation(Set(program)) else Question.Judgment(programInstruction, true)
-      Point(s"point_$position", "test", familyName(position), BigDecimal(1), programInstruction, question)
+      Point(s"point_$position", "test", familyName(position), BigDecimal(1), gezi.frontend.ExchangeText.line(programInstruction), question)
     )
     val families = points.groupBy(_.family).toVector.sortBy(_._1)
     val firstBudget = cap / families.headOption.fold(1)(_._2.size)

@@ -9,7 +9,8 @@ import gezi.hotspot.ForeignProgress
 import gezi.hotspot.ForeignValue
 import gezi.hotspot.Progress
 import gezi.hotspot.Spent
-import gezi.ir.Instruction
+import gezi.ir.{Closed, Configured, NativeSpecializer, Value}
+import gezi.jit.DeclaredValue
 import gezi.jit.Jit
 import gezi.jit.JitValue
 import gezi.jit.JitValues
@@ -28,14 +29,14 @@ import scala.jdk.CollectionConverters.*
 /** What one layer of a filtered state asks: an answer that ends its branch, or
   * a call with the transition its replies go to.
   */
-private enum MooreStep:
-  case Answer(term: JitValue)
-  case Call(call: ForeignCall, transition: JitValue)
+private enum MooreStep[C <: NativeSpecializer & Singleton]:
+  case Answer(term: JitValue[C])
+  case Call(call: ForeignCall, transition: JitValue[C])
 
 /** What a round read: the steps of its states, the executor and the steps
   * spent after them, and whether every state of the round was read.
   */
-private final case class MooreRound(steps: Vector[MooreStep], executor: ReadingExecutor, spent: Long, complete: Boolean)
+private final case class MooreRound[C <: NativeSpecializer & Singleton](steps: Vector[MooreStep[C]], executor: ReadingExecutor[C], spent: Long, complete: Boolean)
 
 /** The executor that runs FFI programs on the entry's JIT. Every other
   * program it hands to the reading executor it wraps.
@@ -67,31 +68,40 @@ private final case class MooreRound(steps: Vector[MooreStep], executor: ReadingE
   * state whose reading the budget ends also ends the run, so that the lanes
   * after it in the round make no call, which loses answers and adds none.
   */
-final case class MooreExecutor(reading: ReadingExecutor, jit: Jit, criteria: MooreCriteria) extends Executor[ReadingSuspension]:
+final case class MooreExecutor[C <: NativeSpecializer & Singleton](reading: ReadingExecutor[C], jit: Jit[C], criteria: MooreCriteria[C])
+    extends Executor[C, ReadingSuspension[C]]:
 
-  def executed(term: Instruction, dependencies: ExecutionDependencies, budget: Budget): (Executor[ReadingSuspension], ExecutionDependencies, Progress[ReadingSuspension]) =
+  // The configuration's own types and its specializer, in scope of every construction of the executor.
+  private type JitValue = gezi.jit.JitValue[C]
+  private type Native = NativeValue[JitValue]
+  private type MooreStep = gezi.contest.modules.moore.MooreStep[C]
+  private given specializer: C = jit.configuration.specializer
+
+  def executed(term: Configured[C], dependencies: ExecutionDependencies, budget: Budget): (Executor[C, ReadingSuspension[C]], ExecutionDependencies, Progress[C, ReadingSuspension[C]]) =
     val (next, after, progress) = reading.executed(term, dependencies, budget)
     (copy(reading = next), after, progress)
 
   def resumed(
-      suspension: ReadingSuspension,
+      suspension: ReadingSuspension[C],
       dependencies: ExecutionDependencies,
       budget: Budget
-  ): (Executor[ReadingSuspension], ExecutionDependencies, Progress[ReadingSuspension]) =
+  ): (Executor[C, ReadingSuspension[C]], ExecutionDependencies, Progress[C, ReadingSuspension[C]]) =
     val (next, after, progress) = reading.resumed(suspension, dependencies, budget)
     (copy(reading = next), after, progress)
 
-  def exported(suspension: ReadingSuspension, dependencies: ExecutionDependencies): (ExecutionDependencies, Option[Instruction]) =
+  def exported(suspension: ReadingSuspension[C], dependencies: ExecutionDependencies): (ExecutionDependencies, Option[Configured[C]]) =
     reading.exported(suspension, dependencies)
 
-  override def foreignProgram(state: Instruction): Option[Instruction] = Some(Instruction.Parallel(state, criteria.state))
+  override def foreignProgram(state: Configured[C]): Option[Configured[C]] = Some(specializer.parallel(state, criteria.state))
 
   override def interacted(
-      program: Instruction,
+      program: Configured[C],
       dependencies: ExecutionDependencies,
       budget: Budget
-  ): (Executor[ReadingSuspension], ExecutionDependencies, ForeignProgress) =
-    run(Vector(JitValues.fromValue(program)), reading, dependencies, budget, 0L, Vector.empty)
+  ): (Executor[C, ReadingSuspension[C]], ExecutionDependencies, ForeignProgress[C]) =
+    // One budget for the whole run: the reading's per-reading costs are cleared
+    // once here, and its states' computations share them.
+    run(Vector(Value.of(program)), reading.readingStarted, dependencies, budget, 0L, Vector.empty)
 
   /** Round after round until no state is pending, or the budget or the stop
     * ends the run: a round reads the states pending, makes all their calls in
@@ -100,28 +110,33 @@ final case class MooreExecutor(reading: ReadingExecutor, jit: Jit, criteria: Moo
   @tailrec
   private def run(
       pending: Vector[JitValue],
-      current: ReadingExecutor,
+      current: ReadingExecutor[C],
       dependencies: ExecutionDependencies,
       budget: Budget,
       spent: Long,
-      answers: Vector[Instruction]
-  ): (Executor[ReadingSuspension], ExecutionDependencies, ForeignProgress) =
-    def ended(executor: ReadingExecutor, steps: Long, found: Vector[Instruction], finished: Boolean) =
+      answers: Vector[Closed[C]]
+  ): (Executor[C, ReadingSuspension[C]], ExecutionDependencies, ForeignProgress[C]) =
+    def ended(executor: ReadingExecutor[C], steps: Long, found: Vector[Closed[C]], finished: Boolean) =
       (copy(reading = executor), dependencies, ForeignProgress(found.distinct, finished, Spent(steps, Map.empty)))
     if pending.isEmpty then ended(current, spent, answers, finished = true)
     else if spent >= budget.steps || budget.stop.stopRequested then ended(current, spent, answers, finished = false)
     else
       val round = roundRead(pending, current, dependencies, budget, spent, Vector.empty)
-      val answered = answers ++ round.steps.collect { case MooreStep.Answer(term) => jit.closedTerm(term) }
-      val calls = round.steps.collect { case call: MooreStep.Call => call }
+      // An answer is an output field left unread, a value of the configuration the program was read under: it is
+      // closed because the filtered state's reading decodes a closed state.
+      val answered = answers ++ round.steps.collect {
+        case MooreStep.Answer(term) =>
+          Value.closed(term).getOrElse(throw IllegalStateException(s"a decoded answer is not closed: $term"))
+      }
+      val calls = round.steps.collect { case MooreStep.Call(call, transition) => (call, transition) }
       val replies =
         if calls.isEmpty then Some(Vector.empty)
-        else dependencies.foreign.replies(calls.map(_.call), budget.stop)
+        else dependencies.foreign.replies(calls.map(_._1), budget.stop)
       replies match
         case Some(replied) if round.complete =>
-          val following = calls.zip(replied).flatMap((call, values) =>
-            values.map(value => filtered(JitValue.Apply(call.transition, replyValue(value)), criteria.state))
-          )
+          val following = calls.zip(replied).flatMap { case ((_, transition), values) =>
+            values.map(value => filtered(gezi.ir.Value.Apply(transition, replyValue(value)), criteria.state))
+          }
           run(following, round.executor, dependencies, budget, round.spent, answered)
         case _ => ended(round.executor, round.spent, answered, finished = false)
 
@@ -132,12 +147,12 @@ final case class MooreExecutor(reading: ReadingExecutor, jit: Jit, criteria: Moo
   @tailrec
   private def roundRead(
       states: Vector[JitValue],
-      current: ReadingExecutor,
+      current: ReadingExecutor[C],
       dependencies: ExecutionDependencies,
       budget: Budget,
       spent: Long,
       found: Vector[MooreStep]
-  ): MooreRound = states.headOption match
+  ): MooreRound[C] = states.headOption match
     case None => MooreRound(found, current, spent, complete = true)
     case Some(_) if spent >= budget.steps || budget.stop.stopRequested => MooreRound(found, current, spent, complete = false)
     case Some(state) =>
@@ -146,29 +161,29 @@ final case class MooreExecutor(reading: ReadingExecutor, jit: Jit, criteria: Moo
         case None           => MooreRound(found, next, spent + stepSpent, complete = false)
         case Some(stepped) => roundRead(states.drop(1), next, dependencies, budget, spent + stepSpent, found ++ stepped)
 
-  private def filtered(term: JitValue, criterion: Instruction): JitValue =
-    JitValue.Parallel(term, JitValues.fromValue(criterion))
+  private def filtered(term: JitValue, criterion: Configured[C]): JitValue =
+    Value.parallel(specializer)(term, Value.of(criterion))
 
   /** What each layer the filtered state decodes into asks. */
-  private def steps(state: JitValue): Computation[ReadingState, Vector[MooreStep]] =
+  private def steps(state: JitValue): Computation[ReadingState[C], Vector[MooreStep]] =
     jit.representedHeads(state).flatMap(layerSteps).collected
 
-  private def layerSteps(layer: NativeValue): Answers[ReadingState, MooreStep] = layer match
-    case NativeValue.Constructed(_, 0, Vector(output, NativeValue.Unread(transition))) =>
+  private def layerSteps(layer: Native): Answers[ReadingState[C], MooreStep] = layer match
+    case DeclaredValue(_, 0, Vector(output, NativeValue.Unread(transition))) =>
       output match
-        case NativeValue.Constructed(_, 0, Vector(NativeValue.Unread(answer))) => Answers.single(MooreStep.Answer(answer))
-        case NativeValue.Constructed(_, 1, Vector(expression))                 => calls(expression, transition)
+        case DeclaredValue(_, 0, Vector(NativeValue.Unread(answer))) => Answers.single(MooreStep.Answer(answer))
+        case DeclaredValue(_, 1, Vector(expression))                 => calls(expression, transition)
         case other => throw IllegalStateException(s"a decoded output is $other")
     case other => throw IllegalStateException(s"a decoded state is $other")
 
   /** The calls the expression at an output's root asks, one for each
     * combination of its symbols' and its arguments' values.
     */
-  private def calls(expression: NativeValue, transition: JitValue): Answers[ReadingState, MooreStep] = expression match
-    case NativeValue.Constructed(_, 0, Vector(NativeValue.Unread(method), arguments)) =>
+  private def calls(expression: Native, transition: JitValue): Answers[ReadingState[C], MooreStep] = expression match
+    case DeclaredValue(_, 0, Vector(NativeValue.Unread(method), arguments)) =>
       val values = argumentValues(arguments, Vector.empty)
       jit
-        .representedHeads(filtered(JitValue.Apply(JitValues.fromValue(criteria.methodSymbols), method), criteria.symbols))
+        .representedHeads(filtered(Value.Apply(Value.of(criteria.methodSymbols), method), criteria.symbols))
         .flatMap(symbols =>
           val (owner, name, descriptor) = symbolsRead(symbols)
           val parameters = MethodTypeDesc.ofDescriptor(descriptor).parameterList.asScala.toVector.map(_.descriptorString)
@@ -176,7 +191,7 @@ final case class MooreExecutor(reading: ReadingExecutor, jit: Jit, criteria: Moo
           else
             parameters
               .zip(values)
-              .foldLeft(Answers.single[ReadingState, Vector[ForeignValue]](Vector.empty)) { case (sofar, (parameter, value)) =>
+              .foldLeft(Answers.single[ReadingState[C], Vector[ForeignValue]](Vector.empty)) { case (sofar, (parameter, value)) =>
                 sofar.flatMap(found => argumentValue(parameter, value).map(found :+ _))
               }
               .map(read => MooreStep.Call(ForeignCall(owner, name, descriptor, read), transition))
@@ -185,18 +200,18 @@ final case class MooreExecutor(reading: ReadingExecutor, jit: Jit, criteria: Moo
 
   /** The values of the `decode` nodes of a Scott list of expressions. */
   @tailrec
-  private def argumentValues(list: NativeValue, found: Vector[JitValue]): Vector[JitValue] = list match
-    case NativeValue.Constructed(_, 0, Vector()) => found
-    case NativeValue.Constructed(_, 1, Vector(NativeValue.Constructed(_, 2, Vector(NativeValue.Unread(value))), rest)) =>
+  private def argumentValues(list: Native, found: Vector[JitValue]): Vector[JitValue] = list match
+    case DeclaredValue(_, 0, Vector()) => found
+    case DeclaredValue(_, 1, Vector(DeclaredValue(_, 2, Vector(NativeValue.Unread(value))), rest)) =>
       argumentValues(rest, found :+ value)
-    case NativeValue.Constructed(_, 1, Vector(nested, _)) => throw laterStep(s"the nested node $nested")
+    case DeclaredValue(_, 1, Vector(nested, _)) => throw laterStep(s"the nested node $nested")
     case other                                            => throw IllegalStateException(s"a decoded list of arguments is $other")
 
   /** The value at a parameter, read under the criterion its descriptor gives
     * (a Java method's descriptor already gives the type of each of its
     * values).
     */
-  private def argumentValue(parameter: String, value: JitValue): Answers[ReadingState, ForeignValue] = parameter match
+  private def argumentValue(parameter: String, value: JitValue): Answers[ReadingState[C], ForeignValue] = parameter match
     case "Z" =>
       jit.representedHeads(filtered(value, criteria.boolean)).map {
         case NativeValue.Truth(truth) => ForeignValue.Truth(truth)
@@ -208,30 +223,31 @@ final case class MooreExecutor(reading: ReadingExecutor, jit: Jit, criteria: Moo
     case "J" | "D" => bitsValue(value, criteria.bits64, 64)
     case other     => throw laterStep(s"an argument at the parameter $other")
 
-  private def bitsValue(value: JitValue, criterion: Instruction, width: Int): Answers[ReadingState, ForeignValue] =
+  private def bitsValue(value: JitValue, criterion: Configured[C], width: Int): Answers[ReadingState[C], ForeignValue] =
     jit.representedHeads(filtered(value, criterion)).map(read => ForeignValue.Bits(width, MooreExecutor.bits(read)))
 
   /** The run-time value of a reply, a value of its representation. */
   private def replyValue(value: ForeignValue): JitValue = value match
-    case ForeignValue.Truth(truth) => JitValue.Represented(representation(criteria.boolean), NativeValue.Truth(truth))
+    case ForeignValue.Truth(truth) => jit.configuration.operations.storageOf(representation(criteria.boolean), NativeValue.Truth(truth))
     case ForeignValue.Bits(width, bits) =>
-      JitValue.Represented(representation(widthCriterion(width)), JvmBitsFamily.masked(width, bits))
-    case ForeignValue.Term(term) => JitValues.fromValue(term)
+      jit.configuration.operations.storageOf(representation(widthCriterion(width)), JvmBitsFamily.masked(width, bits))
+    // A service's reply term is a pure term, the same under every configuration, brought into this one.
+    case ForeignValue.Term(term) => Value.of(Configured.fromPure(specializer)(term))
 
-  private def widthCriterion(width: Int): Instruction = width match
+  private def widthCriterion(width: Int): Configured[C] = width match
     case 8     => criteria.bits8
     case 16    => criteria.bits16
     case 32    => criteria.bits32
     case 64    => criteria.bits64
     case other => throw IllegalArgumentException(s"a reply of $other bits is no JVM value type")
 
-  private def representation(criterion: Instruction): Representation =
+  private def representation(criterion: Configured[C]): Representation[JitValue] =
     jit.representationOf(criterion).getOrElse(
       throw IllegalStateException(s"the entry's knowledge has no family of the criterion $criterion: enable corpora/compiler/java_ffi")
     )
 
-  private def symbolsRead(value: NativeValue): (String, String, String) = value match
-    case NativeValue.Constructed(_, 0, Vector(owner, name, descriptor)) =>
+  private def symbolsRead(value: Native): (String, String, String) = value match
+    case DeclaredValue(_, 0, Vector(owner, name, descriptor)) =>
       (MooreExecutor.text(owner), MooreExecutor.text(name), MooreExecutor.text(descriptor))
     case other => throw IllegalStateException(s"decoded symbols are $other")
 
@@ -241,12 +257,12 @@ final case class MooreExecutor(reading: ReadingExecutor, jit: Jit, criteria: Moo
 object MooreExecutor:
 
   /** The bits of a decoded tuple. */
-  private def bits(value: NativeValue): Long = value match
+  private def bits(value: NativeValue[?]): Long = value match
     case JvmBits(_, found) => found
     case other             => throw IllegalStateException(s"a decoded bit tuple is $other")
 
   /** The text of a decoded list of UTF-8 bytes. */
-  private def text(list: NativeValue): String =
+  private def text(list: NativeValue[?]): String =
     val bytes = byteValues(list, Vector.empty)
     Vector
       .unfold(0)(index =>
@@ -260,7 +276,7 @@ object MooreExecutor:
       .mkString
 
   @tailrec
-  private def byteValues(list: NativeValue, found: Vector[Int]): Vector[Int] = list match
-    case NativeValue.Constructed(_, 0, Vector())            => found
-    case NativeValue.Constructed(_, 1, Vector(byte, rest)) => byteValues(rest, found :+ bits(byte).toInt)
+  private def byteValues(list: NativeValue[?], found: Vector[Int]): Vector[Int] = list match
+    case DeclaredValue(_, 0, Vector())            => found
+    case DeclaredValue(_, 1, Vector(byte, rest)) => byteValues(rest, found :+ bits(byte).toInt)
     case other                                              => throw IllegalStateException(s"a decoded list of bytes is $other")

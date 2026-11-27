@@ -14,12 +14,15 @@ import gezi.frontend.Defunctionalization
 import gezi.generatedinputs.HoasGenerators
 import gezi.generatedinputs.GeneratedProperties
 import gezi.hotspot.LifecycleEvent
-import gezi.ir.Instruction
+import gezi.ir.Configured
+import gezi.ir.NoFacts
+
+private given pipeLinesLawTestNoFacts: NoFacts.type = NoFacts
 
 /** The laws that the supervisor's side and the runner's side of the pipe
-  * read each other's lines: `cellRead` inverts `cellLine` (the cell written
-  * as its instruction and read as a de Bruijn term of the same instruction), and
-  * `answerRead` inverts `answerLine`, on generated closed cells, displays
+  * read each other's lines: `cellRead` reads a point's line
+  * (`evaluationLine`, `judgmentLine`) as the point's cell, and `answerRead`
+  * inverts `answerLine`, on generated closed programs and candidates, displays
   * (a closed pure term or a choice of several) and phases (none or several), and no line holds a
   * newline. Its purpose is to
   * catch a field lost or reordered when the pipe's two sides were split
@@ -37,7 +40,7 @@ import gezi.ir.Instruction
   * process's phases field, or takes a malformed one for no phases.
   *
   * A fifth law: `receivedRead` reads a lifecycle line as its event, a
-  * cell line, of any name, `lifecycle` and `cancel` included, as its
+  * point's line, of any name, `lifecycle` and `cancel` included, as its
   * cell, and the cancel line as the cancel. Its purpose is to catch a
   * runner that takes one kind of line for another, which would lose a
   * cell, hand the entry an event the supervisor did not send, or stop a
@@ -66,66 +69,67 @@ class PipeLinesLawTest extends GeneratedProperties:
   /** A report: a phase or a count. */
   private val report: Gen[Report] = Gen.choice1(phase.map(identity[Report]), count.map(identity[Report]))
 
+  /** The display of the normal forms the term holds as its choice's members, read as Scott ADT values. */
+  private def normalFormsDisplay(term: DeBruijnTerm): OutputDisplay[NoFacts.type] =
+    given gezi.ir.StorageAccess = gezi.weakhead.ReadingConfiguration.withoutFacts.storageAccess
+    OutputDisplay.Values(
+      gezi.weakhead.ScottADTChoices
+        .ofNormalForm(gezi.frontend.Defunctionalization.thunkInstruction[NoFacts.type](term))
+        .getOrElse(throw IllegalArgumentException(s"the term is no Scott ADT value: $term"))
+    )
+
   /** A display: no normal form, a closed pure term, or a choice of two or
     * three of them.
     */
-  private val display: Gen[OutputDisplay] = Gen.choice1(
-    Gen.constant(OutputDisplay.NoNormalForm),
+  private val display: Gen[OutputDisplay[NoFacts.type]] = Gen.choice1(
+    Gen.constant(OutputDisplay.noScottADTValue[NoFacts.type]),
     pureTerm.map(OutputDisplay.shown),
-    pureTerm.list(Range.linear(2, 3)).map(members => OutputDisplay.shown(DeBruijnTerm.nestedChoice(members.toVector)))
+    pureTerm.list(Range.linear(2, 3)).map(members => normalFormsDisplay(DeBruijnTerm.nestedChoice(members.toVector)))
   )
 
-  property("a cell line reads back as its name and a cell of the same instruction") {
-    for cell <- pureTerm.forAll
-    yield
-      val instruction = Defunctionalization.thunkInstruction(cell)
-      val written = PipeLines.cellLine("point", instruction)
-      val (name, read) = PipeLines.cellRead(written)
-      Result.all(
-        List(
-          Result.diff(name, "point")(_ == _),
-          Result.diff(Defunctionalization.thunkInstruction(read), instruction)(_ == _).log("the cell read, as an instruction, and the cell written"),
-          Result.assert(!written.contains('\n'))
-        )
-      )
-  }
-
-  /** Its purpose is to catch a cell line whose program is read back into a
-    * tree: a point's
-    * cell, `λs.λk. k s p` and `λs.λk. k s (N ∥ p)` as the supervisor writes
-    * them (`gezi.contest.judge.Supervisor.cell`), reads with its Output a
-    * constant of the very program written, or a parallel of the candidate's
-    * and the program's constants, which an entry tells a judgment by, the
-    * front end turning the Output back into the instruction written itself,
-    * and with the same instruction as the full readback gives.
+  /** Its purpose is to catch a runner that builds another cell than the one
+    * the judge built before it sent programs as their lines: the cell of an
+    * evaluation, `λs.λk. k s p`, and of a judgment, `λs.λk. k s (N ∥ p)`, the
+    * Output a constant (`Cells.cell`) converted as it is, the same interned
+    * instruction as the cell built from the program's and the candidate's
+    * lines; read with its Output a constant of the very program written, or
+    * a parallel of the candidate's and the program's constants, which an
+    * entry tells a judgment by, and with the same instruction as the full
+    * readback gives; a name read back, and no newline in the line.
     */
-  property("a point's cell line reads with its Output a constant of the program") {
+  property("a point's line reads as the point's cell, its Output a constant of the program") {
     for
       program <- pureTerm.forAll
       candidate <- pureTerm.forAll
       judged <- Gen.boolean.forAll
     yield
-      val programInstruction = Defunctionalization.thunkInstruction(program)
-      val candidateInstruction = Defunctionalization.thunkInstruction(candidate)
+      val programInstruction = Defunctionalization.thunkInstruction(program)(using gezi.ir.NoFacts)
+      val candidateInstruction = Defunctionalization.thunkInstruction(candidate)(using gezi.ir.NoFacts)
       val output =
-        if judged then Instruction.Parallel(candidateInstruction, programInstruction) else programInstruction
+        if judged then NoFacts.parallel(candidateInstruction, programInstruction) else programInstruction
       val expected =
         if judged then DeBruijnTerm.Parallel(DeBruijnTerm.Constant(candidateInstruction), DeBruijnTerm.Constant(programInstruction))
         else DeBruijnTerm.Constant(programInstruction)
-      val cell = Defunctionalization.thunkInstruction(Cells.cell(DeBruijnTerm.Constant(output)))
-      val (_, read) = PipeLines.cellRead(PipeLines.cellLine("point", cell))
+      val cell = Defunctionalization.thunkInstruction(Cells.cell(DeBruijnTerm.Constant(output)))(using gezi.ir.NoFacts)
+      val written =
+        if judged then PipeLines.judgmentLine("point", ExchangeText.line(candidateInstruction), ExchangeText.line(programInstruction))
+        else PipeLines.evaluationLine("point", ExchangeText.line(programInstruction))
+      val (name, read) = PipeLines.cellRead(written)
       val readOutput = Cells.output(read, Cells.initialState)
       Result.all(
         List(
+          Result.diff(name, "point")(_ == _),
+          Result.assert(Defunctionalization.thunkInstruction(read)(using gezi.ir.NoFacts) eq cell).log("the cell read is not the cell the judge built"),
           Result.diff(readOutput, expected)(_ == _).log("the Output of the cell read"),
-          Result.assert(Defunctionalization.thunkInstruction(readOutput) eq output).log("the Output's instruction is not the program written"),
-          Result.diff(Defunctionalization.thunkInstruction(read), Defunctionalization.thunkInstruction(Defunctionalization.instructionTerm(cell)))(_ == _)
-            .log("the cell read and the full readback, as instructions")
+          Result.assert(Defunctionalization.thunkInstruction(readOutput)(using gezi.ir.NoFacts) eq output).log("the Output's instruction is not the program written"),
+          Result.diff(Defunctionalization.thunkInstruction(read)(using gezi.ir.NoFacts), Defunctionalization.thunkInstruction(Defunctionalization.instructionTerm(cell))(using gezi.ir.NoFacts))(_ == _)
+            .log("the cell read and the full readback, as instructions"),
+          Result.assert(!written.contains('\n'))
         )
       )
   }
 
-  property("a lifecycle line, a cell line and the cancel line are received as what they are") {
+  property("a lifecycle line, a point's line and the cancel line are received as what they are") {
     for
       event <- Gen.element1(LifecycleEvent.values.head, LifecycleEvent.values.tail*).forAll
       name <- Gen.element1("lifecycle", "point", "family_started", PipeLines.cancelLine).forAll
@@ -134,10 +138,13 @@ class PipeLinesLawTest extends GeneratedProperties:
       Result.all(
         List(
           Result.diff(PipeLines.receivedRead(PipeLines.lifecycleLine(event)), PipeLines.Received.Lifecycle(event))(_ == _),
-          PipeLines.receivedRead(PipeLines.cellLine(name, Defunctionalization.thunkInstruction(cell))) match
+          PipeLines.receivedRead(PipeLines.evaluationLine(name, ExchangeText.line(Defunctionalization.thunkInstruction(cell)(using gezi.ir.NoFacts)))) match
             case PipeLines.Received.Cell(read, readCell) =>
-              Result.diff((read, Defunctionalization.thunkInstruction(readCell)), (name, Defunctionalization.thunkInstruction(cell)))(_ == _)
-            case other => Result.failure.log(s"a cell line received as $other"),
+              Result.diff(
+                (read, Defunctionalization.thunkInstruction(readCell)(using gezi.ir.NoFacts)),
+                (name, PipeLines.pointCell(Defunctionalization.thunkInstruction(cell)(using gezi.ir.NoFacts)))
+              )(_ == _)
+            case other => Result.failure.log(s"a point's line received as $other"),
           Result.diff(PipeLines.receivedRead(PipeLines.cancelLine), PipeLines.Received.Cancel)(_ == _)
         )
       )
@@ -220,7 +227,7 @@ class PipeLinesLawTest extends GeneratedProperties:
     )
     val field = Gen.choice1(
       Gen.element1("answer", "point", "cell", "-", ""),
-      pureTerm.map(term => ExchangeText.line(Defunctionalization.thunkInstruction(term)))
+      pureTerm.map(term => ExchangeText.line(Defunctionalization.thunkInstruction(term)(using gezi.ir.NoFacts)))
     )
     for
       first <- firstField.forAll

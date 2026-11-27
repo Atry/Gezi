@@ -1,0 +1,8 @@
+# The selector of the extractor module of the narrow blocks over declared data families
+# (gezi.contest.modules.plover.families.DeclaredFamilyExtractionModule, project
+# contest-modules-plover-families): the one field of this file's tuple, a closed term told
+# apart from every other module's selector by its synthetic label, which the host never
+# reads. The module registers this file's path and an entry imports this file, so that the
+# two selectors are one interned instruction.
+λ export
+. export λ. (λ"$families". λx. x) "$families"

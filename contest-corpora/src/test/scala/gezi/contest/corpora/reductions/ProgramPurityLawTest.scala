@@ -8,7 +8,10 @@ import gezi.frontend.Defunctionalization
 import gezi.frontend.Literal
 import gezi.frontend.Literals
 import gezi.frontend.ProgramPurity
-import gezi.ir.Instruction
+import gezi.frontend.DeBruijnTermOf
+import gezi.ir.Configured
+import gezi.ir.NativeSpecializer.*
+import gezi.ir.NoFacts
 import gezi.generatedinputs.GeneratedProperties
 
 /** The laws of `ProgramPurity.pure` on generated terms: a term built of
@@ -20,14 +23,18 @@ import gezi.generatedinputs.GeneratedProperties
   */
 class ProgramPurityLawTest extends GeneratedProperties:
 
-  /** An instruction for the constants: the interned identity. */
-  private val constantInstruction: Instruction =
-    Defunctionalization.thunkInstruction(DeBruijnTerm.Lambda(DeBruijnTerm.Variable(0)))
+  given NoFacts.type = NoFacts
 
-  private val variables: Gen[DeBruijnTerm] = Gen.int(Range.constant(0, 3)).map(DeBruijnTerm.Variable(_))
+  private type NoFactsTerm = Configured[NoFacts.type]
+
+  /** An instruction for the constants: the interned identity. */
+  private val constantInstruction: NoFactsTerm =
+    Defunctionalization.thunkInstruction[NoFacts.type](DeBruijnTerm.Lambda(DeBruijnTerm.Variable(0)))
+
+  private val variables: Gen[DeBruijnTermOf[NoFactsTerm]] = Gen.int(Range.constant(0, 3)).map(DeBruijnTerm.Variable(_))
 
   /** Pure terms of at most the depth. */
-  private def pureTerms(depth: Int): Gen[DeBruijnTerm] =
+  private def pureTerms(depth: Int): Gen[DeBruijnTermOf[NoFactsTerm]] =
     if depth == 0 then variables
     else
       Gen.choice1(
@@ -43,7 +50,7 @@ class ProgramPurityLawTest extends GeneratedProperties:
     * members pure. A choice has no one-member form: a chain of one member is
     * that member.
     */
-  private def impureNodes(depth: Int): Gen[DeBruijnTerm] =
+  private def impureNodes(depth: Int): Gen[DeBruijnTermOf[NoFactsTerm]] =
     Gen.choice1(
       pureTerms(depth).list(Range.constant(2, 3)).map(members => DeBruijnTerm.nestedChoice(members.toVector)),
       for
@@ -56,7 +63,7 @@ class ProgramPurityLawTest extends GeneratedProperties:
   /** Terms of at most the depth with an impure node at a generated
     * position, under abstractions and on either side of applications.
     */
-  private def impureTerms(depth: Int): Gen[DeBruijnTerm] =
+  private def impureTerms(depth: Int): Gen[DeBruijnTermOf[NoFactsTerm]] =
     if depth == 0 then impureNodes(0)
     else
       Gen.choice1(
@@ -86,7 +93,7 @@ class ProgramPurityLawTest extends GeneratedProperties:
     * the literal's bits and to further arguments, its body and the arguments
     * drawn pure or not: the redex `pure` contracts.
     */
-  private def literalApplications(depth: Int): Gen[DeBruijnTerm] =
+  private def literalApplications(depth: Int): Gen[DeBruijnTermOf[NoFactsTerm]] =
     for
       written <- Gen.string(Gen.alphaNum, Range.linear(0, 3))
       body <- Gen.choice1(pureTerms(depth), impureTerms(depth))
@@ -98,7 +105,7 @@ class ProgramPurityLawTest extends GeneratedProperties:
   /** A closed term: the term under four abstractions, which bind the
     * generated variables.
     */
-  private def closedTerms(depth: Int): Gen[DeBruijnTerm] =
+  private def closedTerms(depth: Int): Gen[DeBruijnTermOf[NoFactsTerm]] =
     Gen
       .choice1(pureTerms(depth), impureTerms(depth), literalApplications(depth - 1))
       .map(term => (1 to 4).foldLeft(term)((body, _) => DeBruijnTerm.Lambda(body)))
@@ -108,7 +115,7 @@ class ProgramPurityLawTest extends GeneratedProperties:
   property("the purity of an instruction is the purity of its readback") {
     for term <- closedTerms(4).forAll
     yield
-      val instruction = Defunctionalization.thunkInstruction(term)
+      val instruction = Defunctionalization.thunkInstruction[NoFacts.type](term)
       Result.diff(ProgramPurity.pureInstruction(instruction), ProgramPurity.pure(Defunctionalization.instructionTerm(instruction)))(_ == _)
   }
 
@@ -117,8 +124,8 @@ class ProgramPurityLawTest extends GeneratedProperties:
   property("the purity of a program sharing a closed term 2^40 times is decided at the size of its graph") {
     for term <- closedTerms(4).forAll
     yield
-      val leaf = Defunctionalization.thunkInstruction(term)
-      val shared = (1 to 40).foldLeft(leaf)((below, _) => Instruction.Apply(below, below))
+      val leaf: NoFactsTerm = Defunctionalization.thunkInstruction[NoFacts.type](term)
+      val shared = (1 to 40).foldLeft(leaf)((below, _) => NoFacts.application(below, below))
       Result.diff(ProgramPurity.pureInstruction(shared), ProgramPurity.pureInstruction(leaf))(_ == _)
   }
 
@@ -132,5 +139,5 @@ class ProgramPurityLawTest extends GeneratedProperties:
     yield
       val literal = Literal.text(written)
       val applied = (Literals.arguments(literal) ++ later).foldLeft(Literals.partialFunction(literal, body))(DeBruijnTerm.Apply(_, _))
-      Result.assert(ProgramPurity.pureInstruction(Defunctionalization.thunkInstruction((1 to 4).foldLeft(applied)((term, _) => DeBruijnTerm.Lambda(term)))))
+      Result.assert(ProgramPurity.pureInstruction(Defunctionalization.thunkInstruction[NoFacts.type]((1 to 4).foldLeft(applied)((term, _) => DeBruijnTerm.Lambda(term)))))
   }

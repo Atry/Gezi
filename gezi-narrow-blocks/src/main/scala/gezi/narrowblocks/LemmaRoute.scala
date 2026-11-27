@@ -4,7 +4,6 @@ import gezi.egraph.EGraph
 import gezi.frontend.Defunctionalization
 import gezi.frontend.Term
 import gezi.frontend.Term.λ
-import gezi.ir.Instruction
 import gezi.jit.NativeBackend
 import gezi.rewritetrace.PositionSegment
 import gezi.rewritetrace.Positions
@@ -15,6 +14,7 @@ import gezi.saturation.StopSignal
 import gezi.strategies.FixpointEgraph
 import gezi.strategies.NormalityModule
 import gezi.standardlibrary.StandardLibraryIndex
+import gezi.ir.{Configured, NativeSpecializer}
 
 /** What the lemma route gave for a program: the program with every narrow
   * block computed, or nothing; the round's extraction, equal to the
@@ -22,9 +22,9 @@ import gezi.standardlibrary.StandardLibraryIndex
   * through, in order, each with the nanoseconds it took; the instances of
   * the saturation's graph; and how the saturation ended.
   */
-final case class LemmaRouteResult(
-    program: Option[Instruction],
-    extracted: Option[Instruction],
+final case class LemmaRouteResult[C <: NativeSpecializer & Singleton](
+    program: Option[Configured[C]],
+    extracted: Option[Configured[C]],
     steps: Vector[(String, Long)],
     instances: Int,
     end: End
@@ -43,15 +43,18 @@ final case class RoundSaturation(instances: Int, end: End)
   * read and from which a proof of the program equal to its extraction is
   * read (`GraphProof`); and the trace's commands that take the extraction
   * to the program with its blocks computed (`LemmaRoute.nativeCommands`),
-  * none when no block was computed or the run was not `explained`.
+  * none when no block was computed or the run was not `explained`; and the
+  * closure units compiled for the program (`ClosureUnits.compiledProgram`),
+  * none when the program was compiled whole.
   */
-final case class LemmaRoundsResult(
-    program: Option[Instruction],
-    extracted: Option[Instruction],
+final case class LemmaRoundsResult[C <: NativeSpecializer & Singleton](
+    program: Option[Configured[C]],
+    extracted: Option[Configured[C]],
     steps: Vector[(String, Long)],
     rounds: Vector[RoundSaturation],
-    graph: EGraph,
-    natives: Vector[TraceCommand]
+    graph: EGraph[C],
+    natives: Vector[TraceCommand[C]],
+    units: Vector[CompiledUnit[C]] = Vector.empty[CompiledUnit[C]]
 )
 
 /** The lemma route: the round of a lemma compilation, its extraction's narrow blocks
@@ -66,8 +69,17 @@ final case class LemmaRoundsResult(
   */
 object LemmaRoute extends NarrowBlockRoute:
 
+  /** The configuration of the program a round's run holds: its graph's construction, the native specializer and the
+    * capability of the round's configuration.
+    */
+  def readingConfiguration[C <: NativeSpecializer & Singleton](run: Run[C]): gezi.weakhead.ReadingConfiguration[C] =
+    gezi.weakhead.ReadingConfiguration(run.graph.store.construction.specializer, run.graph.store.construction.storageAccess)
+
   /** The default narrow blocks' modules, `LemmaCompilation.extractorModules`. */
-  def extractorModules(natives: NativeBackend): Vector[NormalityModule] = LemmaCompilation.extractorModules(natives)
+  def extractorModules[C <: NativeSpecializer & Singleton](
+      natives: NativeBackend,
+      configuration: gezi.weakhead.ReadingConfiguration[C]
+  ): Vector[NormalityModule[C]] = LemmaCompilation.extractorModules(natives, configuration)
 
   /** The program with every narrow block of its lemma compilation computed:
     * the round of `compilation`, its extraction's maximal closed narrow
@@ -79,14 +91,14 @@ object LemmaRoute extends NarrowBlockRoute:
     * `block_run`, as far as it got. The graph records the terms made when
     * `explained` (a run whose proof is wanted).
     */
-  def compiled(
-      index: StandardLibraryIndex,
-      compilation: PreparedLemmaCompilation,
+  def compiled[C <: NativeSpecializer & Singleton](
+      index: StandardLibraryIndex[C],
+      compilation: PreparedLemmaCompilation[C],
       natives: NativeBackend,
-      program: Instruction,
+      program: Configured[C],
       explained: Boolean,
       stop: StopSignal
-  ): LemmaRouteResult =
+  )(using C): LemmaRouteResult[C] =
     val (run, saturation) = timed("lemma_saturation")(compilation.saturated(program, explained, stop))
     val (computed, extracted, steps) = blocksComputed(index, compilation, natives, program, run, Vector(saturation), explained, stop)
     LemmaRouteResult(computed.map(_._1), extracted, steps, run.graph.instances, run.end)
@@ -106,14 +118,15 @@ object LemmaRoute extends NarrowBlockRoute:
     * no block on any hot program, the extraction dropping the typed member
     * of a choice.
     */
-  def compiledRounds(
-      index: StandardLibraryIndex,
-      rounds: Vector[PreparedLemmaCompilation],
+  def compiledRounds[C <: NativeSpecializer & Singleton](
+      index: StandardLibraryIndex[C],
+      rounds: Vector[PreparedLemmaCompilation[C]],
       natives: NativeBackend,
-      program: Instruction,
+      encoding: gezi.jit.StorageEncoding & C,
+      program: Configured[C],
       explained: Boolean,
       stop: StopSignal
-  ): LemmaRoundsResult =
+  )(using C): LemmaRoundsResult[C] =
     val (run, steps, saturations) = saturatedRounds(rounds, program, explained, stop)
     val (computed, extracted, allSteps) = blocksComputed(index, rounds.last, natives, program, run, steps, explained, stop)
     LemmaRoundsResult(
@@ -122,7 +135,7 @@ object LemmaRoute extends NarrowBlockRoute:
       allSteps,
       saturations,
       run.graph,
-      computed.fold(Vector.empty[TraceCommand])(_._2)
+      computed.fold(Vector.empty[TraceCommand[C]])(_._2)
     )
 
   /** The saturation part of `compiledRounds`: the graph built for every
@@ -130,17 +143,17 @@ object LemmaRoute extends NarrowBlockRoute:
     * saturating it, a stopped round ending the rounds. The last run, its
     * `lemma_saturation` steps and each round's saturation.
     */
-  def saturatedRounds(
-      rounds: Vector[PreparedLemmaCompilation],
-      program: Instruction,
+  def saturatedRounds[C <: NativeSpecializer & Singleton](
+      rounds: Vector[PreparedLemmaCompilation[C]],
+      program: Configured[C],
       explained: Boolean,
       stop: StopSignal
-  ): (Run, Vector[(String, Long)], Vector[RoundSaturation]) =
+  )(using C): (Run[C], Vector[(String, Long)], Vector[RoundSaturation]) =
     require(rounds.nonEmpty, "the shared rounds are one round or more")
     val shared = rounds.map(_.compiledRound)
     val initial = FixpointEgraph.sharedGraph(shared, explained)
     val (lastRun, steps, saturations) =
-      rounds.foldLeft((Option.empty[Run], Vector.empty[(String, Long)], Vector.empty[RoundSaturation])) {
+      rounds.foldLeft((Option.empty[Run[C]], Vector.empty[(String, Long)], Vector.empty[RoundSaturation])) {
         case ((Some(previous), steps, saturations), _) if stopped(previous.end) => (Some(previous), steps, saturations)
         case ((previous, steps, saturations), round) =>
           val graph = previous.fold(initial)(_.graph)
@@ -165,7 +178,7 @@ object LemmaRoute extends NarrowBlockRoute:
     * program, as they would be in the extraction, so a block a graph with no
     * union still holds (48 of the 104 points have some) is still computed.
     */
-  private def extractionOf(compilation: PreparedLemmaCompilation, program: Instruction, run: Run, stop: StopSignal): Instruction =
+  private def extractionOf[C <: NativeSpecializer & Singleton](compilation: PreparedLemmaCompilation[C], program: Configured[C], run: Run[C], stop: StopSignal)(using C): Configured[C] =
     if run.graph.unionCount == 0 then program else compilation.extracted(program, run, stop)
 
   /** After a saturation: nothing more when it was stopped; otherwise the
@@ -183,19 +196,19 @@ object LemmaRoute extends NarrowBlockRoute:
     * its value are fixed here. Each is to become an option of one interface chosen by configuration (entry data and
     * `Defaults`).
     */
-  private def blocksComputed(
-      index: StandardLibraryIndex,
-      compilation: PreparedLemmaCompilation,
+  private def blocksComputed[C <: NativeSpecializer & Singleton](
+      index: StandardLibraryIndex[C],
+      compilation: PreparedLemmaCompilation[C],
       natives: NativeBackend,
-      program: Instruction,
-      run: Run,
+      program: Configured[C],
+      run: Run[C],
       steps: Vector[(String, Long)],
       explained: Boolean,
       stop: StopSignal
-  ): (Option[(Instruction, Vector[TraceCommand])], Option[Instruction], Vector[(String, Long)]) =
+  )(using C): (Option[(Configured[C], Vector[TraceCommand[C]])], Option[Configured[C]], Vector[(String, Long)]) =
     if stopped(run.end) then (None, None, steps)
     else
-      val blockCompilation = NarrowBlockCompilation(index, natives)
+      val blockCompilation = NarrowBlockCompilation(index, natives, LemmaRoute.readingConfiguration(run))
       val ((output, blocks), extraction) = timed("lemma_extraction") {
         val extracted = extractionOf(compilation, program, run, stop)
         (extracted, blockCompilation.blocks(extracted))
@@ -231,12 +244,12 @@ object LemmaRoute extends NarrowBlockRoute:
     * so nothing under a signal that asks for none is a defect of the
     * generated class and throws.
     */
-  private def blockValues(
-      blocks: Vector[Instruction],
+  private def blockValues[C <: NativeSpecializer & Singleton](
+      blocks: Vector[Configured[C]],
       programs: Vector[NarrowBlockProgram],
       stop: StopSignal
-  ): Option[Map[Instruction, Instruction]] =
-    blocks.zip(programs).foldLeft(Option(Map.empty[Instruction, Instruction])) {
+  )(using C): Option[Map[Configured[C], Configured[C]]] =
+    blocks.zip(programs).foldLeft(Option(Map.empty[Configured[C], Configured[C]])) {
       case (None, _) => None
       case (Some(found), (block, compiled)) =>
         compiled.run(stop) match
@@ -263,13 +276,14 @@ object LemmaRoute extends NarrowBlockRoute:
   /** The canonical binary natural of the number: zero λz.λe.λo. z, 2h
     * λz.λe.λo. e h for h positive, 2h + 1 λz.λe.λo. o h.
     */
-  private[narrowblocks] def numeral(number: BigInt): Instruction =
+  private[narrowblocks] def numeral[C <: NativeSpecializer & Singleton](number: BigInt)(using C): Configured[C] =
     require(number >= 0, s"a natural is not negative: $number")
     def term(value: BigInt): Term =
       if value == 0 then λ(zero => λ(_ => λ(_ => zero)))
       else if value.testBit(0) then λ(_ => λ(_ => λ(odd => odd(term(value >> 1)))))
       else λ(_ => λ(even => λ(_ => even(term(value >> 1)))))
-    Defunctionalization.thunkInstruction(term(number).deBruijnTerm(Map.empty))
+    // A numeral holds no parallel at the level of instructions, so it is its own spelling under every configuration.
+    Configured.fromPure(summon[C]: C)(Defunctionalization.pure(term(number).deBruijnTerm(Map.empty)))
 
   /** The trace's commands (`native`) that put each subterm of `values` in the term
     * at each of its positions, outermost first in preorder, so that the
@@ -279,36 +293,59 @@ object LemmaRoute extends NarrowBlockRoute:
     * disjoint, so a command's position is the same before and after the
     * commands before it.
     */
-  private[narrowblocks] def nativeCommands(
-      term: Instruction,
-      values: Map[Instruction, Instruction],
-      names: Set[Instruction]
-  ): Vector[TraceCommand] =
-    def commands(instruction: Instruction, position: Vector[PositionSegment]): Vector[TraceCommand] =
+  private[narrowblocks] def nativeCommands[C <: NativeSpecializer & Singleton](
+      term: Configured[C],
+      values: Map[Configured[C], Configured[C]],
+      names: Set[Configured[C]]
+  )(using C): Vector[TraceCommand[C]] =
+    def commands(instruction: Configured[C], position: Vector[PositionSegment]): Vector[TraceCommand[C]] =
       values.get(instruction) match
         case Some(value) => Vector(TraceCommand.Native(position, value))
-        case None if instruction.opaque || names.contains(instruction) => Vector.empty
+        case None if instruction.heldAsLeaf || names.contains(instruction) => Vector.empty
         case None =>
-          val layer = instruction.layered
-          layer.children.zip(Positions.roles(layer)).flatMap((child, role) => commands(child, position :+ role))
+          val layer = instruction.layer
+          layer.children.zip(childRoles(layer)).flatMap((child, role) => commands(child, position :+ role))
     commands(term, Vector.empty)
+
+  /** The role of each child of the layer, in the order of its children: a thunk's fillings by number, an
+    * application's function and argument, a choice's or a parallel's sides; none for a leaf, a storage's view not
+    * read.
+    */
+  private def childRoles(layer: gezi.ir.IrLayer[Any]): Vector[PositionSegment] = layer match
+    case gezi.ir.Thunk(_, _, fillings)                   => fillings.indices.map(PositionSegment.Filling(_)).toVector
+    case gezi.ir.Apply(_, _)                             => Vector(PositionSegment.Function, PositionSegment.Argument)
+    case gezi.ir.Choice(_, _) | gezi.ir.Parallel(_, _)   => Vector(PositionSegment.Left, PositionSegment.Right)
+    case gezi.ir.UriNode(_) | gezi.ir.Opaque(_) | (_: gezi.ir.NativeStorage) => Vector.empty
 
   /** The term with each subterm of `values` replaced by its value, rebuilt
     * from the leaves up, each subterm once; a name of `names`, or an opaque
     * instruction, kept as it is.
     */
-  private[narrowblocks] def substituted(term: Instruction, values: Map[Instruction, Instruction], names: Set[Instruction]): Instruction =
+  private[narrowblocks] def substituted[C <: NativeSpecializer & Singleton](
+      term: Configured[C],
+      values: Map[Configured[C], Configured[C]],
+      names: Set[Configured[C]]
+  )(using specializer: C): Configured[C] =
     @scala.annotation.tailrec
-    def rebuilt(pending: List[(Instruction, Boolean)], made: Map[Instruction, Instruction]): Map[Instruction, Instruction] =
+    def rebuilt(pending: List[(Configured[C], Boolean)], made: Map[Configured[C], Configured[C]]): Map[Configured[C], Configured[C]] =
       pending match
         case Nil                                                    => made
         case (instruction, _) :: rest if made.contains(instruction) => rebuilt(rest, made)
         case (instruction, _) :: rest if values.contains(instruction) =>
           rebuilt(rest, made.updated(instruction, values(instruction)))
-        case (instruction, _) :: rest if instruction.opaque || names.contains(instruction) =>
+        case (instruction, _) :: rest if instruction.heldAsLeaf || names.contains(instruction) =>
           rebuilt(rest, made.updated(instruction, instruction))
         case (instruction, false) :: rest =>
           rebuilt(instruction.layer.children.toList.map((_, false)) ::: (instruction, true) :: rest, made)
         case (instruction, true) :: rest =>
-          rebuilt(rest, made.updated(instruction, Instruction(instruction.layered.map(made))))
+          val built = instruction.layer match
+            case gezi.ir.Apply(function, argument) => specializer.application(made(function), made(argument))
+            case gezi.ir.Parallel(left, right)     => specializer.parallel(made(left), made(right))
+            case gezi.ir.Choice(left, right)       => specializer.choice(made(left), made(right))
+            case gezi.ir.Thunk(code, holes, fillings) =>
+              gezi.ir.NonEmptyHoles.of(holes) match
+                case Some(present) => specializer.thunk(code, present, fillings.map(made))
+                case None => specializer.instance(code, fillings.map(made))
+            case _ => instruction
+          rebuilt(rest, made.updated(instruction, built))
     rebuilt(List((term, false)), Map.empty)(term)

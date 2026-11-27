@@ -2,6 +2,7 @@ package gezi.orientation
 
 import gezi.ir.Direction
 import gezi.ir.LemmaIdentifier
+import gezi.ir.NativeSpecializer
 import gezi.ir.Pattern
 
 /** A usable orientation of an enabled lemma: its matched side is found in
@@ -22,14 +23,14 @@ import gezi.ir.Pattern
   *   the largest compound subterms of the added side that are subpatterns of
   *   the matched side as well, in the order an instance key lists them
   */
-final case class Orientation(
+final case class Orientation[C <: NativeSpecializer & Singleton](
     index: Int,
     lemma: LemmaIdentifier,
     direction: Direction,
     arity: Int,
-    matched: Pattern,
-    added: Pattern,
+    matched: Pattern[C],
+    added: Pattern[C],
     functions: Vector[Int],
     essential: Vector[Int],
-    shared: Vector[Pattern]
+    shared: Vector[Pattern[C]]
 )

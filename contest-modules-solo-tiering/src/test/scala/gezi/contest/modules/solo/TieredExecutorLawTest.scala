@@ -8,8 +8,11 @@ import gezi.contest.entry.ApplicationOption
 import gezi.contest.entry.BackendOption
 import gezi.contest.entry.CheckpointOption
 import gezi.contest.entry.LookaheadOption
+import gezi.contest.entry.InstanceReuseOption
 import gezi.contest.entry.CompilationPlaceOption
+import gezi.contest.entry.OccurrenceTaggingOption
 import gezi.contest.entry.ContinuationOption
+import gezi.contest.entry.GroupBlocksOption
 import gezi.contest.entry.Defaults
 import gezi.contest.entry.DispatchOption
 import gezi.contest.entry.EntryData
@@ -35,7 +38,8 @@ import gezi.hotspot.ExecutionDependencies
 import gezi.hotspot.Executor
 import gezi.hotspot.ExpansionSource
 import gezi.hotspot.NormalForm
-import gezi.ir.Instruction
+import gezi.ir.Configured
+import gezi.ir.NoFacts
 import gezi.jit.BackendChecks
 import gezi.jit.BackendFacts
 import gezi.jit.JitConfiguration
@@ -46,6 +50,8 @@ import gezi.narrowblocks.ProgramCompiler
 import gezi.saturation.StopSignal
 import gezi.standardlibrary.StandardLibrary
 import gezi.weakhead.ReadingSuspension
+
+private given tieredExecutorLawTestNoFacts: NoFacts.type = NoFacts
 
 /** The laws of the tiered executor (`TieredExecutor` under `InterpretFirst`),
   * on generated programs
@@ -79,11 +85,14 @@ class TieredExecutorLawTest extends GeneratedProperties:
     budget = JitConfiguration.defaultBudget,
     checkpoints = CheckpointOption.Profitable,
     nativeBlocks = NativeBlocksOption.None,
-    lookahead = LookaheadOption.Lazily
+    lookahead = LookaheadOption.Lazily,
+    instanceReuse = InstanceReuseOption.WithinVersion
   )
 
   /** The JIT over the library, with the instance table on. */
-  private lazy val jit = Defaults.jit(BackendFacts.of(library), jitOptions)
+  private lazy val encoding: gezi.jit.StorageEncoding = gezi.jit.BackendFacts.of(library).storageEncoding
+
+  private lazy val jit = Defaults.jit(encoding, jitOptions, GroupBlocksOption.None, gezi.ir.StorageAccess.granted())
 
   private lazy val modules: ExecutorModules = ExecutorModules.registered(buildRoot)
 
@@ -91,15 +100,16 @@ class TieredExecutorLawTest extends GeneratedProperties:
     ReadingOptions(ApplicationOption.ByLayer, TableSharingOption.Local, TableRetentionOption.KeptAll, ContinuationOption.Substituted, ParallelOption.BothSides)
 
   /** The compilation of no lemma round over the library's index. */
-  private lazy val compilation = ProgramCompilation(library.index, Vector.empty, NativeBackend(Map.empty, Vector.empty))
+  private lazy val compilation =
+    ProgramCompilation(gezi.standardlibrary.StandardLibraryIndex.crossed(library.index, encoding), Vector.empty, NativeBackend(Map.empty, Vector.empty), encoding)
 
-  override def sharedFixtures: Vector[scala.concurrent.Future[Unit] => Any] = Vector(_ => jit, _ => compilation, _ => modules)
+  override def sharedFixtures: Vector[scala.concurrent.Future[Unit] => Any] = Vector(_ => encoding, _ => jit, _ => compilation, _ => modules)
 
   /** The steps each program may take. */
   private val limit: Long = 20000
 
   /** The framework's reading executor of the JIT. */
-  private def reading: Executor[ReadingSuspension] = Defaults.executor(jit, readingOptions)
+  private def reading: Executor[encoding.type, ReadingSuspension[encoding.type]] = Defaults.executor(jit, readingOptions)
 
   /** A closed term of about `size` nodes with abstractions, applications,
     * choices of none to three members and parallels, its variables bound by
@@ -149,8 +159,8 @@ class TieredExecutorLawTest extends GeneratedProperties:
   /** A choice of one to four applications, so that a program often has
     * several normal forms, read one after another.
     */
-  private val program: Gen[Instruction] =
-    application.list(Range.linear(1, 4)).map(members => Defunctionalization.thunkInstruction(DeBruijnTerm.nestedChoice(members.toVector)))
+  private val program: Gen[Configured[NoFacts.type]] =
+    application.list(Range.linear(1, 4)).map(members => Defunctionalization.thunkInstruction(DeBruijnTerm.nestedChoice(members.toVector))(using gezi.ir.NoFacts))
 
   stoppableProperty("theTieredExecutorReadsTheReadingExecutorsNormalFormsOnceAndCompilesOnlyWhatItsInterpretationDidNotFinish") {
     stopped =>
@@ -168,7 +178,7 @@ class TieredExecutorLawTest extends GeneratedProperties:
         val tiered = TieredExecutor(reading, ProgramCompiler(compilation), InterpretFirst(compilation, interpretationSteps))
         val (_, after, progress) = tiered.executed(root, dependencies, Budget(limit, countedUnits = false, stop))
         val compiled =
-          after.cache.locked(ProgramArtifacts)(_.tryGet(ArtifactKey[Instruction](CompilationUnit.Program(root), compilation))).isDefined
+          after.cache.locked(ProgramArtifacts)(_.tryGet(ArtifactKey[Configured[NoFacts.type]](CompilationUnit.Program(root), compilation))).isDefined
         val bothFinished = alone.suspension.isEmpty && progress.suspension.isEmpty
         Result
           .all(
@@ -202,7 +212,13 @@ class TieredExecutorLawTest extends GeneratedProperties:
         Vector(
           EntryText.contribution(
             EntryData.backendGroupWidths,
-            EntryText.backendSlots(jitOptions, readingOptions, EntryText.moduleExecutor(selector, parameters), CompilationPlaceOption.ByExecutor)
+            EntryText.backendSlots(
+              jitOptions,
+              readingOptions,
+              EntryText.moduleExecutor(selector, parameters),
+              CompilationPlaceOption.ByExecutor,
+              OccurrenceTaggingOption.Untagged
+            )
           )
         )
       )

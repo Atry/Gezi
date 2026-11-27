@@ -1,16 +1,19 @@
 package gezi.weakhead
 
+import gezi.ir.NoFacts
+import gezi.ir.Configured
 import hedgehog.Gen
 import hedgehog.Range
 import hedgehog.Result
 import gezi.frontend.Term
+import gezi.frontend.TermOf
 import gezi.frontend.Term.λ
 import gezi.generatedinputs.GeneratedProperties
 import gezi.generatedinputs.HoasGenerators
 import gezi.hotspot.ExpansionSource
 import gezi.hotspot.Retention
 import gezi.hotspot.baselines.BaselineCaches
-import gezi.ir.Instruction
+import gezi.ir.NativeSpecializer.*
 
 /** The options of `ParallelReading` on generated closed terms, read under
   * tabling(weak_head) with top a known greatest term (`KnownExtremes.onlyTop`).
@@ -26,18 +29,22 @@ import gezi.ir.Instruction
   */
 class ParallelReadingLawTest extends GeneratedProperties:
 
+  given NoFacts.type = NoFacts
+
+  private type Hoas = TermOf[Configured[NoFacts.type]]
+
   /** The steps of one reading, `ApplicationReadingLawTest`'s limit for the
     * laws of `sharedLimit`'s kind (a choice step costs its members).
     */
   private val limit: Long = 2000
 
   /** `λx₁ … λxₙ. body(x₁ … xₙ)`. */
-  private def abstraction(binders: Int, body: Vector[Term] => Term): Term =
-    def under(bound: Vector[Term]): Term =
+  private def abstraction(binders: Int, body: Vector[Term] => Hoas): Hoas =
+    def under(bound: Vector[Term]): Hoas =
       if bound.size == binders then body(bound) else λ(variable => under(bound :+ variable))
     under(Vector.empty)
 
-  private def closed(instruction: Instruction): Term = Term.closed(instruction)
+  private def closed(instruction: Configured[NoFacts.type]): Hoas = Term.closed(instruction)
 
   /** Two heads of as many binders, each an application of one of its
     * binders (the same one or two different ones), or of a captured closed
@@ -47,9 +54,9 @@ class ParallelReadingLawTest extends GeneratedProperties:
     * contexts that may make the two heads agree, such as the proofs file's
     * (K* ∥ K) Ω Ω.
     */
-  private val clashes: Gen[Instruction] =
+  private val clashes: Gen[Configured[NoFacts.type]] =
     val argument = HoasGenerators.evaluatorInstruction(3).map(closed)
-    def head(binders: Int): Gen[Term] =
+    def head(binders: Int): Gen[Hoas] =
       for
         applied <- Gen.int(Range.constant(0, binders))
         captured <- argument
@@ -68,20 +75,20 @@ class ParallelReadingLawTest extends GeneratedProperties:
   /** Generated terms, a parallel of two generated terms at the root, and
     * clashing pairs applied to arguments.
     */
-  private val terms: Gen[Instruction] =
+  private val terms: Gen[Configured[NoFacts.type]] =
     Gen.frequency1(
       2 -> HoasGenerators.evaluatorInstruction(8),
       1 -> (for
         left <- HoasGenerators.evaluatorInstruction(6)
         right <- HoasGenerators.evaluatorInstruction(6)
-      yield Instruction.Parallel(left, right)),
+      yield NoFacts.parallel(left, right)),
       2 -> clashes
     )
 
   /** The normal forms and the steps of one reading. */
-  private def read(term: Instruction, parallels: ParallelReading, steps: Long): Bounded[(Set[Instruction], Long)] =
-    val start = ReadingState.knowingTop(steps).copy(parallels = parallels)
-    NormalForms.normalForms(Mode.TablingWeakHead, term).result(start) match
+  private def read(term: Configured[NoFacts.type], parallels: ParallelReading, steps: Long): Bounded[(Set[Configured[NoFacts.type]], Long)] =
+    val start = ReadingState.knowingTop(steps, gezi.weakhead.ReadingConfiguration.withoutFacts).copy(parallels = parallels)
+    NormalForms.normalForms(Mode.TablingWeakHead, gezi.ir.Value.of(term)).result(start) match
       case Computed.Done(forms, after) => Bounded.Finished((forms.toSet, after.budget.spent))
       case Computed.Stopped(after)     => EvaluatorTesting.stopped(after)
 
@@ -99,8 +106,8 @@ class ParallelReadingLawTest extends GeneratedProperties:
   }
 
   /** The parallel sets of a tabled reading, if it finished. */
-  private def heads(term: Instruction, state: ReadingState): Option[Set[ParallelSet]] =
-    WeakHead.heads(Mode.TablingWeakHead, term).collected.result(state) match
+  private def heads(term: Configured[NoFacts.type], state: ReadingState[NoFacts.type]): Option[Set[ParallelSet[NoFacts.type]]] =
+    WeakHead.heads(Mode.TablingWeakHead, gezi.ir.Value.of(term)).collected.result(state) match
       case Computed.Done(sets, _) => Some(sets.toSet)
       case Computed.Stopped(_)    => None
 
@@ -117,10 +124,10 @@ class ParallelReadingLawTest extends GeneratedProperties:
     yield
       val provider = BaselineCaches.provider()
       val source = ExpansionSource.fresh()
-      def shared(parallels: ParallelReading): ReadingState =
-        ReadingState.knowingTop(limit).copy(sharing = TableSharing.Shared(provider, Retention.Strong, source), parallels = parallels)
+      def shared(parallels: ParallelReading): ReadingState[NoFacts.type] =
+        ReadingState.knowingTop(limit, gezi.weakhead.ReadingConfiguration.withoutFacts).copy(sharing = TableSharing.Shared(provider, Retention.Strong, source), parallels = parallels)
       val _ = heads(term, shared(ParallelReading.HeadsMet))
-      (heads(term, shared(ParallelReading.BothSides)), heads(term, ReadingState.knowingTop(limit))) match
+      (heads(term, shared(ParallelReading.BothSides)), heads(term, ReadingState.knowingTop(limit, gezi.weakhead.ReadingConfiguration.withoutFacts))) match
         case (Some(found), Some(expected)) => Result.diff(found, expected)(_ == _)
         case _                             => Result.success
   }
@@ -136,7 +143,7 @@ class ParallelReadingLawTest extends GeneratedProperties:
   /** The parity of the list's true elements: a fold whose list is filtered
     * at each call when `isFiltered`.
     */
-  private def parity(isFiltered: Boolean, list: Term): Instruction =
+  private def parity(isFiltered: Boolean, list: Term): Configured[NoFacts.type] =
     val fold = fixpoint(
       λ(self =>
         λ(scrutinee =>

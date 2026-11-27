@@ -10,8 +10,9 @@ import gezi.orientation.Orientations
 import gezi.saturation.Run
 import gezi.saturation.Saturation
 import gezi.ir.BuiltInRule
-import gezi.ir.Instruction
-import gezi.ir.Layer
+import gezi.ir.Configured
+import gezi.ir.LayerWith
+import gezi.ir.NoFacts
 import gezi.knowledgereading.KnowledgeReading
 import gezi.standardlibrary.StandardLibrary
 
@@ -31,11 +32,11 @@ object SaturationRuns:
     */
   def saturated(
       library: StandardLibrary,
-      knowledge: Instruction,
-      inputInstructions: Vector[Instruction],
+      knowledge: Configured[NoFacts.type],
+      inputInstructions: Vector[Configured[NoFacts.type]],
       budget: Int,
       stop: StopSignal
-  ): Run =
+  )(using NoFacts.type): Run[NoFacts.type] =
     val lemmas = library.index
       .enabledEquations(library.lemmas(knowledge, KnowledgeReading.startingState)._1)
       .map(BaselineLemmaEncoding.encoded(library.index, _))
@@ -51,7 +52,7 @@ object SaturationRuns:
     Saturation.run(
       program,
       ClosureCompilation.compiled(program),
-      BuiltInRule.all,
+      BuiltInRule.beforeOptIn,
       store,
       Orientations.headArityBounds(compiled.orientations),
       compiled.patternInstructions,
@@ -64,7 +65,7 @@ object SaturationRuns:
   /** The layers of the live members of the class, over the roots of their
     * classes (`fixpoint_egraph_member/4`).
     */
-  def classLayers(graph: EGraph, root: Int): Vector[Layer[Int]] =
+  def classLayers(graph: EGraph[NoFacts.type], root: Int): Vector[LayerWith[Int, Configured[NoFacts.type]]] =
     (0 until graph.nodeCount).toVector
       .filter(node => graph.live(node) && graph.root(node) == root)
       .map(node => graph.layer(node).map(graph.root))

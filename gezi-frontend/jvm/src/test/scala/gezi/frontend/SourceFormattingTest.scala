@@ -28,6 +28,8 @@ import snapshot4s.generated.snapshotConfig
   *     and to catch an enclosing name renamed for a farther one it shadows.
   */
 class SourceFormattingTest extends GeneratedProperties with SeededSnapshots:
+  private given gezi.ir.StorageAccess = gezi.ir.StorageAccess.granted()
+
 
   /** A closed text the printer writes, its tokens each separated from the
     * last by a space or a line break, a numbered comment before some tokens

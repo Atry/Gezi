@@ -1,0 +1,20 @@
+# The library terms ScottEliminationTypingTest builds its programs of and
+# reads its candidacies by: candidate (prolog_backend_shapes), list_type,
+# zero, successor, true and boolean_not (native_types), and the mark
+# eliminated_as (wren_scott_elimination).
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prolog_backend_shapes") "prolog_backend_shapes")
+λ candidate _ _ _ _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "native_types") "list")
+λ _ _ _ list_type
+. omega (omega (omega (omega (omega gezi "corpora") "library") "native_types") "natural")
+λ zero successor _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "native_types") "boolean")
+λ true _ _ boolean_not
+. omega (omega (omega (omega (omega gezi "corpora") "library") "wren_scott_elimination") "types")
+λ _ _ _ _ eliminated_as
+. export
+λ s
+. s candidate list_type zero successor true boolean_not eliminated_as

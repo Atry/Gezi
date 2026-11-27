@@ -8,7 +8,8 @@ import gezi.frontend.Defunctionalization
 import gezi.frontend.Term
 import gezi.frontend.Term.λ
 import gezi.generatedinputs.GeneratedProperties
-import gezi.ir.Instruction
+import gezi.ir.Configured
+import gezi.ir.NoFacts
 import gezi.standardlibrary.StandardLibrary
 import gezi.standardlibrary.TermTables
 import gezi.weakhead.Computed
@@ -17,6 +18,8 @@ import gezi.weakhead.Mode
 import gezi.weakhead.NormalForms
 import gezi.weakhead.ParallelReading
 import gezi.weakhead.ReadingState
+
+private given parallelReadingCorporaLawTestNoFacts: NoFacts.type = NoFacts
 
 /** `ParallelReading.HeadsMet` on a fold the tabled weak head did not finish
   * under `BothSides`, on the real library: a fold of a list's elements by `merge_binary_plus`, the list filtered by
@@ -34,36 +37,36 @@ class ParallelReadingCorporaLawTest extends GeneratedProperties:
   /** The members of the JIT tests' library terms and of the problems'
     * (`merge_binary_plus`).
     */
-  private lazy val terms: Map[String, Instruction] =
+  private lazy val terms: Map[String, Configured[NoFacts.type]] =
     StandardLibrary.entryMembers(buildRoot, TermTables.problemLibraryTerms, Expansions.none)._1 ++
       StandardLibrary.entryMembers(buildRoot, TermTables.jitLibraryTerms, Expansions.none)._1
 
   override def sharedFixtures: Vector[scala.concurrent.Future[Unit] => Any] = Vector(_ => terms)
 
-  private def term(name: String): Instruction =
+  private def term(name: String): Configured[NoFacts.type] =
     terms.getOrElse(name, throw IllegalArgumentException(s"neither library terms file has a member $name"))
 
-  private def closed(instruction: Instruction): Term = Term.closed(instruction)
+  private def closed(instruction: Configured[NoFacts.type]): Term = Term.closed(instruction)
 
   /** The steps of one reading: well above what the unfiltered fold of six
     * elements below 64 takes (2,082 steps at most for the issue's witness).
     */
   private val limit: Long = 200000
 
-  private def numeral(value: Int): Instruction =
+  private def numeral(value: Int): Configured[NoFacts.type] =
     if value == 0 then term("binary_zero")
-    else Instruction.Apply(term(if (value & 1) == 1 then "binary_odd" else "binary_even"), numeral(value >> 1))
+    else NoFacts.application(term(if (value & 1) == 1 then "binary_odd" else "binary_even"), numeral(value >> 1))
 
-  private def list(elements: List[Int]): Instruction =
-    elements.foldRight(term("nil"))((element, rest) => Instruction.Apply(Instruction.Apply(term("cons"), numeral(element)), rest))
+  private def list(elements: List[Int]): Configured[NoFacts.type] =
+    elements.foldRight(term("nil"))((element, rest) => NoFacts.application(NoFacts.application(term("cons"), numeral(element)), rest))
 
   private val fixpoint: Term = λ(f => λ(x => f(x(x)))(λ(x => f(x(x)))))
 
   /** The sum of the list's elements, the list filtered at each call when
     * `isFiltered`.
     */
-  private def sum(isFiltered: Boolean, elements: List[Int]): Instruction =
-    val criterion = closed(Instruction.Apply(term("list_type"), Instruction.Apply(term("binary_set"), term("true"))))
+  private def sum(isFiltered: Boolean, elements: List[Int]): Configured[NoFacts.type] =
+    val criterion = closed(NoFacts.application(term("list_type"), NoFacts.application(term("binary_set"), term("true"))))
     val fold = fixpoint(
       λ(self =>
         λ(summand =>
@@ -73,10 +76,10 @@ class ParallelReadingCorporaLawTest extends GeneratedProperties:
         )
       )
     )
-    Defunctionalization.thunkInstruction(fold(closed(list(elements))).deBruijnTerm(Map.empty))
+    Defunctionalization.thunkInstruction(fold(closed(list(elements))).deBruijnTerm(Map.empty))(using gezi.ir.NoFacts)
 
-  private def read(program: Instruction, parallels: ParallelReading): Either[String, (Set[Instruction], Long)] =
-    val start = ReadingState.knowingTop(limit).copy(parallels = parallels)
+  private def read(program: Configured[NoFacts.type], parallels: ParallelReading): Either[String, (Set[Configured[NoFacts.type]], Long)] =
+    val start = ReadingState.knowingTop(limit, gezi.weakhead.ReadingConfiguration.withoutFacts).copy(parallels = parallels)
     NormalForms.normalForms(Mode.TablingWeakHead, program).result(start) match
       case Computed.Done(forms, after) => Right((forms.toSet, after.budget.spent))
       case Computed.Stopped(after)     => Left(s"stopped (${after.exhausted}) after ${after.budget.spent} steps")

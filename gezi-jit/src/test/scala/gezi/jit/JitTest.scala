@@ -7,7 +7,7 @@ import gezi.weakhead.Head
 import gezi.weakhead.JitState
 import gezi.weakhead.Mode
 import gezi.weakhead.NoJitState
-import gezi.weakhead.Value
+import gezi.ir.{Configured, Value}
 import gezi.frontend.Term
 import gezi.frontend.Term.*
 import gezi.ir.CodeLayer
@@ -37,6 +37,10 @@ import gezi.ir
   * jit.plt's limit (`randomTermCount`, `randomTermLimit`).
   */
 class JitTest extends gezi.generatedinputs.FailFastSuite:
+
+  private val encoding = JitTesting.noFactsEncoding
+
+  private given encoding.type = encoding
 
   // Measured 2026-11-16 on 2 CPUs (contest-lean.slice, CPUs 10,11, nice 10), the 1-minute load 9 to 22 over the run, every deadline raised to 600 s: the slowest test of JitTest, "anInterruptedCompilationLeavesTheCacheSound", takes 3.032 s; the bound is 1.5 times that rounded up to 5 s.
   // FIXME: this suite exceeds the 3 s default with no reason yet; its slow tests are to be made fast. https://github.com/Atry/private-overlay/issues/1925
@@ -75,7 +79,7 @@ class JitTest extends gezi.generatedinputs.FailFastSuite:
     λ(x21 => λ(y21 => λ(w21 => y21(w21)(x21)))(x21)(x21)(x21))(λ(z21 => z21))
   )
 
-  private def instructions(terms: Vector[Term]) = terms.map(EvaluatorTesting.instructionOf)
+  private def instructions(terms: Vector[Term]): Vector[Configured[encoding.type]] = terms.map(term => EvaluatorTesting.instructionOf[encoding.type](term))
 
   private def headsVerdicts(terms: Vector[Term], budget: Int, cacheDropped: Boolean, limit: Long, strategy: GenerationStrategy = PredicatePerCode): Vector[Verdict] =
     headsVerdictsAndState(terms, budget, cacheDropped, limit, strategy)._1
@@ -87,14 +91,14 @@ class JitTest extends gezi.generatedinputs.FailFastSuite:
       cacheDropped: Boolean,
       limit: Long,
       strategy: GenerationStrategy
-  ): (Vector[Verdict], JitState) =
+  ): (Vector[Verdict], JitState[encoding.type]) =
     val values = valuesOf(instructions(terms))
-    val jit = Jit(configured(noFacts, budget, strategy))
+    val jit = Jit(configured(encoding, budget, strategy))
     allComparedAndState(values.map(headsQuestion(jit, _)), limit, cacheDropped)
 
   private def normalFormsVerdicts(terms: Vector[Term], budget: Int, cacheDropped: Boolean, limit: Long): Vector[Verdict] =
     val values = valuesOf(instructions(terms))
-    val jit = Jit(configured(noFacts, budget))
+    val jit = Jit(configured(encoding, budget))
     allCompared(values.map(normalFormsQuestion(jit, _)), limit, cacheDropped)
 
   private def report(name: String, verdicts: Vector[Verdict]): Unit =
@@ -111,7 +115,7 @@ class JitTest extends gezi.generatedinputs.FailFastSuite:
   test("omegaRunsToItsInferenceCountUnderTheJit") {
     val value = EvaluatorTesting.valueOf(omega)
     budgets.foreach((name, budget, _) =>
-      val read = headsRead(Mode.Jit(Jit(configured(noFacts, budget))), value, 2000000)
+      val read = headsRead(Jit(configured(encoding, budget)), value, 2000000)
       assertEquals(read.outcome, Bounded.Exceeded, name)
     )
   }
@@ -154,7 +158,7 @@ class JitTest extends gezi.generatedinputs.FailFastSuite:
   // facts here (`noFacts`), so the native and fallback paths, and the table
   // being skipped during a fallback point's check, are not exercised.
   test("theTabledJitReadsTheReferenceHeadsAndNormalFormsOnRandomTerms") {
-    val tabled = JitConfiguration(noFacts, 10000, PredicatePerCode, ClosureBackend, DispatchMode.NoDispatch, instanceTable = true)
+    val tabled = JitConfiguration[encoding.type](encoding, 10000, PredicatePerCode, ClosureBackend, DispatchMode.NoDispatch, instanceTable = true, storageAccess = gezi.ir.StorageAccess.granted())
     Vector((20261011L, false), (20261012L, true)).foreach((seed, lattice) =>
       val values = valuesOf(instructions(randomTerms(seed, lattice)))
       report(s"tabled heads $seed", allCompared(values.map(headsQuestion(Jit(tabled), _)), randomTermLimit,false))
@@ -172,21 +176,22 @@ class JitTest extends gezi.generatedinputs.FailFastSuite:
   // other normal forms) or a lookup charge that does; and to catch a cutoff
   // that never fires on these terms, so that the law would check nothing.
   test("theTabledJitWithAnEarlyCutoffReadsTheReferenceNormalFormsOnRandomTerms") {
-    val cutOff = JitConfiguration(
-      noFacts,
+    val cutOff = JitConfiguration[encoding.type](
+      encoding,
       10000,
       PredicatePerCode,
       ClosureBackend,
       DispatchMode.NoDispatch,
       instanceTable = true,
-      instanceTableTrial = 4
+      instanceTableTrial = 4,
+      storageAccess = gezi.ir.StorageAccess.granted()
     )
     Vector((20261013L, false), (20261014L, true)).foreach((seed, lattice) =>
       val values = valuesOf(instructions(randomTerms(seed, lattice)))
       val (verdicts, after) = allComparedAndState(values.map(normalFormsQuestion(Jit(cutOff), _)), randomTermLimit,false)
       report(s"cut off normal forms $seed", verdicts)
       val costs = after match
-        case run: JitRunState => run.tableCosts
+        case run: JitRunState[?] => run.tableCosts
         case other            => fail(s"the JIT left no run state: $other")
       assert(costs.values.exists(_.unprofitable(4)), s"no code was cut off on the terms of seed $seed: $costs")
     )
@@ -195,9 +200,9 @@ class JitTest extends gezi.generatedinputs.FailFastSuite:
   /** The JIT's heads of the value equal the reference's, both within a
     * million steps; the JIT state after the reading.
     */
-  private def headsAgree(jit: Jit, value: Value, jitState: JitState): JitState =
-    val reference = headsRead(Mode.TablingWeakHead, value, 1000000).outcome
-    val read = headsRead(Mode.Jit(jit), value, 1000000, jitState)
+  private def headsAgree(jit: Jit[encoding.type], value: Value[encoding.type], jitState: JitState[encoding.type]): JitState[encoding.type] =
+    val reference = headsRead(Mode.TablingWeakHead, referenceConfiguration(jit), value, 1000000).outcome
+    val read = headsRead(jit, value, 1000000, jitState)
     assert(reference.finished, s"the reference did not finish: $reference")
     assertEquals(read.outcome, reference)
     read.jitState
@@ -211,14 +216,14 @@ class JitTest extends gezi.generatedinputs.FailFastSuite:
   /** The instruction of the closed term interned whole, the way the corpora
     * intern their programs.
     */
-  private def interned(term: Term): Value =
-    EvaluatorTesting.instructionOf(term)
+  private def interned(term: Term): Value[encoding.type] =
+    EvaluatorTesting.valueOf[encoding.type](term)
 
-  private def internedAll(terms: Vector[Term]): Vector[Value] =
+  private def internedAll(terms: Vector[Term]): Vector[Value[encoding.type]] =
     terms.map(interned)
 
   /** The code of the thunk the value's layer is. */
-  private def thunkCode(value: Value): Code = value match
+  private def thunkCode(value: Value[encoding.type]): Code = value match
     case Value.Thunk(code, _, _) => code
     case other                   => fail(s"not a thunk: $other")
 
@@ -230,21 +235,24 @@ class JitTest extends gezi.generatedinputs.FailFastSuite:
     val values = internedAll(Vector(λ(n => n(λ(z => λ(_ => z)))(λ(p => p))), numeral(3), numeral(5), numeral(7)))
     val function = values.head
     val functionCode = thunkCode(function)
-    val jit = Jit(configured(noFacts, JitConfiguration.defaultBudget))
+    val jit = Jit(configured(encoding, JitConfiguration.defaultBudget))
     val afterFirst = headsAgree(jit, Value.Apply(function, values(1)), NoJitState)
     val compiledFirst = compiledCodes(afterFirst)
     assert(compiledFirst.contains(functionCode))
     val afterAll = values.drop(2).foldLeft(afterFirst)((state, input) => headsAgree(jit, Value.Apply(function, input), state))
     assertEquals(compiledCodes(afterAll), compiledFirst)
     (afterFirst, afterAll) match
-      case (first: JitRunState, all: JitRunState) => assert(first.compiled(functionCode) eq all.compiled(functionCode))
+      case (first: JitRunState[?], all: JitRunState[?]) => assert(first.compiled(functionCode) eq all.compiled(functionCode))
       case other => fail(s"no JIT state: $other")
   }
 
   // The reading compiles no more codes than the budget: none under 0, at
   // most three under 3, while the answers stay the reference's. The three
-  // roots instantiate five codes: the body of twice, the identity's slot(0)
-  // (K's too), S's body, flip's body and the body of \a. \b. a b.
+  // roots instantiate five codes, the body of twice, the identity's slot(0)
+  // (K's too), S's body, flip's body and the body of \a. \b. a b, and
+  // compile four: an instance of slot(0) with one filling is a sharing cell
+  // (`JitRules.cellCode` is that code, `SharingCell`), read by its filling's
+  // heads and never compiled.
   test("theBudgetBoundsTheCache") {
     val roots = internedAll(
       Vector(
@@ -254,15 +262,16 @@ class JitTest extends gezi.generatedinputs.FailFastSuite:
       )
     )
     def compiledUnder(budget: Int): Int =
-      val jit = Jit(configured(noFacts, budget))
-      compiledCodes(roots.foldLeft(NoJitState: JitState)((state, root) => headsAgree(jit, root, state))).size
+      val jit = Jit(configured(encoding, budget))
+      compiledCodes(roots.foldLeft(NoJitState: JitState[encoding.type])((state, root) => headsAgree(jit, root, state))).size
     assertEquals(compiledUnder(0), 0)
     assertEquals(compiledUnder(3), 3)
-    assertEquals(compiledUnder(10000), 5)
+    assertEquals(compiledUnder(10000), 4)
   }
 
   // A reading the count of steps stops leaves the codes it compiled sound.
-  // The normal forms of a term whose reading compiles four codes are read,
+  // The normal forms of a term whose reading compiles three codes (its
+  // identities' slot(0) is read as a sharing cell, never compiled) are read,
   // stopped at every count of steps up to the whole reading's, then read
   // again whole with the JIT state the stopped reading left: the normal
   // forms are the reference's, and every compiled code is its strategy's
@@ -273,29 +282,31 @@ class JitTest extends gezi.generatedinputs.FailFastSuite:
     val term = λ(x => λ(y => λ(w => y(w)(x)))(x)(choice(x, λ(z => z)) ∥ λ(v => v))(x))(
       λ(s => λ(t => λ(u => s(u)(t(u)))))(λ(k => λ(_ => k)))(λ(k1 => λ(_ => k1)))
     )
-    val value = EvaluatorTesting.valueOf(term)
-    val reference = normalFormsRead(Mode.TablingWeakHead, value, 1000000).outcome
+    val value = EvaluatorTesting.valueOf[encoding.type](term)
+    val reference = normalFormsRead(Mode.TablingWeakHead, plainConfiguration(encoding), value, 1000000).outcome
     assert(reference match
       case Bounded.Finished(found) => found.nonEmpty
       case _                       => false)
-    val configuration = configured(noFacts, JitConfiguration.defaultBudget)
+    val configuration = configured(encoding, JitConfiguration.defaultBudget)
     val jit = Jit(configuration)
-    val whole = normalFormsRead(Mode.Jit(jit), value, 1000000)
-    assertEquals(whole.outcome, reference)
-    assertEquals(compiledCodes(whole.jitState).size, 4)
+    val whole = normalFormsRead(jit, value, 1000000)
+    assert(sameOutcomes(whole.outcome, reference), s"${whole.outcome} against $reference")
+    assertEquals(compiledCodes(whole.jitState).size, 3)
     val rules = JitRules(configuration)
     val stops = (1 to 4000).toVector
     val stopped = stops.count(limit =>
-      val first = normalFormsRead(Mode.Jit(jit), value, limit)
-      val again = normalFormsRead(Mode.Jit(jit), value, 1000000, first.jitState)
-      assertEquals(again.outcome, reference, s"stopped at $limit")
+      val first = normalFormsRead(jit, value, limit)
+      val again = normalFormsRead(jit, value, 1000000, first.jitState)
+      assert(sameOutcomes(again.outcome, reference), s"stopped at $limit: ${again.outcome} against $reference")
       first.jitState match
-        case run: JitRunState =>
+        case run: JitRunState[?] =>
           run.compiled.foreach((code, compiled) =>
             assertEquals(compiled.emission, PredicatePerCode.emission(code), s"code $code at $limit")
           )
         case _ => ()
-      first.outcome == Bounded.Exceeded
+      first.outcome match
+        case Bounded.Exceeded => true
+        case _                => false
     )
     println(s"stops that stopped the reading: $stopped of ${stops.size}")
     assert(stopped > 0)
@@ -308,7 +319,7 @@ class JitTest extends gezi.generatedinputs.FailFastSuite:
   // \x. (\y. \w. y w x) x x is one clause, the inner instance of the code of
   // y w x.
   test("anInnerInstanceCallsItsCodesPredicateByName") {
-    val value = EvaluatorTesting.valueOf(λ(x => λ(y => λ(w => y(w)(x)))(x)(x))(λ(z => z)))
+    val value = EvaluatorTesting.valueOf[encoding.type](λ(x => λ(y => λ(w => y(w)(x)))(x)(x))(λ(z => z)))
     val (outerCode, innerCode) = value match
       case Value.Apply(Value.Thunk(outer, _, _), _) =>
         outer.layer match
@@ -321,9 +332,9 @@ class JitTest extends gezi.generatedinputs.FailFastSuite:
               case other => fail(s"not an application: $other")
           case other => fail(s"not an application: $other")
       case other => fail(s"not an application of a thunk: $other")
-    val after = headsAgree(Jit(configured(noFacts, JitConfiguration.defaultBudget)), value, NoJitState)
+    val after = headsAgree(Jit(configured(encoding, JitConfiguration.defaultBudget)), value, NoJitState)
     val run = after match
-      case found: JitRunState => found
+      case found: JitRunState[?] => found
       case other              => fail(s"no JIT state: $other")
     val clauses = run.compiled(outerCode).emission.clauses
     assertEquals(clauses.size, 1)
@@ -353,12 +364,12 @@ class JitTest extends gezi.generatedinputs.FailFastSuite:
   // a compiled closure reads a vector of slots of any size, and the
   // assertion has no counterpart.
   test("aCodeOfManySlotsCompilesToAPredicateOfTwoArguments") {
-    val value = EvaluatorTesting.valueOf(λ(y => distinctClosedChain(1100, y))(λ(z => z)))
+    val value = EvaluatorTesting.valueOf[encoding.type](λ(y => distinctClosedChain(1100, y))(λ(z => z)))
     val code = value match
       case Value.Apply(Value.Thunk(found, _, _), _) => found
       case other => fail(s"not an application of a thunk: $other")
     assertEquals(CodeReading.slotCount(code), 1101)
-    val after = headsAgree(Jit(configured(noFacts, JitConfiguration.defaultBudget)), value, NoJitState)
+    val after = headsAgree(Jit(configured(encoding, JitConfiguration.defaultBudget)), value, NoJitState)
     assert(compiledCodes(after).contains(code))
   }
 
@@ -382,10 +393,10 @@ class JitTest extends gezi.generatedinputs.FailFastSuite:
   // that load decided.
   test("aDropInAnotherThreadKeepsThisThreadsCache") {
     val root = interned(λ(f => λ(x => f(f(x))))(λ(y => y))(λ(z => z)))
-    val jit = Jit(configured(noFacts, JitConfiguration.defaultBudget))
+    val jit = Jit(configured(encoding, JitConfiguration.defaultBudget))
     val before = headsAgree(jit, root, NoJitState)
     val other = scala.concurrent.Future(
-      (headsRead(Mode.TablingWeakHead, root, 1000000).outcome, headsRead(Mode.Jit(jit), root, 1000000, NoJitState))
+      (headsRead(Mode.TablingWeakHead, referenceConfiguration(jit), root, 1000000).outcome, headsRead(jit, root, 1000000, NoJitState))
     )(using scala.concurrent.ExecutionContext.global)
     val (otherReference, otherRead) = scala.concurrent.Await.result(other, scala.concurrent.duration.Duration(60, "s"))
     assert(otherReference.finished, s"the reference did not finish in the other thread: $otherReference")
@@ -414,7 +425,7 @@ class JitTest extends gezi.generatedinputs.FailFastSuite:
     // emits.
     val compiled = readings.flatMap { case (name, (_, state)) =>
       state match
-        case run: JitRunState => run.compiled.toVector.map((code, found) => (name, code, found))
+        case run: JitRunState[?] => run.compiled.toVector.map((code, found) => (name, code, found))
         case other            => fail(s"$name: no JIT state: $other")
     }
     println(s"interpreted instances codes compiled: ${compiled.size}")
@@ -436,7 +447,7 @@ class JitTest extends gezi.generatedinputs.FailFastSuite:
   // so an emission with one slot more than the code throws before it runs.
   test("anEmissionWhoseArityIsNotTheStubsThrows") {
     val root = interned(λ(f => λ(x => f(f(x))))(λ(y => y))(λ(z => z)))
-    intercept[EmissionSlotCount](headsRead(Mode.Jit(Jit(configured(noFacts, 10000, OneSlotTooMany))), root, 1000000))
+    intercept[EmissionSlotCount](headsRead(Jit(configured(encoding, 10000, OneSlotTooMany)), root, 1000000))
   }
 
 /** The HOAS term of a closed de Bruijn term with no library name. */

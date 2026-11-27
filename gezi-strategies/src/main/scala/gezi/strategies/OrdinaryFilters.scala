@@ -1,5 +1,7 @@
 package gezi.strategies
 
+import gezi.ir.NativeSpecializer
+
 import gezi.ir.Code
 import gezi.ir.Spine
 import gezi.ir.Hole
@@ -50,19 +52,19 @@ final case class OrdinaryReading(eta: Boolean, pending: Option[PendingFilter], o
   * reading (`OrdinaryReading`) carries their difference, so that within a
   * reading the rank orders the states.
   */
-object OrdinaryFilters extends NormalityModule:
+object OrdinaryFilters extends ConfigurationFreeModule:
 
   val name: String = "ordinary_filters"
 
   val meetsExtractionContract: Boolean = true
 
-  def folded(layer: OrderTerm, reading: TermReading): FoldState = state(layer, reading)
+  def folded[C <: NativeSpecializer & Singleton](layer: OrderTerm[C], reading: TermReading[C]): FoldState = state(layer, reading)
 
   /** An instruction whose definition is a thunk with at least one hole whose code
     * applies one of its fillings to all its holes in lambda order
     * (`eta_expansion/1`).
     */
-  private def etaExpansion(term: OrderTerm, reading: TermReading): Boolean = term match
+  private def etaExpansion[C <: NativeSpecializer & Singleton](term: OrderTerm[C], reading: TermReading[C]): Boolean = term match
     case OrderTerm.Name(instruction) =>
       reading.nameTerm(instruction) match
         case Some(OrderTerm.Thunk(code, holes, fillings)) if holes.nonEmpty && fillings.nonEmpty =>
@@ -80,7 +82,7 @@ object OrdinaryFilters extends NormalityModule:
 
   private val plain = OrdinaryState(0, false, None, None)
 
-  private def state(term: OrderTerm, reading: TermReading): OrdinaryState = term match
+  private def state[C <: NativeSpecializer & Singleton](term: OrderTerm[C], reading: TermReading[C]): OrdinaryState = term match
     case OrderTerm.Folded(folded, _) => TermOrder.ownState[OrdinaryState](folded)
     case name @ OrderTerm.Name(_) =>
       reading.filterFunction(name) match
@@ -115,7 +117,7 @@ object OrdinaryFilters extends NormalityModule:
     * counts of the two alone, the parallel read as a position of two
     * operands (`ordinary_filter_counted/4`).
     */
-  private def filterCounted(value: OrderTerm, criterion: OrderTerm, reading: TermReading): (BigInt, BigInt) =
+  private def filterCounted[C <: NativeSpecializer & Singleton](value: OrderTerm[C], criterion: OrderTerm[C], reading: TermReading[C]): (BigInt, BigInt) =
     val valueState = state(value, reading)
     val criterionState = state(criterion, reading)
     val bodyCount = valueState.count + criterionState.count
@@ -126,11 +128,11 @@ object OrdinaryFilters extends NormalityModule:
   /** A filter function alone, its code instantiated with its holes leaves
     * (`ordinary_filter_function/4`).
     */
-  private def filterFunctionState(
+  private def filterFunctionState[C <: NativeSpecializer & Singleton](
       code: Code,
       holes: Vector[Hole],
-      fillings: Vector[OrderTerm],
-      reading: TermReading
+      fillings: Vector[OrderTerm[C]],
+      reading: TermReading[C]
   ): OrdinaryState =
     TermReading.instantiated(code, holes, fillings, Vector.empty)._1 match
       case OrderTerm.Parallel(value, criterion, _) =>

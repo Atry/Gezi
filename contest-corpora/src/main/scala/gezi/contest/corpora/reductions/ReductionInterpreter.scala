@@ -50,7 +50,7 @@ object ReductionInterpreter:
   /** The Scott encoding of the expression; each constructor binds its six
     * cases afresh (`syntax_term/2`).
     */
-  def syntaxTerm(expression: Expression): Term = expression match
+  def syntaxTerm(expression: Expression): ProblemTerm = expression match
     case Expression.Number(value)         => constructor(0, binary(value))
     case Expression.Add(left, right)      => constructor(1, syntaxTerm(left), syntaxTerm(right))
     case Expression.Multiply(left, right) => constructor(2, syntaxTerm(left), syntaxTerm(right))
@@ -58,11 +58,11 @@ object ReductionInterpreter:
     case Expression.Let(bound, body)      => constructor(4, syntaxTerm(bound), syntaxTerm(body))
     case Expression.Amb(left, right)      => constructor(5, syntaxTerm(left), syntaxTerm(right))
 
-  private def constructor(index: Int, fields: Term*): Term =
+  private def constructor(index: Int, fields: ProblemTerm*): ProblemTerm =
     abstractions(6, cases => applied(cases(index), fields))
 
   /** `\self. \env. \i. i (env [] (\h. \t. h)) (\p. env [] (\h. \t. self self t p))`. */
-  private def lookupBody: Term =
+  private def lookupBody: ProblemTerm =
     λ(self =>
       λ(environment =>
         λ(index =>
@@ -74,11 +74,11 @@ object ReductionInterpreter:
     )
 
   /** The evaluator's body over plus, times and lookup (`eval_body/4`). */
-  private def evalBody(plus: Term, times: Term, lookup: Term): Term =
+  private def evalBody(plus: ProblemTerm, times: ProblemTerm, lookup: ProblemTerm): ProblemTerm =
     λ(self =>
       λ(environment =>
         λ(expression =>
-          def evaluate(subexpression: Term) = self(self)(environment)(subexpression)
+          def evaluate(subexpression: ProblemTerm) = self(self)(environment)(subexpression)
           expression(λ(number => number))(λ(left => λ(right => plus(evaluate(left))(evaluate(right)))))(
             λ(left => λ(right => times(evaluate(left))(evaluate(right))))
           )(λ(index => lookup(environment)(index)))(λ(bound =>
@@ -91,13 +91,13 @@ object ReductionInterpreter:
   /** `eval [] Expression` under the lets of the arithmetic, times, lookup and
     * eval (`program_surface/2`).
     */
-  def programSurface(group: ReductionGroup, expression: Expression): Term =
+  def programSurface(group: ReductionGroup, expression: Expression): ProblemTerm =
     withEvaluator(group)(evaluate => evaluatedInEmptyEnvironment(evaluate, syntaxTerm(expression)))
 
   /** The body under the lets of the arithmetic, times, lookup and eval; the
     * body is given the let variable eval.
     */
-  private[reductions] def withEvaluator(group: ReductionGroup)(body: Term => Term): Term =
+  private[reductions] def withEvaluator(group: ReductionGroup)(body: ProblemTerm => ProblemTerm): ProblemTerm =
     group.arithmetic.withArithmetic(names =>
       λ(zero =>
         λ(times =>
@@ -111,7 +111,7 @@ object ReductionInterpreter:
     )
 
   /** `eval [] Syntax`. */
-  private[reductions] def evaluatedInEmptyEnvironment(evaluate: Term, syntax: Term): Term =
+  private[reductions] def evaluatedInEmptyEnvironment(evaluate: ProblemTerm, syntax: ProblemTerm): ProblemTerm =
     evaluate(λ(empty => λ(_ => empty)))(syntax)
 
   /** `x0 = 0, x1 = 1, x(k) = x(k-1) + x(k-2)` (`fibonacci_lets/2`). */

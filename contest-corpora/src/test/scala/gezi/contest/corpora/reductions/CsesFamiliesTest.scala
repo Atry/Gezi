@@ -118,16 +118,18 @@ abstract class CsesFamilySuite[Site](
 ) extends GeneratedProperties
     with snapshot4s.munit.SnapshotAssertions:
 
+  given gezi.ir.NoFacts.type = gezi.ir.NoFacts
+
   private val group = ReductionTesting.group
 
   override def sharedFixtures: Vector[scala.concurrent.Future[Unit] => Any] =
     Vector(_ => direct.program(group, 0L, 1))
 
-  private def normalForms(program: Term): Either[String, Set[DeBruijnTerm]] =
+  private def normalForms(program: Term): Either[String, Set[gezi.frontend.DeBruijnTermOf[gezi.ir.Configured[gezi.ir.NoFacts.type]]]] =
     NormalForms
       .normalForms(Mode.TablingWeakHead, Reduction.programRoot(program))
-      .result(ReadingState.knowingTop(Decoding.limit).copy(tableLimit = CsesFamilySuite.tableLimit)) match
-      case Computed.Done(forms, _) => Right(forms.map(Defunctionalization.instructionTerm).toSet)
+      .result(ReadingState.knowingTop(Decoding.limit, gezi.weakhead.ReadingConfiguration.withoutFacts).copy(tableLimit = CsesFamilySuite.tableLimit)) match
+      case Computed.Done(forms, _) => Right(forms.map(form => Defunctionalization.instructionTerm[gezi.ir.NoFacts.type](form)).toSet)
       case Computed.Stopped(after) => Left(s"the reading stopped: ${after.exhausted}, ${after.budget.spent} steps, ${after.tables.held} tables")
 
   private def readAs(program: Term, expected: NativeValue): Result = normalForms(program) match

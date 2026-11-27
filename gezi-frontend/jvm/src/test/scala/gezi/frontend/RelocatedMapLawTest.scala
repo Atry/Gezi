@@ -6,7 +6,11 @@ import gezi.generatedinputs.GeneratedProperties
 import gezi.generatedinputs.HoasGenerators
 import gezi.generatedinputs.LambdalatticeText
 import gezi.ir.Hole
-import gezi.ir.Instruction
+import gezi.ir.Configured
+import gezi.ir.Code
+import gezi.ir.NativeSpecializer.*
+import gezi.ir.NoFacts
+import gezi.ir.StorageAccess
 import gezi.locations.BinderOrigin
 import gezi.locations.SourceMap
 
@@ -25,6 +29,27 @@ import gezi.locations.SourceMap
   * fails on a spelling whose fillings differ from the source's.
   */
 class RelocatedMapLawTest extends GeneratedProperties:
+
+  given NoFacts.type = NoFacts
+  given StorageAccess = StorageAccess.granted()
+
+  private type NoFactsTerm = Configured[NoFacts.type]
+
+  /** The application of a thunk with at least one hole to an argument, and its parts. */
+  private object AppliedThunk:
+    def unapply(term: NoFactsTerm): Option[(Code, Vector[gezi.ir.Hole], Vector[NoFactsTerm], NoFactsTerm)] =
+      term.layer match
+        case gezi.ir.Apply(function, argument) =>
+          function.layer match
+            case gezi.ir.Thunk(code, holes, fillings) => Some((code, holes, fillings, argument))
+            case _                                    => None
+        case _ => None
+
+  /** The residue of a β step: the thunk with the holes left, or, its last hole filled, the instance of its code, a
+    * thunk of no hole being no term of the IR.
+    */
+  private def residueOf(code: Code, holes: Vector[gezi.ir.Hole], fillings: Vector[NoFactsTerm]): NoFactsTerm =
+    NoFacts.thunkOrInstance(code, holes, fillings)
 
   private val uri: java.net.URI = java.net.URI.create("file:///generated.lambdalattice")
 
@@ -47,13 +72,13 @@ class RelocatedMapLawTest extends GeneratedProperties:
     redexes.forAllWithLog(LambdalatticeText.text).map(redex =>
       val text = LambdalatticeText.text(redex)
       val read = Lambdalattice.located(text, FreeNames.Rejected)
-      Defunctionalization.locatedThunkInstruction(read.term, read.spans, uri) match
-        case (Instruction.Apply(Instruction.Thunk(code, hole +: rest, fillings), argument), map) =>
+      Defunctionalization.locatedThunkInstruction[NoFacts.type](read.term, read.spans, uri) match
+        case (AppliedThunk(code, hole +: rest, fillings, argument), map) =>
           val functionMap = map.children(0)
           val position = hole match
             case Hole.Bound(slot) => Some(Defunctionalization.fillingPosition(rest, slot))
             case Hole.Ignored     => None
-          val residue = Instruction.Thunk(code, rest, position.fold(fillings)(at => fillings.patch(at, Vector(argument), 0)))
+          val residue = residueOf(code, rest, position.fold(fillings)(at => fillings.patch(at, Vector(argument), 0)))
           val residueMap = SourceMap(
             functionMap.locations,
             functionMap.code,
@@ -61,7 +86,7 @@ class RelocatedMapLawTest extends GeneratedProperties:
             functionMap.binders.drop(1)
           )
           val (term, residueTermMap, _) = Defunctionalization.locatedInstructionTerm(residue, residueMap, Set.empty)
-          val spelled = Defunctionalization.thunkInstruction(term)
+          val spelled = Defunctionalization.thunkInstruction[NoFacts.type](term)
           val (_, spelledTermMap, _) =
             Defunctionalization.locatedInstructionTerm(spelled, Defunctionalization.relocatedMap(residue, residueMap, spelled), Set.empty)
           val expected = abstractionOrigins(residueTermMap)

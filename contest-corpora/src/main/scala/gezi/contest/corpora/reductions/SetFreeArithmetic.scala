@@ -53,16 +53,16 @@ object SetFreeArithmetic:
   /** `Function LeftNumeral RightNumeral` (`arithmetic_point_surface/2`); the
     * function of a sum or a product is the standard library's define.
     */
-  def pointSurface(group: ReductionGroup, point: ArithmeticPoint): Term =
+  def pointSurface(group: ReductionGroup, point: ArithmeticPoint): ProblemTerm =
     operationFunction(group, point.operation, point.spelling)(binary(point.left))(binary(point.right))
 
   /** The function a point applies to its two numerals. */
-  private[reductions] def operationFunction(group: ReductionGroup, operation: String, spelling: Spelling): Term =
+  private[reductions] def operationFunction(group: ReductionGroup, operation: String, spelling: Spelling): ProblemTerm =
     if operation == "near_times" then nearTimesApplied(group)(nearTimesApplied(group))
     else SetFree.libraryFunction(group, operation, spelling)
 
   /** The near miss's template applied to the standard library's plus. */
-  private def nearTimesApplied(group: ReductionGroup): Term =
+  private def nearTimesApplied(group: ReductionGroup): ProblemTerm =
     nearTimesTemplate(group.attractors)(SetFree.libraryFunction(group, "merge_binary_plus", Spelling.Direct))
 
   /** A fresh copy of the times template with its even and odd cases
@@ -72,13 +72,13 @@ object SetFreeArithmetic:
     * `\plus. \self. \a. \b. a zero (\h1. plus b E) (\h2. O)`. Throws when the
     * attractor has not that shape, where the Prolog's unification fails.
     */
-  def nearTimesTemplate(attractors: Attractors): Term =
+  def nearTimesTemplate(attractors: Attractors): ProblemTerm =
     import DeBruijnTerm.*
     attractors.attractorFunction("merge_binary_times") match
       case Lambda(Lambda(Lambda(Lambda(Apply(Apply(Apply(Variable(1), zero), Lambda(evenDouble)), Lambda(
               Apply(Apply(Variable(4), Variable(1)), oddDouble)
             )))))) =>
-        def plusOfB(term: DeBruijnTerm) = Apply(Apply(Variable(4), Variable(1)), term)
+        def plusOfB(term: ProblemDeBruijnTerm) = Apply(Apply(Variable(4), Variable(1)), term)
         fromDeBruijn(
           Lambda(Lambda(Lambda(Lambda(Apply(Apply(Apply(Variable(1), zero), Lambda(plusOfB(evenDouble))), Lambda(oddDouble))))))
         )

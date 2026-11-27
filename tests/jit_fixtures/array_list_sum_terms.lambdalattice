@@ -1,0 +1,21 @@
+# The library terms GroupBlocksJitListLawTest builds its programs from, each
+# imported from its own file of corpora/library and exported at its position
+# of the file's Scott tuple, whose names the test's term table keeps.
+# FIXME: the imports project "corpora" off the variable gezi, the name https://github.com/Atry/private-overlay/issues/1924
+# of the project root's own directory; they break if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "natural")
+λ _ _ _ _ binary_set
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "arithmetic")
+λ _ merge_binary_plus _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "native_types") "boolean")
+λ true _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "native_types") "list")
+λ nil cons _ list_type
+. omega (omega (omega (omega (omega gezi "corpora") "library") "native_types") "array_list")
+λ array_list
+. export
+λ s
+. s binary_set merge_binary_plus true nil cons list_type array_list

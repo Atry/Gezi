@@ -4,7 +4,9 @@ import hedgehog.Gen
 import hedgehog.Range
 import hedgehog.Result
 import gezi.generatedinputs.GeneratedProperties
-import gezi.ir.Instruction
+import gezi.ir.Configured
+import gezi.ir.NoFacts
+import gezi.ir.StorageAccess
 
 /** The printer's text with the places of the subterms marked
   * (`ReadableText.printedNameless`) on a chain of abstractions nested 3,000
@@ -30,9 +32,14 @@ import gezi.ir.Instruction
   */
 class ReadableTextDepthLawTest extends GeneratedProperties:
 
+  given NoFacts.type = NoFacts
+  given StorageAccess = StorageAccess.granted()
+
+  private type NoFactsTerm = Configured[NoFacts.type]
+
   import DeBruijnTerm.*
 
-  private val function: Instruction = Defunctionalization.thunkInstruction(Lambda(Variable(0)))
+  private val function: NoFactsTerm = Defunctionalization.thunkInstruction[NoFacts.type](Lambda(Variable(0)))
 
   /** The head of each level: 0 the nearest binder, 1 the outermost, 2 the
     * function.
@@ -41,9 +48,9 @@ class ReadableTextDepthLawTest extends GeneratedProperties:
     Gen.int(Range.linear(3000, 4000)).flatMap(depth => Gen.element1(0, 1, 2).list(Range.singleton(depth)))
 
   /** The chain, its innermost body the outermost binder. */
-  private def chain(heads: List[Int]): DeBruijnTerm =
+  private def chain(heads: List[Int]): DeBruijnTermOf[NoFactsTerm] =
     val depth = heads.size
-    heads.zipWithIndex.foldRight(Variable(depth - 1): DeBruijnTerm) { case ((head, level), inner) =>
+    heads.zipWithIndex.foldRight(Variable(depth - 1): DeBruijnTermOf[NoFactsTerm]) { case ((head, level), inner) =>
       val written = head match
         case 0 => Variable(0)
         case 1 => Variable(level)
@@ -54,7 +61,7 @@ class ReadableTextDepthLawTest extends GeneratedProperties:
   property("the text of abstractions nested thousands deep is marked at the root, at each read of the function and at each bound value", _.copy(testLimit = hedgehog.core.SuccessCount(2))) {
     for heads <- levels.forAll
     yield
-      val instruction = Defunctionalization.thunkInstruction(chain(heads))
+      val instruction = Defunctionalization.thunkInstruction[NoFacts.type](chain(heads))
       val printed = ReadableText.printedNameless(instruction)
       val marks = printed.pieces.count {
         case ReadableText.Piece.At(_, _) => true

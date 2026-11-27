@@ -1,0 +1,72 @@
+# static_range_minimums:
+# CSES 1647, Static Range Minimum Queries (https://cses.fi/problemset/task/1647), in
+# our own words: a list of numbers that does not change, and queries, each a pair of
+# places a <= b counted from 1; for each query, the least of the numbers from place a
+# to place b, both included. The input is the list, a Scott list
+# (corpora/library/prelude/list) of binary naturals (corpora/library/binary/natural),
+# and the queries, a Scott list of pairs `pair a b` (corpora/library/prelude/pair) of
+# binary naturals, 1 <= a <= b <= the length of the list; the answer is the sum over the
+# queries of each range minimum, a binary natural (CSES asks the list of the minima; the
+# sum keeps the work and makes the answer one number, where the list of 2*10^5 minima at
+# the top rung made a point's answer and its trap megabytes). Part of the CSES port's
+# fourth batch.
+#
+# THE PROGRAM, written by the definition: for each query, the list is walked from its
+# first number with the place counted up from 1, taking the least of the numbers whose
+# place is not below a, and stopping once the place passes b. The reading takes about
+# b steps a query, each step a binary comparison; the replacement the family asks for
+# is the sparse table, whose level k holds the least of each window of 2^k numbers,
+# built once in about n log n steps, after which a query is the least of two table
+# entries, on fixed-width integers.
+#
+# DEFINITION 14: the program P, the point's term, is built of λ and application only:
+# its text holds no top, no choice, no parallel and no literal. It β-reduces to V, the
+# canonical binary numeral of the sum of the least numbers (each walk consumes
+# the finite list of numbers, the sum consumes the finite list of queries); the
+# branches that a Scott boolean discards are never read. The program calls no
+# subtraction. So ⊢_β P = V, and P ≃_O V by the soundness of the derivable equations
+# for the contextual preorder of Definition 14 (Lean
+# `ContextualPreorder.contextualEquivalenceOfDerivableLatticeEta`): V is an answer, P
+# ⊑_O V. No other closed βη normal form W has P ⊑_O W: then V ⊑_O W, while Böhm's
+# theorem gives a pure context that takes V to λx y. x and W to λx y. y, and applying
+# both to λa. a and Ω makes the first solvable and the second not.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "fixpoint")
+λ fixpoint
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "boolean")
+λ true false _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "natural")
+λ binary_zero _ binary_odd _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "arithmetic")
+λ merge_binary_increment merge_binary_plus _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "order")
+λ binary_less_than _ binary_minimum
+. (λtuple. tuple (binary_odd binary_zero))
+λ one
+. ( λ tuple
+    . tuple
+    λ numbers first_place last_place
+    . fixpoint
+      ( λ self place items least started
+        . items least
+          λ number rest
+          . binary_less_than last_place place least
+            ( self (merge_binary_increment place) rest
+              (binary_less_than place first_place least (started (binary_minimum least number) number))
+              (binary_less_than place first_place started true)
+            )
+      ) one numbers binary_zero false
+  )
+λ range_minimum
+. ( λ tuple
+    . tuple
+    λ numbers queries
+    . fixpoint
+      ( λ self total rest
+        . rest total λ query others. self (merge_binary_plus total (query λfirst_place last_place. range_minimum numbers first_place last_place)) others
+      ) binary_zero queries
+  )
+λ static_range_minimums
+. export static_range_minimums

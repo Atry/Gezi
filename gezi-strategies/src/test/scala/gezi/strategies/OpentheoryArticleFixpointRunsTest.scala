@@ -5,16 +5,19 @@ import java.nio.file.Path
 import gezi.frontend.Term
 import gezi.frontend.Term.λ
 import gezi.ir.BuiltInRule
-import gezi.ir.Instruction
+import gezi.ir.Configured
+import gezi.ir.NoFacts
 import gezi.ir.LemmaIdentifier
 import gezi.proofs.EncodedRun
 import gezi.proofs.ExpectedArticlesModule
 import gezi.proofs.FixpointFixture
 import gezi.proofs.FixpointRun
 import gezi.proofs.FixpointRunModules
+import gezi.proofs.HolTermText
 import gezi.proofs.OpentheoryArticle
 import gezi.proofs.ProofTestFiles
 import gezi.proofs.RewriteTrace
+import gezi.proofs.ThunkDefinitions
 import gezi.saturation.StopSignal
 import gezi.standardlibrary.LeanFiniteTerms
 import gezi.standardlibrary.LemmaNamed
@@ -27,7 +30,7 @@ import gezi.weakhead.Expansions
   * round wrote, and the lemmas the article's derivation names
   * (`RewriteTrace.lemmas`), by their identifiers.
   */
-final case class FixpointRunMade(input: Instruction, output: Instruction, article: String, lemmas: Vector[LemmaIdentifier])
+final case class FixpointRunMade(input: Configured[NoFacts.type], output: Configured[NoFacts.type], article: String, lemmas: Vector[LemmaIdentifier])
 
 /** The runs of the baseline's search strategy, fixpoint_egraph, a round of
   * the Prolog backend's preset's type check, or of the beta rule on a
@@ -55,22 +58,23 @@ final case class FixpointRunMade(input: Instruction, output: Instruction, articl
   * runs from the runs made, then checks them as always; a change of an
   * article or of a module is reviewed in its diff.
   *
-  * TODO: the check that the writer encodes the runs' sides as Lean's
-  * `Encoding.encode` encodes their finite terms, and that the article's one
-  * exported equation is the pair of those encodings, stood in the deleted
-  * test (`theWriterEncodesAsLeanEncodesOnTheFixpointRuns`, `git show
-  * 2908bffd5:lambda_jit/strategies/src/test/scala/lambdajit/strategies/OpentheoryArticleFixpointRunsTest.scala`).
-  * It compared one HOL term of the writer with Lean's; the writer's encoding
-  * of a side is now a term over thunk constants with their definitions
-  * (`OpentheoryArticle.termEncoded`, `ThunkDefinitions.NamedTerms`, 9f962cba6),
-  * and its Lean program is to be rewritten to compare that form. It is not
-  * ported here.
+  * The writer encodes each run's sides as Lean's `Encoding.encode` encodes
+  * their finite terms, under the signature of the writer's own thunk
+  * constants (`theWriterEncodesAsLeanEncodesOnTheFixpointRuns`, link (ii) of
+  * D6, https://github.com/Atry/private-overlay/issues/1561). That the
+  * article's one exported equation is the pair of those encodings under the
+  * article's signature is checked by the kernel in module
+  * FixpointRunFixtures (`…LinesChecked`, `sidesEncoded`).
   *
   * The suite is in the module `strategies`, not `proofs`, because it runs
   * the strategy, and `strategies` depends on `proofs`; it reads the test
   * helpers of `proofs`.
   */
 class OpentheoryArticleFixpointRunsTest extends gezi.generatedinputs.FailFastSuite:
+
+  given gezi.ir.StorageAccess = gezi.ir.StorageAccess.granted()
+
+  private given NoFacts.type = NoFacts
 
   // Measured 2026-11-17 on 6 CPUs (contest.slice, CPUs 4 to 9, nice 10), the 1-minute load 2 to 4: the suite took
   // 298.8 s, the runs and their articles about 40 s and "leanChecksTheFixpointRunsWithTheBuiltInAxiomsOnly", whose
@@ -81,18 +85,18 @@ class OpentheoryArticleFixpointRunsTest extends gezi.generatedinputs.FailFastSui
   private lazy val library: StandardLibrary = StrategyTesting.compiled(FixpointRunModules.libraryFile)
 
   /** The library terms the programs are built from, by name. */
-  private lazy val terms: Map[String, Instruction] =
+  private lazy val terms: Map[String, Configured[NoFacts.type]] =
     StandardLibrary.entryMembers(LibraryFiles.buildRoot, TermTables.jitLibraryTerms, Expansions.none)._1
 
   override def sharedFixtures: Vector[scala.concurrent.Future[Unit] => Any] = Vector(_ => library, _ => terms)
 
-  private def term(key: String): Term =
+  private def term(key: String): StrategyTesting.ProgramTerm =
     Term.closed(terms.getOrElse(key, throw IllegalArgumentException(s"no library term $key")))
 
   /** The program of the run, the HOAS term `FixpointRun.programText` writes
     * in the Prolog surface.
     */
-  private def program(run: FixpointRun): Term = run.name match
+  private def program(run: FixpointRun): StrategyTesting.ProgramTerm = run.name match
     case "successor_zero"   => term("successor")(term("zero"))
     case "identity_zero"    => term("identity")(term("zero"))
     case "compose_redex"    => term("compose")(term("successor"))(term("successor"))(term("zero"))
@@ -101,18 +105,18 @@ class OpentheoryArticleFixpointRunsTest extends gezi.generatedinputs.FailFastSui
     case other              => throw IllegalArgumentException(s"no program of the run $other")
 
   /** The round's search strategy (`fixpoint_strategy/2`). */
-  private def fixpointStrategy(round: String): FixpointEgraph =
+  private def fixpointStrategy(round: String): FixpointEgraph[NoFacts.type] =
     FixpointEgraph(
       library.index,
       StandardSaturator(
         BaselineRounds.saturationOptions(
           library,
           StrategyTesting.round(FixpointRunModules.roundKey(round)),
-          BuiltInRule.all,
+          BuiltInRule.beforeOptIn,
           FixpointRunModules.roundBudget(round)
         )
       ),
-      CountedExtractor(ExtractionOptions(Vector("specialization_attraction", "compression")), BaselineModules.table)
+      CountedExtractor(ExtractionOptions(Vector("specialization_attraction", "compression")), BaselineModules.table[gezi.ir.NoFacts.type])
     )
 
   /** The run made: the program tagged, the round's strategy, and the article
@@ -145,10 +149,14 @@ class OpentheoryArticleFixpointRunsTest extends gezi.generatedinputs.FailFastSui
 
   private def written(file: Path, text: String): Unit = Files.writeString(file, text)
 
+  /** Every run made, in the order of `FixpointRunModules.runs`. */
+  private def runsMade(stopped: scala.concurrent.Future[Unit]): Vector[(FixpointRun, FixpointRunMade)] =
+    FixpointRunModules.runs.map(run => (run, runMade(run, StopSignal.completedWith(stopped))))
+
   stoppableTest("theRunsWriteTheirExpectedArticlesAndTheirLeanModules") { stopped =>
-    val made = FixpointRunModules.runs.map(run => (run, runMade(run, StopSignal.completedWith(stopped))))
+    val made = runsMade(stopped)
     val fixtures = made.map((run, runMade) => FixpointFixture(run, lemmaNames(runMade.lemmas)))
-    val encoded = made.map((run, runMade) => EncodedRun(run.base, runMade.input, runMade.output, "", ""))
+    val encoded = made.map((run, runMade) => EncodedRun(run.base, runMade.input, runMade.output))
     if sys.env.contains("GEZI_WRITE_FIXPOINT_RUNS") then
       made.foreach((run, runMade) => written(ProofTestFiles.expectedFile(run.base), runMade.article))
       written(ProofTestFiles.leanModules.resolve("ExpectedArticles.lean"), ExpectedArticlesModule.text)
@@ -177,6 +185,129 @@ class OpentheoryArticleFixpointRunsTest extends gezi.generatedinputs.FailFastSui
       FixpointRunModules.axiomsText(fixtures)
     )
   }
+
+  // Link (ii) of D6 (https://github.com/Atry/private-overlay/issues/1561): Lean's `Encoding.encode`, of which
+  // `Encoding.readEncode` proves that the reading of the encoding of a finite term is its readback, is meant to be
+  // the writer's encoding. The writer's encoding of a side is `OpentheoryArticle.termEncoded`, a HOL term over thunk
+  // constants numbered from 0 in that term, with the code and the holes of each; Lean's is `encode` of the side's
+  // finite term (module FixpointRunSides, checked here to be the runs' regeneration) under the signature that names
+  // each of those thunks by its constant. Lean also says whether that signature is well formed
+  // (`Encoding.signatureWellFormed`, the hypothesis of `readEncode`). Both encodings are rendered by one syntax
+  // (`HolTermText.text`, the Lean program's `termWritten`), and the two texts must be equal byte for byte. The
+  // comparison holds on these terms only; it is a test, not a proof.
+  stoppableTest("theWriterEncodesAsLeanEncodesOnTheFixpointRuns") { stopped =>
+    val made = runsMade(stopped)
+    assertEquals(
+      ProofTestFiles.textRead(ProofTestFiles.leanModules.resolve("FixpointRunSides.lean")),
+      FixpointRunModules.sidesText(made.map((run, runMade) => EncodedRun(run.base, runMade.input, runMade.output)))
+    )
+    val sides = made.flatMap { (run, runMade) =>
+      val name = LeanFiniteTerms.lowerCamelCase(run.base)
+      Vector(
+        SideEncoded(run.base, "left", s"${name}Input", OpentheoryArticle.termEncoded(library.index, runMade.input)),
+        SideEncoded(run.base, "right", s"${name}Output", OpentheoryArticle.termEncoded(library.index, runMade.output))
+      )
+    }
+    val printed = leanEncodings(sides, stopped)
+    val disagreements = sides.flatMap { side =>
+      val writerText = side.encoded.terms match
+        case Vector(term) => HolTermText.text(term)
+        case other        => throw IllegalStateException(s"the writer encoded ${side.base}'s ${side.which} side as ${other.size} terms")
+      printed.get((side.base, side.which)) match
+        case Some(("true", leanText)) if leanText == writerText => None
+        case Some((wellFormed, leanText)) =>
+          Some((side.base, side.which, s"well formed: $wellFormed", firstDifference(writerText, leanText)))
+        case None => Some((side.base, side.which, "Lean printed no line", ""))
+    }
+    assertEquals(disagreements, Vector.empty)
+  }
+
+  /** A side of a run as the encoding test compares it: the run's base,
+    * `left` for its input or `right` for its output, the side's finite term's
+    * name in module FixpointRunSides, and the writer's encoding of the side
+    * with the thunks of its constants.
+    */
+  private final case class SideEncoded(base: String, which: String, leanName: String, encoded: ThunkDefinitions.NamedTerms)
+
+  /** The first position where the writer's text and Lean's differ, with the
+    * 80 characters of each from there, or their lengths when one is a prefix
+    * of the other.
+    */
+  private def firstDifference(writerText: String, leanText: String): String =
+    (0 until math.min(writerText.length, leanText.length)).find(position => writerText(position) != leanText(position)) match
+      case Some(position) =>
+        s"at $position: writer ${writerText.slice(position, position + 80)}, Lean ${leanText.slice(position, position + 80)}"
+      case None => s"writer ${writerText.length} characters, Lean ${leanText.length}"
+
+  /** Lean's line for each side, keyed by the run's base and the side: whether
+    * the side's signature is well formed and the text of `encode` of the
+    * side's finite term under it, `none` where `encode` is undefined.
+    */
+  private def leanEncodings(sides: Vector[SideEncoded], stopped: scala.concurrent.Future[Unit]): Map[(String, String), (String, String)] =
+    val entries = sides.map { side =>
+      val signature = side.encoded.definitions.zipWithIndex.map { case ((code, holes), number) =>
+        val components = ThunkDefinitions.name(number)
+        val namespaceText = components.init.map(component => s"\"$component\"").mkString("[", ", ", "]")
+        s"(⟨$namespaceText, \"${components.last}\"⟩, ${LeanFiniteTerms.codeLeanText(code)}, ${LeanFiniteTerms.holesLeanText(holes)})"
+      }
+      s"(\"${side.base}\", \"${side.which}\",\n    ${signature.mkString("[", ",\n      ", "]")},\n    FixpointRunSides.${side.leanName})"
+    }
+    val program = Vector(
+      "import LambdaJit.Encoding",
+      "import LambdaJit.FixpointRunSides",
+      "",
+      // The signatures hold the markers' codes in R7's spelling, which nest about 105 applications
+      // (`LeanFiniteTerms.leanLines`).
+      "set_option maxRecDepth 1024",
+      "",
+      "open LambdaJit LambdaJit.Interpretation",
+      "",
+      encodingPrinter,
+      "def sides : List (String × String × Signature × FiniteTerm) := [",
+      "  " + entries.mkString(",\n  ") + "]",
+      "",
+      "def main : IO Unit := do",
+      "  for (name, which, signature, term) in sides do",
+      "    let text := match Encoding.encode signature term with",
+      "      | some encoded => termWritten \"\" encoded",
+      "      | none => \"none\"",
+      "    IO.println s!\"encoding\\t{name}\\t{which}\\t{Encoding.signatureWellFormed signature}\\t{text}\"",
+      "",
+      "#eval main",
+      ""
+    ).mkString("\n")
+    ProofTestFiles
+      .leanRun(program, "encoding_agreement", Seq("LambdaJit.Encoding", "LambdaJit.FixpointRunSides"), stopped)
+      .split("\n")
+      .toVector
+      .filter(_.nonEmpty)
+      .map { line =>
+        line.split("\t", -1).toVector match
+          case Vector("encoding", base, which, wellFormed, text) => ((base, which), (wellFormed, text))
+          case _ => throw IllegalStateException(s"Lean printed an unexpected line: ${line.take(200)}")
+      }
+      .toMap
+
+  // The Lean definitions of the program: `termWritten`, which appends the text of a term to the text written so far,
+  // in the syntax of `HolTermText.text`, so that the text is built in time linear in its length.
+  private val encodingPrinter: String =
+    """def quotedComponent (component : String) : String :=
+      |  "\"" ++ String.ofList (component.toList.flatMap fun character =>
+      |    if character = '"' ∨ character = '\\' then ['\\', character] else [character]) ++ "\""
+      |
+      |def nameText (name : Article.Name) : String :=
+      |  "[" ++ ",".intercalate ((name.namespaceComponents ++ [name.localName]).map quotedComponent) ++ "]"
+      |
+      |partial def typeText : Article.LogicType → String
+      |  | .typeVariable name => s!"typeVariable({nameText name})"
+      |  | .operator name arguments => s!"type({nameText name},[{",".intercalate (arguments.map typeText)}])"
+      |
+      |partial def termWritten (written : String) : Article.Term → String
+      |  | .termVariable name type => written ++ "variable(" ++ nameText name ++ "," ++ typeText type ++ ")"
+      |  | .constant name type => written ++ "constant(" ++ nameText name ++ "," ++ typeText type ++ ")"
+      |  | .application function argument =>
+      |      termWritten (termWritten (written ++ "application(") function ++ ",") argument ++ ")"
+      |""".stripMargin
 
   // The package built, Lean run on the module FixpointRunFixturesAxioms:
   // every theorem it lists depends on Lean's built-in axioms only, and Lean

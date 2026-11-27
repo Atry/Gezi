@@ -16,11 +16,11 @@ object ReductionMeanings:
   private val family = "reduction_meanings"
 
   /** `\self. \x. x True (\p. not (self self p))`. */
-  private def isEvenBody(trueValue: Term, not: Term): Term =
+  private def isEvenBody(trueValue: ProblemTerm, not: ProblemTerm): ProblemTerm =
     λ(self => λ(number => number(trueValue)(λ(predecessor => not(self(self)(predecessor))))))
 
   /** The count of the elements the predicate holds of, on an accumulator. */
-  private def countBody(isEven: Term): Term =
+  private def countBody(isEven: ProblemTerm): ProblemTerm =
     λ(self =>
       λ(list =>
         λ(accumulator =>
@@ -32,7 +32,7 @@ object ReductionMeanings:
     )
 
   /** `\self. \k. \x. k nil (\p. cons x (self self p (successor x)))`. */
-  private def uptoBody: Term =
+  private def uptoBody: ProblemTerm =
     λ(self =>
       λ(count =>
         λ(start =>
@@ -46,20 +46,20 @@ object ReductionMeanings:
   /** The unary numeral built on the variable, successor after successor
     * (`numeral_on/3`).
     */
-  private def numeralOn(number: Int, zero: Term): Term =
+  private def numeralOn(number: Int, zero: ProblemTerm): ProblemTerm =
     if number == 0 then zero else λ(_ => λ(successor => successor(numeralOn(number - 1, zero))))
 
   /** `count (upto N True) True` under the lets of True, False, not,
     * is_even, count and upto (`count_surface/2`).
     */
-  def countSurface(number: Int): Term =
+  def countSurface(number: Int): ProblemTerm =
     withDefinitions(definitions => counted(definitions, numeral(definitions, number)))
 
   /** The let variables a count is written over. */
-  private[reductions] final case class Definitions(trueValue: Term, count: Term, upto: Term)
+  private[reductions] final case class Definitions(trueValue: ProblemTerm, count: ProblemTerm, upto: ProblemTerm)
 
   /** The body under the lets of True, False, not, is_even, count and upto. */
-  private[reductions] def withDefinitions(body: Definitions => Term): Term =
+  private[reductions] def withDefinitions(body: Definitions => ProblemTerm): ProblemTerm =
     λ(trueValue =>
       λ(falseValue =>
         λ(not =>
@@ -73,11 +73,11 @@ object ReductionMeanings:
     )(λ(chosen => λ(_ => chosen)))
 
   /** `count (upto Numeral True) True`. */
-  private[reductions] def counted(definitions: Definitions, numeral: Term): Term =
+  private[reductions] def counted(definitions: Definitions, numeral: ProblemTerm): ProblemTerm =
     definitions.count(definitions.upto(numeral)(definitions.trueValue))(definitions.trueValue)
 
   /** The unary numeral of the number built on the let variable True. */
-  private[reductions] def numeral(definitions: Definitions, number: Int): Term = numeralOn(number, definitions.trueValue)
+  private[reductions] def numeral(definitions: Definitions, number: Int): ProblemTerm = numeralOn(number, definitions.trueValue)
 
   /** The problems: the count of n has (n + 1) / 2 evens (`problem/2`). */
   def problems(group: ReductionGroup): Vector[ReductionProblem] =

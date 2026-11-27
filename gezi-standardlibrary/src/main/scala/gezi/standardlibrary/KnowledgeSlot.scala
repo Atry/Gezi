@@ -9,7 +9,7 @@ package gezi.standardlibrary
   * {{{
   * rewriting   lemmas, leaves
   * properties  associative, first_order_constructor, typed_branch,
-  *             name_marker, closure_marker, tag_origin, tag_next
+  *             name_marker, closure_marker, tag_origin, tag_next, repeller
   * backend     natives, representations, families, fields, jvm_types
   * }}}
   *
@@ -34,6 +34,7 @@ enum KnowledgeSlot(val group: Int, val position: Int):
   case ClosureMarker extends KnowledgeSlot(1, 4)
   case TagOrigin extends KnowledgeSlot(1, 5)
   case TagNext extends KnowledgeSlot(1, 6)
+  case Repeller extends KnowledgeSlot(1, 7)
   case Natives extends KnowledgeSlot(2, 0)
   case Representations extends KnowledgeSlot(2, 1)
   case Families extends KnowledgeSlot(2, 2)

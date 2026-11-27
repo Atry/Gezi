@@ -5,15 +5,16 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
 import gezi.frontend.DeBruijnTerm
+import gezi.frontend.DeBruijnTermOf
 import gezi.frontend.Defunctionalization
 import gezi.frontend.Lambdalattice
 import gezi.frontend.Literal
 import gezi.frontend.Literals
 import gezi.frontend.NameSpelling
 import gezi.ir.ChoiceSpine
-import gezi.ir.Instruction
 import scala.jdk.StreamConverters.*
 import scala.util.Using
+import gezi.ir.{Configured, NativeSpecializer, UriNode}
 
 /** The sugar of a directory tree: the tree read as one term, each directory
   * and each file a mixin, a choice of partial functions of literals with a
@@ -33,7 +34,7 @@ import scala.util.Using
   *
   * LAZY (after MIXINv2's `_mixin_directory.py`, which loads directories and
   * files as a lazy AST, so that a file is parsed on demand). Each entry is a URI node of the IR
-  * (`Instruction.uri`) whose expansion (`expansion`) is its ENTRY UNIT, ⟦e⟧
+  * (`NativeSpecializer.uri`) whose expansion (`expansion`) is its ENTRY UNIT, ⟦e⟧
   * abstracted once more over the selves of the directories d1 … dn above it:
   *
   * {{{
@@ -85,10 +86,9 @@ import scala.util.Using
   * the visible subtree, and a directory's expansion lists it and makes one
   * member per entry, so a read costs time and space linear in the entries
   * of every such directory, whatever it reads below them; a level above the
-  * subtree costs one key check. A projection checks the keys one by one
-  * anyway, so the listing is the design's and not an
-  * implementation's cost: only a reader that dispatched on the literal key
-  * would skip it, and the evaluator recognises no literal.
+  * subtree costs one key check. That is a cost of how the expansion is built
+  * (`directoryUnit`), not of the term: a member stops being read at the first
+  * bit of its key that differs from the key looked up.
   *
   * FIXME (2026-11-12): the error of a malformed file does not name the file: https://github.com/Atry/private-overlay/issues/1986
   * `Lambdalattice.termInScope` throws `LambdalatticeMalformed` with the
@@ -97,11 +97,13 @@ import scala.util.Using
   * description of the text's source and puts it in the exception it throws.
   *
   * SCHEMES. Only `file:` is read, a URL whose content is mutable: the reader
-  * pins its expansion for one reading state by memoization (the evaluator's
-  * `ReadingState.expansions`). The rules that turn a `file:` URI into a
+  * pins its expansion for one version of the contents by memoization (the
+  * evaluator's `ReadingState.expansions`), and under a later version reads
+  * the content again and builds the expansion only if it differs
+  * (`expansionRead`). The rules that turn a `file:` URI into a
   * mixin path are the `file` scheme's own: the extension dropped, a
   * directory's key its name, dot entries and other files skipped (`keys`,
-  * `entries`, `fileExpansion`); another scheme brings its own. A key may
+  * `entries`, `fileExpansionRead`); another scheme brings its own. A key may
   * stand for several URIs (a file and a directory of one key), so only a
   * directory's expansion knows the URIs under a key. A scheme is added as one more member of `root` and one more
   * case of `expansion`, which gives its URIs' mixin paths and expansions;
@@ -149,10 +151,10 @@ object DirectoryTree:
     * a function of its URI. A URI node for the root would need a URI naming
     * the root, a scheme of its own, and no scheme is added for it.
     */
-  private def root(visible: Path): Instruction =
+  private def root[C <: NativeSpecializer & Singleton](visible: Path)(using specializer: C): Configured[C] =
     val levels = segments(visible)
-    def above(depth: Int): Instruction =
-      if depth == levels.size then Instruction.uri(visible.toAbsolutePath.normalize.toUri)
+    def above(depth: Int): Configured[C] =
+      if depth == levels.size then specializer.uri(visible.toAbsolutePath.normalize.toUri)
       else mixinUnit(Vector(levels(depth) -> above(depth + 1)), depth + 2)
     mixinUnit(Vector(fileScheme -> above(0)), 1)
 
@@ -161,19 +163,19 @@ object DirectoryTree:
     * (`lookedUp`). Nothing is evaluated. Throws `IllegalArgumentException`
     * for a visible subtree that is no directory and for a path outside it.
     */
-  def mixin(visible: Path, path: Path): Instruction = lookedUp(visibleRoot(visible, path), keys(path))
+  def mixin[C <: NativeSpecializer & Singleton](visible: Path, path: Path)(using C): Configured[C] = lookedUp(visibleRoot(visible, path), keys(path))
 
   /** The root of the tree whose visible subtree is `visible`, for a reader
     * that joins other mixins with the tree at its root, as the Jupyter
     * kernel joins a notebook's cells. Nothing is evaluated. Throws `IllegalArgumentException` for a
     * visible subtree that is no directory.
     */
-  def rootOf(visible: Path): Instruction = visibleRoot(visible, visible)
+  def rootOf[C <: NativeSpecializer & Singleton](visible: Path)(using C): Configured[C] = visibleRoot(visible, visible)
 
   /** The root of the tree whose visible subtree is `visible`, after
     * checking that the path is under it.
     */
-  private def visibleRoot(visible: Path, path: Path): Instruction =
+  private def visibleRoot[C <: NativeSpecializer & Singleton](visible: Path, path: Path)(using C): Configured[C] =
     val subtree = visible.toAbsolutePath.normalize
     if !Files.isDirectory(subtree) then throw IllegalArgumentException(s"a visible subtree that is no directory: $subtree")
     if !path.toAbsolutePath.normalize.startsWith(subtree) then
@@ -190,10 +192,30 @@ object DirectoryTree:
     * other than `file`, and for a path that is neither a directory nor a
     * file entry; and as reading a file does.
     */
-  def expansion(node: Instruction): Instruction =
-    val uri = node.uri.getOrElse(throw IllegalArgumentException(s"no URI node: $node"))
+  def expansion[C <: NativeSpecializer & Singleton](node: Configured[C])(using C): Configured[C] = expansionRead(node, None).expansion
+
+  /** What the expansion of a URI node reads of the file system besides the
+    * URI, the whole of its input: a directory's entries or a file's text.
+    */
+  enum ExpansionContent:
+    case Listed(entries: Vector[Entry])
+    case Written(text: String)
+
+  /** A URI node's expansion with the content it was made from. */
+  final case class ReadExpansion[C <: NativeSpecializer & Singleton](content: ExpansionContent, expansion: Configured[C])
+
+  /** The expansion of the URI node read now, as `expansion` reads it, and
+    * the content it is of. The content is always read; when it is the content
+    * of `earlier`, an expansion of the same node, the expansion is a function
+    * of what it was made from, so `earlier` itself is the answer and nothing
+    * is built. Throws as `expansion` does.
+    */
+  def expansionRead[C <: NativeSpecializer & Singleton](node: Configured[C], earlier: Option[ReadExpansion[C]])(using C): ReadExpansion[C] =
+    val uri = (node.layer: AnyRef) match
+      case UriNode(address) => address
+      case _                => throw IllegalArgumentException(s"no URI node: $node")
     uri.getScheme match
-      case "file" => fileExpansion(uri)
+      case "file" => fileExpansionRead(uri, earlier)
       case _      => throw IllegalArgumentException(s"a URI of no scheme the front end reads: $uri")
 
   /** The enclosing names an entry's text is read under
@@ -208,28 +230,42 @@ object DirectoryTree:
   /** The expansion of a `file:` URI: its mixin path is `file` and then its
     * absolute path's levels from the file system's root (`keys`), and its
     * scope the root's self `uri` and then the mixin path's levels; a query
-    * or a fragment is no part of it.
+    * or a fragment is no part of it. `earlier` when its content is the one
+    * read now (`expansionRead`).
     */
-  private def fileExpansion(uri: URI): Instruction =
+  private def fileExpansionRead[C <: NativeSpecializer & Singleton](uri: URI, earlier: Option[ReadExpansion[C]])(using C): ReadExpansion[C] =
     val path = Paths.get(uri.getPath)
-    val scope = this.scope(path)
-    if Files.isDirectory(path) then directoryUnit(path, scope)
-    else if Files.isRegularFile(path) && path.getFileName.toString.endsWith(fileExtension) then fileUnit(path, scope)
-    else throw IllegalArgumentException(s"a URI that locates no entry: $uri")
+    val content = fileContent(path).getOrElse(throw IllegalArgumentException(s"a URI that locates no entry: $uri"))
+    earlier.filter(_.content == content).getOrElse {
+      val scope = this.scope(path)
+      ReadExpansion(
+        content,
+        content match
+          case ExpansionContent.Listed(listed)  => directoryUnit(listed, scope)
+          case ExpansionContent.Written(text) => fileUnit(text, scope)
+      )
+    }
+
+  /** The content of the entry at the path now, none when it is no entry. */
+  private def fileContent(path: Path): Option[ExpansionContent] =
+    if Files.isDirectory(path) then Some(ExpansionContent.Listed(entries(path)))
+    else if Files.isRegularFile(path) && path.getFileName.toString.endsWith(fileExtension) then
+      Some(ExpansionContent.Written(Files.readString(path)))
+    else None
 
   /** The keys looked up off the mixin by self-application,
     * `ω (… (ω (ω X k1) k2) …) kn` with `ω Y k` the application `Y Y k`, the
     * key a string literal spread into its elements (`Literals.arguments`).
     * Nothing is evaluated; X itself for no key.
     */
-  def lookedUp(mixin: Instruction, keys: Vector[String]): Instruction =
+  def lookedUp[C <: NativeSpecializer & Singleton](mixin: Configured[C], keys: Vector[String])(using specializer: C): Configured[C] =
     keys.foldLeft(mixin)((current, key) =>
       val elements = Literals.arguments(Literal.text(key))
       // Each distinct element converted once, not once for each bit of the
       // key.
-      val converted = elements.distinct.map(element => element -> Defunctionalization.thunkInstruction(element)).toMap
-      elements.foldLeft(Instruction.Apply(current, current))((function, element) =>
-        Instruction.Apply(function, converted.getOrElse(element, throw IllegalStateException(s"no conversion of $element")))
+      val converted = elements.distinct.map(element => element -> Defunctionalization.thunkInstruction[C](element)).toMap
+      elements.foldLeft(specializer.application(current, current))((function, element) =>
+        specializer.application(function, converted.getOrElse(element, throw IllegalStateException(s"no conversion of $element")))
       )
     )
 
@@ -275,9 +311,9 @@ object DirectoryTree:
     * `new (new (new <root>.library).my_directory).my_file`, <root> the whole
     * source tree inlined. Nothing is evaluated. Throws as `mixin` does.
     */
-  def instance(visible: Path, path: Path): Instruction =
-    val reached = mixin(visible, path)
-    Instruction.Apply(reached, reached)
+  def instance[C <: NativeSpecializer & Singleton](visible: Path, path: Path)(using specializer: C): Configured[C] =
+    val reached: Configured[C] = mixin(visible, path)
+    specializer.application(reached, reached)
 
   /** The keys of the file entries of the directory, ordered. */
   def fileKeys(directory: Path): Vector[String] =
@@ -289,9 +325,27 @@ object DirectoryTree:
     * Throws `LambdaError` with `NotClosed` when M uses a name of its scope,
     * and as reading a file does.
     */
-  def closedFile(file: Path): Instruction =
+  def closedFile[C <: NativeSpecializer & Singleton](file: Path)(using C): Configured[C] =
     val scope = this.scope(file)
-    Defunctionalization.thunkInstruction(bodyUnder(Lambdalattice.termInScope(scope, Files.readString(file)), scope.size))
+    Defunctionalization.thunkInstruction[C](bodyUnder(Lambdalattice.termInScope(scope, Files.readString(file)), scope.size))
+
+  /** The term of a file whose content M names, of its scope, its directory
+    * alone: the file's URI node applied to the directory's mixin at the
+    * directory's level and to top at every other, which is M with that name
+    * bound by the β rule. It reads nothing, and it is one term whatever the
+    * file holds, the content being read when a reader expands the node, under
+    * that reader's version of the contents. A content that uses another name
+    * of the scope reads top there.
+    */
+  def entryOfItsDirectory[C <: NativeSpecializer & Singleton](file: Path)(using specializer: C): Configured[C] =
+    val absolute = file.toAbsolutePath.normalize
+    val directory = absolute.getParent
+    val top = Defunctionalization.thunkInstruction[C](Literals.top)
+    def appliedToTop(function: Configured[C], count: Int): Configured[C] =
+      (1 to count).foldLeft(function)((applied, _) => specializer.application(applied, top))
+    val directoryMixin = appliedToTop(specializer.uri(directory.toUri), scope(directory).size - 1)
+    val belowDirectory = specializer.application(appliedToTop(specializer.uri(absolute.toUri), scope(absolute).size - 2), directoryMixin)
+    specializer.application(belowDirectory, top)
 
   /** The names of the levels of the absolute path, from the file system's
     * root.
@@ -310,7 +364,7 @@ object DirectoryTree:
         case other => throw IllegalStateException(s"a file read in a scope of $count names is no abstraction: $other")
 
   /** An entry of a directory: its key, its path and whether it is a file. */
-  private final case class Entry(key: String, path: Path, isFile: Boolean)
+  final case class Entry(key: String, path: Path, isFile: Boolean)
 
   /** The entries of the directory, ordered by key, a file before a
     * directory of the same key, so that the directory's term is a function
@@ -334,26 +388,29 @@ object DirectoryTree:
     */
   private def boundName(key: String): String = NameSpelling.escaped(key)
 
-  /** The unit of a file, `λd1. … λdn. λe. M`: the file read in its scope. */
-  private def fileUnit(path: Path, scope: Vector[String]): Instruction =
-    Defunctionalization.thunkInstruction(Lambdalattice.termInScope(scope, Files.readString(path)))
+  /** The unit of a file, `λd1. … λdn. λe. M`: the text read in the file's
+    * scope.
+    */
+  private def fileUnit[C <: NativeSpecializer & Singleton](text: String, scope: Vector[String])(using C): Configured[C] =
+    Defunctionalization.thunkInstruction[C](Lambdalattice.termInScope(scope, text))
 
-  /** The unit of a directory, the directory listed now:
+  /** The unit of a directory of the entries:
     * `λd1. … λdn. λe. (λ"c1". U_c1 d1 … dn e) + … + (λ"ck". U_ck d1 … dn e)`,
     * each U_ci the URI node of the entry, or `λd1. … λdn. λe. top` for no
     * entry. The selves are passed on by position; the files read them by
     * their names.
     *
-    * FIXME (https://github.com/Atry/private-overlay/issues/2074): this builds
-    * the partial function of every entry to look up one key, and a reader with
-    * a fresh expansion source builds them again. Measured 2026-11-21 on a
-    * Jupyter cell of one FFI call: 716 MB of the cell's 1.3 GB went to the 10
-    * directories it reached, 397 MB of it to a directory of 94 entries of
-    * which the program reads one. Why one entry costs 2 to 6 MB is not yet
-    * known.
+    * FIXME (https://github.com/Atry/private-overlay/issues/2156): this builds
+    * the partial function of every entry to look up one key, though a look-up
+    * reads a member only up to the first bit that differs, so the cost grows
+    * with the bits of all the keys. Measured 2026-11-22
+    * (`DirectoryExpansionBenchmarks`, `-prof gc`): the standard library's
+    * directory, 32 entries of 3,464 bits, allocates 1.2 MB warmed up and
+    * 40.8 MB in a fresh JVM. Candidate: build a member's bits when a reading
+    * reaches them, with the term unchanged.
     */
-  private def directoryUnit(path: Path, scope: Vector[String]): Instruction =
-    mixinUnit(entries(path).map(entry => entry.key -> Instruction.uri(entry.path.toAbsolutePath.normalize.toUri)), scope.size)
+  private def directoryUnit[C <: NativeSpecializer & Singleton](listed: Vector[Entry], scope: Vector[String])(using specializer: C): Configured[C] =
+    mixinUnit(listed.map(entry => entry.key -> specializer.uri(entry.path.toAbsolutePath.normalize.toUri)), scope.size)
 
   /** The unit of a mixin whose members are the keys with their entries' URI
     * nodes, under `selves` abstractions:
@@ -363,17 +420,20 @@ object DirectoryTree:
     * of the key c one by one, so that a look-up (`lookedUp`) is a trie's: a
     * variable arguments partial function (`CONTRIBUTING.md`, "Terms").
     */
-  private def mixinUnit(members: Vector[(String, Instruction)], selves: Int): Instruction =
-    val body =
-      if members.isEmpty then Literals.top
-      else
-        val partialFunctions = members.map { (key, node) =>
-          // At the partial function's own depth, under the selves only, the
-          // selves d1 … dn e are the indices selves − 1 down to 0.
-          val applied = (selves - 1 to 0 by -1).foldLeft(DeBruijnTerm.Constant(node): DeBruijnTerm)((function, index) =>
-            DeBruijnTerm.Apply(function, DeBruijnTerm.Variable(index))
-          )
-          Literals.partialFunction(Literal.text(key), applied)
-        }
-        ChoiceSpine.nested[DeBruijnTerm](partialFunctions, DeBruijnTerm.Choice(_, _))
-    Defunctionalization.thunkInstruction((1 to selves).foldLeft(body)((inner, _) => DeBruijnTerm.Lambda(inner)))
+  private def mixinUnit[C <: NativeSpecializer & Singleton](members: Vector[(String, Configured[C])], selves: Int)(using C): Configured[C] =
+    if members.size >= 2 then
+      Defunctionalization.mixinInstruction(members.map((key, node) => Literal.text(key) -> node), selves)
+    else
+      val body =
+        if members.isEmpty then Literals.top: DeBruijnTermOf[Configured[C]]
+        else
+          val partialFunctions = members.map { (key, node) =>
+            // At the partial function's own depth, under the selves only, the
+            // selves d1 … dn e are the indices selves − 1 down to 0.
+            val applied = (selves - 1 to 0 by -1).foldLeft(DeBruijnTerm.Constant(node): DeBruijnTermOf[Configured[C]])((function, index) =>
+              DeBruijnTerm.Apply(function, DeBruijnTerm.Variable(index))
+            )
+            Literals.partialFunction(Literal.text(key), applied)
+          }
+          ChoiceSpine.nested[DeBruijnTermOf[Configured[C]]](partialFunctions, DeBruijnTerm.Choice(_, _))
+      Defunctionalization.thunkInstruction[C]((1 to selves).foldLeft(body)((inner, _) => DeBruijnTerm.Lambda(inner)))

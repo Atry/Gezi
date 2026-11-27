@@ -30,17 +30,53 @@ class LexerOfReadTextLawTest extends GeneratedProperties:
       true
     catch case _: LambdalatticeMalformed => false
 
-  // The grammar reads 4% to 5% of the texts drawn (seen 2026-11-20; seed 153758314098134 drew 4%, which failed a
-  // coverage of 5%): about 80 of the 2,000, which the law needs; the coverage asks for 2%, below what the draws give.
-  property("a text the grammar reads is a text the lexer reads", _.copy(testLimit = 2000)) {
-    for text <- texts.forAll.cover(2, "the grammar reads it", read(_))
+  /** Texts the grammar reads by construction: a name; a name applied to
+    * literals of every kind and to parenthesized texts; a λ (either spelling)
+    * over names, `_` and literals as binders; two parenthesized texts joined
+    * by a choice or a parallel (either spelling).
+    */
+  private def grammatical(depth: Int): Gen[String] =
+    val name = Gen.element1("x", "f")
+    val literal = Gen.element1("30", "\"k\"", "h'00ff'", "[1, 2]", "3.0", "0.5", "{\"k\": 1}", "true", "-7", "b64'AA'")
+    if depth == 0 then name
+    else
+      val inner = grammatical(depth - 1)
+      Gen.choice1(
+        name,
+        for
+          head <- name
+          arguments <- Gen.choice1(literal, inner.map(text => s"($text)")).list(Range.linear(1, 3))
+        yield (head :: arguments).mkString(" "),
+        for
+          lambda <- Gen.element1("λ", "\\")
+          binders <- Gen.choice1(name, Gen.constant("_"), Gen.element1("\"k\"", "30")).list(Range.linear(1, 2))
+          body <- inner
+        yield s"$lambda${binders.mkString(" ")}. $body",
+        for
+          left <- inner
+          operator <- Gen.element1("+", "∥", "||")
+          right <- inner
+        yield s"($left) $operator ($right)"
+      )
+
+  /** The lexer's verdict on a text: none when it reads it, its error otherwise. */
+  private def lexed(text: String): Option[LambdalatticeMalformed] =
+    try
+      Lambdalattice.tokens(text)
+      None
+    catch case malformed: LambdalatticeMalformed => Some(malformed)
+
+  /** Every iteration checks a text of fragments, which the grammar may or may
+    * not read, and a text the grammar reads by construction, whose verdicts
+    * are known: the grammar and the lexer read it.
+    */
+  property("a text the grammar reads is a text the lexer reads") {
+    for
+      text <- texts.forAll
+      readable <- grammatical(3).forAll
     yield
-      if !read(text) then Result.success
-      else
-        val lexed =
-          try
-            Lambdalattice.tokens(text)
-            None
-          catch case malformed: LambdalatticeMalformed => Some(malformed)
-        Result.assert(lexed.isEmpty).log(s"the grammar reads $text, the lexer rejects it: $lexed")
+      val drawn = if !read(text) then Result.success else Result.assert(lexed(text).isEmpty).log(s"the grammar reads $text, the lexer rejects it: ${lexed(text)}")
+      drawn
+        .and(Result.assert(read(readable)).log(s"the grammar rejects $readable, a text of its own grammar"))
+        .and(Result.assert(lexed(readable).isEmpty).log(s"the lexer rejects $readable: ${lexed(readable)}"))
   }

@@ -7,7 +7,7 @@
 . export
   ( λ _ _ properties _
     . properties
-    λ _ associative _ _ _ _ _ _
+    λ _ associative _ _ _ _ _ _ _
     . associative
     λ k
     . k c

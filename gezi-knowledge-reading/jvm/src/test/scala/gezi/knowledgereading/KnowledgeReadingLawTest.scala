@@ -10,9 +10,10 @@ import gezi.frontend.Term
 import gezi.generatedinputs.GeneratedProperties
 import gezi.generatedinputs.HoasGenerators
 import gezi.generatedinputs.LambdalatticeText
-import gezi.ir.Instruction
+import gezi.ir.Configured
+import gezi.ir.NoFacts
 import gezi.weakhead.Computation
-import gezi.weakhead.Value
+import gezi.ir.Value
 
 /** The laws of the data reader (`KnowledgeReading`).
   *
@@ -35,6 +36,8 @@ import gezi.weakhead.Value
   * purpose is to catch a reader that takes one of two values silently.
   */
 class KnowledgeReadingLawTest extends GeneratedProperties:
+
+  private given NoFacts.type = NoFacts
 
   // Measured 2026-11-16 on 2 CPUs (contest-lean.slice, CPUs 10,11, nice 10), the 1-minute load 9 to 22 over the run, every deadline raised to 600 s: the slowest test of KnowledgeReadingLawTest, "records chosen together read back the members of each key", takes 4.687 s; the bound is 1.5 times that rounded up to 5 s.
   // FIXME: this suite exceeds the 3 s default with no reason yet; its slow tests are to be made fast. https://github.com/Atry/private-overlay/issues/1925
@@ -163,8 +166,8 @@ class KnowledgeReadingLawTest extends GeneratedProperties:
   property("mixins chosen together read back the members of each slot") {
     for members <- member.list(Range.linear(1, 5)).forAllWithLog(found => recordText(found.toVector))
     yield
-      val knowledge = Defunctionalization.thunkInstruction(Lambdalattice.term(recordText(members.toVector)))
-      val names = Set.empty[Instruction]
+      val knowledge = Value.of(Defunctionalization.thunkInstruction(Lambdalattice.term(recordText(members.toVector)))(using NoFacts))
+      val names = Set.empty[Configured[NoFacts.type]]
       val reading = KnowledgeReading.slots(knowledge, width).flatMap(slots =>
         Computation.traversed(slots)(bodies =>
           Computation.traversed(bodies)(KnowledgeReading.members).map(_.flatten).flatMap(found =>
@@ -184,7 +187,7 @@ class KnowledgeReadingLawTest extends GeneratedProperties:
       val read = KnowledgeReading.run(reading, 10000000L)
       val expected = (0 until width).toVector.map(key =>
         members.toVector.filter(_.key == key).map(found =>
-          (found.name, Defunctionalization.thunkInstruction(found.term.deBruijnTerm(Map.empty)), found.strings, found.number)
+          (found.name, Defunctionalization.thunkInstruction(found.term.deBruijnTerm(Map.empty))(using gezi.ir.NoFacts), found.strings, found.number)
         )
       )
       Result
@@ -198,8 +201,8 @@ class KnowledgeReadingLawTest extends GeneratedProperties:
       value <- number.forAll
       other <- text.forAll
     yield
-      def record(written: String): Value =
-        Defunctionalization.thunkInstruction(Lambdalattice.term(written))
+      def record(written: String): Value[NoFacts.type] =
+        Value.of(Defunctionalization.thunkInstruction(Lambdalattice.term(written))(using NoFacts))
       val read = KnowledgeReading.run(
         for
           nameRead <- KnowledgeReading.trieTextWritten(record(trieValue(name)))
@@ -233,7 +236,7 @@ class KnowledgeReadingLawTest extends GeneratedProperties:
     yield
       def refused(written: String): Boolean =
         scala.util
-          .Try(KnowledgeReading.run(KnowledgeReading.trieText(Defunctionalization.thunkInstruction(Lambdalattice.term(written))), 10000000L))
+          .Try(KnowledgeReading.run(KnowledgeReading.trieText(Value.of(Defunctionalization.thunkInstruction(Lambdalattice.term(written))(using NoFacts))), 10000000L))
           .failed
           .toOption
           .exists {

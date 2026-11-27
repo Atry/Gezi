@@ -200,7 +200,10 @@ object EntryProjects extends AutoPlugin {
       .dependsOn(
         (entryProjects.map(project => LocalProject(project.id): ClasspathDep[ProjectReference]) ++ Seq[ClasspathDep[ProjectReference]](
           LocalProject("contest-entry-generic"),
-          LocalProject("generatedinputs") % Test
+          LocalProject("generatedinputs") % Test,
+          // The unique spelling's premise is checked on each entry's facts by jit's test checker
+          // (`UniqueSpellingPremiseCheck`).
+          LocalProject("jit") % "test->test"
         ))*
       )
       .settings(

@@ -1,0 +1,2 @@
+direct-small blocks=1 computed=true
+direct-larger blocks=1 computed=true

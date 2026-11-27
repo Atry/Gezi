@@ -1,8 +1,11 @@
 package gezi.standardlibrary
 
 import gezi.ir.Code
-import gezi.ir.Instruction
+import gezi.ir.Configured
 import gezi.ir.Hole
+import gezi.ir.NativeSpecializer.*
+import gezi.ir.NoFacts
+import gezi.ir.NonEmptyHoles
 
 /** The port of `gezi/tests/standard_library_lemmas.plt`: every lemma of
   * prelude and of guard_laws whose proof is
@@ -14,6 +17,8 @@ import gezi.ir.Hole
   * it is listed below.
   */
 class StandardLibraryLemmasTest extends gezi.generatedinputs.FailFastSuite:
+
+  given NoFacts.type = NoFacts
 
   // Measured 2026-11-16 on 2 CPUs (contest-lean.slice, CPUs 10,11, nice 10), the 1-minute load 9 to 22 over the run, every deadline raised to 600 s: the slowest test of StandardLibraryLemmasTest, "everyDefinitionalLemmaReplays", takes 14.041 s; the bound is 1.5 times that rounded up to 5 s.
   // FIXME: this suite exceeds the 3 s default with no reason yet; its slow tests are to be made fast. https://github.com/Atry/private-overlay/issues/1925
@@ -28,7 +33,7 @@ class StandardLibraryLemmasTest extends gezi.generatedinputs.FailFastSuite:
     */
   private lazy val preludePaths: Vector[String] = TreeTerms.filePaths("corpora/library/prelude")
 
-  private lazy val preludeFields: Vector[Vector[Instruction]] = TreeTerms.fields(preludePaths)
+  private lazy val preludeFields: Vector[Vector[Configured[NoFacts.type]]] = TreeTerms.fields(preludePaths)
 
   private lazy val replay = LemmaReplay(library, preludeFields.flatten.toSet)
 
@@ -112,21 +117,20 @@ class StandardLibraryLemmasTest extends gezi.generatedinputs.FailFastSuite:
     } match
       case Vector(Some(term)) => term
       case other              => fail(s"the prelude's file natural has no field 3: $other")
-    assertEquals(
-      replay.replayed("natural_double_successor"),
-      Some(
-        Instruction.Thunk(
-          Code.Apply(
-            Code.Slot(0),
-            Code.Thunk(
-              Code.Apply(Code.Slot(0), Code.Apply(Code.Slot(1), Code.Slot(2))),
-              Vector(Hole.Ignored, Hole.Bound(0)),
-              Vector(Code.Slot(1), Code.Slot(2))
-            )
-          ),
-          Vector(Hole.Bound(2), Hole.Ignored, Hole.Bound(0)),
-          Vector(naturalDouble)
+    val expected = NoFacts.thunk(
+      Code.Apply(
+        Code.Slot(0),
+        Code.Thunk(
+          Code.Apply(Code.Slot(0), Code.Apply(Code.Slot(1), Code.Slot(2))),
+          Vector(Hole.Ignored, Hole.Bound(0)),
+          Vector(Code.Slot(1), Code.Slot(2))
         )
-      )
+      ),
+      NonEmptyHoles(Hole.Bound(2), Vector(Hole.Ignored, Hole.Bound(0))),
+      Vector(naturalDouble)
+    )
+    assert(
+      replay.replayed("natural_double_successor").exists(Configured.same(_, expected)),
+      s"natural_double_successor replays to ${replay.replayed("natural_double_successor")}"
     )
   }

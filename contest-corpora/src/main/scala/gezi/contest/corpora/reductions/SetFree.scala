@@ -34,32 +34,32 @@ object SetFree:
     * (`standardBinaryArithmetic`), which is the library's term of that name
     * (`StandardLibraryTerms.binaryArithmetic`), whatever the spelling.
     */
-  def libraryFunction(group: ReductionGroup, name: String, spelling: Spelling): Term =
+  def libraryFunction(group: ReductionGroup, name: String, spelling: Spelling): ProblemTerm =
     if standardBinaryArithmetic.contains(name) then group.standardLibrary.binaryArithmetic(name)
     else group.attractors.functionSurface(name, spelling)
 
   /** The Scott list of the Scott Booleans of the bits, each piece the
     * attractor's direct surface (`boolean_list/2`, `bits_surface/2`).
     */
-  def booleanList(attractors: Attractors, bits: Vector[Int]): Term =
+  def booleanList(attractors: Attractors, bits: Vector[Int]): ProblemTerm =
     bits.foldRight(attractors.attractorSurface("nil", Spelling.Direct))((bit, rest) =>
       attractors.attractorSurface("cons", Spelling.Direct)(bitAttractor(attractors, bit))(rest)
     )
 
   /** The attractor true for 1, false for 0. */
-  def bitAttractor(attractors: Attractors, bit: Int): Term = bit match
+  def bitAttractor(attractors: Attractors, bit: Int): ProblemTerm = bit match
     case 1     => attractors.attractorSurface("true", Spelling.Direct)
     case 0     => attractors.attractorSurface("false", Spelling.Direct)
     case other => throw IllegalArgumentException(s"not a bit: $other")
 
   /** The Scott list of the terms, each piece the attractor's direct surface. */
-  def scottList(attractors: Attractors, elements: Vector[Term]): Term =
+  def scottList(attractors: Attractors, elements: Vector[ProblemTerm]): ProblemTerm =
     elements.foldRight(attractors.attractorSurface("nil", Spelling.Direct))((element, rest) =>
       attractors.attractorSurface("cons", Spelling.Direct)(element)(rest)
     )
 
   /** The Scott list of the bit lists (`lists_surface/2`). */
-  def bitLists(attractors: Attractors, lists: Vector[Vector[Int]]): Term =
+  def bitLists(attractors: Attractors, lists: Vector[Vector[Int]]): ProblemTerm =
     scottList(attractors, lists.map(booleanList(attractors, _)))
 
   /** `n` bits of the linear congruential sequence from the seed, the bit

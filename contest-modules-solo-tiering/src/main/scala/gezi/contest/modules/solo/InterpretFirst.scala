@@ -4,12 +4,12 @@ import gezi.hotspot.ArtifactKey
 import gezi.hotspot.Budget
 import gezi.hotspot.Cache
 import gezi.hotspot.CompilationUnit
-import gezi.hotspot.CompilerConfiguration
 import gezi.hotspot.Decision
 import gezi.hotspot.Spent
 import gezi.hotspot.TieringPolicy
-import gezi.ir.Instruction
+import gezi.ir.{Configured, NativeSpecializer}
 import gezi.narrowblocks.ProgramArtifacts
+import gezi.narrowblocks.ProgramCompilation
 import gezi.saturation.StopSignal
 
 /** The tiering policy: interpret a program within a few evaluator steps, and compile it with
@@ -35,7 +35,8 @@ import gezi.saturation.StopSignal
   *   the evaluator steps the interpretation of a program may spend before
   *   the policy compiles it
   */
-final case class InterpretFirst(configuration: CompilerConfiguration, interpretationSteps: Long) extends TieringPolicy:
+final case class InterpretFirst[C <: NativeSpecializer & Singleton](configuration: ProgramCompilation[C], interpretationSteps: Long)
+    extends TieringPolicy[C]:
   require(interpretationSteps >= 0, s"the interpretation's steps are not negative: $interpretationSteps")
 
   /** Run the compiled program when its artifact is in the cache service;
@@ -44,9 +45,9 @@ final case class InterpretFirst(configuration: CompilerConfiguration, interpreta
     * tiered executor takes the caller's stop and caps its steps by the
     * caller's (`TieredExecutor`).
     */
-  def decided(program: CompilationUnit.Program, spent: Spent, cache: Cache): Decision =
-    val compiled = cache.locked(ProgramArtifacts)(_.tryGet(ArtifactKey[Instruction](program, configuration))).isDefined
+  def decided(program: CompilationUnit.Program[C], spent: Spent, cache: Cache): Decision[C] =
+    val compiled = cache.locked(ProgramArtifacts[C](configuration.index.specializer))(_.tryGet(ArtifactKey[C, Configured[C]](program, configuration))).isDefined
     if compiled then Decision.RunCompiled(Budget(Long.MaxValue, countedUnits = false, StopSignal.NeverStopped))
     else if spent.steps < interpretationSteps then
       Decision.Interpret(Budget(interpretationSteps - spent.steps, countedUnits = false, StopSignal.NeverStopped))
-    else Decision.Compile(Vector(program))
+    else Decision.Compile[C](Vector(program))

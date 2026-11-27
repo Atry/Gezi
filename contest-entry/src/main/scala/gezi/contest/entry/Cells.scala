@@ -2,57 +2,57 @@ package gezi.contest.entry
 
 import java.nio.file.Path
 import gezi.frontend.DeBruijnTerm
+import gezi.frontend.DeBruijnTermOf
 import gezi.frontend.Defunctionalization
-import gezi.frontend.ExchangeText
-import gezi.frontend.Lambdalattice
-import gezi.ir.Instruction
+import gezi.weakhead.ScottADTChoices
 import gezi.saturation.StopSignal
 import scala.util.control.TailCalls.TailRec
 import scala.util.control.TailCalls.done
 import scala.util.control.TailCalls.tailcall
+import gezi.ir.{Closed, Configured, NativeSpecializer}
 
-/** What a finished cell displays of its Output: that the Output has no
-  * normal form, or a closed term, a choice of whose members the judge reads.
-  * The first is no term
-  * of the language, which has no term for the choice of nothing; on the pipe
-  * it is the exchange format's own line
-  * (`gezi.frontend.ExchangeText.noNormalFormLine`): the display reads "no
-  * normal form, or a term", the bytes of the pipe unchanged.
+/** What a finished cell displays of its Output, in the configuration `C` of its entry. Three kinds:
+  *
+  *   - `Values`, the Output's Scott ADT values (`ScottADTChoices.of`): the closed terms `λc1 … ck. ci v1 … vn`, each
+  *     field again one, that the Output is ⊑_O; the empty set, `top`, is the display of an Output with no Scott ADT
+  *     value, whether or not it has a normal form;
+  *   - `Remainder`, a closed term the entry evaluated no further, as the display of an Output whose reading was
+  *     stopped by its budget, or of a judgment `N ∥ T` left undecided, which asserts nothing the Output does not;
+  *   - `Mixed`, Scott ADT values beside a remainder, which the protocol allows on one line.
+  *
+  * The display as text is written by the pipe's formatter (`gezi.contest.runner.PipeLines.answerLine`): the values
+  * as the Scott ADT reading, the remainder as any term of the configuration.
   */
-enum OutputDisplay:
+enum OutputDisplay[C <: NativeSpecializer & Singleton]:
 
-  /** The Output is known to have no normal form. */
-  case NoNormalForm
+  /** The Output's Scott ADT values, which may be none. */
+  case Values(choices: ScottADTChoices[C])
 
-  /** The members of the term's choice, the Output's normal forms among
-    * them, and any other member a remainder that asserts nothing. The term
-    * is the instruction of the IR, as the exchange format reads it
-    * (`ExchangeText.term`), at the size of its graph: the judge reads it
-    * from an untrusted process, and a short line can stand for a tree too
-    * large to build.
+  /** A term of the configuration the Output was left as, a choice of whose members the judge reads: those that are
+    * Scott ADT values assert membership, any other member asserts nothing.
     */
-  case Shown(term: Instruction)
+  case Remainder(term: Configured[C])
 
-  /** The display as text: the exchange format's line of no normal form, or
-    * the term shown as the function writes it.
-    */
-  def written(termText: Instruction => String): String = this match
-    case NoNormalForm => ExchangeText.noNormalFormLine
-    case Shown(shown) => termText(shown)
+  /** Scott ADT values and a remainder together. */
+  case Mixed(choices: ScottADTChoices[C], remainder: Configured[C])
 
 /** The displays an entry makes from its own terms. */
 object OutputDisplay:
 
-  /** The display of a closed term an entry holds as a de Bruijn term: its
-    * instruction (`Defunctionalization.thunkInstruction`).
+  /** The display of an Output with no Scott ADT value. */
+  def noScottADTValue[C <: NativeSpecializer & Singleton](using C): OutputDisplay[C] = Values(ScottADTChoices.empty[C])
+
+  /** The display of a closed term an entry holds as a de Bruijn term, left as it is: its instruction
+    * (`Defunctionalization.thunkInstruction`).
     */
-  def shown(term: DeBruijnTerm): OutputDisplay = Shown(Defunctionalization.thunkInstruction(term))
+  def remainder[C <: NativeSpecializer & Singleton](term: DeBruijnTermOf[Configured[C]])(using C): OutputDisplay[C] =
+    Remainder(Defunctionalization.thunkInstruction[C](term))
 
 /** What a cell's run comes to: the display of the cell's output, the phases of its run (`Phase`)
   * and the entry after it. An immutable value; the entry does no I/O.
   */
-enum Interaction:
-  case Finished(output: OutputDisplay, phases: Vector[Report], entry: Entry)
+enum Interaction[C <: NativeSpecializer & Singleton]:
+  case Finished(output: OutputDisplay[C], phases: Vector[Report], entry: Entry[C])
 
 /** Where an entry writes the OpenTheory articles of its compilation, given
   * once when it is loaded:
@@ -101,51 +101,40 @@ object Cells:
   /** The cell `λs.λk. k s output` of a closed Output, which leaves the
     * state as it is: the cell of a point.
     */
-  def cell(output: DeBruijnTerm): DeBruijnTerm =
-    DeBruijnTerm.Lambda(DeBruijnTerm.Lambda(DeBruijnTerm.Apply(DeBruijnTerm.Apply(DeBruijnTerm.Variable(0), DeBruijnTerm.Variable(1)), output)))
+  def cell[K](output: DeBruijnTermOf[K]): DeBruijnTermOf[K] =
+    DeBruijnTerm.Lambda(DeBruijnTerm.Lambda(DeBruijnTerm.Apply(DeBruijnTerm.Apply(DeBruijnTerm.Variable[K](0), DeBruijnTerm.Variable[K](1)), output)))
 
   /** The state after the cell, `cell state (λa. λb. a)` with the
     * projection's own redexes contracted.
     */
-  def nextState(cell: DeBruijnTerm, state: DeBruijnTerm): DeBruijnTerm = projected(cell, state, first)
+  def nextState[K](cell: DeBruijnTermOf[K], state: DeBruijnTermOf[K]): DeBruijnTermOf[K] = projected(cell, state, first)
 
   /** The cell's Output on the state, `cell state (λa. λb. b)` with the
     * projection's own redexes contracted.
     */
-  def output(cell: DeBruijnTerm, state: DeBruijnTerm): DeBruijnTerm = projected(cell, state, second)
+  def output[K](cell: DeBruijnTermOf[K], state: DeBruijnTermOf[K]): DeBruijnTermOf[K] = projected(cell, state, second)
 
   /** The cell's Output as the bare application `cell state (λa. λb. b)`,
     * nothing contracted: a display equal to the Output that asserts nothing,
     * since its head is a beta redex and so it is no normal form.
     */
-  def unreducedOutput(cell: DeBruijnTerm, state: DeBruijnTerm): OutputDisplay =
-    OutputDisplay.shown(DeBruijnTerm.Apply(DeBruijnTerm.Apply(cell, state), second))
+  def unreducedOutput[C <: NativeSpecializer & Singleton](cell: DeBruijnTermOf[Configured[C]], state: DeBruijnTermOf[Configured[C]])(using C): OutputDisplay[C] =
+    OutputDisplay.remainder[C](DeBruijnTerm.Apply(DeBruijnTerm.Apply(cell, state), second))
 
   /** `nextState` through the front end: the defunctionalized IR of the
     * state after the cell.
     */
-  def nextStateInstruction(cell: DeBruijnTerm, state: DeBruijnTerm): Instruction =
+  def nextStateInstruction[C <: NativeSpecializer & Singleton](cell: DeBruijnTermOf[Configured[C]], state: DeBruijnTermOf[Configured[C]])(using C): Configured[C] =
     Defunctionalization.thunkInstruction(nextState(cell, state))
 
   /** `output` through the front end: the defunctionalized IR of the cell's
     * Output, the instruction of `p` itself for a cell `λs.λk. k s p`.
     */
-  def outputInstruction(cell: DeBruijnTerm, state: DeBruijnTerm): Instruction =
+  def outputInstruction[C <: NativeSpecializer & Singleton](cell: DeBruijnTermOf[Configured[C]], state: DeBruijnTermOf[Configured[C]])(using C): Configured[C] =
     Defunctionalization.thunkInstruction(output(cell, state))
 
-  /** The display of an Output whose answers, the closed βη normal forms N
-    * with Output ⊑_O N, are known to be exactly these closed pure terms, the
-    * most canonical display: for none
-    * `OutputDisplay.NoNormalForm`, the normal form itself for one, else
-    * their right-nested choice, the members in the order of their
-    * lambdalattice text.
-    */
-  def displayed(normalForms: Set[DeBruijnTerm]): OutputDisplay =
-    if normalForms.isEmpty then OutputDisplay.NoNormalForm
-    else OutputDisplay.shown(DeBruijnTerm.nestedChoice(normalForms.toVector.sortBy(Lambdalattice.text(_, Map.empty))))
-
   /** `cell state projection` with the projection's own redexes contracted. */
-  private def projected(cell: DeBruijnTerm, state: DeBruijnTerm, projection: DeBruijnTerm): DeBruijnTerm =
+  private def projected[K](cell: DeBruijnTermOf[K], state: DeBruijnTermOf[K], projection: DeBruijnTermOf[K]): DeBruijnTermOf[K] =
     cell match
       case DeBruijnTerm.Lambda(DeBruijnTerm.Lambda(body)) =>
         substituted(body, 0, state, projection).result match
@@ -162,7 +151,7 @@ object Cells:
     * (2026-11-02, on the
     * `repeated_library_edit_distances` points).
     */
-  private def substituted(body: DeBruijnTerm, depth: Int, state: DeBruijnTerm, projection: DeBruijnTerm): TailRec[DeBruijnTerm] =
+  private def substituted[K](body: DeBruijnTermOf[K], depth: Int, state: DeBruijnTermOf[K], projection: DeBruijnTermOf[K]): TailRec[DeBruijnTermOf[K]] =
     body match
       case DeBruijnTerm.Variable(index) if index == depth     => done(projection)
       case DeBruijnTerm.Variable(index) if index == depth + 1 => done(state)
@@ -193,11 +182,16 @@ object Cells:
   * not evaluated, and keeps the state as a term: a tool an entry may use for
   * the cells it does not evaluate, not a default of `Entry`.
   */
-final case class UnevaluatedCells(state: DeBruijnTerm) extends Entry:
+final case class UnevaluatedCells[C <: NativeSpecializer & Singleton](specializer: C, state: DeBruijnTermOf[Configured[C]]) extends Entry[C]:
 
-  def run(cell: DeBruijnTerm, source: gezi.hotspot.ExpansionSource, stop: StopSignal): Interaction =
+  def run(cell: DeBruijnTermOf[Configured[C]], source: gezi.hotspot.ExpansionSource, stop: StopSignal): Interaction[C] =
+    given C = specializer
     Interaction.Finished(
-      OutputDisplay.shown(Cells.output(cell, state)),
+      OutputDisplay.remainder[C](Cells.output(cell, state)),
       Vector.empty,
       copy(state = Cells.nextState(cell, state))
     )
+
+  /** An entry that evaluates nothing runs no FFI program, so it is given no value to display. */
+  def displayed(value: Closed[C], source: gezi.hotspot.ExpansionSource, stop: StopSignal): (Entry[C], OutputDisplay[C]) =
+    throw IllegalStateException("an entry that evaluates nothing runs no FFI program, and is given no value to display")

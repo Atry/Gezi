@@ -8,7 +8,8 @@ import gezi.frontend.Literals
 import gezi.weakhead.Computed
 import gezi.weakhead.Mode
 import gezi.weakhead.ReadingState
-import gezi.weakhead.Value
+import gezi.ir.NoFacts
+import gezi.ir.Value
 import gezi.weakhead.WeakHead
 import org.openjdk.jmh.annotations.Benchmark
 import org.openjdk.jmh.annotations.BenchmarkMode
@@ -23,18 +24,22 @@ import org.openjdk.jmh.annotations.State
 import org.openjdk.jmh.annotations.Warmup
 import scala.compiletime.uninitialized
 
+/** The configuration of the terms here: no facts. */
+private given cborTrieNoFacts: NoFacts.type = NoFacts
+import gezi.ir.{Configured, NativeSpecializer}
+
 /** The look-ups of a choice of variable arguments partial functions of text
   * keys, each key's literal its CBOR text string spread into bits, read
   * under the tabled weak head that knows top, every look-up of a run in one
   * reading state (`ReadingState.nextReading` keeps the tables). The keys
   * are names that share eight prefixes, as file names do.
   */
-final case class CborTrieSetting(hits: Vector[Value], rootMisses: Vector[Value], deepMisses: Vector[Value])
+final case class CborTrieSetting(hits: Vector[Value[NoFacts.type]], rootMisses: Vector[Value[NoFacts.type]], deepMisses: Vector[Value[NoFacts.type]])
 
 /** A run of look-ups: the state after the last and the number of parallel
   * sets each read.
   */
-final case class CborTrieRun(state: ReadingState, answers: Vector[Int])
+final case class CborTrieRun(state: ReadingState[NoFacts.type], answers: Vector[Int])
 
 object CborTries:
 
@@ -76,9 +81,9 @@ object CborTries:
     val record = chained(
       keys(members).zipWithIndex.map((written, index) => Literals.partialFunction(Literal.text(written), Literals.naturalTerm(index))).toList
     )
-    def queries(written: Vector[String]): Vector[Value] =
+    def queries(written: Vector[String]): Vector[Value[NoFacts.type]] =
       written.map(key =>
-        Defunctionalization.thunkInstruction(Literals.arguments(Literal.text(key)).foldLeft(record)(DeBruijnTerm.Apply(_, _)))
+        Value.of(Defunctionalization.thunkInstruction[NoFacts.type](Literals.arguments(Literal.text(key)).foldLeft(record)(DeBruijnTerm.Apply(_, _))))
       )
     CborTrieSetting(queries(keys(members)), queries(rootMisses(members)), queries(deepMisses(members)))
 
@@ -93,10 +98,10 @@ object CborTries:
   val tableLimit: Int = 80000
 
   /** The state no look-up has read in, knowing top. */
-  def fresh: ReadingState = ReadingState.knowingTop(limit).copy(tableLimit = tableLimit)
+  def fresh: ReadingState[NoFacts.type] = ReadingState.knowingTop(limit, gezi.weakhead.ReadingConfiguration.withoutFacts).copy(tableLimit = tableLimit)
 
   /** The queries looked up in order, each in the state the one before left. */
-  def looked(queries: Vector[Value], start: ReadingState): CborTrieRun =
+  def looked[C <: NativeSpecializer & Singleton](queries: Vector[Value[C]], start: ReadingState[C])(using C): CborTrieRun =
     queries.foldLeft(CborTrieRun(start, Vector.empty))((run, query) =>
       WeakHead.heads(Mode.TablingWeakHead, query).collected.result(run.state.nextReading(limit)) match
         case Computed.Done(sets, after) => CborTrieRun(after, run.answers :+ sets.size)
@@ -119,10 +124,10 @@ class CborTrieInput:
   lazy val setting: CborTrieSetting = CborTries.setting(members)
 
   /** The state after every key was looked up once. */
-  lazy val inserted: ReadingState = CborTries.looked(setting.hits, CborTries.fresh).state
+  lazy val inserted: ReadingState[NoFacts.type] = CborTries.looked(setting.hits, CborTries.fresh).state
 
   /** The state after one round of root misses besides. */
-  lazy val rootMissed: ReadingState = CborTries.looked(setting.rootMisses, inserted).state
+  lazy val rootMissed: ReadingState[NoFacts.type] = CborTries.looked(setting.rootMisses, inserted).state
 
   /** The states built and the answers checked: a hit reads one parallel
     * set, a miss none.

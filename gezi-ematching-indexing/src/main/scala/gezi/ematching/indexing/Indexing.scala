@@ -9,11 +9,11 @@ import gezi.ematching.SeedKey
 import gezi.ematching.SeedKind
 import gezi.ir.CodeLayer
 import gezi.ir.Code
-import gezi.ir.Instruction
 import gezi.ir.Reachability
 import gezi.ir.Pattern
 import gezi.ir.Spine
 import gezi.ir.{Apply, Choice, Parallel, Slot, Thunk}
+import gezi.ir.{Configured, NativeSpecializer}
 
 /** The compiler of orientations and codes into a program: the inverted
   * index of seeds, filed by kind and key, and the buildings of the added
@@ -27,10 +27,10 @@ object Indexing:
     * baseline asserts its seed clauses: by orientation, then by position in
     * pre-order.
     */
-  def program(
-      orientations: Vector[Orientation],
+  def program[C <: NativeSpecializer & Singleton](
+      orientations: Vector[Orientation[C]],
       codes: Set[Code]
-  ): Program =
+  )(using C): Program[C] =
     require(
       orientations.zipWithIndex.forall((orientation, position) =>
         orientation.index == position
@@ -39,7 +39,7 @@ object Indexing:
     )
     val seeds = orientations
       .flatMap(Seeding.seeds)
-      .foldLeft(Map.empty[(SeedKind, SeedKey), Vector[Seed]]) {
+      .foldLeft(Map.empty[(SeedKind, SeedKey[C]), Vector[Seed[C]]]) {
         case (table, (kindAndKey, seed)) =>
           table.updated(
             kindAndKey,
@@ -49,14 +49,14 @@ object Indexing:
     Program(
       seeds = seeds,
       orientations = orientations.map(plan),
-      codes = codes.map(identifier => identifier -> codeBuilding(identifier.layer)).toMap
+      codes = codes.map(identifier => identifier -> codeBuilding[C](identifier.layer)).toMap
     )
 
   /** The codes a saturation of the orientations from the roots may meet:
     * those under the roots, the instructions of the orientations' patterns and
     * the codes of their thunk patterns.
     */
-  def codesMet(orientations: Vector[Orientation], roots: Iterable[Instruction]): Set[Code] =
+  def codesMet[C <: NativeSpecializer & Singleton](orientations: Vector[Orientation[C]], roots: Iterable[Configured[C]])(using C): Set[Code] =
     val patterns = orientations.flatMap(orientation => (orientation.matched +: orientation.added +: orientation.shared))
     val parts = patterns.flatMap(patternParts)
     Reachability.codesUnder(
@@ -65,15 +65,15 @@ object Indexing:
     )
 
   /** The instructions (`Left`) and the codes (`Right`) a pattern names. */
-  private def patternParts(pattern: Pattern): Vector[Either[Instruction, Code]] =
-    val own: Vector[Either[Instruction, Code]] = pattern match
+  private def patternParts[C <: NativeSpecializer & Singleton](pattern: Pattern[C])(using C): Vector[Either[Configured[C], Code]] =
+    val own: Vector[Either[Configured[C], Code]] = pattern match
       case Pattern.InstructionReference(instruction) => Vector(Left(instruction))
       case Pattern.Thunk(code, _, _)       => Vector(Right(code))
       case _                               => Vector.empty
     own ++ pattern.children.flatMap(patternParts)
 
   /** What saturation needs of the orientation to apply an instance. */
-  def plan(orientation: Orientation): OrientationPlan = OrientationPlan(
+  def plan[C <: NativeSpecializer & Singleton](orientation: Orientation[C]): OrientationPlan[C] = OrientationPlan(
     lemma = orientation.lemma,
     direction = orientation.direction,
     added = building(orientation.added, orientation.functions),
@@ -88,10 +88,10 @@ object Indexing:
     * shared subterm is built with no function metavariable, so that only
     * its applications of thunk patterns are read.
     */
-  def building(pattern: Pattern, functions: Vector[Int]): Building =
+  def building[C <: NativeSpecializer & Singleton](pattern: Pattern[C], functions: Vector[Int]): Building[C] =
     pattern match
-      case Pattern.Metavariable(index)     => Building.Value(index)
-      case Pattern.Closure(index)          => Building.Value(index)
+      case Pattern.Metavariable(index)     => Building.Value[C](index)
+      case Pattern.Closure(index)          => Building.Value[C](index)
       case Pattern.InstructionReference(instruction) => Building.InstructionNode(instruction)
       case Pattern.Apply(function, argument) =>
         Building.Apply(
@@ -110,12 +110,12 @@ object Indexing:
   /** The metavariable at the head of the pattern's spine (the baseline's
     * `pattern_spine_metavariable/2`).
     */
-  def spineMetavariable(pattern: Pattern): Option[Int] = Spine.of(pattern)._1 match
+  def spineMetavariable[C <: NativeSpecializer & Singleton](pattern: Pattern[C]): Option[Int] = Spine.of(pattern)._1 match
     case Pattern.Metavariable(index) => Some(index)
     case Pattern.Closure(index)      => Some(index)
     case _                           => None
 
-  private def isThunk(pattern: Pattern): Boolean = pattern match
+  private def isThunk[C <: NativeSpecializer & Singleton](pattern: Pattern[C]): Boolean = pattern match
     case Pattern.Thunk(_, _, _) => true
     case _                      => false
 
@@ -127,19 +127,19 @@ object Indexing:
     * added side's application of a thunk pattern is (`building`); one whose
     * function is a slot is not, so a self-application is never unfolded.
     */
-  def codeBuilding(code: CodeLayer[Code]): Building = code match
-    case Slot(index) => Building.Value(index)
+  def codeBuilding[C <: NativeSpecializer & Singleton](code: CodeLayer[Code]): Building[C] = code match
+    case Slot(index) => Building.Value[C](index)
     case Apply(function, argument) =>
       Building.Apply(
-        Building.CodeBody(function),
-        Building.CodeBody(argument),
+        Building.CodeBody[C](function),
+        Building.CodeBody[C](argument),
         read = function.layer match
           case Thunk(_, _, _) => true
           case _                        => false
       )
     case Parallel(left, right) =>
-      Building.Parallel(Building.CodeBody(left), Building.CodeBody(right))
+      Building.Parallel(Building.CodeBody[C](left), Building.CodeBody[C](right))
     case Choice(left, right) =>
-      Building.Choice(Building.CodeBody(left), Building.CodeBody(right))
+      Building.Choice(Building.CodeBody[C](left), Building.CodeBody[C](right))
     case Thunk(inner, holes, fillings) =>
-      Building.Thunk(inner, holes, fillings.map(Building.CodeBody(_)))
+      Building.Thunk(inner, holes, fillings.map(Building.CodeBody[C](_)))

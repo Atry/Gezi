@@ -10,13 +10,16 @@ import gezi.frontend.Term
 import gezi.generatedinputs.GeneratedProperties
 import gezi.generatedinputs.HoasGenerators
 import gezi.generatedinputs.LambdalatticeText
-import gezi.ir.Instruction
+import gezi.ir.Configured
+import gezi.ir.NoFacts
 import gezi.weakhead.Computed
 import gezi.weakhead.Head
 import gezi.weakhead.Mode
 import gezi.weakhead.ReadingState
-import gezi.weakhead.Value
+import gezi.ir.Value
 import gezi.weakhead.WeakHead
+
+private given notebookLawTestNoFacts: NoFacts.type = NoFacts
 
 /** The laws of the notebook's mixin cells, on generated keys and generated closed normal forms. Its
   * purpose is to catch a cell content whose output keys the kernel misreads
@@ -33,7 +36,7 @@ class NotebookLawTest extends GeneratedProperties:
 
   private val readingLimit: Long = 100000
 
-  private val tree: Instruction = DirectoryTree.rootOf(Files.createTempDirectory("notebook-tree"))
+  private val tree: Configured[NoFacts.type] = DirectoryTree.rootOf(Files.createTempDirectory("notebook-tree"))
 
   /** A short location, whatever directory the tests run in: no law depends
     * on it, and a cell's reading costs in proportion to the bits of its
@@ -57,7 +60,7 @@ class NotebookLawTest extends GeneratedProperties:
   /** The answers of the member at the key, each the set of its heads. */
   private def answers(notebook: Notebook, key: String): Set[Set[Head]] =
     WeakHead.heads(Mode.TablingWeakHead, notebook.member(OutputKey(Vector(Literal.text(key)), Vector(key)))).collected
-      .result(ReadingState.knowingTop(readingLimit)) match
+      .result(ReadingState.knowingTop(readingLimit, gezi.weakhead.ReadingConfiguration.withoutFacts)) match
       case Computed.Done(sets, _) => sets.map(_.heads.toSet).toSet
       case Computed.Stopped(_)    => throw IllegalStateException(s"the member $key ran past $readingLimit steps")
 

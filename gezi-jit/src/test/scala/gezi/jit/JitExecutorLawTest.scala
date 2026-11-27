@@ -36,12 +36,16 @@ class JitExecutorLawTest extends GeneratedProperties:
 
   private val budgets: Vector[Int] = Vector(10000, 0)
 
+  private val encoding = JitTesting.noFactsEncoding
+
+  private given encoding.type = encoding
+
   budgets.foreach(budget =>
-    val jit = Jit(JitTesting.configured(JitTesting.noFacts, budget))
+    val jit = Jit(JitTesting.configured(encoding, budget))
 
     stoppableProperty(s"a resumed JIT reading finds what an uninterrupted one finds, compilation budget $budget") { stopped =>
       for term <- terms.forAll
-      yield ExecutorLaws.resumeLaw(JitExecutor.of(jit), Mode.Jit(jit), term, StopSignal.completedWith(stopped))
+      yield ExecutorLaws.resumeLaw(JitExecutor.of(jit), Mode.Jit, term, StopSignal.completedWith(stopped))
     }
 
     stoppableProperty(s"a suspension's residual reads with what was found to what the term reads, compilation budget $budget") { stopped =>

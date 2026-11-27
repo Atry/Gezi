@@ -31,6 +31,8 @@ import scala.util.Random
   */
 class JudgmentsLawTest extends gezi.generatedinputs.FailFastSuite:
 
+  given gezi.ir.NoFacts.type = gezi.ir.NoFacts
+
   // Measured 2026-11-16 on 2 CPUs (contest-lean.slice, CPUs 10,11, nice 10), the 1-minute load 9 to 22 over the run, every deadline raised to 600 s: the slowest test of JudgmentsLawTest, "a judgment on a pure program with one normal form displays the candidate or no normal form", takes 8.206 s; the bound is 1.5 times that rounded up to 5 s.
   // FIXME: this suite exceeds the 3 s default with no reason yet; its slow tests are to be made fast. https://github.com/Atry/private-overlay/issues/1925
   override val munitTimeout: scala.concurrent.duration.Duration = scala.concurrent.duration.Duration(15, "s")
@@ -60,14 +62,15 @@ class JudgmentsLawTest extends gezi.generatedinputs.FailFastSuite:
         budget = JitConfiguration.defaultBudget,
         checkpoints = CheckpointOption.Profitable,
         nativeBlocks = NativeBlocksOption.None,
-        lookahead = LookaheadOption.Lazily
+        lookahead = LookaheadOption.Lazily,
+        instanceReuse = InstanceReuseOption.WithinVersion
       )
-    )
+    , GroupBlocksOption.None, gezi.ir.StorageAccess.granted())
 
   /** The executor the readings run on, the JIT as the entries read with it
     * (`Defaults.executor`), and its dependencies.
     */
-  private val executor = gezi.weakhead.ReadingExecutor(gezi.weakhead.Mode.Jit(evaluator), NoJitState)
+  private val executor = gezi.weakhead.ReadingExecutor(gezi.weakhead.Mode.Jit(evaluator), evaluator.readingConfiguration, NoJitState)
   private val dependencies = gezi.hotspot.ExecutionDependencies(Defaults.caches(), gezi.hotspot.ExpansionSource.fresh())
 
   /** The steps each reading may take, the steps that stand for one second. */
@@ -91,7 +94,7 @@ class JudgmentsLawTest extends gezi.generatedinputs.FailFastSuite:
         Term.Abstraction(variable => generated(bodySeed, depth - 1, environment :+ variable))
 
   private def normalForms(program: DeBruijnTerm, stop: StopSignal): Option[Set[DeBruijnTerm]] =
-    Judgments.read(executor, dependencies, Defunctionalization.thunkInstruction(program), limit, stop).normalForms
+    Judgments.read(executor, dependencies, Defunctionalization.thunkInstruction(program)(using gezi.ir.NoFacts), limit, stop).normalForms
 
   private def judgment(candidate: DeBruijnTerm, program: DeBruijnTerm, stop: StopSignal): Judgment =
     Judgments.judged(executor, dependencies, candidate, program, limit, stop).judgment
@@ -134,6 +137,34 @@ class JudgmentsLawTest extends gezi.generatedinputs.FailFastSuite:
     }
   }
 
+  /** A judgment cell gives the candidate and the program as constants (the
+    * runner's `PipeLines.cellTerm`): the judgment of the two as constants is
+    * the judgment of them written out, every judgment among them. Purpose:
+    * catch a judgment that compares a constant candidate with the normal
+    * forms read back, which never proves, or that decides the purity of a
+    * constant program on the constant, which never refutes (the judgment
+    * points read unknown on main, 2026-11-22).
+    */
+  stoppableTest("a judgment of a candidate and a program given as constants is the judgment of them written out") { stopped =>
+    val programs = withOneNormalForm(Random(20261122), 200, StopSignal.completedWith(stopped))
+    val candidates = programs.map(_._2).distinct
+    val judgments = programs.flatMap((program, _) =>
+      candidates.map(candidate =>
+        val constants = judgment(
+          DeBruijnTerm.Constant(Defunctionalization.thunkInstruction(candidate)(using gezi.ir.NoFacts)),
+          DeBruijnTerm.Constant(Defunctionalization.thunkInstruction(program)(using gezi.ir.NoFacts)),
+          StopSignal.completedWith(stopped)
+        )
+        (candidate, program, constants, judgment(candidate, program, StopSignal.completedWith(stopped)))
+      )
+    )
+    assert(judgments.exists(_._4 == Judgment.Proved), "no generated judgment was proved, so the law tests nothing")
+    assert(judgments.exists(_._4 == Judgment.Refuted), "no generated judgment was refuted, so the law tests nothing")
+    judgments.foreach { (candidate, program, constants, writtenOut) =>
+      assertEquals(constants, writtenOut, s"$candidate ∥ $program")
+    }
+  }
+
   stoppableTest("a judgment on a choice or a parallel of programs is never refuted") { stopped =>
     val programs = withOneNormalForm(Random(20261109), 200, StopSignal.completedWith(stopped))
     programs.zip(programs.drop(1)).foreach { case ((first, firstForm), (second, secondForm)) =>
@@ -159,11 +190,11 @@ class JudgmentsLawTest extends gezi.generatedinputs.FailFastSuite:
     val random = Random(20261110)
     val programs = Vector.fill(200)(generated(random.nextLong(), 4, Vector.empty).deBruijnTerm(Map.empty))
     val readings = programs.map { program =>
-      val instruction = Defunctionalization.thunkInstruction(program)
+      val instruction = Defunctionalization.thunkInstruction(program)(using gezi.ir.NoFacts)
       val reported = Judgments.read(executor, dependencies, instruction, limit, StopSignal.completedWith(stopped))
       val direct = gezi.weakhead.NormalForms
         .normalForms(gezi.weakhead.Mode.Jit(evaluator), instruction)
-        .result(gezi.weakhead.ReadingState.fresh(0).copy(budget = gezi.weakhead.Budget.stoppedBy(limit, StopSignal.completedWith(stopped))))
+        .result(gezi.weakhead.ReadingState.fresh(0, evaluator.readingConfiguration).copy(budget = gezi.weakhead.Budget.stoppedBy(limit, StopSignal.completedWith(stopped))))
       val spent = direct match
         case gezi.weakhead.Computed.Done(_, after)  => after.budget.spent
         case gezi.weakhead.Computed.Stopped(after) => after.budget.spent

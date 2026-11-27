@@ -5,7 +5,8 @@ import hedgehog.Range
 import hedgehog.Result
 import java.nio.file.Paths
 import gezi.generatedinputs.GeneratedProperties
-import gezi.ir.Instruction
+import gezi.ir.Configured
+import gezi.ir.NoFacts
 import gezi.jit.BinaryNatural
 import gezi.jit.NativeArgument
 import gezi.jit.NativeBackend
@@ -18,6 +19,8 @@ import gezi.weakhead.Expansions
 import gezi.weakhead.Mode
 import gezi.weakhead.NormalForms
 import gezi.weakhead.ReadingState
+
+private given narrowNativesCorporaLawTestNoFacts: NoFacts.type = NoFacts
 
 /** The law of the natives the boolean branch's programs call: on generated canonical binary naturals, `wren_binary_increment`
   * gives the natural that the library's `merge_binary_increment` applied to
@@ -34,10 +37,10 @@ class NarrowNativesCorporaLawTest extends GeneratedProperties:
   private val buildRoot = Paths.get(sys.props("gezi.buildRoot"))
 
   /** The problem generators' library terms (`TermTables.problemLibraryTerms`). */
-  private lazy val terms: Map[String, Instruction] =
+  private lazy val terms: Map[String, Configured[NoFacts.type]] =
     StandardLibrary.entryMembers(buildRoot, TermTables.problemLibraryTerms, Expansions.none)._1
 
-  private def term(name: String): Instruction =
+  private def term(name: String): Configured[NoFacts.type] =
     terms.getOrElse(name, throw IllegalArgumentException(s"${TermTables.problemLibraryTerms.file} has no member $name"))
 
   override def sharedFixtures: Vector[scala.concurrent.Future[Unit] => Any] = Vector(_ => terms)
@@ -52,17 +55,17 @@ class NarrowNativesCorporaLawTest extends GeneratedProperties:
   /** tabling(weak_head)'s normal forms of the closed term; none when the
     * reading does not finish.
     */
-  private def referenceNormalForms(program: Instruction): Option[Vector[Instruction]] =
-    NormalForms.normalForms(Mode.TablingWeakHead, program).result(ReadingState.knowingTop(referenceLimit)) match
+  private def referenceNormalForms(program: Configured[NoFacts.type]): Option[Vector[Configured[NoFacts.type]]] =
+    NormalForms.normalForms(Mode.TablingWeakHead, program).result(ReadingState.knowingTop(referenceLimit, gezi.weakhead.ReadingConfiguration.withoutFacts)) match
       case Computed.Done(normalForms, _) => Some(normalForms)
       case Computed.Stopped(_)           => None
 
   /** The canonical binary numeral of the value, of the library's
     * binary_zero, binary_even and binary_odd.
     */
-  private def numeral(value: BigInt): Instruction =
+  private def numeral(value: BigInt): Configured[NoFacts.type] =
     if value == 0 then term("binary_zero")
-    else Instruction.Apply(term(if value.testBit(0) then "binary_odd" else "binary_even"), numeral(value >> 1))
+    else NoFacts.application(term(if value.testBit(0) then "binary_odd" else "binary_even"), numeral(value >> 1))
 
   /** The native of the name in the standard set, applied to the naturals. */
   private def native(name: String, operands: Vector[BigInt]): NativeValue =
@@ -92,13 +95,13 @@ class NarrowNativesCorporaLawTest extends GeneratedProperties:
           List(
             Result.assert(incremented.nonEmpty).log("wren_binary_increment gave no natural"),
             Result
-              .diff(incremented.flatMap(referenceNormalForms), referenceNormalForms(Instruction.Apply(term("merge_binary_increment"), numeral(first))))(_ == _)
+              .diff(incremented.flatMap(referenceNormalForms), referenceNormalForms(NoFacts.application(term("merge_binary_increment"), numeral(first))))(_ == _)
               .log("the increment's and the library's"),
             Result.assert(equal.nonEmpty).log("wren_binary_equality gave no boolean"),
             Result
               .diff(
                 equal.flatMap(referenceNormalForms),
-                referenceNormalForms(Instruction.Apply(Instruction.Apply(term("merge_binary_equality"), numeral(first)), numeral(second)))
+                referenceNormalForms(NoFacts.application(NoFacts.application(term("merge_binary_equality"), numeral(first)), numeral(second)))
               )(_ == _)
               .log("the equality's and the library's")
           )

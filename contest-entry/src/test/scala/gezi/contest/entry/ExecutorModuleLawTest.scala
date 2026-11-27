@@ -14,6 +14,7 @@ import gezi.jit.NativeBackend
 import gezi.jit.TableCost
 import gezi.narrowblocks.ProgramCompilation
 import gezi.standardlibrary.StandardLibrary
+import gezi.standardlibrary.StandardLibraryIndex
 
 /** The laws of choosing an executor module by the identity of its selector
   * (`ExecutorModules`, `Defaults.executor`),
@@ -44,12 +45,14 @@ class ExecutorModuleLawTest extends GeneratedProperties:
   /** The framework's JIT over the library, what a module's executor is
     * built over.
     */
-  private lazy val jit = Defaults.jit(BackendFacts.of(library), jitOptions)
+  private lazy val encoding: gezi.jit.StorageEncoding = BackendFacts.of(library).storageEncoding
+
+  private lazy val jit = Defaults.jit(encoding, jitOptions, GroupBlocksOption.None, gezi.ir.StorageAccess.granted())
 
   /** A compilation of no round over the library, what a module is handed
     * beside the JIT.
     */
-  private lazy val compilation = ProgramCompilation(library.index, Vector.empty, NativeBackend.standard)
+  private lazy val compilation = ProgramCompilation(StandardLibraryIndex.crossed(library.index, encoding), Vector.empty, NativeBackend.standard, encoding)
 
   private val jitOptions = JitOptions(
     DispatchOption.Fallback,
@@ -61,13 +64,14 @@ class ExecutorModuleLawTest extends GeneratedProperties:
     budget = JitConfiguration.defaultBudget,
     checkpoints = CheckpointOption.Profitable,
     nativeBlocks = NativeBlocksOption.None,
-    lookahead = LookaheadOption.Lazily
+    lookahead = LookaheadOption.Lazily,
+    instanceReuse = InstanceReuseOption.WithinVersion
   )
 
   private val readingOptions =
     ReadingOptions(ApplicationOption.ByLayer, TableSharingOption.Local, TableRetentionOption.NoneKept, ContinuationOption.Substituted, ParallelOption.BothSides)
 
-  override def sharedFixtures: Vector[scala.concurrent.Future[Unit] => Any] = Vector(_ => modules, _ => jit, _ => compilation)
+  override def sharedFixtures: Vector[scala.concurrent.Future[Unit] => Any] = Vector(_ => modules, _ => encoding, _ => jit, _ => compilation)
 
   /** The test module's selector written out, the term its selector file
     * tests/executor_module_fixtures/test_executor gives: α-equivalent terms
@@ -85,7 +89,7 @@ class ExecutorModuleLawTest extends GeneratedProperties:
     EntryText.entry(
       Vector.empty,
       Vector.empty,
-      Vector(EntryText.contribution(EntryData.backendGroupWidths, EntryText.backendSlots(jitOptions, readingOptions, executor, CompilationPlaceOption.Upfront)))
+      Vector(EntryText.contribution(EntryData.backendGroupWidths, EntryText.backendSlots(jitOptions, readingOptions, executor, CompilationPlaceOption.Upfront(UnitSelectionOption.WholeProgram), OccurrenceTaggingOption.Untagged)))
     )
 
   property("anEntrySelectingTheTestModuleGetsItsExecutorWithTheParametersItWrote") {

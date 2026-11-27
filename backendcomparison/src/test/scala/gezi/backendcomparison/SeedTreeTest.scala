@@ -9,12 +9,15 @@ import gezi.saturation.Saturation
 import gezi.ir.BuiltInRule
 import gezi.generatedinputs.GeneratedProperties
 import gezi.generatedinputs.OrientationGenerators
+import gezi.generatedinputs.StandInStorages
 import gezi.generatedinputs.StoreGenerators
 
 /** The tree of a key's seeds (`Program.trees`) as the closure backend runs
   * it, against the seeds run one by one.
   */
 class SeedTreeTest extends gezi.generatedinputs.FailFastSuite with GeneratedProperties:
+
+  private given StandInStorages.type = StandInStorages
 
   /** Catches a tree that loses, adds or reorders a match by sharing steps
     * between seeds, or that reads more than the seeds alone do: on a
@@ -33,7 +36,7 @@ class SeedTreeTest extends gezi.generatedinputs.FailFastSuite with GeneratedProp
       val initial = Saturation.initialGraph(store, Orientations.headArityBounds(orientations), Vector.empty, explained = false)
       val (withInstructions, _) = Saturation.inputsAdded(initial, instructions)
       val compiled = ClosureCompilation.compiled(program)
-      val (graph, _) = Saturation.saturated(program, compiled, BuiltInRule.all, withInstructions, budget = 40, StopSignal.completedWith(stopped))
+      val (graph, _) = Saturation.saturated(program, compiled, BuiltInRule.beforeOptIn, withInstructions, budget = 40, StopSignal.completedWith(stopped))
       val nodes = (0 until graph.nodeCount).filter(graph.live)
       Result.all(
         program.seeds.toList.flatMap { case ((kind, key), seeds) =>

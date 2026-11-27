@@ -1,6 +1,6 @@
 package gezi.weakhead
 
-import gezi.ir.Instruction
+import gezi.ir.{Configured, NativeSpecializer, Value}
 
 /** A constructor of the naturals the codec decodes into and encodes from. */
 enum NaturalConstructor:
@@ -34,16 +34,16 @@ final case class NaturalCase(decoding: Decoding, level: Int, constructor: Natura
 final case class NaturalField(decoding: Decoding) extends NeutralVariable
 
 /** What a head of a value applied to a decoding's cases reads. */
-enum NaturalReading:
+enum NaturalReading[C <: NativeSpecializer & Singleton]:
 
   /** The first case with no argument. */
-  case Zero
+  case Zero()
 
   /** The second case over one argument, the field. */
-  case Successor(field: Value)
+  case Successor(field: Value[C])
 
   /** Any other head (the Prolog codec's `none`). */
-  case NoCase
+  case NoCase()
 
 /** The codec of the representation big_integer: the library's naturals as
   * integers. The port of `gezi/prolog/gezi/big_integer_codec.pl`,
@@ -77,22 +77,24 @@ object BigIntegerCodec:
 
   /** The two cases a value of the decoding is applied to at the field depth.
     */
-  def decodingCases(decoding: Decoding, level: Int): (Value, Value) =
+  def decodingCases[C <: NativeSpecializer & Singleton](decoding: Decoding, level: Int)(using C): (Value[C], Value[C]) =
     (
-      Value.Neutral(NaturalCase(decoding, level, NaturalConstructor.Zero), Vector.empty),
-      Value.Neutral(NaturalCase(decoding, level, NaturalConstructor.Successor), Vector.empty)
+      NeutralValue(NaturalCase(decoding, level, NaturalConstructor.Zero), Vector.empty),
+      NeutralValue(NaturalCase(decoding, level, NaturalConstructor.Successor), Vector.empty)
     )
 
   /** What a head of a value applied to the decoding's cases at the level
     * reads.
     */
-  def caseReading(head: Head, decoding: Decoding, level: Int): NaturalReading = head match
+  def caseReading[C <: NativeSpecializer & Singleton](head: Head[C], decoding: Decoding, level: Int)(using
+      C
+  ): NaturalReading[C] = head match
     case Head.Neutral(NaturalCase(`decoding`, `level`, NaturalConstructor.Zero), arguments)
         if arguments.isEmpty =>
-      NaturalReading.Zero
+      NaturalReading.Zero()
     case Head.Neutral(NaturalCase(`decoding`, `level`, NaturalConstructor.Successor), Vector(field)) =>
       NaturalReading.Successor(field)
-    case _ => NaturalReading.NoCase
+    case _ => NaturalReading.NoCase()
 
   /** The position of the constructor among the cases, by the assumed shape,
     * and so in the `data_family` of a type the codec holds: zero 0,
@@ -119,15 +121,18 @@ object BigIntegerCodec:
     * `Shape.LimitReached` when a reading runs past its budget. Each reading
     * within `Codecs.shapeStepLimit` steps.
     */
-  def constructorsShape(zero: Instruction, successor: Instruction): Shape[NaturalReading] =
-    val (zeroCase, successorCase) = decodingCases(Decoding.Shape, 0)
-    val field = Value.Neutral(NaturalField(Decoding.Shape), Vector.empty)
+  def constructorsShape[C <: NativeSpecializer & Singleton](zero: Configured[C], successor: Configured[C])(using
+      C,
+      gezi.ir.StorageAccess
+  ): Shape[NaturalReading[C]] =
+    val (zeroCase, successorCase) = decodingCases[C](Decoding.Shape, 0)
+    val field = NeutralValue[C](NaturalField(Decoding.Shape), Vector.empty)
     val zeroReadings = Codecs.readingsWithin(
-      Value.Apply(Value.Apply(zero, zeroCase), successorCase),
-      NaturalReading.NoCase
+      Value.Apply(Value.Apply(Value.of(zero), zeroCase), successorCase),
+      NaturalReading.NoCase[C]()
     )(caseReading(_, Decoding.Shape, 0))
     val successorReadings = Codecs.readingsWithin(
-      Value.Apply(Value.Apply(Value.Apply(successor, field), zeroCase), successorCase),
-      NaturalReading.NoCase
+      Value.Apply(Value.Apply(Value.Apply(Value.of(successor), field), zeroCase), successorCase),
+      NaturalReading.NoCase[C]()
     )(caseReading(_, Decoding.Shape, 0))
-    Codecs.shapeOf(zeroReadings, successorReadings, NaturalReading.Zero, NaturalReading.Successor(field))
+    Codecs.shapeOf(zeroReadings, successorReadings, NaturalReading.Zero[C](), NaturalReading.Successor(field))

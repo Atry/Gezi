@@ -11,6 +11,7 @@ import scala.util.control.TailCalls.TailRec
 import scala.util.control.TailCalls.done
 import scala.util.control.TailCalls.tailcall
 import gezi.ir.{Apply, Choice, Parallel, Slot, Thunk}
+import gezi.ir.{Configured, NativeSpecializer}
 
 /** One clause of a code's emission, the data a generation strategy writes
   * for one spine of the code (jit_emission.pl, WHAT AN EMITTED PREDICATE
@@ -76,16 +77,16 @@ trait GenerationStrategy:
   * instance applied to the arguments; or a parallel applied to the
   * arguments.
   */
-enum ClauseStart:
-  case Evaluation(term: JitValue, arguments: Vector[JitValue])
-  case Answer(head: JitHead)
-  case Instance(code: Code, fillings: Vector[JitValue], arguments: Vector[JitValue])
-  case ParallelHead(left: JitValue, right: JitValue, arguments: Vector[JitValue])
+enum ClauseStart[C <: NativeSpecializer & Singleton]:
+  case Evaluation(term: JitValue[C], arguments: Vector[JitValue[C]])
+  case Answer(head: JitHead[C])
+  case Instance(code: Code, fillings: Vector[JitValue[C]], arguments: Vector[JitValue[C]])
+  case ParallelHead(left: JitValue[C], right: JitValue[C], arguments: Vector[JitValue[C]])
 
 /** A code compiled by a backend: its emission, and the start of each clause
   * under an instance's fillings.
   */
-trait CompiledCode:
+trait CompiledCode[C <: NativeSpecializer & Singleton]:
 
   /** The emission the code was compiled from. */
   def emission: Emission
@@ -93,7 +94,7 @@ trait CompiledCode:
   /** The start of the clause at the index under the fillings, which are at
     * least as many as the code's slots.
     */
-  def clause(index: Int, fillings: Vector[JitValue]): ClauseStart
+  def clause(index: Int, fillings: Vector[JitValue[C]]): ClauseStart[C]
 
 /** A compilation backend: turns a code's emission into something that
   * runs. The closure backend (`ClosureBackend`) compiles each clause into a
@@ -104,8 +105,10 @@ trait CompiledCode:
   */
 trait CompilationBackend:
 
-  /** The code compiled from its emission. */
-  def compiled(code: Code, emission: Emission): CompiledCode
+  /** The code compiled from its emission, each parallel its instances hold
+    * built by `parallel` (the facts' native specializer, `NativeSpecializer.parallelOfValues`).
+    */
+  def compiled[C <: NativeSpecializer & Singleton](code: Code, emission: Emission, parallel: (JitValue[C], JitValue[C]) => JitValue[C])(using C): CompiledCode[C]
 
 /** The strategy `predicate_per_code`, the default (jit_emission.pl,
   * code_emission/3): one clause for each spine of the code's body, so that
@@ -169,47 +172,50 @@ object InterpretedInstances extends GenerationStrategy:
   */
 object ClosureBackend extends CompilationBackend:
 
-  def compiled(code: Code, emission: Emission): CompiledCode =
-    CompiledClosures(code, emission, emission.clauses.map(clauseClosure(code, _)))
-
-  private final case class CompiledClosures(
-      code: Code,
-      emission: Emission,
-      closures: Vector[Vector[JitValue] => ClauseStart]
-  ) extends CompiledCode:
-    def clause(index: Int, fillings: Vector[JitValue]): ClauseStart = closures(index)(fillings)
+  def compiled[C <: NativeSpecializer & Singleton](code: Code, emission: Emission, parallel: (JitValue[C], JitValue[C]) => JitValue[C])(using C): CompiledCode[C] =
+    CompiledClosures[C](code, emission, emission.clauses.map(clauseClosure(code, _, parallel)))
 
   /** A closure that builds the instance of a code under the fillings. */
-  private type Builder = Vector[JitValue] => TailRec[JitValue]
+  private type Builder[C <: NativeSpecializer & Singleton] = Vector[JitValue[C]] => TailRec[JitValue[C]]
 
-  private def clauseClosure(
+  private final case class CompiledClosures[C <: NativeSpecializer & Singleton](
+      code: Code,
+      emission: Emission,
+      closures: Vector[Vector[JitValue[C]] => ClauseStart[C]]
+  ) extends CompiledCode[C]:
+    def clause(index: Int, fillings: Vector[JitValue[C]]): ClauseStart[C] = closures(index)(fillings)
+
+  private def clauseClosure[C <: NativeSpecializer & Singleton](
       code: Code,
       clause: EmittedClause,
-  ): Vector[JitValue] => ClauseStart = clause match
-    case EmittedClause.SlotLeaf(index, arguments) =>
-      val builders = arguments.map(builder(_))
-      fillings => ClauseStart.Evaluation(fillings(index), built(builders, fillings))
-    case EmittedClause.LambdaLeaf(inner, holes, innerFillings) =>
-      val builders = innerFillings.map(builder(_))
-      fillings => ClauseStart.Answer(JitHead.Lambda(inner, holes, built(builders, fillings)))
-    case EmittedClause.InstanceLeaf(inner, innerFillings, arguments) =>
-      val fillingBuilders = innerFillings.map(builder(_))
-      val argumentBuilders = arguments.map(builder(_))
-      fillings => ClauseStart.Instance(inner, built(fillingBuilders, fillings), built(argumentBuilders, fillings))
-    case EmittedClause.ParallelLeaf(left, right, arguments) =>
-      val leftBuilder = builder(left)
-      val rightBuilder = builder(right)
-      val argumentBuilders = arguments.map(builder(_))
-      fillings =>
-        ClauseStart.ParallelHead(leftBuilder(fillings).result, rightBuilder(fillings).result, built(argumentBuilders, fillings))
-    case EmittedClause.ChoiceLeaf(members, arguments) =>
-      val memberBuilders = members.map(builder(_))
-      val argumentBuilders = arguments.map(builder(_))
-      fillings => ClauseStart.Evaluation(JitValue.Choice(built(memberBuilders, fillings)), built(argumentBuilders, fillings))
-    case EmittedClause.InterpretedInstance =>
-      fillings => ClauseStart.Evaluation(CodeReading.instance(code, fillings), Vector.empty)
+      parallel: (JitValue[C], JitValue[C]) => JitValue[C]
+  )(using C): Vector[JitValue[C]] => ClauseStart[C] =
+    def builder(code: Code): Builder[C] = builderOf(code, parallel).result
+    clause match
+      case EmittedClause.SlotLeaf(index, arguments) =>
+        val builders = arguments.map(builder(_))
+        fillings => ClauseStart.Evaluation(fillings(index), built(builders, fillings))
+      case EmittedClause.LambdaLeaf(inner, holes, innerFillings) =>
+        val builders = innerFillings.map(builder(_))
+        fillings => ClauseStart.Answer(JitHead.Lambda(inner, holes, built(builders, fillings)))
+      case EmittedClause.InstanceLeaf(inner, innerFillings, arguments) =>
+        val fillingBuilders = innerFillings.map(builder(_))
+        val argumentBuilders = arguments.map(builder(_))
+        fillings => ClauseStart.Instance(inner, built(fillingBuilders, fillings), built(argumentBuilders, fillings))
+      case EmittedClause.ParallelLeaf(left, right, arguments) =>
+        val leftBuilder = builder(left)
+        val rightBuilder = builder(right)
+        val argumentBuilders = arguments.map(builder(_))
+        fillings =>
+          ClauseStart.ParallelHead(leftBuilder(fillings).result, rightBuilder(fillings).result, built(argumentBuilders, fillings))
+      case EmittedClause.ChoiceLeaf(members, arguments) =>
+        val memberBuilders = members.map(builder(_))
+        val argumentBuilders = arguments.map(builder(_))
+        fillings => ClauseStart.Evaluation(JitValue.Choice(built(memberBuilders, fillings)), built(argumentBuilders, fillings))
+      case EmittedClause.InterpretedInstance =>
+        fillings => ClauseStart.Evaluation(CodeReading.instance(code, fillings, parallel), Vector.empty)
 
-  private def built(builders: Vector[Builder], fillings: Vector[JitValue]): Vector[JitValue] =
+  private def built[C <: NativeSpecializer & Singleton](builders: Vector[Builder[C]], fillings: Vector[JitValue[C]])(using C): Vector[JitValue[C]] =
     builders.map(_(fillings).result)
 
   /** The builder of the code's instance (tree_instance/3): a slot reads its
@@ -217,51 +223,55 @@ object ClosureBackend extends CompilationBackend:
     * built. The builder is compiled from the code tree once, each call
     * trampolined.
     */
-  private def builder(code: Code): Builder =
-    builderOf(code).result
-
-  private def builderOf(code: Code): TailRec[Builder] =
+  private def builderOf[C <: NativeSpecializer & Singleton](code: Code, parallel: (JitValue[C], JitValue[C]) => JitValue[C])(using C): TailRec[Builder[C]] =
     code.layer match
-      case Slot(index) =>
-        done(fillings =>
-          if index < fillings.size then done(fillings(index))
-          else throw EvaluationError(EvaluationErrorReason.SlotWithoutValue(index, fillings.size))
-        )
+      case Slot(index) => done(fillings => done(slotValue(fillings, index)))
       case Apply(function, argument) =>
         for
-          functionBuilder <- tailcall(builderOf(function))
-          argumentBuilder <- tailcall(builderOf(argument))
-        yield (fillings: Vector[JitValue]) =>
+          functionBuilder <- tailcall(builderOf(function, parallel))
+          argumentBuilder <- tailcall(builderOf(argument, parallel))
+        yield (fillings: Vector[JitValue[C]]) =>
           for
             functionValue <- tailcall(functionBuilder(fillings))
             argumentValue <- tailcall(argumentBuilder(fillings))
           yield JitValue.Apply(functionValue, argumentValue)
       case Parallel(left, right) =>
         for
-          leftBuilder <- tailcall(builderOf(left))
-          rightBuilder <- tailcall(builderOf(right))
-        yield (fillings: Vector[JitValue]) =>
+          leftBuilder <- tailcall(builderOf(left, parallel))
+          rightBuilder <- tailcall(builderOf(right, parallel))
+        yield (fillings: Vector[JitValue[C]]) =>
           for
             leftValue <- tailcall(leftBuilder(fillings))
             rightValue <- tailcall(rightBuilder(fillings))
-          yield JitValue.Parallel(leftValue, rightValue)
+          yield parallel(leftValue, rightValue)
       case Choice(left, right) =>
-        allBuilders(Vector(left, right)).map(builders =>
-          (fillings: Vector[JitValue]) => allBuilt(builders, fillings).map(JitValue.Choice(_))
+        allBuilders(Vector(left, right), parallel).map(builders =>
+          (fillings: Vector[JitValue[C]]) => allBuilt(builders, fillings).map(JitValue.Choice(_))
         )
       case Thunk(inner, holes, innerFillings) =>
-        allBuilders(innerFillings).map(builders =>
-          (fillings: Vector[JitValue]) => allBuilt(builders, fillings).map(JitValue.Thunk(inner, holes, _))
-        )
+        // A closure's captures are mostly bare slots, which need no step of
+        // the trampoline and are read in one pass.
+        val bareSlots = innerFillings.collect { case Code.Slot(index) => index }
+        if bareSlots.size == innerFillings.size then
+          done(fillings => done(JitValue.Thunk(inner, holes, bareSlots.map(slotValue(fillings, _)))))
+        else
+          allBuilders(innerFillings, parallel).map(builders =>
+            (fillings: Vector[JitValue[C]]) => allBuilt(builders, fillings).map(JitValue.Thunk(inner, holes, _))
+          )
 
-  private def allBuilders(codes: Vector[Code]): TailRec[Vector[Builder]] =
-    def from(index: Int, found: Vector[Builder]): TailRec[Vector[Builder]] =
+  /** The value of the slot under the fillings. */
+  private def slotValue[C <: NativeSpecializer & Singleton](fillings: Vector[JitValue[C]], index: Int)(using C): JitValue[C] =
+    if index < fillings.size then fillings(index)
+    else throw EvaluationError(EvaluationErrorReason.SlotWithoutValue(index, fillings.size))
+
+  private def allBuilders[C <: NativeSpecializer & Singleton](codes: Vector[Code], parallel: (JitValue[C], JitValue[C]) => JitValue[C])(using C): TailRec[Vector[Builder[C]]] =
+    def from(index: Int, found: Vector[Builder[C]]): TailRec[Vector[Builder[C]]] =
       if index >= codes.size then done(found)
-      else tailcall(builderOf(codes(index))).flatMap(next => from(index + 1, found :+ next))
+      else tailcall(builderOf(codes(index), parallel)).flatMap(next => from(index + 1, found :+ next))
     from(0, Vector.empty)
 
-  private def allBuilt(builders: Vector[Builder], fillings: Vector[JitValue]): TailRec[Vector[JitValue]] =
-    def from(index: Int, found: Vector[JitValue]): TailRec[Vector[JitValue]] =
+  private def allBuilt[C <: NativeSpecializer & Singleton](builders: Vector[Builder[C]], fillings: Vector[JitValue[C]])(using C): TailRec[Vector[JitValue[C]]] =
+    def from(index: Int, found: Vector[JitValue[C]]): TailRec[Vector[JitValue[C]]] =
       if index >= builders.size then done(found)
       else tailcall(builders(index)(fillings)).flatMap(next => from(index + 1, found :+ next))
     from(0, Vector.empty)
@@ -271,23 +281,9 @@ object CodeReading:
 
   /** The number of slots of the code (code_slot_count/2): one more than the
     * largest slot index it reads, inner thunks' codes read only through
-    * their fillings. Each code identifier is read once.
+    * their fillings, as the code's facts hold them (`Code.facts`).
     */
-  def slotCount(code: Code): Int =
-    @tailrec
-    def counted(pending: List[Code], seen: Set[Code], count: Int): Int =
-      pending match
-        case Nil => count
-        case next :: rest if seen.contains(next) => counted(rest, seen, count)
-        case next :: rest =>
-          val nowSeen = seen + next
-          next.layer match
-            case Slot(index)               => counted(rest, nowSeen, count.max(index + 1))
-            case Apply(function, argument) => counted(function :: argument :: rest, nowSeen, count)
-            case Parallel(left, right)     => counted(left :: right :: rest, nowSeen, count)
-            case Choice(left, right)       => counted(left :: right :: rest, nowSeen, count)
-            case Thunk(_, _, fillings)     => counted(fillings.toList ++ rest, nowSeen, count)
-    counted(List(code), Set.empty, 0)
+  def slotCount(code: Code): Int = Code.facts(code).slotsRead.lastOption.fold(0)(_ + 1)
 
   /** The fillings after the first hole takes the argument (hole_filled/5),
     * over any kind of filling.
@@ -301,32 +297,36 @@ object CodeReading:
         else (fillings.take(position) :+ argument) ++ fillings.drop(position)
 
   /** The instance of the code under the fillings (instance_term/3), a
-    * run-time value of the JIT.
+    * run-time value of the JIT, each parallel built by `parallel`.
     */
-  def instance(code: Code, fillings: Vector[JitValue]): JitValue =
-    instanceOf(code, fillings).result
+  def instance[C <: NativeSpecializer & Singleton](code: Code, fillings: Vector[JitValue[C]], parallel: (JitValue[C], JitValue[C]) => JitValue[C])(using C): JitValue[C] =
+    instanceOf(code, fillings, parallel).result
 
-  private def instanceOf(code: Code, fillings: Vector[JitValue]): TailRec[JitValue] =
+  private def instanceOf[C <: NativeSpecializer & Singleton](code: Code, fillings: Vector[JitValue[C]], parallel: (JitValue[C], JitValue[C]) => JitValue[C])(using C): TailRec[JitValue[C]] =
     code.layer match
       case Slot(index) =>
         if index < fillings.size then done(fillings(index))
         else throw EvaluationError(EvaluationErrorReason.SlotWithoutValue(index, fillings.size))
       case Apply(function, argument) =>
         for
-          functionInstance <- tailcall(instanceOf(function, fillings))
-          argumentInstance <- tailcall(instanceOf(argument, fillings))
+          functionInstance <- tailcall(instanceOf(function, fillings, parallel))
+          argumentInstance <- tailcall(instanceOf(argument, fillings, parallel))
         yield JitValue.Apply(functionInstance, argumentInstance)
       case Parallel(left, right) =>
         for
-          leftInstance <- tailcall(instanceOf(left, fillings))
-          rightInstance <- tailcall(instanceOf(right, fillings))
-        yield JitValue.Parallel(leftInstance, rightInstance)
-      case Choice(left, right) => allInstances(Vector(left, right), fillings).map(JitValue.Choice(_))
+          leftInstance <- tailcall(instanceOf(left, fillings, parallel))
+          rightInstance <- tailcall(instanceOf(right, fillings, parallel))
+        yield parallel(leftInstance, rightInstance)
+      case Choice(left, right) => allInstances(Vector(left, right), fillings, parallel).map(JitValue.Choice(_))
       case Thunk(inner, holes, innerFillings) =>
-        allInstances(innerFillings, fillings).map(JitValue.Thunk(inner, holes, _))
+        allInstances(innerFillings, fillings, parallel).map(JitValue.Thunk(inner, holes, _))
 
-  private def allInstances(codes: Vector[Code], fillings: Vector[JitValue]): TailRec[Vector[JitValue]] =
-    def from(index: Int, found: Vector[JitValue]): TailRec[Vector[JitValue]] =
+  private def allInstances[C <: NativeSpecializer & Singleton](
+      codes: Vector[Code],
+      fillings: Vector[JitValue[C]],
+      parallel: (JitValue[C], JitValue[C]) => JitValue[C]
+  )(using C): TailRec[Vector[JitValue[C]]] =
+    def from(index: Int, found: Vector[JitValue[C]]): TailRec[Vector[JitValue[C]]] =
       if index >= codes.size then done(found)
-      else tailcall(instanceOf(codes(index), fillings)).flatMap(next => from(index + 1, found :+ next))
+      else tailcall(instanceOf(codes(index), fillings, parallel)).flatMap(next => from(index + 1, found :+ next))
     from(0, Vector.empty)

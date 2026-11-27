@@ -29,7 +29,7 @@ final class HardClaims(
     corpora: Corpora,
     answers: HardAnswers,
     families: Vector[HardFamily],
-    points: Map[String, () => Term]
+    points: Map[String, () => ProblemTerm]
 ):
 
   private def file: ProblemFamily = corpora.contestHardClaims
@@ -172,10 +172,10 @@ final class HardClaims(
         OpenTest(freeCount, free => λ(argument => body(Vector(term, argument) ++ free.take(freeCount))))
 
   /** `numeral_test(Count, Term, Argument, Free)`. */
-  def numeralTest(count: Int, term: Term, argument: Term, free: Term): Term =
+  def numeralTest(count: Int, term: ProblemTerm, argument: ProblemTerm, free: ProblemTerm): ProblemTerm =
     if count == 0 then term(argument)(free)
     else term(free)(λ(predecessor => numeralTest(count - 1, predecessor, argument, free)))
 
   /** `claim_program(Point, Template, Program, Expected)`. */
-  def claimProgram(point: String, template: Template): (Term, Term) =
+  def claimProgram(point: String, template: Template): (ProblemTerm, ProblemTerm) =
     ContestClaims.testProgram(claimTest(point, template))

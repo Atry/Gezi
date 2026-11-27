@@ -7,10 +7,10 @@ import gezi.hotspot.CompilationUnit
 import gezi.hotspot.Compiler
 import gezi.hotspot.CompilerConfiguration
 import gezi.hotspot.ExecutionDependencies
-import gezi.ir.Instruction
 import gezi.jit.NativeBackend
 import gezi.saturation.StopSignal
 import gezi.standardlibrary.StandardLibraryIndex
+import gezi.ir.{Configured, NativeSpecializer}
 
 /** The configuration of `ProgramCompiler`, every input of its compilation but
   * the program (`CONTRIBUTING.md`, "Tables"): the library's index, the entry's
@@ -20,10 +20,11 @@ import gezi.standardlibrary.StandardLibraryIndex
   * Its equality, the equality of the artifacts' keys:
   *   - the index by value, its hash computed once when it is made
   *     (`StandardLibraryIndex.hashCode`);
-  *   - each round by what prepares it, its compilation and the index it is
-  *     prepared for (`LemmaCompilation.prepared`): the prepared saturator, its
-  *     compiled round and that round's e-graph, is a function of those two,
-  *     and comparing it would walk an e-graph at every lookup;
+  *   - each round by what prepares it, its compilation, the index it is
+  *     prepared for (`LemmaCompilation.prepared`) and its instances per
+  *     instruction (`PreparedLemmaCompilation.scaledBy`): the prepared
+  *     saturator, its compiled round and that round's e-graph, is a function
+  *     of those, and comparing it would walk an e-graph at every lookup;
   *   - the natives as `NativeBackend` compares them.
   *
   * Two parts are compared by identity, since no equality of code exists:
@@ -43,13 +44,21 @@ import gezi.standardlibrary.StandardLibraryIndex
   *   (`NarrowBlockRoute.compiledRounds` of the last one's route)
   * @param natives
   *   the natives the narrow blocks call
+  * @param encoding
+  *   the specializer of the configuration, its backend facts: a part of the
+  *   configuration's identity `C`, which the namespace of the artifacts holds
+  *   (`ProgramArtifacts`), so that the equality need not compare it
   */
-final case class ProgramCompilation(index: StandardLibraryIndex, rounds: Vector[PreparedLemmaCompilation], natives: NativeBackend)
-    extends CompilerConfiguration:
+final case class ProgramCompilation[C <: NativeSpecializer & Singleton](
+    index: StandardLibraryIndex[C],
+    rounds: Vector[PreparedLemmaCompilation[C]],
+    natives: NativeBackend,
+    encoding: gezi.jit.StorageEncoding & C
+) extends CompilerConfiguration:
 
   /** What the equality compares (see the class's documentation). */
-  private def compared: (StandardLibraryIndex, Vector[(LemmaCompilation, StandardLibraryIndex)], NativeBackend) =
-    (index, rounds.map(round => (round.compilation, round.index)), natives)
+  private def compared: (StandardLibraryIndex[C], Vector[(LemmaCompilation[C], StandardLibraryIndex[C], Option[Int])], NativeBackend) =
+    (index, rounds.map(round => (round.compilation, round.index, round.instancesPerNode)), natives)
 
   /** The hash of what the equality compares, computed once: a configuration is
     * part of every key of `ProgramArtifacts`, hashed at each lookup, and its
@@ -58,7 +67,7 @@ final case class ProgramCompilation(index: StandardLibraryIndex, rounds: Vector[
   override lazy val hashCode: Int = compared.##
 
   override def equals(other: Any): Boolean = other match
-    case that: ProgramCompilation => (this eq that) || (hashCode == that.hashCode && compared == that.compared)
+    case that: ProgramCompilation[?] => (this eq that) || (hashCode == that.hashCode && compared == that.compared)
     case _                        => false
 
 /** The namespace of `ProgramCompiler`'s artifacts in the cache service: under
@@ -68,7 +77,8 @@ final case class ProgramCompilation(index: StandardLibraryIndex, rounds: Vector[
   * (`ProgramCompiler.compiled`), so the artifact is not an answer read within
   * a budget, and clearing it changes only cost.
   */
-object ProgramArtifacts extends CacheNamespace[ArtifactKey[Instruction], Instruction]("narrow_blocks.program_artifacts")
+final case class ProgramArtifacts[C <: NativeSpecializer & Singleton](specializer: C)
+    extends CacheNamespace[ArtifactKey[C, Configured[C]], Configured[C]]("narrow_blocks.program_artifacts")
 
 /** The baseline compiler of a program unit: its artifact is the program an entry reads after its lemma rounds,
   * the rounds run on one shared e-graph and the last round's extraction with
@@ -81,7 +91,9 @@ object ProgramArtifacts extends CacheNamespace[ArtifactKey[Instruction], Instruc
   * @param configuration
   *   every input of the compilation but the program
   */
-final case class ProgramCompiler(configuration: ProgramCompilation) extends Compiler[Instruction]:
+final case class ProgramCompiler[C <: NativeSpecializer & Singleton](configuration: ProgramCompilation[C]) extends Compiler[C, Configured[C]]:
+
+  private given C = configuration.index.specializer
 
   /** The program unit compiled into the cache service, the residual being
     * the unit's root: the key holds the root, not the residual, so a residual
@@ -90,31 +102,42 @@ final case class ProgramCompiler(configuration: ProgramCompilation) extends Comp
     * names it as the unit, `CompilationUnit.Program(residual)`. The cost is
     * the instances the rounds added, or none when the artifact was already
     * written. The compilation runs outside the namespace's lock: `tryGet` first, the rounds on a miss, then
-    * `getOrElseUpdate`. Throws `IllegalArgumentException` for a code or a
-    * closure unit, and for a residual that is not the unit's root.
+    * `getOrElseUpdate`. A closure unit `Closure(F)` is compiled into
+    * `ClosureArtifacts` (`ClosureUnits.cached`), the residual being the
+    * program whose top-level let binds F (`BoundFunctionUnit`), which gives
+    * the unit's arity. Throws `IllegalArgumentException` for a code unit, for
+    * a program unit's residual that is not its root, and for a closure unit's
+    * residual whose let does not bind it.
     *
     * The rounds read the stop; a compilation the stop has asked to stop by
     * the time the rounds return is not written, its artifact depending on
     * when it stopped, and its instances are reported all the same.
     */
   def compiled(
-      residual: Instruction,
-      unit: CompilationUnit,
+      residual: Configured[C],
+      unit: CompilationUnit[C],
       dependencies: ExecutionDependencies,
       stop: StopSignal
-  ): (Compiler[Instruction], ExecutionDependencies, CompilationSpent) =
+  ): (Compiler[C, Configured[C]], ExecutionDependencies, CompilationSpent) =
     unit match
       case CompilationUnit.Program(root) =>
-        require(root == residual, s"a program unit's root is the residual compiled: $root is not $residual")
-        val key = ArtifactKey[Instruction](unit, configuration)
-        dependencies.cache.locked(ProgramArtifacts)(_.tryGet(key)) match
+        require(Configured.same(root, residual), s"a program unit's root is the residual compiled: $root is not $residual")
+        val key = ArtifactKey[C, Configured[C]](unit, configuration)
+        val artifacts = ProgramArtifacts[C](configuration.index.specializer)
+        dependencies.cache.locked(artifacts)(_.tryGet(key)) match
           case Some(_) => (this, dependencies, CompilationSpent(0))
           case None =>
             val (artifact, result) = ProgramCompiler.compiledProgram(configuration, residual, explained = false, stop)
-            if !stop.stopRequested then dependencies.cache.locked(ProgramArtifacts)(_.getOrElseUpdate(key, artifact))
+            if !stop.stopRequested then dependencies.cache.locked(artifacts)(_.getOrElseUpdate(key, artifact))
             (this, dependencies, CompilationSpent(result.fold(0L)(_.rounds.map(_.instances.toLong).sum)))
-      case CompilationUnit.Code(_) | CompilationUnit.Closure(_) =>
-        throw IllegalArgumentException(s"the program compiler compiles program units, not $unit")
+      case CompilationUnit.Closure(function) =>
+        ClosureUnits.cached(configuration, residual, dependencies, explained = false, stop) match
+          case Some((found, compiled)) if Configured.same(found.function, function) =>
+            (this, dependencies, CompilationSpent(compiled.instances))
+          case other =>
+            throw IllegalArgumentException(s"a closure unit's residual is the program whose let binds it: $function is not ${other.map(_._1.function)}")
+      case CompilationUnit.Code(_) =>
+        throw IllegalArgumentException(s"the program compiler compiles program and closure units, not $unit")
 
 /** The compilation of a program by an entry's lemma rounds. */
 object ProgramCompiler:
@@ -127,17 +150,25 @@ object ProgramCompiler:
     * program; the program itself, and nothing, when the configuration has no
     * round.
     */
-  def compiledProgram(
-      configuration: ProgramCompilation,
-      program: Instruction,
+  def compiledProgram[C <: NativeSpecializer & Singleton](
+      configuration: ProgramCompilation[C],
+      program: Configured[C],
       explained: Boolean,
       stop: StopSignal
-  ): (Instruction, Option[LemmaRoundsResult]) =
+  )(using C): (Configured[C], Option[LemmaRoundsResult[C]]) =
     configuration.rounds.lastOption match
       case None => (program, None)
       case Some(last) =>
         val result =
-          last.compilation.route.compiledRounds(configuration.index, configuration.rounds, configuration.natives, program, explained, stop)
+          last.compilation.route.compiledRounds(
+            configuration.index,
+            configuration.rounds,
+            configuration.natives,
+            configuration.encoding,
+            program,
+            explained,
+            stop
+          )
         // FIXME (https://github.com/Atry/private-overlay/issues/1788): the order of what is read after the rounds
         // (the program with its blocks computed, else the extraction, else the program) is fixed here, the only
         // implementation. It is to become an option of one interface chosen by configuration (entry data and

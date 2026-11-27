@@ -1,0 +1,20 @@
+# The library terms WrenBinaryRefutationLawTest builds its type terms of and
+# reads its refutations by: candidate and refuted (prolog_backend_shapes),
+# the shapes' constructors (hindley_milner_unions), binary_set (binary),
+# true and zero (native_types).
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prolog_backend_shapes") "prolog_backend_shapes")
+λ candidate _ _ _ _ _ refuted
+. omega (omega (omega (omega (omega gezi "corpora") "library") "hindley_milner_unions") "shapes")
+λ structure alternative no_alternative field no_field _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "natural")
+λ _ _ _ _ binary_set
+. omega (omega (omega (omega (omega gezi "corpora") "library") "native_types") "boolean")
+λ true _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "native_types") "natural")
+λ zero _ _ _
+. export
+λ s
+. s candidate refuted structure alternative no_alternative field no_field binary_set true zero

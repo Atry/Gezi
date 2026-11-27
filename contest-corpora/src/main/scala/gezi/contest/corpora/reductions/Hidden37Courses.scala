@@ -21,7 +21,7 @@ object Hidden37Courses:
     * written once, as the successor of the last course's let-bound numeral,
     * so that the program does not grow with a numeral of the count per course.
     */
-  def coursesTerm(attractors: Attractors, count: Int, prerequisites: Vector[Vector[Int]]): Term =
+  def coursesTerm(attractors: Attractors, count: Int, prerequisites: Vector[Vector[Int]]): ProblemTerm =
     Graphs.numeralLets(
       count,
       courses =>
@@ -42,7 +42,7 @@ object Hidden37Courses:
     * course whose chains are all acyclic, each shorter than the course count,
     * is done: the completable courses (`completable`).
     */
-  private def doneFunction(attractors: Attractors, courses: Vector[Term], prerequisites: Vector[Vector[Int]]): Term =
+  private def doneFunction(attractors: Attractors, courses: Vector[ProblemTerm], prerequisites: Vector[Vector[Int]]): ProblemTerm =
     val foldr = attractors.functionSurface("foldr", Spelling.Direct)
     val and = attractors.functionSurface("and", Spelling.Direct)
     val trueValue = attractors.attractorSurface("true", Spelling.Direct)

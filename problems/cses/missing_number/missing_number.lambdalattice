@@ -1,0 +1,62 @@
+# missing_number:
+# CSES 1083, Missing Number (https://cses.fi/problemset/task/1083), in our own words:
+# the numbers 1 to n were written down in some order and one of them was lost; given n
+# and the remaining n - 1 numbers, which number is missing. The input is the binary
+# natural n (corpora/library/binary/natural), at least 1, and a Scott list
+# (corpora/library/prelude/list) of the n - 1 other numbers, each a binary natural
+# from 1 to n, no two equal; the answer is a binary natural. Part of the CSES port's
+# fourth batch.
+#
+# THE PROGRAM, written by the definition: the missing number is the k from 1 to n that
+# no number of the list equals; the program tries k = 1, 2, … in turn, asking of each
+# whether the list holds it, and answers the first that it does not, which is the only
+# one, since the list holds n - 1 different numbers of the n. Its reading takes up to
+# n times the length of the list comparisons; the replacement the family asks for is
+# the sum formula, n (n + 1) / 2 less the sum of the list, in the length of the list
+# steps, on fixed-width integers.
+#
+# DEFINITION 14: the program P, the point's term, is built of λ and application only:
+# its text holds no top, no choice, no parallel and no literal. It β-reduces to V, the
+# canonical binary numeral of the answer: every recursion ends, since the search
+# consumes the gap n - k (it answers 0 past n, which no input of the problem reaches)
+# and every other recursion consumes a finite list; the branches that a Scott boolean
+# discards are never read. The program calls no subtraction. So ⊢_β P = V, and P ≃_O V
+# by the soundness of the derivable equations for the contextual preorder of
+# Definition 14 (Lean
+# `ContextualPreorder.contextualEquivalenceOfDerivableLatticeEta`): V is an answer, P
+# ⊑_O V. No other closed βη normal form W has P ⊑_O W: then V ⊑_O W, while Böhm's
+# theorem gives a pure context that takes V to λx y. x and W to λx y. y, and applying
+# both to λa. a and Ω makes the first solvable and the second not.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "fixpoint")
+λ fixpoint
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "boolean")
+λ true false _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "natural")
+λ binary_zero _ binary_odd _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "arithmetic")
+λ merge_binary_increment _ _ merge_binary_equality
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "order")
+λ binary_less_than _ _
+. (λtuple. tuple (binary_odd binary_zero))
+λ one
+. ( λ tuple
+    . tuple
+    λ. fixpoint
+    λ self items candidate
+    . items false λ head tail. merge_binary_equality head candidate true (self tail candidate)
+  )
+λ occurs
+. ( λ tuple
+    . tuple
+    λ upper numbers
+    . fixpoint
+      ( λ self candidate
+        . binary_less_than upper candidate binary_zero
+          (occurs numbers candidate (self (merge_binary_increment candidate)) candidate)
+      ) one
+  )
+λ missing_number
+. export missing_number

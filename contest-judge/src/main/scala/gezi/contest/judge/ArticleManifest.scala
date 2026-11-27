@@ -18,7 +18,7 @@ import gezi.standardlibrary.StandardLibraryIndex
   * content at a path can change, so the path names the knowledge only
   * together with the build: the manifest records both.
   */
-final case class ManifestProvenance(build: String, knowledge: String, index: StandardLibraryIndex)
+final case class ManifestProvenance(build: String, knowledge: String, index: StandardLibraryIndex[gezi.ir.NoFacts.type])
 
 /** The manifest of a checked point's articles: what an offline verifier needs to check them, written
   * beside the article directory as `manifest.tsv`. The judge writes it and
@@ -54,7 +54,8 @@ final case class ManifestProvenance(build: String, knowledge: String, index: Sta
   *   - `definition`, once for each thunk constant of `encoded` in the order
   *     of its number, the constant's defining term
   *     (`OpentheoryArticle.definingTermEncoded`), `LambdaJit.Code.thunkOf`
-  *     of its code and holes, as `HolTermText` writes it: the constant
+  *     of its code and holes, as `HolTermText.sharedText` writes it, as
+  *     large as the code as a graph (its unary numbers shared): the constant
   *     `LambdaJit.thunk.N` of `encoded` is the thunk of the N-th, from 0;
   *   - `article`, once for each article in the order of the chain, its path
   *     relative to the manifest's directory (`article/round-1.art`, ...).
@@ -79,13 +80,13 @@ object ArticleManifest:
   /** The manifest's file name in the point's directory. */
   val fileName: String = "manifest.tsv"
 
-  /** The manifest's lines for the point, its verdict and its articles, the
-    * paths of the articles relative to `pointDirectory`. Throws
-    * `IllegalStateException` when a value holds a tab or a newline.
+  /** The manifest's lines for the point, its check's outcome and its
+    * articles, the paths of the articles relative to `pointDirectory`.
+    * Throws `IllegalStateException` when a value holds a tab or a newline.
     */
   def lines(
       point: Point,
-      verdict: ArticleVerdict,
+      outcome: ArticleOutcome,
       articles: Vector[Path],
       pointDirectory: Path,
       provenance: ManifestProvenance
@@ -93,14 +94,14 @@ object ArticleManifest:
     val named = OpentheoryArticle.termEncoded(provenance.index, point.program)
     val Vector(encoded) = named.terms: @unchecked
     val definitions = named.definitions.map((code, holes) =>
-      "definition" -> HolTermText.text(OpentheoryArticle.definingTermEncoded(provenance.index, code, holes))
+      "definition" -> HolTermText.sharedText(OpentheoryArticle.definingTermEncoded(provenance.index, code, holes))
     )
     val fields = Vector(
       "point" -> point.name,
-      "outcome" -> verdict.outcome.written,
+      "outcome" -> outcome.written,
       "build" -> provenance.build,
       "knowledge" -> provenance.knowledge,
-      "program" -> ExchangeText.line(point.program),
+      "program" -> point.programLine,
       "encoded" -> HolTermText.sharedText(encoded)
     ) ++ definitions ++ articles.map(article => "article" -> pointDirectory.relativize(article).toString)
     s"# the articles of one checked point (docs/design/gezi-judge.md, section 4.3)" +: fields.map { (key, value) =>
@@ -115,3 +116,81 @@ object ArticleManifest:
     */
   def written(pointDirectory: Path, lines: Vector[String]): Unit =
     Files.writeString(pointDirectory.resolve(fileName), lines.mkString("", "\n", "\n"), StandardCharsets.UTF_8, StandardOpenOption.CREATE_NEW)
+
+/** The manifests of the checked points, written by a JVM of their own
+  * (`judgeArticleManifests`) and not by the supervisor: a manifest encodes
+  * the point's IR and the defining terms of its thunks, which a point's
+  * program makes larger than the supervisor's heap, whose points it holds as
+  * their lines (`Point`). Measured 2026-11-22 by the setter's pass of the
+  * MIXINv2 builtin families at the supervisor's 256 MB: the pass itself
+  * held about 80 to 90 MB, and the manifest of
+  * `repeated_reduction_mixin_builtin_boolean_depth_12/respelled/repetitions_1`
+  * ran it out of memory. The JVM is the judge's own (its classpath, not an
+  * entry's), started on the pass's placement with the round's entry heap,
+  * reads the points file and the knowledge itself, and writes one manifest
+  * for each request: a point's name and its directory, with its check's
+  * outcome, one request a line, tab-separated, in `requestsFileName` of the
+  * articles' directory.
+  */
+object ArticleManifests:
+
+  /** The requests' file name in the articles' directory. */
+  val requestsFileName: String = "manifest-requests.tsv"
+
+  /** Where the knowledge of the manifests is read from: a file of the build
+    * root (`--article-knowledge`, `SupervisorCommand.articleLibrary`), or an
+    * entry's directory (`SupervisorCommand.entryKnowledgeLibrary`).
+    */
+  enum KnowledgeSource:
+    case ArticleFile(path: String)
+    case EntryDirectory(directory: Path)
+
+  /** The requests' lines: each point's name, its directory and its
+    * outcome's written form, tab-separated.
+    */
+  def requestLines(requests: Vector[(Point, ArticleOutcome, Path)]): Vector[String] =
+    requests.map((point, outcome, directory) => Vector(point.name, directory.toString, outcome.written).mkString("\t"))
+
+  /** The manifests of the requests' file written, each in its point's
+    * directory, the points read from the points directory and the library
+    * from the knowledge source. Throws `IllegalArgumentException` for a
+    * request of another shape, a point the points file does not hold, and an
+    * outcome no `ArticleOutcome` writes.
+    */
+  def written(requests: Path, pointsDirectory: Path, buildRoot: Path, build: String, knowledgeName: String, source: KnowledgeSource): Unit =
+    val points = PointsFile.read(pointsDirectory).map(point => point.name -> point).toMap
+    val library = source match
+      case KnowledgeSource.ArticleFile(path)         => SupervisorCommand.articleLibrary(buildRoot, path)
+      case KnowledgeSource.EntryDirectory(directory) => SupervisorCommand.entryKnowledgeLibrary(directory)
+    val provenance = ManifestProvenance(build, knowledgeName, library.index)
+    Files.readAllLines(requests, StandardCharsets.UTF_8).forEach(line =>
+      line.split("\t", -1).toVector match
+        case Vector(name, directoryText, outcomeText) =>
+          val point = points.getOrElse(name, throw IllegalArgumentException(s"no point $name in $pointsDirectory"))
+          val outcome = ArticleOutcome.values.find(_.written == outcomeText).getOrElse(
+            throw IllegalArgumentException(s"no article outcome is written $outcomeText")
+          )
+          val directory = Path.of(directoryText)
+          ArticleManifest.written(directory, ArticleManifest.lines(point, outcome, ArticleCheck.articleFiles(directory.resolve("article")), directory, provenance))
+        case fields => throw IllegalArgumentException(s"a manifest request of ${fields.size} fields, not 3: $line")
+    )
+
+/** The manifests' JVM's main (`ArticleManifests`): `--requests`, `--points`,
+  * `--build-root`, `--build`, `--knowledge-name`, and `--article-knowledge`
+  * (a file of the build root) or `--entry-directory`.
+  */
+@main def judgeArticleManifests(arguments: String*): Unit =
+  val options = SupervisorCommand.options(arguments.toVector)
+  def required(name: String): String = options.getOrElse(name, throw IllegalArgumentException(s"the option --$name is required"))
+  val source = (options.get("article-knowledge"), options.get("entry-directory")) match
+    case (Some(file), None)      => ArticleManifests.KnowledgeSource.ArticleFile(file)
+    case (None, Some(directory)) => ArticleManifests.KnowledgeSource.EntryDirectory(Path.of(directory))
+    case _                       => throw IllegalArgumentException("exactly one of --article-knowledge and --entry-directory is required")
+  ArticleManifests.written(
+    Path.of(required("requests")),
+    Path.of(required("points")),
+    Path.of(required("build-root")),
+    required("build"),
+    required("knowledge-name"),
+    source
+  )

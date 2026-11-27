@@ -7,19 +7,18 @@ import gezi.egraph.MadeNodes
 import gezi.egraph.PendingBeta
 import gezi.ematching.CompiledProgram
 import gezi.ematching.Match
-import gezi.ematching.Matching
 import gezi.ematching.Program
 import gezi.ematching.SeedKey
 import gezi.ematching.SeedKind
 import gezi.ir.BuiltInRule
 import gezi.ir.Code
 import gezi.ir.Direction
-import gezi.ir.Instruction
 import gezi.ir.Hole
-import gezi.ir.Layer
+import gezi.ir.LayerWith
 import gezi.ir.Store
 import scala.annotation.tailrec
 import gezi.ir.{Apply, Choice, NoinlineLeaf, Parallel, Thunk}
+import gezi.ir.{Configured, NativeSpecializer}
 
 /** How a saturation ended, with the instances that changed the graph: no
   * delta left, the budget reached, or a stop requested by the caller's
@@ -33,8 +32,8 @@ enum End:
 /** A saturation's result: the graph, the node of each input, the nodes made
   * while the inputs were added, and how it ended.
   */
-final case class Run(
-    graph: EGraph,
+final case class Run[C <: NativeSpecializer & Singleton](
+    graph: EGraph[C],
     inputNodes: Vector[Int],
     inputNodesMade: Int,
     end: End
@@ -53,32 +52,32 @@ object Saturation:
     * built-in rules the round enables; the graph records the terms made
     * when `explained` (a run whose proof is wanted).
     */
-  def run(
-      program: Program,
-      compiled: CompiledProgram,
+  def run[C <: NativeSpecializer & Singleton](
+      program: Program[C],
+      compiled: CompiledProgram[C],
       rules: Set[BuiltInRule],
-      store: Store,
-      headArityBounds: Map[Instruction, Int],
-      patternInstructions: Vector[Instruction],
-      inputs: Vector[Instruction],
+      store: Store[C],
+      headArityBounds: Map[Configured[C], Int],
+      patternInstructions: Vector[Configured[C]],
+      inputs: Vector[Configured[C]],
       budget: Int,
       explained: Boolean,
       stop: StopSignal
-  ): Run =
+  )(using C): Run[C] =
     runFrom(program, compiled, rules, initialGraph(store, headArityBounds, patternInstructions, explained), inputs, budget, stop)
 
   /** The run of the inputs from the initial graph given, such as the graph
     * of the pattern instructions with a cost analysis (`EGraph.analysed`).
     */
-  def runFrom(
-      program: Program,
-      compiled: CompiledProgram,
+  def runFrom[C <: NativeSpecializer & Singleton](
+      program: Program[C],
+      compiled: CompiledProgram[C],
       rules: Set[BuiltInRule],
-      initial: EGraph,
-      inputs: Vector[Instruction],
+      initial: EGraph[C],
+      inputs: Vector[Configured[C]],
       budget: Int,
       stop: StopSignal
-  ): Run =
+  )(using C): Run[C] =
     val (withInputs, inputNodes) = inputsAdded(initial, inputs)
     val (graph, end) = saturated(program, compiled, rules, withInputs, budget, stop)
     Run(graph, inputNodes, withInputs.canonicalNodeCount - initial.canonicalNodeCount, end)
@@ -86,28 +85,47 @@ object Saturation:
   /** The graph of the instructions the matched sides mention, in the order given
     * (the baseline's `pattern_handles/2`).
     */
-  def initialGraph(
-      store: Store,
-      headArityBounds: Map[Instruction, Int],
-      patternInstructions: Vector[Instruction],
+  def initialGraph[C <: NativeSpecializer & Singleton](
+      store: Store[C],
+      headArityBounds: Map[Configured[C], Int],
+      patternInstructions: Vector[Configured[C]],
       explained: Boolean
-  ): EGraph =
-    patternInstructions.foldLeft(EGraph.empty(store, headArityBounds, explained)) {
+  )(using C): EGraph[C] =
+    val empty = EGraph.empty(store, headArityBounds, explained)
+    // A construction that builds storages one layer up or folds natives reads
+    // the classes' storage leaves (`EGraph.storageConstructed`).
+    val constructs = store.construction.storageCriteria.nonEmpty || store.construction.foldingDefines.nonEmpty
+    val start = if constructs then empty.analysed(empty.storageLeaves) else empty
+    patternInstructions.foldLeft(start) {
       (graph, instruction) =>
         val (added, _) = graph.instructionAdded(instruction)
         added
     }
 
   /** The graph with the inputs added in order, and the node of each. */
-  def inputsAdded(graph: EGraph, inputs: Vector[Instruction]): (EGraph, Vector[Int]) =
+  def inputsAdded[C <: NativeSpecializer & Singleton](graph: EGraph[C], inputs: Vector[Configured[C]])(using C): (EGraph[C], Vector[Int]) =
     inputs.foldLeft((graph, Vector.empty[Int])) { case ((current, nodes), input) =>
       val (next, node) = current.instructionAdded(input)
       (next, nodes :+ node)
     }
 
-  /** The graph saturated: the agenda worked, then the deltas matched until
-    * none is left, the instances that changed the graph reach the budget,
-    * or the signal asks for a stop, which is read before each delta.
+  /** The graph saturated: the agenda worked, then, in a round that enables
+    * `BuiltInRule.StorageView`, the storage leaves' views added one leaf at a
+    * time (`EGraph.storageViewAdded`), each an instance when it changes the
+    * graph; then, under a construction that builds storages one layer up
+    * (`gezi.ir.TermConstruction.storageBuilt`), each waiting parallel's
+    * storage built (`EGraph.storageConstructed`), added as a leaf and united
+    * with its view (`EGraph.storageViewAdded`, the construction direction),
+    * and, under a construction that folds natives
+    * (`gezi.ir.TermConstruction.folded`), each waiting application's native
+    * called on its arguments' storage leaves, its result added as a leaf and
+    * united with the application (`gezi.egraph.Justification.Folding`),
+    * each an instance when it changes the graph; before the deltas are
+    * matched, until no leaf waits and no delta
+    * is left, the instances that changed the graph reach the budget, or the
+    * signal asks for a stop, which is read before each expansion and each
+    * delta. A leaf a cut leaves waiting is expanded when the graph is
+    * saturated further.
     *
     * The budget counts the graph's instances from its start, so a graph
     * that a run left with `End.BudgetExhausted` or `End.Stopped` is
@@ -133,22 +151,22 @@ object Saturation:
     * the graph as it is; every union made so far is an instance of a lemma
     * or a congruence, so the graph stays sound when cut there.
     */
-  def saturated(
-      program: Program,
-      compiled: CompiledProgram,
+  def saturated[C <: NativeSpecializer & Singleton](
+      program: Program[C],
+      compiled: CompiledProgram[C],
       rules: Set[BuiltInRule],
-      graph: EGraph,
+      graph: EGraph[C],
       budget: Int,
       stop: StopSignal
-  ): (EGraph, End) =
+  ): (EGraph[C], End) =
     require(budget >= 0, s"a budget is not negative: $budget")
     loop(program, compiled, rules, budget, stop, agendaWorked(program, compiled, rules, graph))
 
   /** The outcome of the matches of one delta: go on, or stop on the budget.
     */
-  private enum Applied:
-    case Continue(graph: EGraph)
-    case BudgetSpent(graph: EGraph)
+  private enum Applied[C <: NativeSpecializer & Singleton]:
+    case Continue(graph: EGraph[C])
+    case BudgetSpent(graph: EGraph[C])
 
   /** The baseline's `saturation_loop/4`: the stack of the orientations that
     * only unite first; a duplicate taken is skipped.
@@ -158,64 +176,95 @@ object Saturation:
     * The order is to become an option of one interface chosen by configuration (entry data and `Defaults`).
     */
   @tailrec
-  private def loop(
-      program: Program,
-      compiled: CompiledProgram,
+  private def loop[C <: NativeSpecializer & Singleton](
+      program: Program[C],
+      compiled: CompiledProgram[C],
       rules: Set[BuiltInRule],
       budget: Int,
       stop: StopSignal,
-      graph: EGraph
-  ): (EGraph, End) =
-    val taken = graph.mergeTaken
-      .map((node, rest) => (SeedKind.Merge, node, rest))
-      .orElse(graph.deltaTaken.map((node, rest) => (SeedKind.Add, node, rest)))
-    taken match
-      case None => (graph, End.FixedPoint(graph.instances))
+      graph: EGraph[C]
+  ): (EGraph[C], End) =
+    val expanded = if rules.contains(BuiltInRule.StorageView) then graph.storageViewTaken else None
+    lazy val constructed = graph.constructionTaken
+    expanded match
+      case None if constructed.isDefined =>
+        if stop.stopRequested then (graph, End.Stopped(graph.instances))
+        else
+          val Some((node, rest)) = constructed: @unchecked
+          rest.storageConstructed(node) match
+            case None => loop(program, compiled, rules, budget, stop, rest)
+            case Some(step) =>
+              val united = step match
+                case gezi.egraph.StorageStep.Constructed(term) =>
+                  val (withLeaf, leaf) = rest.instructionAdded(term)
+                  withLeaf.storageViewAdded(leaf)
+                case gezi.egraph.StorageStep.Folded(term, native, defineNode, argumentClasses) =>
+                  val (withLeaf, leaf) = rest.instructionAdded(term)
+                  withLeaf.unionQueued(node, leaf, gezi.egraph.Justification.Folding(native, defineNode, argumentClasses), None)
+              val worked = agendaWorked(program, compiled, rules, united)
+              val counted =
+                if worked.canonicalNodeCount > rest.canonicalNodeCount || worked.joiningUnionCount > rest.joiningUnionCount then
+                  worked.instanceCounted
+                else worked
+              if counted.instances >= budget then (counted, End.BudgetExhausted(counted.instances))
+              else loop(program, compiled, rules, budget, stop, counted)
       case Some(_) if stop.stopRequested => (graph, End.Stopped(graph.instances))
-      case Some((kind, node, rest)) =>
-        val outcome =
-          if rest.live(node) then deltaMatched(program, compiled, rules, kind, node, budget, rest)
-          else Applied.Continue(rest)
-        outcome match
-          case Applied.Continue(next) =>
-            loop(program, compiled, rules, budget, stop, agendaWorked(program, compiled, rules, next))
-          case Applied.BudgetSpent(next) =>
-            val restored = kind match
-              case SeedKind.Merge => next.mergeRestored(node)
-              case SeedKind.Add   => next.deltaRestored(node)
-            (restored, End.BudgetExhausted(next.instances))
+      case Some((leaf, rest)) =>
+        val worked = agendaWorked(program, compiled, rules, rest.storageViewAdded(leaf))
+        val counted =
+          if worked.canonicalNodeCount > rest.canonicalNodeCount || worked.joiningUnionCount > rest.joiningUnionCount then
+            worked.instanceCounted
+          else worked
+        if counted.instances >= budget then (counted, End.BudgetExhausted(counted.instances))
+        else loop(program, compiled, rules, budget, stop, counted)
+      case None =>
+        val taken = graph.mergeTaken
+          .map((node, rest) => (SeedKind.Merge, node, rest))
+          .orElse(graph.deltaTaken.map((node, rest) => (SeedKind.Add, node, rest)))
+        taken match
+          case None => (graph, End.FixedPoint(graph.instances))
+          case Some(_) if stop.stopRequested => (graph, End.Stopped(graph.instances))
+          case Some((kind, node, rest)) =>
+            val outcome =
+              if rest.live(node) then deltaMatched(program, compiled, rules, kind, node, budget, rest)
+              else Applied.Continue(rest)
+            outcome match
+              case Applied.Continue(next) =>
+                loop(program, compiled, rules, budget, stop, agendaWorked(program, compiled, rules, next))
+              case Applied.BudgetSpent(next) =>
+                val restored = kind match
+                  case SeedKind.Merge => next.mergeRestored(node)
+                  case SeedKind.Add   => next.deltaRestored(node)
+                (restored, End.BudgetExhausted(next.instances))
 
   /** The baseline's `delta_matched/6`: the matches of the delta under each
     * of its keys (an application's `Apply`, then its heads in filing
     * order), then under `Closure` when its class holds a closure state, then
-    * for the orientations that add nodes under its first instruction; all found
-    * on one graph, counted, then applied in order.
+    * under its first instruction, of either kind: the seeds of the
+    * orientations whose matched side is that instruction, and of those that
+    * hold it inside their matched side, which a union reaches only from the
+    * instruction's node when its class is the smaller one; all found on one
+    * graph, counted, then applied in order.
     */
-  private def deltaMatched(
-      program: Program,
-      compiled: CompiledProgram,
+  private def deltaMatched[C <: NativeSpecializer & Singleton](
+      program: Program[C],
+      compiled: CompiledProgram[C],
       rules: Set[BuiltInRule],
       kind: SeedKind,
       node: Int,
       budget: Int,
-      graph: EGraph
-  ): Applied =
-    val keyed = deltaKeys(graph, node).map(key =>
-      compiled.matches(kind, key, graph, node)
-    )
-    val closure =
-      if graph.hasClosure(graph.root(node)) then
-        Vector(compiled.matches(kind, SeedKey.Closure, graph, node))
-      else Vector.empty
-    val instruction = kind match
-      case SeedKind.Add =>
-        graph
-          .nodeInstruction(node)
-          .fold(Vector.empty[Matching])(nodeInstruction =>
-            Vector(compiled.matches(kind, SeedKey.InstructionNode(nodeInstruction), graph, node))
-          )
-      case SeedKind.Merge => Vector.empty
-    val matchings = keyed ++ closure ++ instruction
+      graph: EGraph[C]
+  ): Applied[C] =
+    // A round that stops at the classes holding a storage of constant size
+    // skips a delta whose node is hidden when the delta is taken, not when
+    // it was pushed: a node becomes hidden when its class gains such a leaf,
+    // after it was made (`ConstantStorageStop`). The matchers read the
+    // graph through the stop's view; the choice of a closure seed reads the
+    // graph's own `hasClosure`, harmless since the view's then fails.
+    val view = ConstantStorageStop.view(graph)
+    val matchings =
+      if ConstantStorageStop.hidden(graph, node) then Vector.empty
+      else deltaSeeds(graph, node).map(key => compiled.matches(kind, key, view, node))
     val matches = matchings.flatMap(_.found)
     matchesApplied(
       program,
@@ -229,15 +278,26 @@ object Saturation:
         .entriesReadCounted(matchings.map(_.entriesRead.toLong).sum)
     )
 
+  /** The keys a delta node's seeds are filed under, in the order matched:
+    * its shape's keys (`deltaKeys`), `Closure` when its class holds a
+    * closure, and its instruction's node key when it is an instruction's
+    * node.
+    */
+  def deltaSeeds[C <: NativeSpecializer & Singleton](graph: EGraph[C], node: Int): Vector[SeedKey[C]] =
+    deltaKeys(graph, node) ++
+      (if graph.hasClosure(graph.root(node)) then Vector(SeedKey.Closure[C]()) else Vector.empty) ++
+      graph.nodeInstruction(node).map(SeedKey.InstructionNode(_)).toVector
+
   /** The baseline's `delta_keys/2`: a leaf has no key a seed is filed under. */
-  private def deltaKeys(graph: EGraph, node: Int): Vector[SeedKey] =
+  private def deltaKeys[C <: NativeSpecializer & Singleton](graph: EGraph[C], node: Int): Vector[SeedKey[C]] =
     graph.layer(node) match
       case Apply(_, _) =>
-        SeedKey.Apply +: graph.nodeHeads(node).map(SeedKey.Headed(_))
-      case Parallel(_, _)           => Vector(SeedKey.Parallel)
-      case Choice(_, _)             => Vector(SeedKey.Choice)
-      case Thunk(code, holes, _)    => Vector(SeedKey.Thunk(code, holes))
+        SeedKey.Apply[C]() +: graph.nodeHeads(node).map(SeedKey.Headed(_))
+      case Parallel(_, _)           => Vector(SeedKey.Parallel[C]())
+      case Choice(_, _)             => Vector(SeedKey.Choice[C]())
+      case Thunk(code, holes, _)    => Vector(SeedKey.Thunk[C](code, holes))
       case NoinlineLeaf(_)                  => Vector.empty
+      case view: gezi.ir.StorageView[?]     => throw IllegalStateException(s"a node's layer is never a storage's view: $view")
 
   /** The baseline's `matches_applied/5`: each match's root and bindings read
     * as roots; its instance key made, which may make nodes; a key there
@@ -246,15 +306,15 @@ object Saturation:
     * count reaches the budget.
     */
   @tailrec
-  private def matchesApplied(
-      program: Program,
-      compiled: CompiledProgram,
+  private def matchesApplied[C <: NativeSpecializer & Singleton](
+      program: Program[C],
+      compiled: CompiledProgram[C],
       rules: Set[BuiltInRule],
       matches: Vector[Match],
       index: Int,
       budget: Int,
-      graph: EGraph
-  ): Applied =
+      graph: EGraph[C]
+  ): Applied[C] =
     if index >= matches.size then Applied.Continue(graph)
     else
       val found = matches(index)
@@ -289,14 +349,14 @@ object Saturation:
     * metavariables' roots and the classes of the shared subterms, which are
     * built (and may be made) in their order.
     */
-  private def instanceKeyMade(
-      program: Program,
-      compiled: CompiledProgram,
+  private def instanceKeyMade[C <: NativeSpecializer & Singleton](
+      program: Program[C],
+      compiled: CompiledProgram[C],
       orientation: Int,
       root: Int,
       bindings: Vector[Option[Int]],
-      graph: EGraph
-  ): (EGraph, InstanceKey) =
+      graph: EGraph[C]
+  ): (EGraph[C], InstanceKey) =
     val plan = program.orientations(orientation)
     val (built, classes) =
       plan.shared.indices.foldLeft((graph, Vector.empty[Int])) {
@@ -313,15 +373,15 @@ object Saturation:
     * with the matched root, the lemma's left side first, and the agenda
     * worked.
     */
-  private def instanceApplied(
-      program: Program,
-      compiled: CompiledProgram,
+  private def instanceApplied[C <: NativeSpecializer & Singleton](
+      program: Program[C],
+      compiled: CompiledProgram[C],
       rules: Set[BuiltInRule],
       orientation: Int,
       root: Int,
       bindings: Vector[Option[Int]],
-      graph: EGraph
-  ): EGraph =
+      graph: EGraph[C]
+  ): EGraph[C] =
     val plan = program.orientations(orientation)
     val (built, addedNode) = compiled.added(orientation, graph, bindings)
     val justification = Justification.Lemma(plan.lemma, bindings)
@@ -340,7 +400,12 @@ object Saturation:
     * rule makes no union, no node and no closure state.
     */
   @tailrec
-  def agendaWorked(program: Program, compiled: CompiledProgram, rules: Set[BuiltInRule], graph: EGraph): EGraph =
+  def agendaWorked[C <: NativeSpecializer & Singleton](
+      program: Program[C],
+      compiled: CompiledProgram[C],
+      rules: Set[BuiltInRule],
+      graph: EGraph[C]
+  ): EGraph[C] =
     graph.unionTaken match
       case Some((pending, rest)) =>
         agendaWorked(
@@ -405,12 +470,12 @@ object Saturation:
     * fillings share the previous residual's (not expressible as one flat
     * thunk layer), or residuals on demand by a strategy.
     */
-  private def betaWorked(
-      program: Program,
-      compiled: CompiledProgram,
+  private def betaWorked[C <: NativeSpecializer & Singleton](
+      program: Program[C],
+      compiled: CompiledProgram[C],
       pending: PendingBeta,
-      graph: EGraph
-  ): EGraph =
+      graph: EGraph[C]
+  ): EGraph[C] =
     graph.layer(pending.application) match
       case Apply(_, argument) =>
         val state = pending.state
@@ -461,7 +526,7 @@ object Saturation:
     * among the fillings at its slot's place (the fillings are the values of
     * the slots that are no hole, in the order of their slots).
     */
-  def residualThunk(code: Code, holes: Vector[Hole], fillings: Vector[Int], arguments: Vector[Int]): Layer[Int] =
+  def residualThunk(code: Code, holes: Vector[Hole], fillings: Vector[Int], arguments: Vector[Int]): Thunk[Int] =
     require(arguments.size < holes.size, s"${arguments.size} arguments leave no hole of $holes")
     val (residualHoles, residualFillings) = arguments.foldLeft((holes, fillings)) {
       case ((remaining, filled), supplied) =>

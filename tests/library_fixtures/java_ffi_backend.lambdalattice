@@ -1,0 +1,14 @@
+# The knowledge StorageViewOracleLawTest compiles its library from
+# (gezi.standardlibrary.LibraryFiles.compiled): native_types, prolog_backend and
+# java_ffi, whose facts declare the families of the JVM's bit tuples (the codecs
+# jvm_bits_w), their choice the one field of this file's tuple.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega gezi "corpora") "compiler") "native_types")
+λ native_types
+. omega (omega (omega (omega gezi "corpora") "compiler") "prolog_backend")
+λ prolog_backend
+. omega (omega (omega (omega gezi "corpora") "compiler") "java_ffi")
+λ java_ffi
+. export (java_ffi + prolog_backend + native_types)

@@ -7,7 +7,6 @@ import gezi.ir.Code
 import gezi.ir.Spine
 import gezi.ir.CodeLayer
 import gezi.ir.Hole
-import gezi.ir.Instruction
 import gezi.jit.BackendFacts
 import gezi.jit.NativeBackend
 import gezi.jit.NativeBinding
@@ -24,6 +23,7 @@ import gezi.strategies.OrderValue
 import gezi.strategies.TermOrder
 import gezi.strategies.TermReading
 import gezi.ir
+import gezi.ir.{Configured, NativeSpecializer, Pure}
 
 /** What a closed term is to the narrow blocks' grammar:
   * a closed term
@@ -139,9 +139,9 @@ enum NarrowExpression[+Closed]:
 object NarrowBlocks:
 
   /** The fixed point combinator by value, as the front end writes it. */
-  lazy val fixpointByValue: Instruction =
+  lazy val fixpointByValue: Pure =
     val half = λ(x => λ(f => f(λ(v => x(x)(f)(v)))))
-    Defunctionalization.thunkInstruction(half(half).deBruijnTerm(Map.empty))
+    Defunctionalization.pure(half(half).deBruijnTerm(Map.empty))
 
   /** The fields' count of the constructor native of one of the backend's
     * data families, if the name is one: a backend fact.
@@ -156,11 +156,18 @@ object NarrowBlocks:
     * a function by a `native` declaration, or a codec's constructor by its
     * position in a `data_family`).
     */
-  def nameKind(instruction: Instruction, index: StandardLibraryIndex, natives: NativeBackend): NarrowKind =
-    if instruction == fixpointByValue then NarrowKind.Fixpoint
-    else if truthOf(instruction).isDefined then truthOf(instruction).fold(NarrowKind.Closed)(NarrowKind.Truth(_))
+  def nameKind[C <: NativeSpecializer & Singleton](
+      instruction: Configured[C],
+      index: StandardLibraryIndex[C],
+      natives: NativeBackend,
+      configuration: gezi.weakhead.ReadingConfiguration[C]
+  )(using specializer: C): NarrowKind =
+    def named(key: Pure): Boolean = Configured.same(Configured.fromPure(specializer)(key), instruction)
+    lazy val truth = truthOf(instruction, configuration)
+    if named(fixpointByValue) then NarrowKind.Fixpoint
+    else if truth.isDefined then truth.fold(NarrowKind.Closed)(NarrowKind.Truth(_))
     else
-      BackendFacts.bindings(index, natives).collectFirst { case NativeBinding(`instruction`, name) => name } match
+      BackendFacts.bindings(index, natives).collectFirst { case NativeBinding(key, name) if named(key) => name } match
         case Some(name) =>
           natives.natives.get(name) match
             case Some(native) => NarrowKind.Native(name, native.parameters.size, 0)
@@ -169,14 +176,14 @@ object NarrowBlocks:
                 case Some(fields) => NarrowKind.Native(name, fields, 0)
                 case None         => NarrowKind.Closed
         case None =>
-          val properties = index.combinatorProperties.collect { case CombinatorProperty(`instruction`, property) => property }
+          val properties = index.combinatorProperties.collect { case CombinatorProperty(key, property) if named(key) => property }
           if properties.exists {
               case Property.NativeSpecialization(_)      => true
               case Property.JvmType(JvmTypeName.Generic) => true
               case _                                     => false
             }
           then NarrowKind.CriterionFunction
-          else truthOf(instruction).fold(NarrowKind.Closed)(NarrowKind.Truth(_))
+          else truth.fold(NarrowKind.Closed)(NarrowKind.Truth(_))
 
   /** The boolean a term is by its structure: λt.λ_. t or λ_.λf. f, under
     * applications of the identity (λx. x, or a thunk of one parameter whose
@@ -184,8 +191,12 @@ object NarrowBlocks:
     * parameter, as `selectedByTruth` reads it); a noinline name's
     * instruction is its own term, read the same way.
     */
-  private def truthOf(instruction: Instruction): Option[Boolean] =
-    if instruction.opaque then None
+  private def truthOf[C <: NativeSpecializer & Singleton](
+      instruction: Configured[C],
+      configuration: gezi.weakhead.ReadingConfiguration[C]
+  )(using C): Option[Boolean] =
+    // A native storage the e-graph keeps as a leaf is read as no boolean, its view not read.
+    if instruction.heldAsLeaf then None
     else
       instruction.layer match
         case ir.Thunk(code, holes, fillings) =>
@@ -196,8 +207,9 @@ object NarrowBlocks:
           function.layer match
             case ir.Thunk(code, holes, fillings)
                 if thunkKind(code, holes, fillings.map(filling => NarrowItem.Known(closedShape(filling), ()))) == NarrowKind.Identity ||
-                  readsAsIdentity(function) =>
-              truthOf(argument)
+                  // A name of the library, read under the configuration of the program the term is of.
+                  readsAsIdentity(function, configuration) =>
+              truthOf(argument, configuration)
             case _ => None
         case _ => None
 
@@ -206,8 +218,9 @@ object NarrowBlocks:
     * whatever its own fillings are (they are read as closed terms of no
     * narrow kind, so the reading does not descend), or nothing narrow.
     */
-  private def closedShape(filling: Instruction): NarrowKind =
-    filling.layer match
+  private def closedShape[C <: NativeSpecializer & Singleton](filling: Configured[C])(using C): NarrowKind =
+    if filling.heldAsLeaf then NarrowKind.Closed
+    else filling.layer match
       case ir.Thunk(code, holes, fillings) if !filling.opaque =>
         thunkKind(code, holes, fillings.map(_ => NarrowItem.Known(NarrowKind.Closed, ()))) match
           case NarrowKind.Truth(value) => NarrowKind.Truth(value)
@@ -299,8 +312,8 @@ object NarrowBlocks:
   /** The identity `λv. v`, the normal form `readsAsIdentity` reads a
     * function against.
     */
-  private val identityTerm: Instruction =
-    gezi.frontend.Defunctionalization.thunkInstruction(gezi.frontend.DeBruijnTerm.Lambda(gezi.frontend.DeBruijnTerm.Variable(0)))
+  private val identityTerm: Pure =
+    gezi.frontend.Defunctionalization.pure(gezi.frontend.DeBruijnTerm.Lambda(gezi.frontend.DeBruijnTerm.Variable(0)))
 
   /** Whether the closed thunk is the identity by its value, whatever its
     * spelling: a thunk of one parameter whose code is a function applied to
@@ -323,19 +336,19 @@ object NarrowBlocks:
     * rule, read as a pure function of the term, no name and no hint. A reading that
     * does not finish within the limit is no identity.
     */
-  def readsAsIdentity(thunk: Instruction): Boolean =
+  def readsAsIdentity[C <: NativeSpecializer & Singleton](thunk: Configured[C], configuration: gezi.weakhead.ReadingConfiguration[C])(using C): Boolean =
     !thunk.opaque && (thunk.layer match
       case ir.Thunk(code, holes @ Vector(Hole.Bound(bound)), fillings) =>
         code.layer match
           case ir.Apply(function, argument) if argument.layer == ir.Slot(bound) && !mentions(function, bound) =>
-            val functionUnderBinder = Instruction(ir.Thunk(function, holes, fillings))
+            val functionUnderBinder = configuration.specializer.thunk(function, gezi.ir.NonEmptyHoles(Hole.Bound(bound), Vector.empty), fillings)
             gezi.weakhead.NormalForms
               .soleHeadReads(
                 gezi.weakhead.Mode.TablingWeakHead,
-                gezi.weakhead.Value.Apply(functionUnderBinder, thunk),
-                identityTerm
+                gezi.ir.Value.Apply(gezi.ir.Value.of(functionUnderBinder), gezi.ir.Value.of(thunk)),
+                gezi.ir.Value.of(Configured.fromPure(configuration.specializer)(identityTerm))
               )
-              .result(gezi.weakhead.ReadingState.knowingTop(identityReadingLimit)) match
+              .result(gezi.weakhead.ReadingState.knowingTop(identityReadingLimit, configuration)) match
               case gezi.weakhead.Computed.Done(identity, _) => identity
               case gezi.weakhead.Computed.Stopped(_)         => false
           case _ => false
@@ -654,13 +667,19 @@ final case class NarrowBlockReading(kind: NarrowKind) extends ModuleReading
   * 2,352; `contest-entries-wren`'s calls_10000_hot/direct's unreduced term 60 and its reduct
   * 2,349, where it ranked 1,922 and 175.
   */
-final case class NarrowBlockOrder(natives: NativeBackend) extends NormalityModule:
+final case class NarrowBlockOrder[C <: NativeSpecializer & Singleton](
+    natives: NativeBackend,
+    // The configuration of the programs it orders, under which a thunk is read for the identity (`NarrowBlocks.nameKind`).
+    configuration: gezi.weakhead.ReadingConfiguration[C]
+) extends NormalityModule[C]:
+
+  private given C = configuration.specializer
 
   val name: String = "narrow_blocks"
 
   val meetsExtractionContract: Boolean = true
 
-  def folded(layer: OrderTerm, reading: TermReading): FoldState =
+  def folded(layer: OrderTerm[C], reading: TermReading[C]): FoldState =
     val narrowKind = kind(layer, reading)
     NarrowBlockState(narrowKind, residual(layer, narrowKind, reading))
 
@@ -670,7 +689,7 @@ final case class NarrowBlockOrder(natives: NativeBackend) extends NormalityModul
     * reader; any other `Value` layer is one block; any other layer the
     * reader reads whole.
     */
-  private def residual(layer: OrderTerm, layerKind: NarrowKind, reading: TermReading): BigInt = layer match
+  private def residual(layer: OrderTerm[C], layerKind: NarrowKind, reading: TermReading[C]): BigInt = layer match
     case OrderTerm.Choice(members) if NarrowBlocks.narrow(layerKind) => memberResidual(chosen(members, reading), reading)
     case _ if layerKind == NarrowKind.Value                         => 1 + inBlock(layer, reading)
     case _                                                          => interpreted(layer)
@@ -678,7 +697,7 @@ final case class NarrowBlockOrder(natives: NativeBackend) extends NormalityModul
   /** The member of a narrow choice the backend compiles. A choice is narrow
     * only when a member is (`choiceKind`), so a narrow choice has one.
     */
-  private def chosen(members: Vector[OrderTerm], reading: TermReading): OrderTerm =
+  private def chosen(members: Vector[OrderTerm[C]], reading: TermReading[C]): OrderTerm[C] =
     NarrowBlocks.chosenMember(members.map(kind(_, reading))) match
       case Some(position) => members(position)
       case None =>
@@ -689,14 +708,14 @@ final case class NarrowBlockOrder(natives: NativeBackend) extends NormalityModul
   /** A chosen member's residual: a folded member's from its state, a nested
     * member's as `folded` would give it.
     */
-  private def memberResidual(member: OrderTerm, reading: TermReading): BigInt = member match
+  private def memberResidual(member: OrderTerm[C], reading: TermReading[C]): BigInt = member match
     case OrderTerm.Folded(state, _) => TermOrder.ownState[NarrowBlockState](state).residual
     case nested                     => residual(nested, kind(nested, reading), reading)
 
   /** What a block reads of a `Value` layer's children; of a thunk, which is
     * never a `Value`, nothing is asked.
     */
-  private def inBlock(term: OrderTerm, reading: TermReading): BigInt = term match
+  private def inBlock(term: OrderTerm[C], reading: TermReading[C]): BigInt = term match
     case OrderTerm.Apply(function, argument) => blockOperand(function, reading) + blockOperand(argument, reading)
     case OrderTerm.Parallel(left, right, _)  => blockOperand(left, reading) + blockOperand(right, reading)
     case _                                   => 0
@@ -711,7 +730,7 @@ final case class NarrowBlockOrder(natives: NativeBackend) extends NormalityModul
     * a `Value` one by its residual less its numeral's one, one of any other
     * narrow kind not at all, a `Closed` one by its residual.
     */
-  private def blockOperand(child: OrderTerm, reading: TermReading): BigInt = child match
+  private def blockOperand(child: OrderTerm[C], reading: TermReading[C]): BigInt = child match
     case OrderTerm.Unpriced(_) => 0
     case OrderTerm.Folded(state, _) =>
       val childState = TermOrder.ownState[NarrowBlockState](state)
@@ -728,7 +747,7 @@ final case class NarrowBlockOrder(natives: NativeBackend) extends NormalityModul
     * (`ModuleCostModel.droppedChildren`), and the extraction spells each by
     * its class's least entry of its reading. No position of any other layer.
     */
-  override def compiledChildren(layer: OrderTerm, reading: TermReading): Vector[Boolean] =
+  override def compiledChildren(layer: OrderTerm[C], reading: TermReading[C]): Vector[Boolean] =
     val children = layer match
       case OrderTerm.Apply(function, argument) => Vector(function, argument)
       case OrderTerm.Parallel(left, right, _)  => Vector(left, right)
@@ -747,10 +766,10 @@ final case class NarrowBlockOrder(natives: NativeBackend) extends NormalityModul
     * that a filter's unpriced criterion of a criterion's kind makes the
     * filter narrow.
     */
-  private def kind(term: OrderTerm, reading: TermReading): NarrowKind = term match
+  private def kind(term: OrderTerm[C], reading: TermReading[C]): NarrowKind = term match
     case OrderTerm.Folded(state, _)             => TermOrder.ownState[NarrowBlockState](state).kind
     case OrderTerm.Unpriced(NarrowBlockReading(unpricedKind)) => unpricedKind
-    case OrderTerm.Name(instruction)         => NarrowBlocks.nameKind(instruction, reading.index, natives)
+    case OrderTerm.Name(instruction)         => NarrowBlocks.nameKind(instruction, reading.index, natives, configuration)
     case OrderTerm.Apply(function, argument) => NarrowBlocks.applicationKind(kind(function, reading), kind(argument, reading))
     case OrderTerm.Parallel(left, right, _)     => NarrowBlocks.parallelKind(kind(left, reading), kind(right, reading))
     case OrderTerm.Choice(members)           => NarrowBlocks.choiceKind(members.map(kind(_, reading)))
@@ -761,7 +780,7 @@ final case class NarrowBlockOrder(natives: NativeBackend) extends NormalityModul
   /** The residual of a layer that is no block: one for each of its own
     * layers and its children's residuals.
     */
-  private def interpreted(term: OrderTerm): BigInt = term match
+  private def interpreted(term: OrderTerm[C]): BigInt = term match
     case OrderTerm.Folded(state, _)                => TermOrder.ownState[NarrowBlockState](state).residual
     case OrderTerm.Apply(function, argument)    => 1 + interpreted(function) + interpreted(argument)
     case OrderTerm.Parallel(left, right, _)        => 1 + interpreted(left) + interpreted(right)
@@ -802,7 +821,7 @@ final case class NarrowBlockOrder(natives: NativeBackend) extends NormalityModul
     * runs.
     */
   /** The parse summary of a thunk's code part by part (`NarrowCodeFolding`). */
-  override val codeFolding: Option[gezi.strategies.CodeFolding] = Some(NarrowCodeFolding)
+  override val codeFolding: Option[gezi.strategies.CodeFolding[C]] = Some(NarrowCodeFolding[C]())
 
   override def chosenChoiceMember(memberReadings: Vector[ModuleReading]): Option[Int] =
     val kinds = memberReadings.collect { case NarrowBlockReading(kind) => kind }

@@ -2,6 +2,7 @@ package gezi.jit
 
 import gezi.weakhead.Computed
 import gezi.weakhead.Head
+import gezi.weakhead.NeutralValue
 import gezi.weakhead.ListCodec
 import gezi.weakhead.Mode
 import gezi.weakhead.ListConstructor
@@ -9,7 +10,7 @@ import gezi.weakhead.NeutralVariable
 import gezi.weakhead.ParallelView
 import gezi.weakhead.ReadingState
 import gezi.weakhead.Shape
-import gezi.weakhead.Value
+import gezi.ir.Value
 import gezi.weakhead.WeakHead
 import gezi.weakhead.Answers
 import gezi.standardlibrary.BackendNative
@@ -19,20 +20,14 @@ import gezi.standardlibrary.LibraryBackend
 import gezi.standardlibrary.MalformedReason
 import gezi.standardlibrary.Property
 import gezi.standardlibrary.StandardLibraryMalformed
-import gezi.ir.Instruction
+import gezi.ir.{Configured, NoFacts, Pure}
+import gezi.weakhead.ReadingConfiguration
 
 /** Why a native specialization is malformed under the backend's check. */
 enum SpecializationProblem:
 
   /** `no_codec`: the backend has no codec for the representation. */
   case NoCodec
-
-  /** `codec_native(Native, [])`: no library term is bound by a `native`
-    * declaration to a constructor the representation's codec encodes with,
-    * for a codec whose constructors are named by strings (`WordFamily`,
-    * `BinaryNaturalFamily`).
-    */
-  case CodecNativeMissing(native: NativeName)
 
   /** The library term the representation is declared of has no
     * `data_family`, so the codec's constructors have no terms
@@ -77,7 +72,7 @@ enum BackendSetReason extends BackendReason:
     * by two `data_family` declarations of types specialized to its family
     * that list different terms at its position.
     */
-  case CodecNative(native: NativeName, terms: Vector[Instruction])
+  case CodecNative(native: NativeName, terms: Vector[Pure])
 
   /** `combinator_property(native_specialization(R), Problem)`: the native
     * specialization is malformed.
@@ -131,15 +126,27 @@ final case class BackendChecks(nativeBackend: NativeBackend) extends LibraryBack
     if backendNamed(natives, specializations) then
       natives.foreach(nativeChecked(_))
       specializations.foreach(specializationCodecChecked)
-      codecNativesChecked(natives, specializations)
-      specializations.foreach(specializationRepresentationChecked(natives, _))
+      codecNativesChecked(specializations)
+      specializations.foreach(specializationRepresentationChecked)
+
+  /** The terms of the library are read under no facts, as a program's is: the check reads them with the weak head of
+    * `NoFacts`, whose terms hold no storage.
+    */
+  private given NoFacts.type = NoFacts
+
+  /** The capability of the readings of no facts, which hold no storage (`ReadingConfiguration.withoutFacts`). */
+  private given gezi.ir.StorageAccess = gezi.weakhead.ReadingConfiguration.withoutFacts.storageAccess
+
+  /** A term of the library as one of no facts: the same object. */
+  private def noFactsTerm(term: Pure): Configured[NoFacts.type] = Configured.fromPure(NoFacts)(term)
 
   private def malformed(reason: BackendSetReason): Nothing =
     throw StandardLibraryMalformed(MalformedReason.BackendRejected(reason))
 
   /** Whether the set or the framework has a codec for the family. */
   private def hasCodec(family: String): Boolean =
-    family == Representation.listFamily.name || nativeBackend.family(FamilyIdentity.Codec(family)).isDefined
+    family == Representation.listFamily.name || family == Representation.arrayListFamily.name ||
+      nativeBackend.family(FamilyIdentity.Codec(family)).isDefined
 
   private def backendNamed(
       natives: Vector[BackendNative],
@@ -159,8 +166,8 @@ final case class BackendChecks(nativeBackend: NativeBackend) extends LibraryBack
 
   /** The number of fields of each constructor a data family of the set
     * encodes with, by the constructor's native: a native fact naming one is
-    * known to the set even with no entry in its natives, as the word
-    * family's constructors have none (`NativeBackend.standard`), and its
+    * known to the set even with no entry in its natives, as the family
+    * `jvm_int`'s constructor has none (`JvmIntFamily`), and its
     * define must take as many parameters as the constructor has fields. A
     * constructor whose field counts differ between the family's shape
     * parameters is a defect of the family.
@@ -186,28 +193,29 @@ final case class BackendChecks(nativeBackend: NativeBackend) extends LibraryBack
   /** The lists' constructors, the framework's list codec's: nil and cons
     * at their positions.
     */
-  private val listConstructors: Vector[NativeName] =
-    Vector(ListConstructor.Nil, ListConstructor.Cons).map(constructor =>
-      NativeName.Constructor(Representation.listFamily, ListCodec.position(constructor))
-    )
+  private val listConstructors: Vector[NativeName] = listConstructorsOf(Representation.listFamily)
+
+  /** The array lists' constructors, the framework's array list codec's: the
+    * lists' nil and cons, at the same positions.
+    */
+  private val arrayListConstructors: Vector[NativeName] = listConstructorsOf(Representation.arrayListFamily)
+
+  private def listConstructorsOf(family: FamilyIdentity): Vector[NativeName] =
+    Vector(ListConstructor.Nil, ListConstructor.Cons).map(constructor => NativeName.Constructor(family, ListCodec.position(constructor)))
 
   /** The constructors each codec encodes with, in the order of the set's
     * data families and then the lists'.
     */
-  private val codecNatives: Vector[NativeName] = nativeBackend.constructorNatives ++ listConstructors
+  private val codecNatives: Vector[NativeName] = nativeBackend.constructorNatives ++ listConstructors ++ arrayListConstructors
 
-  /** The terms bound to the codec's constructor: by the `native`
-    * declarations of its string, or at its position in the `data_family`
-    * declarations of the terms specialized to its family. Each once, in
-    * the order of the knowledge.
+  /** The terms bound to the codec's constructor: at its position in the
+    * `data_family` declarations of the terms specialized to its family. Each
+    * once, in the order of the knowledge. Throws `IllegalStateException` for
+    * a constructor named by a string, which no codec has ([[FamilyIdentity]]).
     */
-  private def boundTerms(
-      natives: Vector[BackendNative],
-      specializations: Vector[BackendSpecialization],
-      constructor: NativeName
-  ): Vector[Instruction] =
+  private def boundTerms(specializations: Vector[BackendSpecialization], constructor: NativeName): Vector[Pure] =
     constructor match
-      case NativeName.Function(name) => natives.filter(_.native == name).map(_.instruction).distinct
+      case NativeName.Function(name) => throw IllegalStateException(s"a codec's constructor named by the string $name")
       case NativeName.Constructor(family, position) =>
         specializations
           .filter(specialization => FamilyIdentity.Codec(specialization.representation) == family)
@@ -215,29 +223,31 @@ final case class BackendChecks(nativeBackend: NativeBackend) extends LibraryBack
           .flatMap(_.constructors.lift(position))
           .distinct
 
-  private def codecNativesChecked(natives: Vector[BackendNative], specializations: Vector[BackendSpecialization]): Unit =
+  private def codecNativesChecked(specializations: Vector[BackendSpecialization]): Unit =
     codecNatives.foreach(codecNative =>
-      val terms = boundTerms(natives, specializations, codecNative)
+      val terms = boundTerms(specializations, codecNative)
       if terms.size > 1 then malformed(BackendSetReason.CodecNative(codecNative, terms))
     )
 
   /** The codec's constructors, every one named by its family and position,
-    * with the codec's number of criterion parameters; `None` for a codec
-    * whose constructors are named by strings.
+    * with the codec's number of criterion parameters; `None` for a
+    * representation with no codec. Throws `IllegalStateException` for a codec
+    * whose constructors are not its family's positions 0, 1, … in order, a
+    * defect of the codec ([[FamilyIdentity]]).
     */
   private def declaredConstructors(representation: String): Option[(Int, Vector[NativeName])] =
     if representation == Representation.listFamily.name then Some((1, listConstructors))
+    else if representation == Representation.arrayListFamily.name then Some((1, arrayListConstructors))
     else
-      nativeBackend.family(FamilyIdentity.Codec(representation)).flatMap(family =>
+      nativeBackend.family(FamilyIdentity.Codec(representation)).map(family =>
         val constructors = family.shapeParameters.flatMap(family.constructors(_).map(_.native)).distinct
         val positions = constructors.indices.toVector.map(NativeName.Constructor(family.identity, _))
-        Option.when(constructors == positions)((family.criterionArity, constructors))
+        if constructors != positions then
+          throw IllegalStateException(s"the constructors of ${family.identity.shown} are not its positions: $constructors")
+        (family.criterionArity, constructors)
       )
 
-  private def specializationRepresentationChecked(
-      natives: Vector[BackendNative],
-      specialization: BackendSpecialization
-  ): Unit =
+  private def specializationRepresentationChecked(specialization: BackendSpecialization): Unit =
     def rejected(problem: SpecializationProblem): Nothing =
       malformed(BackendSetReason.Specialization(specialization.representation, problem))
     declaredConstructors(specialization.representation).foreach((arity, constructors) =>
@@ -246,20 +256,21 @@ final case class BackendChecks(nativeBackend: NativeBackend) extends LibraryBack
         .find(family => family.arity != arity || family.constructors.size != constructors.size)
         .foreach(family => rejected(SpecializationProblem.DataFamilyIllShaped(family, arity, constructors.size)))
     )
-    def bound(native: NativeName): Instruction = native match
+    def bound(native: NativeName): Configured[NoFacts.type] = native match
       case NativeName.Constructor(_, position) =>
-        specialization.families.flatMap(_.constructors.lift(position)).headOption.getOrElse(
+        noFactsTerm(specialization.families.flatMap(_.constructors.lift(position)).headOption.getOrElse(
           throw IllegalStateException(s"a data_family of ${specialization.representation} with no constructor $position passed its check")
-        )
-      case NativeName.Function(name) =>
-        natives.find(_.native == name) match
-          case Some(found) => found.instruction
-          case None        => rejected(SpecializationProblem.CodecNativeMissing(native))
+        ))
+      case NativeName.Function(name) => throw IllegalStateException(s"a codec's constructor named by the string $name")
     val shape: Shape[Any] =
       if specialization.representation == Representation.listFamily.name then
         listConstructors.map(bound) match
           case Vector(nil, cons) => ListCodec.constructorsShape(nil, cons)
           case other             => throw IllegalStateException(s"the list's constructors bound to ${other.size} terms")
+      else if specialization.representation == Representation.arrayListFamily.name then
+        arrayListConstructors.map(bound) match
+          case Vector(nil, cons) => ListCodec.constructorsShape(nil, cons)
+          case other             => throw IllegalStateException(s"the array list's constructors bound to ${other.size} terms")
       else
         nativeBackend.family(FamilyIdentity.Codec(specialization.representation)) match
           case Some(family) =>
@@ -293,20 +304,20 @@ final case class BackendChecks(nativeBackend: NativeBackend) extends LibraryBack
     */
   private def parametersChecked(native: BackendNative, count: Int): Unit =
     if count > 0 then
-      headsTaken(native.instruction, count).collected
-        .result(ReadingState.fresh(BackendChecks.parameterStepLimit)) match
+      headsTaken(Value.of(noFactsTerm(native.instruction)), count).collected
+        .result(ReadingState.fresh(BackendChecks.parameterStepLimit, ReadingConfiguration.withoutFacts)) match
         case Computed.Stopped(_) =>
           malformed(BackendSetReason.NativeParametersNotRead(native.native, count))
         case Computed.Done(taken, _) =>
           if taken.contains(Taken.NoLambda) then
             malformed(BackendSetReason.NativeParameters(native.native, count))
 
-  private def headsTaken(term: Value, count: Int): Answers[ReadingState, Taken] =
+  private def headsTaken(term: Value[NoFacts.type], count: Int): Answers[ReadingState[NoFacts.type], Taken] =
     WeakHead.heads(Mode.TablingWeakHead, term).flatMap(set =>
-      set.view match
+      set.view(NoFacts) match
         case ParallelView.Single(head @ Head.Lambda(_, _, _)) =>
           if count == 1 then Answers.single(Taken.Lambda)
-          else headsTaken(Value.Apply(head.value, Value.Neutral(NativeParameter(count), Vector.empty)), count - 1)
+          else headsTaken(Value.Apply(head.value, NeutralValue[NoFacts.type](NativeParameter(count), Vector.empty)), count - 1)
         case _ => Answers.single(Taken.NoLambda)
     )
 

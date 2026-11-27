@@ -1,30 +1,37 @@
 package gezi.narrowblocks
 
-import hedgehog.Gen
-import hedgehog.Range
-import hedgehog.Result
-import java.lang.classfile.Attributes
-import java.lang.classfile.ClassFile
-import java.io.PrintWriter
-import java.io.StringWriter
-import java.net.URI
-import java.nio.charset.StandardCharsets
-import java.nio.file.Files
-import java.util.spi.ToolProvider
 import gezi.frontend.Defunctionalization
 import gezi.frontend.FreeNames
 import gezi.frontend.Lambdalattice
 import gezi.generatedinputs.GeneratedProperties
 import gezi.generatedinputs.SeededSnapshots
-import gezi.ir.Instruction
+import gezi.ir.Configured
+import gezi.ir.NoFacts
+import gezi.ir.Pure
+import gezi.jit.BinaryNaturalFamily
 import gezi.jit.NativesProvider
 import gezi.locations.SourceMap
 import gezi.saturation.StopSignal
+import gezi.standardlibrary.CombinatorProperty
 import gezi.standardlibrary.NativeBound
+import gezi.standardlibrary.Property
 import gezi.standardlibrary.StandardLibraryIndex
+import hedgehog.Gen
+import hedgehog.Range
+import hedgehog.Result
+import java.io.PrintWriter
+import java.io.StringWriter
+import java.lang.classfile.Attributes
+import java.lang.classfile.ClassFile
+import java.net.URI
+import java.nio.charset.StandardCharsets
+import java.nio.file.Files
+import java.util.spi.ToolProvider
 import scala.jdk.OptionConverters.*
 import scala.util.Using
 import snapshot4s.generated.snapshotConfig
+
+private given narrowBlockDebugAttributesSnapshotTestNoFacts: NoFacts.type = NoFacts
 
 /** The debugging attributes of a class of narrow blocks,
   * on
@@ -54,24 +61,30 @@ class NarrowBlockDebugAttributesSnapshotTest extends GeneratedProperties with Se
   private val oddText = "(λx. λy. λz. z y x)"
   private val plusText = "(λx. λy. y y x)"
 
-  private def instruction(text: String): Instruction =
+  /** The criterion `binary_set` whose `data_family` lists zero, even and
+    * odd, in the codec's order (`BinaryNaturalFamily`).
+    */
+  private val binarySetText = "(λx. λy. x (y y))"
+
+  private def instruction(text: String): Configured[NoFacts.type] =
     val read = Lambdalattice.located(text, FreeNames.Rejected)
-    Defunctionalization.locatedThunkInstruction(read.term, read.spans, URI("test:definition"))._1
+    Defunctionalization.locatedThunkInstruction(read.term, read.spans, URI("test:definition"))(using gezi.ir.NoFacts)._1
 
   private val compilation = NarrowBlockCompilation(
-    StandardLibraryIndex(
-      Vector.empty,
+    StandardLibraryIndex(NoFacts, Vector.empty,
       Vector.empty,
       Vector(
-        NativeBound(instruction(zeroText), "binary_zero"),
-        NativeBound(instruction(evenText), "binary_even"),
-        NativeBound(instruction(oddText), "binary_odd"),
-        NativeBound(instruction(plusText), "wren_binary_plus")
+        NativeBound(Pure.required(instruction(plusText)), "wren_binary_plus")
       ),
-      Vector.empty
+      Vector(
+        CombinatorProperty(Pure.required(instruction(binarySetText)), Property.NativeSpecialization(BinaryNaturalFamily.identity.name)),
+        CombinatorProperty(Pure.required(instruction(binarySetText)),
+          Property.DataFamily(0, Vector(instruction(zeroText), instruction(evenText), instruction(oddText)).map(Pure.required))
+        )
+      )
     ),
     NativesProvider.loaded
-  )
+  , gezi.weakhead.ReadingConfiguration.withoutFacts)
 
   /** The canonical binary numeral of the value, written in place, least
     * significant digit outermost.
@@ -116,10 +129,10 @@ class NarrowBlockDebugAttributesSnapshotTest extends GeneratedProperties with Se
   /** The blocks of the files, each file read with its map, in the files'
     * order.
     */
-  private def located(written: Vector[(URI, String)]): Vector[(Instruction, SourceMap)] =
+  private def located(written: Vector[(URI, String)]): Vector[(Configured[NoFacts.type], SourceMap)] =
     written.flatMap((uri, text) =>
       val read = Lambdalattice.located(text, FreeNames.Rejected)
-      val (program, map) = Defunctionalization.locatedThunkInstruction(read.term, read.spans, uri)
+      val (program, map) = Defunctionalization.locatedThunkInstruction(read.term, read.spans, uri)(using gezi.ir.NoFacts)
       compilation.locatedBlocks(program, map)
     )
 
@@ -132,7 +145,7 @@ class NarrowBlockDebugAttributesSnapshotTest extends GeneratedProperties with Se
     */
   private def read(
       texts: Vector[(URI, String)],
-      debug: Vector[(Instruction, SourceMap)] => DebugAttributes,
+      debug: Vector[(Configured[NoFacts.type], SourceMap)] => DebugAttributes,
       stop: StopSignal
   ): Either[String, ReadClass] =
     val blocks = located(texts)
@@ -158,7 +171,7 @@ class NarrowBlockDebugAttributesSnapshotTest extends GeneratedProperties with Se
       sourceMap
     )
 
-  private def written(texts: Vector[(URI, String)])(blocks: Vector[(Instruction, SourceMap)]): DebugAttributes =
+  private def written(texts: Vector[(URI, String)])(blocks: Vector[(Configured[NoFacts.type], SourceMap)]): DebugAttributes =
     DebugAttributes.Written(blocks.map(_._2), texts.toMap)
 
   stoppableTest("a class of narrow blocks gives each block's method the line of its root, through a source map for two files") { stopped =>

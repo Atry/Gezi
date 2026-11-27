@@ -1,0 +1,15 @@
+# The native of the product of two canonical binary naturals,
+# merge_binary_times, bound to the implementation of contest-natives-solo
+# (SoloNatives). Enabled with solo_hindley_milner_schemes, whose scheme types
+# its calls, and with binary_prolog_backend, whose codec of binary_set true
+# the native reads and writes.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "binary") "arithmetic")
+λ _ _ merge_binary_times _
+. export
+λ _ _ _ backend
+. backend
+λ _ natives _ _ _ _
+. natives (λs. s merge_binary_times λk. k "solo_binary_times")

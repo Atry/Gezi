@@ -10,8 +10,10 @@
 #
 #   - `associative`: C is associative; its lemma has the sides
 #     λx. λy. λz. C x (C y z) and λx. λy. λz. C (C x y) z.
+#   - `repeller`: C is the identity; its lemma, C's erasure, has the sides
+#     λx. C x and λx. x.
 
 λ export
 . export
 λ properties
-. properties λs. s (λc x y z. c x λ. c y z) λc x y z. c (c x y) z
+. properties (λs. s (λc x y z. c x λ. c y z) λc x y z. c (c x y) z) λs. s (λc x. c x) λc x. x

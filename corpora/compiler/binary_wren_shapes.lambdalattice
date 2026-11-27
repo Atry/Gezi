@@ -32,7 +32,7 @@
 . omega (omega (omega (omega corpora "library") "hindley_milner_unions") "shapes")
 λ structure alternative no_alternative field no_field recursive_type
 . omega (omega (omega (omega corpora "library") "prolog_backend_shapes") "prolog_backend_shapes")
-λ candidate _ _ _ _ _
+λ candidate _ _ _ _ _ _
 . omega (omega (omega (omega corpora "library") "binary") "natural")
 λ _ _ _ _ binary_set
 . omega (omega (omega (omega corpora "library") "native_types") "boolean")

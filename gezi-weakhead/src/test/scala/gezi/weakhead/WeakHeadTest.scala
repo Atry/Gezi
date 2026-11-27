@@ -1,5 +1,6 @@
 package gezi.weakhead
 
+import gezi.ir.NoFacts
 import gezi.weakhead.EvaluatorTesting.*
 import gezi.frontend.DeBruijnTerm
 import gezi.frontend.Defunctionalization
@@ -16,6 +17,8 @@ import gezi.frontend.Term.*
   * bounded by a budget of steps, never by a clock.
   */
 class WeakHeadTest extends gezi.generatedinputs.FailFastSuite:
+
+  given NoFacts.type = NoFacts
 
   // Measured 2026-11-16 on 2 CPUs (contest-lean.slice, CPUs 10,11, nice 10), the 1-minute load 9 to 22 over the run, every deadline raised to 600 s: the slowest test of WeakHeadTest, "weakHeadAgreesWithTheReferenceOnRandomTerms", takes 3.848 s; the bound is 1.5 times that rounded up to 5 s.
   // FIXME: this suite exceeds the 3 s default with no reason yet; its slow tests are to be made fast. https://github.com/Atry/private-overlay/issues/1925
@@ -57,7 +60,7 @@ class WeakHeadTest extends gezi.generatedinputs.FailFastSuite:
   private def crossChecked(term: DeBruijnTerm): String =
     val limit = 200000L
     val expected = Reference.weakHeadWithin(term, limit)
-    val value = Values.ofInstruction(Defunctionalization.thunkInstruction(term), Set.empty)
+    val value = Values.ofInstruction(Defunctionalization.thunkInstruction[NoFacts.type](term), Set.empty)
     val untabled = headsWithin(Mode.WeakHead, value, limit)
     val tabled = headsWithin(Mode.TablingWeakHead, value, limit)
     (expected, untabled) match
@@ -94,8 +97,8 @@ class WeakHeadTest extends gezi.generatedinputs.FailFastSuite:
     val instruction = instructionOf(λ(s => λ(t => λ(u => s(u)(t(u)))))(k)(k))
     val value = Values.ofInstruction(instruction, Set.empty)
     val expected = finishedValue(normalFormsWithin(Mode.WeakHead, value, smallTermLimit))
-    val normalForms = finishedValue(normalFormsWithin(Mode.WeakHead, instruction, smallTermLimit))
-    assertEquals(normalForms, expected)
+    val normalForms = finishedValue(normalFormsWithin(Mode.WeakHead, gezi.ir.Value.of(instruction), smallTermLimit))
+    assert(sameInstructions(normalForms, expected))
     assertEquals(normalForms.map(instructionTerm), Vector(lambdaTerm(λ(i => i))))
   }
 
@@ -119,7 +122,7 @@ class WeakHeadTest extends gezi.generatedinputs.FailFastSuite:
 
   test("stepsOfOmegaTabled") {
     val value = valueOf(omega)
-    WeakHead.heads(Mode.TablingWeakHead, value).collected.result(ReadingState.fresh(100000)) match
+    WeakHead.heads(Mode.TablingWeakHead, value).collected.result(ReadingState.fresh(100000, gezi.weakhead.ReadingConfiguration.withoutFacts)) match
       case Computed.Done(heads, after) =>
         assertEquals(heads, Vector.empty)
         assertEquals(after.budget.spent, 4L)
@@ -138,8 +141,8 @@ class WeakHeadTest extends gezi.generatedinputs.FailFastSuite:
     // compared as multisets: sorted, with duplicates kept, as the Prolog test
     // compared `msort`ed lists (weak_head.plt:166-169).
     assertEquals(
-      surfaceHeads(Mode.TablingWeakHead, choice(k, λ(y => y)(kStar))).sortBy(_.toString),
-      expected.sortBy(_.toString)
+      surfaceHeads(Mode.TablingWeakHead, choice(k, λ(y => y)(kStar))).sorted(gezi.ir.ContentComparison.ordering),
+      expected.sorted(gezi.ir.ContentComparison.ordering)
     )
   }
 
@@ -226,7 +229,7 @@ class WeakHeadTest extends gezi.generatedinputs.FailFastSuite:
       target <- 0 until graph.count
     yield
       val value = valueOf(MergeGraph.graphTerm(graph, 0, target))
-      NormalForms.normalForms(Mode.TablingWeakHead, value).result(ReadingState.fresh(20000000)) match
+      NormalForms.normalForms(Mode.TablingWeakHead, value).result(ReadingState.fresh(20000000, gezi.weakhead.ReadingConfiguration.withoutFacts)) match
         case Computed.Done(_, after) => after.budget.spent
         case Computed.Stopped(_)     => fail("a tabled graph reading stopped")
     println(s"tabled graph reading steps: $spent")

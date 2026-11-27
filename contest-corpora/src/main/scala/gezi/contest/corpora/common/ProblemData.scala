@@ -4,7 +4,6 @@ import java.nio.file.Path
 import gezi.directorysugar.DirectoryTree
 import gezi.frontend.Defunctionalization
 import gezi.frontend.Term
-import gezi.ir.Instruction
 import gezi.knowledgereading.KnowledgeReading
 import gezi.knowledgereading.KnowledgeReadingError
 import gezi.knowledgereading.Reading
@@ -15,8 +14,12 @@ import gezi.hotspot.ExpansionSource
 import gezi.weakhead.Expansions
 import gezi.weakhead.ReadingState
 import gezi.weakhead.TableSharing
-import gezi.weakhead.Value
+import gezi.ir.Value
 import gezi.weakhead.Values
+import gezi.ir.{Configured, NoFacts}
+
+/** The corpora are read under no facts. */
+private given problemDataNoFacts: NoFacts.type = NoFacts
 
 /** A field of a row of a problem table, as the file wrote it: a term the
   * reader has opened and not evaluated. What it is (a text, a number, a
@@ -30,46 +33,46 @@ import gezi.weakhead.Values
   * part of the field's identity: two fields are equal when their
   * instructions are.
   */
-final case class ProblemField(instruction: Instruction)(reading: ReadingState):
+final case class ProblemField(instruction: Configured[NoFacts.type])(reading: ReadingState[NoFacts.type]):
 
   /** The text of the field, a Scott list of bytes, read once, when first
     * asked for (`ProblemData.text`).
     */
-  lazy val text: String = ProblemData.read(KnowledgeReading.text(instruction), reading)
+  lazy val text: String = ProblemData.read(KnowledgeReading.text(Value.of(instruction)), reading)
 
   /** The integer of the field, the library's Scott integer, which a table
     * writes as `from_cbor` of `integer/cbor` given the identity and an
     * integer literal, `(integer 12)`,
     * read by structure once, when first asked for (`ProblemData.integer`).
     */
-  lazy val integer: BigInt = ProblemData.read(KnowledgeReading.integer(instruction), reading)
+  lazy val integer: BigInt = ProblemData.read(KnowledgeReading.integer(Value.of(instruction)), reading)
 
   /** The truth of the field, a Scott boolean of
     * corpora/library/prelude/boolean, `true` (`λt. λf. t`) or `false`
     * (`λt. λf. f`), read by structure once, when first asked for
     * (`ProblemData.truth`).
     */
-  lazy val truth: Boolean = ProblemData.read(KnowledgeReading.truth(instruction), reading)
+  lazy val truth: Boolean = ProblemData.read(KnowledgeReading.truth(Value.of(instruction)), reading)
 
   /** The items of the field as a list, read once, when first asked for
     * (`ProblemData.list`), so that an item's own decodings are read once
     * too.
     */
   lazy val items: Vector[ProblemField] =
-    ProblemData.read(KnowledgeReading.items(instruction).map(_.map(ProblemData.field(_, reading))), reading)
+    ProblemData.read(KnowledgeReading.items(Value.of(instruction)).map(_.map(ProblemData.field(_, reading))), reading)
 
   /** The two fields of an open program, read from the field's state. */
-  private[common] def openFields: Vector[Value] = ProblemData.read(KnowledgeReading.fields(instruction, 2), reading)
+  private[common] def openFields: Vector[Value[NoFacts.type]] = ProblemData.read(KnowledgeReading.fields(Value.of(instruction), 2), reading)
 
   /** The alternative a Scott constructor of `count` alternatives takes and
     * its fields (`ProblemData.alternative`), read from the field's state.
     */
   private[common] def alternativeOf(count: Int): (Int, Vector[ProblemField]) =
-    ProblemData.read(KnowledgeReading.alternative(instruction, count), reading) match
+    ProblemData.read(KnowledgeReading.alternative(Value.of(instruction), count), reading) match
       case (position, fields) => (position, fields.map(sibling))
 
   /** A field read as this one is, from the same state. */
-  private[common] def sibling(value: Value): ProblemField = ProblemData.field(value, reading)
+  private[common] def sibling(value: Value[NoFacts.type]): ProblemField = ProblemData.field(value, reading)
 
 /** The data of one problem family, the directory `problems/<family>`
   * of Gezi, `family` the path of the directory under
@@ -96,7 +99,7 @@ final case class ProblemField(instruction: Instruction)(reading: ReadingState):
   * again. `sharing` is where every read of the family keeps its complete
   * tables and finds those other reads kept (`TableSharing`), the owner's.
   */
-final class ProblemFamily(root: Path, val family: String, expansions: Expansions, sharing: TableSharing):
+final class ProblemFamily(root: Path, val family: String, expansions: Expansions[NoFacts.type], sharing: TableSharing):
 
   private lazy val directory: Path = root.resolve("problems").resolve(family)
 
@@ -112,14 +115,14 @@ final class ProblemFamily(root: Path, val family: String, expansions: Expansions
     * key: the root's levels are partial functions of the bits of each level
     * of the absolute path, which were converted again for each file read.
     */
-  private lazy val directoryMixin: Instruction = DirectoryTree.mixin(root, directory)
+  private lazy val directoryMixin: Configured[NoFacts.type] = DirectoryTree.mixin[NoFacts.type](root, directory)
 
   /** The instance of the file of the name: `DirectoryTree.instance` of its
     * path, the same instruction, looked up off `directoryMixin`.
     */
-  private def instance(name: String): Instruction =
+  private def instance(name: String): Configured[NoFacts.type] =
     val reached = DirectoryTree.lookedUp(directoryMixin, Vector(path(name).getFileName.toString.stripSuffix(DirectoryTree.fileExtension)))
-    Instruction.Apply(reached, reached)
+    NoFacts.application(reached, reached)
 
   /** The term of each program file, by its name, each read once, when first
     * asked for: the one field of the tuple the file returns
@@ -134,14 +137,14 @@ final class ProblemFamily(root: Path, val family: String, expansions: Expansions
     * read as it is written. Throws `IllegalArgumentException` naming the file
     * for a file that is no tuple of one field.
     */
-  private lazy val programs: Map[String, LazyList[Instruction]] =
+  private lazy val programs: Map[String, LazyList[Configured[NoFacts.type]]] =
     names.map(name => name -> LazyList.fill(1)(programField(name))).toMap
 
-  private def programField(name: String): Instruction =
+  private def programField(name: String): Configured[NoFacts.type] =
     try
       KnowledgeReading
         .run(
-          KnowledgeReading.soleField(instance(name)).map(Values.instruction),
+          KnowledgeReading.soleField(Value.of(instance(name))).map(Values.instruction),
           ProblemData.readingLimit,
           readingState
         )
@@ -160,10 +163,10 @@ final class ProblemFamily(root: Path, val family: String, expansions: Expansions
     * the expansions are the contents of the files, which do not change while
     * the owner holds them.
     */
-  private lazy val familyExpansions: Expansions =
+  private lazy val familyExpansions: Expansions[NoFacts.type] =
     KnowledgeReading
       .run(
-        KnowledgeReading.headsTerm(directoryMixin),
+        KnowledgeReading.headsTerm(Value.of(directoryMixin)),
         ProblemData.readingLimit,
         KnowledgeReading.startingState.copy(expansions = expansions, sharing = sharing)
       )
@@ -179,7 +182,7 @@ final class ProblemFamily(root: Path, val family: String, expansions: Expansions
     * stay there is the cache service's choice, not this module's. Each read
     * starts from it, so the files are read in any order.
     */
-  private def readingState: ReadingState =
+  private def readingState: ReadingState[NoFacts.type] =
     KnowledgeReading.startingState.copy(expansions = familyExpansions, sharing = sharing)
 
   /** The rows of each file read as a table, by its name, each read once,
@@ -200,7 +203,7 @@ final class ProblemFamily(root: Path, val family: String, expansions: Expansions
         KnowledgeReading
           .run(
             KnowledgeReading
-              .soleField(instance(name))
+              .soleField(Value.of(instance(name)))
               .flatMap(KnowledgeReading.items)
               .flatMap(items =>
                 Computation.traversed(items)(item => KnowledgeReading.alternative(item, 1).map(_._2.map(ProblemData.field(_, readingState))))
@@ -248,13 +251,13 @@ final class ProblemFamily(root: Path, val family: String, expansions: Expansions
     * positions: the row's parameters, whose places hold the parameters'
     * names, in the order the conversion abstracted them.
     */
-  def template(table: String, texts: Map[Int, String], arguments: Map[Int, Term], result: Int): Term =
+  def template(table: String, texts: Map[Int, String], arguments: Map[Int, ProblemTerm], result: Int): ProblemTerm =
     ProblemData.program(row(table, texts)(result), arguments.toVector.sortBy(_._1).map(_._2))
 
   /** The program file, its leading abstractions instantiated by the
     * arguments in order.
     */
-  def program(name: String, arguments: Term*): Term =
+  def program(name: String, arguments: ProblemTerm*): ProblemTerm =
     ProblemData.program(
       ProblemField(programs.getOrElse(name, throw IllegalArgumentException(s"problems/$family has no file $name")).head)(readingState),
       arguments.toVector
@@ -267,7 +270,7 @@ final class ProblemFamily(root: Path, val family: String, expansions: Expansions
   * service it carries, in which every family's reads keep their complete
   * tables (`sharing`).
   */
-final class ProblemFamilies(root: Path, expansions: Expansions, cache: Cache):
+final class ProblemFamilies(root: Path, expansions: Expansions[NoFacts.type], cache: Cache):
 
   /** Where every read of every family keeps its complete tables: the
     * owner's cache service, with strong references, so that they stay until
@@ -284,7 +287,7 @@ final class ProblemFamilies(root: Path, expansions: Expansions, cache: Cache):
     * directory `problems`, so that each family lists only its own
     * directory. Read once, when first asked for.
     */
-  lazy val sharedExpansions: Expansions =
+  lazy val sharedExpansions: Expansions[NoFacts.type] =
     ProblemData.directoryExpansions(root, root.resolve("problems"), ProblemData.importExpansions(root, expansions))
 
   /** The families by the paths of their directories under `problems`, the
@@ -350,18 +353,18 @@ object ProblemData:
   /** The expansions grown by a read of the first field, `from_cbor`, of
     * `textImport` and of `integerImport` under the root's tree.
     */
-  private[common] def importExpansions(root: Path, expansions: Expansions): Expansions =
+  private[common] def importExpansions(root: Path, expansions: Expansions[NoFacts.type]): Expansions[NoFacts.type] =
     KnowledgeReading
       .run(
         KnowledgeReading
-          .fields(DirectoryTree.instance(root, root.resolve(textImport)), 4)
+          .fields(Value.of(DirectoryTree.instance[NoFacts.type](root, root.resolve(textImport))), 4)
           .map {
             case Vector(fromCbor, _, _, _) => KnowledgeReading.term(fromCbor, Set.empty)
             case other => throw IllegalArgumentException(s"text/cbor has ${other.size} fields, not 4")
           }
           .flatMap(_ =>
             KnowledgeReading
-              .fields(DirectoryTree.instance(root, root.resolve(integerImport)), 2)
+              .fields(Value.of(DirectoryTree.instance[NoFacts.type](root, root.resolve(integerImport))), 2)
               .map {
                 case Vector(fromCbor, _) => KnowledgeReading.term(fromCbor, Set.empty)
                 case other => throw IllegalArgumentException(s"integer/cbor has ${other.size} fields, not 2")
@@ -376,10 +379,10 @@ object ProblemData:
   /** The expansions grown by a read of the heads of the directory's mixin
     * under the root's tree, which lists it and the directories above it.
     */
-  private[common] def directoryExpansions(root: Path, directory: Path, expansions: Expansions): Expansions =
+  private[common] def directoryExpansions(root: Path, directory: Path, expansions: Expansions[NoFacts.type]): Expansions[NoFacts.type] =
     KnowledgeReading
       .run(
-        KnowledgeReading.headsTerm(DirectoryTree.mixin(root, directory)),
+        KnowledgeReading.headsTerm(Value.of(DirectoryTree.mixin[NoFacts.type](root, directory))),
         readingLimit,
         KnowledgeReading.startingState.copy(expansions = expansions)
       )
@@ -389,10 +392,10 @@ object ProblemData:
   /** The reading's value, from the state, its tables left where the state
     * keeps them (`TableSharing`).
     */
-  private[common] def read[Result](reading: Reading[Result], state: ReadingState): Result =
+  private[common] def read[Result](reading: Reading[NoFacts.type, Result], state: ReadingState[NoFacts.type]): Result =
     KnowledgeReading.run(reading, readingLimit, state)._1
 
-  private[common] def field(value: Value, state: ReadingState): ProblemField = ProblemField(Values.instruction(value))(state)
+  private[common] def field(value: Value[NoFacts.type], state: ReadingState[NoFacts.type]): ProblemField = ProblemField(Values.instruction(value))(state)
 
   /** The text of a Scott list of bytes, which a table writes as
     * `from_cbor` of the identity and a string literal: an atom or a string
@@ -460,14 +463,14 @@ object ProblemData:
   /** The program, its leading abstractions instantiated by the arguments in
     * order, as the front end's HOAS term.
     */
-  def program(field: ProblemField, arguments: Vector[Term]): Term =
-    DeBruijnTerms.instantiated(Defunctionalization.instructionTerm(field.instruction), arguments)
+  def program(field: ProblemField, arguments: Vector[ProblemTerm]): ProblemTerm =
+    DeBruijnTerms.instantiated(Defunctionalization.instructionTerm[NoFacts.type](field.instruction), arguments)
 
   /** A program with free variables, `λ_open. _open "m" Program`: m, and the
     * program instantiated by the arguments in order, its parameters' and
     * then its m free variables'.
     */
-  def openProgram(field: ProblemField): (Int, Vector[Term] => Term) =
+  def openProgram(field: ProblemField): (Int, Vector[ProblemTerm] => ProblemTerm) =
     field.openFields match
       case Vector(count, program) =>
         val programField = field.sibling(program)

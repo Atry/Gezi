@@ -3,11 +3,12 @@ package gezi.standardlibrary
 import java.nio.file.Files
 import java.nio.file.Path
 import gezi.frontend.DeBruijnTerm
+import gezi.frontend.DeBruijnTermOf
 import gezi.ir.Code
-import gezi.ir.Instruction
 import gezi.ir.Hole
 import scala.concurrent.Future
 import scala.jdk.StreamConverters.*
+import gezi.ir.{Configured, NativeSpecializer}
 
 /** The finite terms of the IR as the Lean package `gezi/lean` writes
   * them, and the runner of its `lake`: the port of
@@ -27,12 +28,12 @@ object LeanFiniteTerms:
     * printer `finiteText` writes it. Throws `IllegalArgumentException` for an
     * opaque instruction under it, whose layer is not known.
     */
-  def finiteText(instruction: Instruction): String = instruction match
-    case Instruction.Thunk(code, holes, fillings) =>
+  def finiteText[C <: NativeSpecializer & Singleton](instruction: Configured[C])(using C): String = instruction.layer match
+    case gezi.ir.Thunk(code, holes, fillings) =>
       s"thunk(${codeText(code)},${holesText(holes)},[${fillings.map(finiteText).mkString(",")}])"
-    case Instruction.Apply(function, argument) => s"apply(${finiteText(function)},${finiteText(argument)})"
-    case Instruction.Choice(left, right)       => s"choice(${finiteText(left)},${finiteText(right)})"
-    case Instruction.Parallel(left, right)     => s"parallel(${finiteText(left)},${finiteText(right)})"
+    case gezi.ir.Apply(function, argument) => s"apply(${finiteText(function)},${finiteText(argument)})"
+    case gezi.ir.Choice(left, right)       => s"choice(${finiteText(left)},${finiteText(right)})"
+    case gezi.ir.Parallel(left, right)     => s"parallel(${finiteText(left)},${finiteText(right)})"
     case opaque =>
       throw IllegalArgumentException(s"a finite term holds no opaque instruction, here $opaque")
 
@@ -51,18 +52,19 @@ object LeanFiniteTerms:
     }.mkString("[", ",", "]")
 
   /** The finite term of an instruction as a Lean term of `Ir.FiniteTerm`. */
-  def finiteLeanText(instruction: Instruction): String = instruction match
-    case Instruction.Thunk(code, holes, fillings) =>
+  def finiteLeanText[C <: NativeSpecializer & Singleton](instruction: Configured[C])(using C): String = instruction.layer match
+    case gezi.ir.Thunk(code, holes, fillings) =>
       s"(.thunk ${codeLeanText(code)} ${holesLeanText(holes)} [${fillings.map(finiteLeanText).mkString(", ")}])"
-    case Instruction.Apply(function, argument) =>
+    case gezi.ir.Apply(function, argument) =>
       s"(.apply ${finiteLeanText(function)} ${finiteLeanText(argument)})"
-    case Instruction.Choice(left, right) => s"(.choice ${finiteLeanText(left)} ${finiteLeanText(right)})"
-    case Instruction.Parallel(left, right) =>
+    case gezi.ir.Choice(left, right) => s"(.choice ${finiteLeanText(left)} ${finiteLeanText(right)})"
+    case gezi.ir.Parallel(left, right) =>
       s"(.parallel ${finiteLeanText(left)} ${finiteLeanText(right)})"
     case opaque =>
       throw IllegalArgumentException(s"a finite term holds no opaque instruction, here $opaque")
 
-  private def codeLeanText(code: Code): String = code match
+  /** A code as a Lean term of `Ir.Code`. */
+  def codeLeanText(code: Code): String = code match
     case Code.Slot(index) => s"(.slot $index)"
     case Code.Apply(function, argument) =>
       s"(.apply ${codeLeanText(function)} ${codeLeanText(argument)})"
@@ -72,7 +74,8 @@ object LeanFiniteTerms:
     case Code.Parallel(left, right) =>
       s"(.parallel ${codeLeanText(left)} ${codeLeanText(right)})"
 
-  private def holesLeanText(holes: Vector[Hole]): String =
+  /** Holes as a Lean term of `List Ir.Hole`. */
+  def holesLeanText(holes: Vector[Hole]): String =
     holes.map {
       case Hole.Bound(slot) => s"(.slot $slot)"
       case Hole.Ignored     => ".ignored"
@@ -81,7 +84,7 @@ object LeanFiniteTerms:
   /** A source program as a Lean term of `Defunctionalization.Program`, a
     * constant naming the Lean definition of its instruction.
     */
-  def sourceProgramLeanText(term: DeBruijnTerm, identifiers: Map[Instruction, String]): String = term match
+  def sourceProgramLeanText[C <: NativeSpecializer & Singleton](term: DeBruijnTermOf[Configured[C]], identifiers: Map[Configured[C], String])(using C): String = term match
     case DeBruijnTerm.Variable(index) => s"(.boundVariable $index)"
     case DeBruijnTerm.Lambda(body)    => s"(.abstraction ${sourceProgramLeanText(body, identifiers)})"
     case DeBruijnTerm.Apply(function, argument) =>

@@ -38,23 +38,23 @@ final class Tautology(prelude: merges.Prelude):
   import prelude.{falseValue, trueValue}
 
   /** `not b = b false true`. */
-  val negation: Term = λ(boolean => boolean(falseValue)(trueValue))
+  val negation: ProblemTerm = λ(boolean => boolean(falseValue)(trueValue))
 
   /** `and a b = a b false`. */
-  val conjunction: Term = λ(left => λ(right => left(right)(falseValue)))
+  val conjunction: ProblemTerm = λ(left => λ(right => left(right)(falseValue)))
 
   /** The prelude's `or`. */
-  val disjunction: Term = prelude.or
+  val disjunction: ProblemTerm = prelude.or
 
   /** `exclusive a b = a (not b) b`. */
-  val exclusive: Term = λ(left => λ(right => left(negation(right))(right)))
+  val exclusive: ProblemTerm = λ(left => λ(right => left(negation(right))(right)))
 
   /** `every_assignment f = and (f true) (f false)`. */
-  val everyAssignment: Term = λ(function => conjunction(function(trueValue))(function(falseValue)))
+  val everyAssignment: ProblemTerm = λ(function => conjunction(function(trueValue))(function(falseValue)))
 
   /** The connectives by their names in the deleted Prolog file
     * (`git show 6ab16a338^:lambda_jit/corpora/contest_tautology.pl`). */
-  val connectives: Map[String, Term] = Map(
+  val connectives: Map[String, ProblemTerm] = Map(
     "negation" -> negation,
     "conjunction" -> conjunction,
     "disjunction" -> disjunction,
@@ -65,7 +65,7 @@ final class Tautology(prelude: merges.Prelude):
   /** `circuit(Formula, Environment)`: the variable `variable(Index)` is the
     * Index-th of the environment, from 1. Throws for an index outside it.
     */
-  def circuit(formula: Formula, environment: Vector[Term]): Term = formula match
+  def circuit(formula: Formula, environment: Vector[ProblemTerm]): ProblemTerm = formula match
     case Formula.Variable(index) =>
       environment.lift(index - 1).getOrElse(throw IllegalArgumentException(s"no variable $index"))
     case Formula.Not(inner)         => negation(circuit(inner, environment))
@@ -77,8 +77,8 @@ final class Tautology(prelude: merges.Prelude):
   /** `quantified(Count, Formula)`: `every_assignment (\x1. ... every_assignment
     * (\xCount. C) ...)`, C the circuit over x1 ... xCount.
     */
-  def quantified(count: Int, formula: Formula): Term = quantifiedFrom(count, Vector.empty, formula)
+  def quantified(count: Int, formula: Formula): ProblemTerm = quantifiedFrom(count, Vector.empty, formula)
 
-  private def quantifiedFrom(remaining: Int, bound: Vector[Term], formula: Formula): Term =
+  private def quantifiedFrom(remaining: Int, bound: Vector[ProblemTerm], formula: Formula): ProblemTerm =
     if remaining == 0 then circuit(formula, bound)
     else everyAssignment(λ(variable => quantifiedFrom(remaining - 1, bound :+ variable, formula)))

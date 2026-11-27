@@ -1,7 +1,9 @@
 package gezi.jupyter.kernel
 
+import java.nio.file.Files
 import java.nio.file.Path
 import gezi.directorysugar.DirectoryTree
+import gezi.frontend.DeBruijnTerm
 import gezi.frontend.Defunctionalization
 import gezi.frontend.Expectation
 import gezi.frontend.Lambdalattice
@@ -13,7 +15,7 @@ import gezi.frontend.Literals
 import gezi.frontend.NameSpelling
 import gezi.frontend.SyntaxError
 import gezi.frontend.TokenKind
-import gezi.ir.Instruction
+import gezi.ir.{Configured, NativeSpecializer}
 
 /** A key path a cell writes at its top, the literals of a partial function's
   * leading binders, with their spellings as the cell writes them.
@@ -151,10 +153,16 @@ object NotebookLocation:
       case character                 => character.toString
     }.mkString("\"", "", "\"")
 
-/** A cell of the notebook: its Jupyter cell id, its term (its content read
-  * after the notebook's prefix) and its output keys.
+/** A cell of the notebook: its Jupyter cell id, its content read after the
+  * notebook's prefix, its output keys and its content as written.
   */
-final case class NotebookCell(id: String, term: Instruction, outputs: Vector[OutputKey])
+final case class NotebookCell(id: String, read: DeBruijnTerm, outputs: Vector[OutputKey], content: String):
+
+  /** The cell's term in the IR of the configuration `C`, converted when asked for: a notebook with a cells file reads
+    * the cell from its file and never asks. A cell is read once and held as the term the front end gives, whose
+    * constants are none, so it stands for the term of every configuration.
+    */
+  def term[C <: NativeSpecializer & Singleton](using C): Configured[C] = Defunctionalization.thunkInstruction[C](read)
 
 object NotebookCell:
 
@@ -182,8 +190,7 @@ object NotebookCell:
         LambdalatticeProblem.Syntax(SyntaxError.Expected(Expectation.End, TokenKind.CloseParenthesis), openingLength(location) + position)
       )
     )
-    val term = Defunctionalization.thunkInstruction(Lambdalattice.term(s"${opening(location)}$content\n)"))
-    NotebookCell(id, term, CellContent.outputKeys(lexemes))
+    NotebookCell(id, Lambdalattice.term(s"${opening(location)}$content\n)"), CellContent.outputKeys(lexemes), content)
 
   /** The text the kernel writes before a cell's content, the location's
     * prefix and an opening parenthesis on a line of its own; the offsets of
@@ -236,25 +243,62 @@ object NotebookCell:
   * A cell run again under its id replaces the cell of that id, after the
   * persistent cell ids of David Koop's dfkernel and the cells as definitions
   * of Pluto.jl. Replacing a cell undoes no call its earlier version made.
+  *
+  * With a cells file, the cells stand in the mixin as that file's URI node
+  * (`DirectoryTree.entryOfItsDirectory`), whose content `written` keeps
+  * current. The mixin is then one interned term however many cells the
+  * notebook holds, so what a reading kept of a term that holds it, through a
+  * self that reaches the tree, has the same key under the next cell
+  * (`gezi.jit.InstanceReuse`). Each cell is a file of its own beside it, its
+  * content after the location's prefix, and the cells file is the choice of
+  * their instances: a new cell parses that cell and this short choice, an
+  * unchanged cell's expansion being reused (`gezi.weakhead.Expansions`).
+  *
+  * @param cellsFile
+  *   the file that holds the choice of the cells, in a directory that is the
+  *   kernel's own; none keeps the cells' terms in the mixin, and `written`
+  *   then writes nothing
   */
-final case class Notebook(location: NotebookLocation, tree: Instruction, cells: Vector[NotebookCell]):
+final case class Notebook[C <: NativeSpecializer & Singleton](location: NotebookLocation, tree: Configured[C], cells: Vector[NotebookCell], cellsFile: Option[Path] = None):
 
   /** The notebook with the cell, which replaces the cell of its id. */
-  def added(cell: NotebookCell): Notebook =
+  def added(cell: NotebookCell): Notebook[C] =
     val at = cells.indexWhere(_.id == cell.id)
     copy(cells = if at < 0 then cells :+ cell else cells.updated(at, cell))
 
   /** The tree and the cells joined by choice. */
-  def mixin: Instruction = cells.foldLeft(tree)((joined, cell) => Instruction.Choice(joined, cell.term))
+  def mixin(using specializer: C): Configured[C] = cellsFile.filter(_ => cells.nonEmpty) match
+    case Some(file) => specializer.choice(tree, DirectoryTree.entryOfItsDirectory[C](file))
+    case None       => cells.foldLeft(tree)((joined, cell) => specializer.choice(joined, cell.term[C]))
+
+  /** The cells' files and the cells file brought up to these cells, before a
+    * reading of `member`, each gone when the JVM exits. A chain of + in a
+    * file takes the operand after a `+` as the left side, so the cells are
+    * written last first for the choice to read them in order.
+    */
+  def written(): Unit =
+    cellsFile.filter(_ => cells.nonEmpty).foreach(file =>
+      val directory = file.getParent
+      cells.zipWithIndex.foreach((cell, index) =>
+        val cellPath = directory.resolve(s"c$index${DirectoryTree.fileExtension}")
+        val _ = Files.writeString(cellPath, s"${NotebookCell.opening(location)}${cell.content}\n)\n")
+        cellPath.toFile.deleteOnExit()
+      )
+      val self = NameSpelling.escaped(directory.getFileName.toString)
+      val choice = cells.indices.reverse.map(index => s"((λm. m m) ($self $self \"c$index\"))").mkString(" + ")
+      val _ = Files.writeString(file, s"($choice)\n")
+    )
 
   /** The member at the output key: the notebook's level reached by the
     * projections of the location's keys (`DirectoryTree.lookedUp`), then one
     * more self-application and the key path's literals spread into their
     * elements. Nothing is evaluated.
     */
-  def member(key: OutputKey): Instruction =
-    val level = DirectoryTree.lookedUp(mixin, location.keys)
+  def member(key: OutputKey)(using specializer: C): Configured[C] =
+    val level = DirectoryTree.lookedUp[C](mixin, location.keys)
     key.literals
       .flatMap(Literals.arguments)
-      .foldLeft(Instruction.Apply(level, level))((function, element) => Instruction.Apply(function, Defunctionalization.thunkInstruction(element)))
+      .foldLeft(specializer.application(level, level))((function, element) =>
+        specializer.application(function, Defunctionalization.thunkInstruction[C](element))
+      )
 

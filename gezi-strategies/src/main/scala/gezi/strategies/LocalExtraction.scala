@@ -2,11 +2,10 @@ package gezi.strategies
 
 import gezi.saturation.StopSignal
 import gezi.egraph.EGraph
-import gezi.egraph.MemoRetention
 import gezi.extraction.CostModel
 import gezi.extraction.Extraction
 import gezi.extraction.Shape
-import gezi.ir.Instruction
+import gezi.ir.{Configured, NativeSpecializer}
 import gezi.ir.Layer
 import gezi.standardlibrary.StandardLibraryIndex
 import gezi.ir.NoinlineLeaf
@@ -25,17 +24,101 @@ import scala.util.control.TailCalls.tailcall
   * 3.88 GB of allocation re-spelling the classes under them, and the point
   * ran a 2g heap out).
   */
-final case class SpellingCache[Cost](best: Map[Int, (Cost, Shape)], spelled: Map[Int, Instruction])
+final case class SpellingCache[C <: NativeSpecializer & Singleton, Cost](best: Map[Int, (Cost, Shape[C])], spelled: Map[Int, Configured[C]])
 
 object SpellingCache:
-  def empty[Cost]: SpellingCache[Cost] = SpellingCache(Map.empty, Map.empty)
+  def empty[C <: NativeSpecializer & Singleton, Cost]: SpellingCache[C, Cost] = SpellingCache(Map.empty, Map.empty)
+
+/** How long the best entries and spellings a pass of write-backs finds for
+  * classes that are no opened closure's and read none are kept.
+  */
+enum SpellingRetention:
+
+  /** Kept from one body's spelling to the next within a pass, and dropped
+    * at the next pass.
+    */
+  case KeptWithinAPass
+
+  /** Dropped after every body: each body spells every class it reaches. */
+  case NotKept
+
+  /** Kept from one body to the next within a pass and from one pass to the
+    * next of one saturation (`CarriedSpellings`), the entries of every class
+    * the graph changed since, or that reads one, dropped at the start of
+    * each pass (`LocalExtraction.carriedCache`).
+    */
+  case KeptAcrossPasses
+
+/** The spellings a pass of write-backs leaves for the next pass under
+  * `SpellingRetention.KeptAcrossPasses`: the cache; the cost model and the
+  * named classes it was found under, the inputs of the spelling besides the
+  * graph; and the marks of the graph the pass started from, its node count
+  * and its union count, from which the next pass reads what changed since in
+  * the graph's two append-only logs (nodes are numbered by creation, and
+  * `EGraph.unions` records every union in order).
+  */
+final case class CarriedSpellings[C <: NativeSpecializer & Singleton, Cost](
+    cache: SpellingCache[C, Cost],
+    prepared: LocalExtraction.Prepared[C, Cost],
+    nodeCount: Int,
+    unionCount: Int
+)
 
 object LocalExtraction:
 
   /** What a pass of write-backs reads once: the cost model, and the class
     * of each name filed in the graph.
     */
-  final case class Prepared[Cost](model: CostModel[Cost], namedClasses: Map[Int, Instruction])
+  final case class Prepared[C <: NativeSpecializer & Singleton, Cost](model: CostModel[C, Cost], namedClasses: Map[Int, Configured[C]])
+
+  /** The carried cache's entries that the graph has left as they were: those
+    * of a class that is still a root, that no node or union made since the
+    * marks touched, that is not an opened closure's (a write-back of this
+    * pass may unite it), whose name filing is unchanged, and that reads none
+    * of these classes, the touched classes closed upward through
+    * `EGraph.classUsers`. An entry whose class reads a changed class could
+    * have a cheaper production now, or a spelling that misses a typed branch
+    * a later pass added; a spelling kept from an earlier graph is still a
+    * term of its class, since a union only adds equalities, so a class this
+    * misses would cost the spelling's quality and not its soundness. The
+    * whole cache is dropped when the cost model differs. Filing a name adds
+    * a node or unites the name's node with a class, so a class whose filing
+    * changed is touched already; the named classes are compared as well, so
+    * that this does not rest on how a filing is made.
+    *
+    * The upward closure can reach most of the graph when a change lands in
+    * a class many classes read, such as a type shared by every element of a
+    * list; what the option saves depends on where a pass's changes land.
+    */
+  def carriedCache[C <: NativeSpecializer & Singleton, Cost](
+      carried: CarriedSpellings[C, Cost],
+      graph: EGraph[C],
+      prepared: Prepared[C, Cost],
+      openedClosures: Set[Int]
+  ): SpellingCache[C, Cost] =
+    if carried.prepared.model != prepared.model then SpellingCache.empty[C, Cost]
+    else
+      val madeRoots = (carried.nodeCount until graph.nodeCount).map(graph.root)
+      val unitedRoots = graph.unions.drop(carried.unionCount).flatMap(union => Vector(graph.root(union.first), graph.root(union.second)))
+      val carriedNames = carried.prepared.namedClasses.map((root, name) => graph.root(root) -> name)
+      val renamedRoots = (carriedNames.keySet ++ prepared.namedClasses.keySet).filter(root => carriedNames.get(root) != prepared.namedClasses.get(root))
+      val touched = readersClosed(graph, (madeRoots ++ unitedRoots ++ openedClosures.map(graph.root) ++ renamedRoots).toList)
+      def kept(root: Int): Boolean = graph.root(root) == root && !touched.contains(root)
+      SpellingCache(
+        carried.cache.best.filter((root, _) => kept(root)),
+        carried.cache.spelled.filter((root, _) => kept(root))
+      )
+
+  /** The classes given and every class that reads one of them, through the
+    * live nodes that read a class as a child in any role.
+    */
+  private def readersClosed[C <: NativeSpecializer & Singleton](graph: EGraph[C], roots: List[Int]): Set[Int] =
+    @scala.annotation.tailrec
+    def visited(pending: List[Int], seen: Set[Int]): Set[Int] = pending match
+      case Nil                        => seen
+      case next :: rest if seen(next) => visited(rest, seen)
+      case next :: rest               => visited(graph.classUsers(next).map(graph.root).toList ::: rest, seen + next)
+    visited(roots, Set.empty)
 
   /** The finalization's state: the finalized classes' best entries; the
     * number of each production's children, by its number, not yet finalized
@@ -43,8 +126,8 @@ object LocalExtraction:
     * has a candidate, with its least candidate's cost and production number;
     * and those candidates ordered by cost and then class.
     */
-  private final case class Finalization[Cost](
-      best: Map[Int, (Cost, Shape)],
+  private final case class Finalization[C <: NativeSpecializer & Singleton, Cost](
+      best: Map[Int, (Cost, Shape[C])],
       missing: Vector[Int],
       candidates: Map[Int, (Cost, Int)],
       queue: TreeSet[(Cost, Int)]
@@ -85,10 +168,10 @@ object LocalExtraction:
   * the live nodes of each class, a choice that absorbs its class left out,
   * and the names filed into it.
   */
-final case class LocalExtraction(
-    modules: Vector[NormalityModule],
-    names: StandardLibraryIndex => Set[Instruction],
-    spellingRetention: MemoRetention
+final case class LocalExtraction[C <: NativeSpecializer & Singleton](
+    modules: Vector[NormalityModule[C]],
+    names: StandardLibraryIndex[C] => Set[Configured[C]],
+    spellingRetention: SpellingRetention
 ):
 
   TermOrder.extractionModulesChecked(modules)
@@ -97,7 +180,7 @@ final case class LocalExtraction(
     * a pass of write-backs spells: a write-back unites closures, never a
     * name's class.
     */
-  def prepared(index: StandardLibraryIndex, graph: EGraph): LocalExtraction.Prepared[ModuleCost] =
+  def prepared(index: StandardLibraryIndex[C], graph: EGraph[C]): LocalExtraction.Prepared[C, ModuleCost] =
     LocalExtraction.Prepared(
       // FIXME: `prepared` has no signal of its own; its write-backs read none, so a stop reaches only the extraction proper. https://github.com/Atry/private-overlay/issues/2032
       // FIXME: the write-backs read jointly read fillings as https://github.com/Atry/private-overlay/issues/2032
@@ -110,12 +193,12 @@ final case class LocalExtraction(
     * classes that hold no closure.
     */
   def spelled[Cost](
-      prepared: LocalExtraction.Prepared[Cost],
-      graph: EGraph,
+      prepared: LocalExtraction.Prepared[C, Cost],
+      graph: EGraph[C],
       body: Int,
-      cache: SpellingCache[Cost],
+      cache: SpellingCache[C, Cost],
       openedClosures: Set[Int]
-  ): (Instruction, SpellingCache[Cost]) =
+  ): (Configured[C], SpellingCache[C, Cost]) =
     val model = prepared.model
     val namedClasses = prepared.namedClasses
     val classes = reached(graph, graph.root(body), namedClasses, cache)
@@ -125,7 +208,7 @@ final case class LocalExtraction(
         case None =>
           graph
             .classMembers(root)
-            .filterNot(member => Extraction.absorbedChoice(graph, root, member.layer))
+            .filterNot(member => graph.patternViews.contains(member.node) || Extraction.absorbedChoice(graph, root, member.layer))
             .map(member => (root, Shape.Node(member.node, member.layer)))
     )
     val best = finalized(graph, productions, model, cache.best)
@@ -139,17 +222,30 @@ final case class LocalExtraction(
       )
     )
 
-  /** The classes the root reads, not read through a named class nor
-    * through one the cache holds, each after the classes it reads where no
-    * cycle passes through them (a postorder, which `classesWithoutClosures`
-    * reads in one pass, and whose productions, in this order, break the ties
-    * of `finalized`).
+  /** The classes the root reads through the productions of the classes it
+    * reaches, not read through a named class nor through one the cache
+    * holds, each after the classes it reads where no cycle passes through
+    * them (a postorder, which `classesWithoutClosures` reads in one pass, and
+    * whose productions, in this order, break the ties of `finalized`).
+    *
+    * A member that is no production, a choice its class absorbs
+    * (`Extraction.absorbedChoice`), is not read through: a class reached only
+    * through such members is read by no production, so leaving it out changes
+    * no best entry and no spelling of the classes still reached. Finalization
+    * reads only productions, its queue is ordered by cost and class, and its
+    * ties compare production numbers within one class only, whose members
+    * keep their order. The judgments of a typing, `x + (x ∥ t)`, are such
+    * choices, and through them every body reached the classes of its types.
+    * `classesWithoutClosures` keeps reading every member, so a class whose
+    * absorbed member reads a class this walk leaves out is not cached: a
+    * write-back's congruence through that class could unite the class with
+    * another and give it new productions.
     */
   private def reached[Cost](
-      graph: EGraph,
+      graph: EGraph[C],
       root: Int,
-      namedClasses: Map[Int, Instruction],
-      cache: SpellingCache[Cost]
+      namedClasses: Map[Int, Configured[C]],
+      cache: SpellingCache[C, Cost]
   ): Vector[Int] =
     @scala.annotation.tailrec
     def visited(pending: List[(Int, Boolean)], seen: Set[Int], order: Vector[Int]): Vector[Int] = pending match
@@ -158,7 +254,11 @@ final case class LocalExtraction(
       case (next, false) :: rest if seen(next) || cache.best.contains(next) => visited(rest, seen, order)
       case (next, false) :: rest if namedClasses.contains(next) => visited(rest, seen + next, order :+ next)
       case (next, false) :: rest =>
-        val children = graph.classMembers(next).flatMap(_.layer.children.map(graph.root)).distinct
+        val children = graph
+          .classMembers(next)
+          .filterNot(member => Extraction.absorbedChoice(graph, next, member.layer))
+          .flatMap(_.layer.children.map(graph.root))
+          .distinct
         visited(children.toList.map((_, false)) ::: (next, true) :: rest, seen + next, order)
     visited(List((root, false)), Set.empty, Vector.empty)
 
@@ -166,9 +266,9 @@ final case class LocalExtraction(
     * the cache reading none.
     */
   private def classesWithoutClosures[Cost](
-      graph: EGraph,
+      graph: EGraph[C],
       classes: Vector[Int],
-      cache: SpellingCache[Cost],
+      cache: SpellingCache[C, Cost],
       openedClosures: Set[Int]
   ): Set[Int] =
     classes.foldLeft(Set.empty[Int]) { (found, root) =>
@@ -192,11 +292,11 @@ final case class LocalExtraction(
     * O(P log P) in the productions and their children.
     */
   private def finalized[Cost](
-      graph: EGraph,
-      productions: Vector[(Int, Shape)],
-      model: CostModel[Cost],
-      cached: Map[Int, (Cost, Shape)]
-  ): Map[Int, (Cost, Shape)] =
+      graph: EGraph[C],
+      productions: Vector[(Int, Shape[C])],
+      model: CostModel[C, Cost],
+      cached: Map[Int, (Cost, Shape[C])]
+  ): Map[Int, (Cost, Shape[C])] =
     val childRoots = productions.map((_, shape) => shape.children.map(graph.root))
     val readers = childRoots.zipWithIndex
       .flatMap((children, number) => children.filterNot(cached.contains).map(_ -> number))
@@ -214,12 +314,12 @@ final case class LocalExtraction(
     */
   @scala.annotation.tailrec
   private def finalizedFrom[Cost](
-      productions: Vector[(Int, Shape)],
+      productions: Vector[(Int, Shape[C])],
       childRoots: Vector[Vector[Int]],
       readers: Map[Int, Vector[Int]],
-      model: CostModel[Cost],
-      state: LocalExtraction.Finalization[Cost]
-  ): Map[Int, (Cost, Shape)] =
+      model: CostModel[C, Cost],
+      state: LocalExtraction.Finalization[C, Cost]
+  ): Map[Int, (Cost, Shape[C])] =
     state.queue.headOption match
       case None => state.best
       case Some(least @ (_, root)) =>
@@ -246,12 +346,12 @@ final case class LocalExtraction(
     * in `productions`.
     */
   private def candidateOffered[Cost](
-      productions: Vector[(Int, Shape)],
+      productions: Vector[(Int, Shape[C])],
       childRoots: Vector[Vector[Int]],
-      model: CostModel[Cost],
-      state: LocalExtraction.Finalization[Cost],
+      model: CostModel[C, Cost],
+      state: LocalExtraction.Finalization[C, Cost],
       number: Int
-  ): LocalExtraction.Finalization[Cost] =
+  ): LocalExtraction.Finalization[C, Cost] =
     val (root, shape) = productions(number)
     if state.best.contains(root) then state
     else
@@ -280,19 +380,19 @@ final case class LocalExtraction(
     * closures).
     */
   private def spelledClass[Cost](
-      graph: EGraph,
+      graph: EGraph[C],
       root: Int,
-      best: Map[Int, (Cost, Shape)],
-      made: Map[Int, Instruction]
-  ): (Map[Int, Instruction], Instruction) =
+      best: Map[Int, (Cost, Shape[C])],
+      made: Map[Int, Configured[C]]
+  ): (Map[Int, Configured[C]], Configured[C]) =
     spelledClassStep(graph, root, best, made).result
 
   private def spelledClassStep[Cost](
-      graph: EGraph,
+      graph: EGraph[C],
       root: Int,
-      best: Map[Int, (Cost, Shape)],
-      made: Map[Int, Instruction]
-  ): TailRec[(Map[Int, Instruction], Instruction)] =
+      best: Map[Int, (Cost, Shape[C])],
+      made: Map[Int, Configured[C]]
+  ): TailRec[(Map[Int, Configured[C]], Configured[C])] =
     made.get(root) match
       case Some(spelled) => done((made, spelled))
       case None =>
@@ -302,7 +402,8 @@ final case class LocalExtraction(
           case Shape.Node(_, NoinlineLeaf(leaf)) => done((made.updated(root, leaf), leaf))
           case Shape.Node(_, layer) =>
             childrenSpelled(graph, layer.children.toList.map(graph.root), best, made, Vector.empty).map((afterChildren, children) =>
-              val instruction = Instruction(FixpointEgraph.layerOver(layer, children))
+              val spelledOf = layer.children.map(graph.root).zip(children).toMap
+              val instruction = graph.store.construction.instruction(layer)(child => spelledOf(graph.root(child)))
               (afterChildren.updated(root, instruction), instruction)
             )
           case pattern =>
@@ -310,12 +411,12 @@ final case class LocalExtraction(
 
   /** The children's classes spelled in order, each through `spelledClassStep`. */
   private def childrenSpelled[Cost](
-      graph: EGraph,
+      graph: EGraph[C],
       pending: List[Int],
-      best: Map[Int, (Cost, Shape)],
-      made: Map[Int, Instruction],
-      spelled: Vector[Instruction]
-  ): TailRec[(Map[Int, Instruction], Vector[Instruction])] =
+      best: Map[Int, (Cost, Shape[C])],
+      made: Map[Int, Configured[C]],
+      spelled: Vector[Configured[C]]
+  ): TailRec[(Map[Int, Configured[C]], Vector[Configured[C]])] =
     pending match
       case Nil => done((made, spelled))
       case child :: rest =>

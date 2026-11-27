@@ -2,7 +2,9 @@ package gezi.rewritetrace
 
 import gezi.ir.Code
 import gezi.ir.Hole
-import gezi.ir.Instruction
+import gezi.ir.StorageAccess
+import gezi.ir.{Apply, Thunk}
+import gezi.ir.{Configured, NativeSpecializer}
 
 /** The kind of a union the e-graph made with no step of an article
   * (`gezi.strategies.GraphProof`, its two FIXMEs). The trace does not
@@ -21,12 +23,12 @@ enum UnprovedKind:
   * reason: the replay works in a spelling where it is an identity
   * (`ReplaySpelling`).
   */
-enum ProvedReason:
+enum ProvedReason[C <: NativeSpecializer & Singleton]:
   case Lemma(index: Int)
   case Equation(number: Int)
-  case Fill(thunk: Option[ThunkShape])
-  case Body(thunk: Option[ThunkShape])
-  case Eta(thunk: Option[ThunkShape])
+  case Fill(thunk: Option[ThunkShape[C]])
+  case Body(thunk: Option[ThunkShape[C]])
+  case Eta(thunk: Option[ThunkShape[C]])
 
 /** The code and holes of the thunk of a step backward of the β rule, the
   * body equation or the η rule, which are all of the thunk its equation
@@ -37,7 +39,7 @@ enum ProvedReason:
   * e-graph makes no node for the thunks between), while a thunk of the proof
   * has its code.
   */
-final case class ThunkShape(codeOf: Given, holes: Vector[Hole])
+final case class ThunkShape[C <: NativeSpecializer & Singleton](codeOf: Given[C], holes: Vector[Hole])
 
 /** The term a value of a trace starts from: the term before a round, by
   * the round's place among the trace's rounds, or an earlier value, by its
@@ -68,15 +70,15 @@ enum ValueSource:
   * spellings (2026-11-19). Candidate fix for the first, once a trace shows
   * one: a value under an opening starts from the body the opening made.
   */
-enum Given:
+enum Given[C <: NativeSpecializer & Singleton]:
   case Value(index: Int)
-  case Written(term: Instruction)
+  case Written(term: Configured[C])
 
 /** A value of a trace (`Given`): the subterm at `at` of the term `commands`
   * make of its source's term, the commands those of the union that made the
   * node whose term it is, replayed from the union's other node.
   */
-final case class TraceValue(from: ValueSource, commands: Vector[TraceCommand], at: Vector[PositionSegment])
+final case class TraceValue[C <: NativeSpecializer & Singleton](from: ValueSource, commands: Vector[TraceCommand[C]], at: Vector[PositionSegment])
 
 /** A command of a round, which rewrites the subterm at its position, from
   * the root of the term the round has made so far.
@@ -100,8 +102,10 @@ final case class TraceValue(from: ValueSource, commands: Vector[TraceCommand], a
   * pattern's variables, to the term it gives (`Given`), its replaced
   * subterm their normal form. A root reverse β binds nothing.
   *
-  * `Native` puts a value the backend computed for a narrow block at its
-  * position: a step of no equation, its value written.
+  * `Native` puts a value at its position: a value the backend computed for a
+  * narrow block, or either side of a native's fold in the e-graph, whose
+  * equation is the native's trusted obligation; a step of no equation, its
+  * value written.
   *
   * `Abstraction` is the abstraction rule ξ: the thunk at its position, of
   * `count` holes, opened at the eigenvariables of its depth
@@ -111,21 +115,21 @@ final case class TraceValue(from: ValueSource, commands: Vector[TraceCommand], a
   * (`Conversions.abstraction`). The commands go the way the step goes, so
   * it has no direction.
   */
-enum TraceCommand:
+enum TraceCommand[C <: NativeSpecializer & Singleton]:
   case Rewrite(
-      reason: ProvedReason,
+      reason: ProvedReason[C],
       position: Vector[PositionSegment],
       direction: RewriteDirection,
-      bindings: Vector[(Int, Given)]
+      bindings: Vector[(Int, Given[C])]
   )
   case Convert(
       conversion: Conversion,
       position: Vector[PositionSegment],
       direction: RewriteDirection,
-      bindings: Vector[(Int, Given)]
+      bindings: Vector[(Int, Given[C])]
   )
-  case Native(position: Vector[PositionSegment], value: Instruction)
-  case Abstraction(position: Vector[PositionSegment], count: Int, commands: Vector[TraceCommand])
+  case Native(position: Vector[PositionSegment], value: Configured[C])
+  case Abstraction(position: Vector[PositionSegment], count: Int, commands: Vector[TraceCommand[C]])
 
   /** The position the command rewrites at, from the root of the term.
     *
@@ -148,9 +152,13 @@ enum TraceCommand:
 /** A lemma a trace uses, by its two closed sides, read as `Statements.lemma`
   * reads them.
   */
-final case class TraceLemma(left: Instruction, right: Instruction):
+final case class TraceLemma[C <: NativeSpecializer & Singleton](left: Configured[C], right: Configured[C]):
 
-  def statement: Statement = Statements.lemma(left, right)
+  def statement(using C): Statement[Configured[C]] = Statements.lemma(left, right)
+
+  /** Whether the other lemma has the same two sides. */
+  def same(other: TraceLemma[C])(using C): Boolean =
+    Configured.same(left, other.left) && Configured.same(right, other.right)
 
 /** A trace: the
   * lemmas its commands name, the values they name (`TraceValue`), and its
@@ -160,17 +168,17 @@ final case class TraceLemma(left: Instruction, right: Instruction):
   * the rounds before it. The term the first round starts from is not part of
   * the trace: a replay is given it (`TraceStart`).
   */
-final case class Trace(
-    lemmas: Vector[TraceLemma],
-    values: Vector[TraceValue],
-    rounds: Vector[Vector[TraceCommand]]
+final case class Trace[C <: NativeSpecializer & Singleton](
+    lemmas: Vector[TraceLemma[C]],
+    values: Vector[TraceValue[C]],
+    rounds: Vector[Vector[TraceCommand[C]]]
 ):
 
   /** The steps of each round from the start, each with the term it starts
     * from.
     */
-  def replayed(start: Instruction): Vector[Vector[ReplayedStep]] =
-    val (_, _, steps) = rounds.zipWithIndex.foldLeft((start, Vector.empty[Instruction], Vector.empty[Vector[ReplayedStep]])) {
+  def replayed(start: Configured[C])(using C, StorageAccess): Vector[Vector[ReplayedStep[C]]] =
+    val (_, _, steps) = rounds.zipWithIndex.foldLeft((start, Vector.empty[Configured[C]], Vector.empty[Vector[ReplayedStep[C]]])) {
       case ((term, made, done), (round, place)) =>
         val context = Trace.valuesMade(this, made, place, term)
         val (after, steps) = Trace.replayedCommands(context, term, round, 0)
@@ -179,7 +187,7 @@ final case class Trace(
     steps
 
   /** The term the rounds make of the start. */
-  def output(start: Instruction): Instruction = replayed(start).flatten.lastOption.fold(start)(_.after)
+  def output(start: Configured[C])(using C, StorageAccess): Configured[C] = replayed(start).flatten.lastOption.fold(start)(_.after)
 
 /** The side a `Rewrite` puts in place as its equation states it, before the
   * replay's spelling (`ReplaySpelling`), and the bindings of its variables:
@@ -187,10 +195,10 @@ final case class Trace(
   * stated over, from which a trace's source maps name the binders of the
   * replacement (`TraceSourceMaps`).
   */
-final case class StatedReplacement(side: StatementTerm, bound: Map[String, Instruction]):
+final case class StatedReplacement[C <: NativeSpecializer & Singleton](side: StatementTerm[Configured[C]], bound: Map[String, Configured[C]]):
 
   /** The side instantiated: the replacement before the replay's spelling. */
-  def instance: Instruction = Statements.instance(side, bound)
+  def instance(using C): Configured[C] = Statements.instance(side, bound)
 
 /** A command replayed on the term before it: the subterm it replaced, the
   * subterm it put there, the provenance of its equation's variables oriented
@@ -204,24 +212,24 @@ final case class StatedReplacement(side: StatementTerm, bound: Map[String, Instr
   * of `contest-entries-solo`'s repeated_library_hotspots calls_1000 direct point, whose
   * top-level thunk has 2,468 fillings).
   */
-final class ReplayedStep(
-    val command: TraceCommand,
-    beforeSpine: Spine,
-    val replaced: Instruction,
-    val replacement: Instruction,
+final class ReplayedStep[C <: NativeSpecializer & Singleton](
+    val command: TraceCommand[C],
+    beforeSpine: Spine[C],
+    val replaced: Configured[C],
+    val replacement: Configured[C],
     val provenance: Vector[Provenance],
-    val inner: Vector[ReplayedStep],
-    val stated: Option[StatedReplacement]
-):
+    val inner: Vector[ReplayedStep[C]],
+    val stated: Option[StatedReplacement[C]]
+)(using C, StorageAccess):
 
   /** The term before the step. */
-  lazy val before: Instruction = Spine.materialized(beforeSpine)
+  lazy val before: Configured[C] = Spine.materialized(beforeSpine)
 
   /** The spine of the term after the step. */
-  def afterSpine: Spine = Spine.replaced(beforeSpine, command.at, replacement)
+  def afterSpine: Spine[C] = Spine.replaced(beforeSpine, command.at, replacement)
 
   /** The term after the step. */
-  lazy val after: Instruction = Spine.materialized(afterSpine)
+  lazy val after: Configured[C] = Spine.materialized(afterSpine)
 
   override def toString: String =
     s"ReplayedStep($command, $replaced, $replacement, $provenance, $inner)"
@@ -229,13 +237,13 @@ final class ReplayedStep(
 /** What a replay reads beside the term: the trace's lemmas and the terms of
   * the values made so far, by their places.
   */
-final case class ReplayContext(lemmas: Vector[TraceLemma], values: Vector[Instruction]):
+final case class ReplayContext[C <: NativeSpecializer & Singleton](lemmas: Vector[TraceLemma[C]], values: Vector[Configured[C]]):
 
   /** The term given: the term written, or the term of the value at its
     * place. Throws `IllegalArgumentException` for a place no value made so
     * far has.
     */
-  def value(named: Given): Instruction = named match
+  def value(named: Given[C]): Configured[C] = named match
     case Given.Written(term) => term
     case Given.Value(place) =>
       values.lift(place).getOrElse(throw IllegalArgumentException(s"the trace has no value $place made before it is named"))
@@ -247,7 +255,10 @@ object Trace:
     * that start from this round or from a value of it, made in order. A value
     * of a later round is left to it.
     */
-  def valuesMade(trace: Trace, made: Vector[Instruction], round: Int, roundStart: Instruction): ReplayContext =
+  def valuesMade[C <: NativeSpecializer & Singleton](trace: Trace[C], made: Vector[Configured[C]], round: Int, roundStart: Configured[C])(using
+      C,
+      StorageAccess
+  ): ReplayContext[C] =
     def rootRound(place: Int): Int = trace.values(place).from match
       case ValueSource.RoundStart(of) => of
       case ValueSource.Value(earlier) =>
@@ -278,14 +289,16 @@ object Trace:
     * a trace does not start from the term the traces before it make: the
     * joined trace would replay otherwise than the rounds.
     */
-  def joined(traces: Vector[(Instruction, Trace)]): Trace =
+  def joined[C <: NativeSpecializer & Singleton](traces: Vector[(Configured[C], Trace[C])])(using C, StorageAccess): Trace[C] =
     val (start, first) = traces.headOption.getOrElse(throw IllegalArgumentException("no trace to join"))
     traces.tail.foldLeft(first) { case (joinedSoFar, (nextStart, next)) =>
       val made = joinedSoFar.output(start)
-      if nextStart != made then
+      if !Configured.same(nextStart, made) then
         throw IllegalArgumentException(s"a round starts from $nextStart, not from $made, which the rounds before it make")
-      val lemmas = (joinedSoFar.lemmas ++ next.lemmas).distinct
-      val renumbering = Renumbering(next.lemmas.map(lemma => lemmas.indexOf(lemma)), joinedSoFar.values.size)
+      val lemmas = (joinedSoFar.lemmas ++ next.lemmas).foldLeft(Vector.empty[TraceLemma[C]])((kept, lemma) =>
+        if kept.exists(_.same(lemma)) then kept else kept :+ lemma
+      )
+      val renumbering = Renumbering(next.lemmas.map(lemma => lemmas.indexWhere(_.same(lemma))), joinedSoFar.values.size)
       val rounds = joinedSoFar.rounds.size
       val values = next.values.map(value =>
         val shifted = value.from match
@@ -302,15 +315,15 @@ object Trace:
   private final case class Renumbering(lemmaPlaces: Vector[Int], valueOffset: Int)
 
   /** The command with the lemma and value places it names renumbered. */
-  private def renumbered(command: TraceCommand, renumbering: Renumbering): TraceCommand =
+  private def renumbered[C <: NativeSpecializer & Singleton](command: TraceCommand[C], renumbering: Renumbering): TraceCommand[C] =
     def lemma(index: Int): Int = renumbering.lemmaPlaces(index)
-    def value(named: Given): Given = named match
+    def value(named: Given[C]): Given[C] = named match
       case Given.Value(index)         => Given.Value(index + renumbering.valueOffset)
       case written @ Given.Written(_) => written
-    def bound(bindings: Vector[(Int, Given)]): Vector[(Int, Given)] = bindings.map((place, named) => (place, value(named)))
+    def bound(bindings: Vector[(Int, Given[C])]): Vector[(Int, Given[C])] = bindings.map((place, named) => (place, value(named)))
     command match
       case TraceCommand.Rewrite(reason, position, direction, bindings) =>
-        val reasonRenumbered = reason match
+        val reasonRenumbered: ProvedReason[C] = reason match
           case ProvedReason.Lemma(index)   => ProvedReason.Lemma(lemma(index))
           case ProvedReason.Fill(thunk)    => ProvedReason.Fill(thunk.map(shape => shape.copy(codeOf = value(shape.codeOf))))
           case ProvedReason.Body(thunk)    => ProvedReason.Body(thunk.map(shape => shape.copy(codeOf = value(shape.codeOf))))
@@ -328,13 +341,13 @@ object Trace:
   /** The commands replayed in order from the term, under `depth` openings:
     * the term they make and their steps.
     */
-  def replayedCommands(
-      context: ReplayContext,
-      term: Instruction,
-      commands: Vector[TraceCommand],
+  def replayedCommands[C <: NativeSpecializer & Singleton](
+      context: ReplayContext[C],
+      term: Configured[C],
+      commands: Vector[TraceCommand[C]],
       depth: Int
-  ): (Instruction, Vector[ReplayedStep]) =
-    val (last, steps) = commands.foldLeft((Spine.Settled(term): Spine, Vector.empty[ReplayedStep])) {
+  )(using C, StorageAccess): (Configured[C], Vector[ReplayedStep[C]]) =
+    val (last, steps) = commands.foldLeft((Spine.Settled(term): Spine[C], Vector.empty[ReplayedStep[C]])) {
       case ((current, earlier), command) =>
         val step = replayedStep(context, current, command, depth)
         (step.afterSpine, earlier :+ step)
@@ -348,11 +361,16 @@ object Trace:
     * leaves it out backward; for a conversion, also when the replaced subterm
     * is not the side the conversion computes.
     */
-  def replayedStep(context: ReplayContext, before: Spine, command: TraceCommand, depth: Int): ReplayedStep =
+  def replayedStep[C <: NativeSpecializer & Singleton](
+      context: ReplayContext[C],
+      before: Spine[C],
+      command: TraceCommand[C],
+      depth: Int
+  )(using C, StorageAccess): ReplayedStep[C] =
     val replaced = Spine.materialized(Spine.subterm(before, command.at))
     command match
       case TraceCommand.Abstraction(_, count, commands) =>
-        val leaves = Conversions.eigenvariables(depth, count)
+        val leaves: Vector[Configured[C]] = Conversions.eigenvariables(depth, count)
         val (body, inner) = replayedCommands(context, Conversions.opened(replaced, leaves), commands, depth + 1)
         ReplayedStep(command, before, replaced, Conversions.abstraction(body, leaves), Vector.empty, inner, None)
       case TraceCommand.Native(_, value) =>
@@ -389,14 +407,14 @@ object Trace:
   /** The replacement of a conversion's step and its provenance, from the
     * replaced subterm to the replacement.
     */
-  private def converted(
-      context: ReplayContext,
+  private def converted[C <: NativeSpecializer & Singleton](
+      context: ReplayContext[C],
       conversion: Conversion,
       direction: RewriteDirection,
-      replaced: Instruction,
-      written: Vector[(Int, Given)]
-  ): (Instruction, Vector[Provenance]) =
-    def lemmaOf(index: Int): Statement =
+      replaced: Configured[C],
+      written: Vector[(Int, Given[C])]
+  )(using C, StorageAccess): (Configured[C], Vector[Provenance]) =
+    def lemmaOf(index: Int): Statement[Configured[C]] =
       context.lemmas.lift(index).getOrElse(throw IllegalArgumentException(s"the trace has no lemma $index")).statement
     conversion match
       case Conversion.HigherOrder(lemma, side, occurrence) =>
@@ -406,7 +424,7 @@ object Trace:
         val variables = Statements.variables(pattern).distinct
         // The positions of a variable in the instance, in the replay's spelling (`Conversions.instance`).
         val spelledPattern = ReplaySpelling.side(pattern)
-        def provenance(normal: Instruction): Vector[Provenance] =
+        def provenance(normal: Configured[C]): Vector[Provenance] =
           variables.filterNot(higherOrderVariables.contains).map(name =>
             Provenance(name, Statements.occurrences(spelledPattern, name), Positions.occurrences(normal, boundOf(name)))
           )
@@ -432,7 +450,7 @@ object Trace:
               case solutions =>
                 throw IllegalArgumentException(s"$replaced has ${solutions.size} solutions of the pattern $pattern, not one")
           case LemmaSide.Right => writtenBound
-        def boundOf(name: String): Instruction = direction match
+        def boundOf(name: String): Configured[C] = direction match
           case RewriteDirection.Forward  => matchedBound(name)
           case RewriteDirection.Backward => backwardBound(name)
         direction match
@@ -464,26 +482,31 @@ object Trace:
             (redex, Conversions.redexProvenance(replaced, redex, names.size))
           case RewriteDirection.Backward =>
             val term = Conversions.contracted(replaced, names.size)
-            if Conversions.redex(term, names) != replaced then
+            if !Configured.same(Conversions.redex(term, names), replaced) then
               throw IllegalArgumentException(s"$replaced is not the redex of its contraction $term")
             (term, Conversions.redexProvenance(term, replaced, names.size).map(_.turned))
 
   /** The equation of a proved reason, the thunk of a step forward read off
     * the subterm it replaces.
     */
-  def statement(context: ReplayContext, reason: ProvedReason, direction: RewriteDirection, replaced: Instruction): Statement =
-    def shapeOf(thunk: Instruction): (Code, Vector[Hole]) = thunk match
-      case Instruction.Thunk(code, holes, _) => (code, holes)
-      case other                             => throw IllegalArgumentException(s"$other is no thunk")
-    def thunkOf(written: Option[ThunkShape], forward: => Instruction): (Code, Vector[Hole]) = (written, direction) match
+  def statement[C <: NativeSpecializer & Singleton](
+      context: ReplayContext[C],
+      reason: ProvedReason[C],
+      direction: RewriteDirection,
+      replaced: Configured[C]
+  )(using C): Statement[Configured[C]] =
+    def shapeOf(thunk: Configured[C]): (Code, Vector[Hole]) = thunk.layer match
+      case Thunk(code, holes, _) => (code, holes)
+      case other                 => throw IllegalArgumentException(s"$other is no thunk")
+    def thunkOf(written: Option[ThunkShape[C]], forward: => Configured[C]): (Code, Vector[Hole]) = (written, direction) match
       case (None, RewriteDirection.Forward) => shapeOf(forward)
       case (Some(shape), RewriteDirection.Backward) =>
         val (code, _) = shapeOf(context.value(shape.codeOf))
         (code, shape.holes)
       case _ => throw IllegalArgumentException(s"a step $direction of $reason writes its thunk only backward")
-    def functionOf(term: Instruction): Instruction = term match
-      case Instruction.Apply(function, _) => function
-      case other                          => throw IllegalArgumentException(s"$other is no application of a thunk")
+    def functionOf(term: Configured[C]): Configured[C] = term.layer match
+      case Apply(function, _) => function
+      case other              => throw IllegalArgumentException(s"$other is no application of a thunk")
     reason match
       case ProvedReason.Lemma(index) =>
         context.lemmas.lift(index).getOrElse(throw IllegalArgumentException(s"the trace has no lemma $index")).statement

@@ -47,7 +47,7 @@ object ProgramFields:
     ProblemField(
       gezi.frontend.Defunctionalization.thunkInstruction(
         gezi.frontend.Lambdalattice.term(kindWritten(kind))
-      )
+      )(using gezi.ir.NoFacts)
     )(gezi.knowledgereading.KnowledgeReading.startingState)
 
 /** A suite that reads `MergeTesting.problems`: the URI expansions every

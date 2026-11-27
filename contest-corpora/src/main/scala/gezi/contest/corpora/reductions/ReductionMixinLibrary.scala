@@ -37,15 +37,15 @@ object ReductionMixinLibrary:
   private val family = "reduction_mixin_library"
 
   /** The program of the point (`library_point_surface/2`). */
-  def libraryPointSurface(mixins: MixinLibrary, point: String): Term =
+  def libraryPointSurface(mixins: MixinLibrary, point: String): ProblemTerm =
     val hierarchies = if point == "reduction_mixin_multiple_outers" then Vector("outer", "inner") else Vector.empty
     mixins.withMixinLibrary(Vector("natural"), hierarchies)(names => pointBody(mixins, point, names))
 
   /** `{zero, {successor, predecessor : 0}}` (`zero_or_one/2`). */
-  private def zeroOrOne(mixins: MixinLibrary, names: MixinNames): Term =
+  private def zeroOrOne(mixins: MixinLibrary, names: MixinNames): ProblemTerm =
     members(Vector(mixins.libraryClass(names, "zero"), mixins.successorClass(names, mixins.naturalInstance(names, 0))))
 
-  private def pointBody(mixins: MixinLibrary, point: String, names: MixinNames): Term = point match
+  private def pointBody(mixins: MixinLibrary, point: String, names: MixinNames): ProblemTerm = point match
     case "reduction_mixin_true_not" =>
       mixins.readSlot("boolean", "church", mixins.readSlot("boolean", "not", mixins.libraryClass(names, "true")))
     case "reduction_mixin_true_not_not" =>
@@ -71,24 +71,24 @@ object ReductionMixinLibrary:
     case other => throw IllegalArgumentException(s"no library point $other")
 
   /** `Left.Method(Right)` read at church (`binary_boolean/5`). */
-  private def binaryBoolean(mixins: MixinLibrary, names: MixinNames, left: String, method: String, right: String): Term =
+  private def binaryBoolean(mixins: MixinLibrary, names: MixinNames, left: String, method: String, right: String): ProblemTerm =
     val applied =
       mixins.slotApplied("boolean", method, mixins.libraryClass(names, left), mixins.libraryClass(names, right))
     mixins.readSlot("boolean", "church", applied)
 
-  private def sumInstance(mixins: MixinLibrary, names: MixinNames, left: Int, right: Int): Term =
+  private def sumInstance(mixins: MixinLibrary, names: MixinNames, left: Int, right: Int): ProblemTerm =
     mixins.slotApplied("natural", "plus", mixins.naturalInstance(names, left), mixins.naturalInstance(names, right))
 
-  private def sumScott(mixins: MixinLibrary, names: MixinNames, left: Int, right: Int): Term =
+  private def sumScott(mixins: MixinLibrary, names: MixinNames, left: Int, right: Int): ProblemTerm =
     mixins.readSlot("natural", "scott", sumInstance(mixins, names, left, right))
 
-  private def pairwiseSum(mixins: MixinLibrary, names: MixinNames): Term =
+  private def pairwiseSum(mixins: MixinLibrary, names: MixinNames): ProblemTerm =
     mixins.slotApplied("natural", "plus", zeroOrOne(mixins, names), zeroOrOne(mixins, names))
 
   /** object_one and object_two extend my_outer with the names true and false;
     * the union of their inner classes reads outer.name (`multiple_outers/1`).
     */
-  private def multipleOuters(mixins: MixinLibrary): Term =
+  private def multipleOuters(mixins: MixinLibrary): ProblemTerm =
     val innerOne = mixins.readSlot(
       "outer",
       "inner",
@@ -104,7 +104,7 @@ object ReductionMixinLibrary:
   /** The outer whose inner is the class of one inner mixin whose outer is the
     * outer's self (`my_outer/1`).
     */
-  private def myOuter(mixins: MixinLibrary): Term =
+  private def myOuter(mixins: MixinLibrary): ProblemTerm =
     mixins.selfMixin("outer", "inner")(self => members(Vector(mixins.valueMixin("inner", "outer" -> self))))
 
   /** The tree of an expected value of the type: a Church Boolean's, or a

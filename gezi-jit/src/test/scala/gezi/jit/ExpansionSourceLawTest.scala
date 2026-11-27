@@ -16,7 +16,7 @@ import gezi.hotspot.Executor
 import gezi.hotspot.ExpansionSource
 import gezi.hotspot.Retention
 import gezi.hotspot.baselines.BaselineCaches
-import gezi.ir.Instruction
+import gezi.ir.Configured
 import gezi.saturation.StopSignal
 import gezi.weakhead.ApplicationReading
 import gezi.weakhead.Mode
@@ -35,9 +35,10 @@ import gezi.weakhead.TableRetention
   * that keeps nothing. Its purpose is to catch an executor that answers
   * under a new source from what it read of an older content: tables it
   * keeps (`TableRetention.KeptAll`), the JIT's instance table
-  * (`JitRunState.instanceTables`), or complete tables kept in the cache
-  * service (`TableSharing.Shared`) under a namespace that leaves the source
-  * out. The file's member is a Church numeral of 0 to 3, so two writes
+  * (`JitRunState.instanceTables`), that table's answers kept across versions
+  * and taken without their reads holding (`InstanceReuse`), or complete
+  * tables kept in the cache service (`TableSharing.Shared`) under a namespace
+  * that leaves the source out. The file's member is a Church numeral of 0 to 3, so two writes
   * usually differ, and every reading reads the same term, which an earlier
   * reading of the same executor kept. The term is a closure applied to the
   * file's URI node, which applies the node to as many arguments as the
@@ -51,6 +52,14 @@ import gezi.weakhead.TableRetention
 class ExpansionSourceLawTest extends GeneratedProperties:
 
   private val limit: Long = 2000000
+
+  /** Every reader of the law reads in the configuration of no facts' encoding, the JIT's included. */
+  private val encoding = JitTesting.noFactsEncoding
+
+  private given encoding.type = encoding
+
+  private val plainConfiguration: gezi.weakhead.ReadingConfiguration[encoding.type] =
+    gezi.weakhead.ReadingConfiguration[encoding.type](encoding, gezi.ir.StorageAccess.granted())
 
   private enum Operation:
     case Written(numeral: Int)
@@ -67,7 +76,7 @@ class ExpansionSourceLawTest extends GeneratedProperties:
     s"λtuple. tuple (λf x. ${"f (" * numeral}x${")" * numeral})\n"
 
   /** The selector of a tuple's first member. */
-  private val first: Instruction = Defunctionalization.thunkInstruction(Lambdalattice.term("λa. a"))
+  private val first: Configured[encoding.type] = Defunctionalization.thunkInstruction[encoding.type](Lambdalattice.term("λa. a"))
 
   /** Where the files are written: under the project's `target`, not the
     * system's temporary directory, which other runs fill.
@@ -75,10 +84,10 @@ class ExpansionSourceLawTest extends GeneratedProperties:
   private val files: Path = Files.createDirectories(java.nio.file.Paths.get("target", "expansion-source-law").toAbsolutePath.normalize)
 
   /** The normal forms of the numeral's member read alone, under the stop. */
-  private def expected(numeral: Int, stop: StopSignal): Vector[Instruction] =
+  private def expected(numeral: Int, stop: StopSignal): Vector[Configured[encoding.type]] =
     read(
-      ReadingExecutor(Mode.TablingWeakHead, NoJitState),
-      Instruction.Apply(Defunctionalization.thunkInstruction(Lambdalattice.term(text(numeral))), first),
+      ReadingExecutor(Mode.TablingWeakHead, plainConfiguration, NoJitState),
+      encoding.application(Defunctionalization.thunkInstruction[encoding.type](Lambdalattice.term(text(numeral))), first),
       ExecutionDependencies(BaselineCaches.provider(), ExpansionSource.fresh()),
       stop
     )._1
@@ -86,16 +95,29 @@ class ExpansionSourceLawTest extends GeneratedProperties:
   /** An executor under test, with the cache service it reads in, kept for
     * every reading of one check.
     */
-  private final case class Kept(executor: Executor[ReadingSuspension], cache: Cache)
+  private final case class Kept(executor: Executor[encoding.type, ReadingSuspension[encoding.type]], cache: Cache)
 
-  private val jitConfiguration = JitConfiguration(
-    JitTesting.noFacts,
+  private val jitConfiguration = JitConfiguration[encoding.type](
+    encoding,
     10000,
     PredicatePerCode,
     ClosureBackend,
     DispatchMode.NoDispatch,
     instanceTable = true,
-    instanceRetention = InstanceRetention.NeverDropped
+    instanceRetention = InstanceRetention.NeverDropped,
+    storageAccess = gezi.ir.StorageAccess.granted()
+  )
+
+  private val verifiedJitConfiguration = JitConfiguration[encoding.type](
+    encoding,
+    10000,
+    PredicatePerCode,
+    ClosureBackend,
+    DispatchMode.NoDispatch,
+    instanceTable = true,
+    instanceRetention = InstanceRetention.NeverDropped,
+    instanceReuse = InstanceReuse.VerifiedAcrossVersions,
+    storageAccess = gezi.ir.StorageAccess.granted()
   )
 
   /** What each executor keeps between calls: the tabled weak head's tables
@@ -109,16 +131,21 @@ class ExpansionSourceLawTest extends GeneratedProperties:
         "tables kept by the executor",
         () =>
           Kept(
-            ReadingExecutor(Mode.TablingWeakHead, NoJitState, None, None, ApplicationReading.ByLayer, TableRetention.KeptAll),
+            ReadingExecutor(Mode.TablingWeakHead, plainConfiguration, NoJitState, None, None, ApplicationReading.ByLayer, TableRetention.KeptAll),
             BaselineCaches.provider()
           ),
         identity
       ),
-      ("the JIT's instance table", () => Kept(ReadingExecutor(Mode.Jit(Jit(jitConfiguration)), NoJitState), BaselineCaches.provider()), identity),
+      ("the JIT's instance table", () => Kept(JitExecutor.of(Jit(jitConfiguration)), BaselineCaches.provider()), identity),
+      (
+        "the JIT's instance table verified across versions",
+        () => Kept(JitExecutor.of(Jit(verifiedJitConfiguration)), BaselineCaches.provider()),
+        identity
+      ),
       (
         "complete tables shared in the cache service",
-        () => Kept(ReadingExecutor(Mode.TablingWeakHead, NoJitState, Some(Retention.Strong)), BaselineCaches.provider()),
-        kept => kept.copy(executor = ReadingExecutor(Mode.TablingWeakHead, NoJitState, Some(Retention.Strong)))
+        () => Kept(ReadingExecutor(Mode.TablingWeakHead, plainConfiguration, NoJitState, Some(Retention.Strong)), BaselineCaches.provider()),
+        kept => kept.copy(executor = ReadingExecutor(Mode.TablingWeakHead, plainConfiguration, NoJitState, Some(Retention.Strong)))
       )
     )
 
@@ -127,27 +154,31 @@ class ExpansionSourceLawTest extends GeneratedProperties:
     * for a reading the limit or the stop stops.
     */
   private def read(
-      executor: Executor[ReadingSuspension],
-      term: Instruction,
+      executor: Executor[encoding.type, ReadingSuspension[encoding.type]],
+      term: Configured[encoding.type],
       dependencies: ExecutionDependencies,
       stop: StopSignal
-  ): (Vector[Instruction], Executor[ReadingSuspension]) =
+  ): (Vector[Configured[encoding.type]], Executor[encoding.type, ReadingSuspension[encoding.type]]) =
     val (after, _, progress) = executor.executed(term, dependencies, Budget(limit, countedUnits = false, stop))
     if progress.suspension.nonEmpty then
       throw IllegalStateException(s"the reading of $term did not finish within $limit steps")
-    (progress.found.sortBy(_.toString), after)
+    (progress.found.sorted(gezi.ir.ContentComparison.ordering), after)
 
   kinds.foreach((name, made, next) =>
     stoppableProperty(s"under a new source after a write, an executor that keeps $name reads what the file holds") { stopped =>
       val stop = StopSignal.completedWith(stopped)
-      for steps <- operations.forAll
-          .cover(30, "a reading after a write that follows a reading", readAfterChange)
+      for
+        drawn <- operations.forAll
+        rewritten <- Gen.int(Range.constant(0, 3)).forAll
       yield
+        // The case the law must reach, by construction every iteration: a
+        // reading, a write, and a reading after it.
+        val steps = drawn ++ List(Operation.Read, Operation.Written(rewritten), Operation.Read)
         val directory = Files.createTempDirectory(files, "tree")
         val file = directory.resolve("value" + DirectoryTree.fileExtension)
         Files.writeString(file, text(0))
         val applier = Lambdalattice.term("λu. u" + " (λa. a)" * (DirectoryTree.scope(file).size + 1))
-        val term = Instruction.Apply(Defunctionalization.thunkInstruction(applier), Instruction.uri(file.toAbsolutePath.normalize.toUri))
+        val term = encoding.application(Defunctionalization.thunkInstruction[encoding.type](applier), encoding.uri(file.toAbsolutePath.normalize.toUri))
         try
           val (_, _, _, checks) = steps.foldLeft((made(), ExpansionSource.fresh(), 0, Vector.empty[Result])) {
             case ((kept, _, _, checked), Operation.Written(numeral)) =>
@@ -155,7 +186,7 @@ class ExpansionSourceLawTest extends GeneratedProperties:
               (kept, ExpansionSource.fresh(), numeral, checked)
             case ((kept, source, numeral, checked), Operation.Read) =>
               val (found, after) = read(kept.executor, term, ExecutionDependencies(kept.cache, source), stop)
-              (next(kept.copy(executor = after)), source, numeral, checked :+ Result.diff(found, expected(numeral, stop))(_ == _))
+              (next(kept.copy(executor = after)), source, numeral, checked :+ Result.assert(JitTesting.sameTerms(found, expected(numeral, stop))))
           }
           Result.all(checks.toList)
         finally
@@ -163,12 +194,3 @@ class ExpansionSourceLawTest extends GeneratedProperties:
           Files.delete(directory)
     }
   )
-
-  /** Whether some reading follows a write that follows an earlier reading. */
-  private def readAfterChange(steps: List[Operation]): Boolean =
-    steps
-      .foldLeft((false, false, false)) {
-        case ((readBefore, written, found), Operation.Read)       => (true, false, found || (readBefore && written))
-        case ((readBefore, _, found), Operation.Written(_))       => (readBefore, true, found)
-      }
-      ._3

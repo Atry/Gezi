@@ -1,5 +1,7 @@
 package gezi.strategies
 
+import gezi.ir.NativeSpecializer
+
 import gezi.extraction.ContentOrder
 import gezi.extraction.CostModel
 import gezi.extraction.Entry
@@ -53,12 +55,12 @@ object ThunkCandidates:
   /** The thunk's candidate entries over its fillings' entries, in filling
     * order.
     */
-  def candidates(
-      model: ModuleCostModel,
-      shape: Shape,
+  def candidates[C <: NativeSpecializer & Singleton](
+      model: ModuleCostModel[C],
+      shape: Shape[C],
       thunk: Thunk[Int],
-      options: Vector[Vector[Entry[ModuleCost]]]
-  ): Vector[Entry[ModuleCost]] =
+      options: Vector[Vector[Entry[C, ModuleCost]]]
+  ): Vector[Entry[C, ModuleCost]] =
     decomposed(model, shape, thunk, options, Objective.CostFirst)
 
   /** The thunk's least entry of each reading by `ContentOrder` over its
@@ -68,51 +70,80 @@ object ThunkCandidates:
     * more than the sum of its fillings', so the least of each reading of the
     * whole is made of the least of each reading of its parts.
     */
-  def leastCandidates(
-      model: ModuleCostModel,
-      shape: Shape,
+  def leastCandidates[C <: NativeSpecializer & Singleton](
+      model: ModuleCostModel[C],
+      shape: Shape[C],
       thunk: Thunk[Int],
-      options: Vector[Vector[Entry[ModuleCost]]]
-  ): Vector[Entry[ModuleCost]] =
+      options: Vector[Vector[Entry[C, ModuleCost]]]
+  ): Vector[Entry[C, ModuleCost]] =
     gezi.extraction.CostModel.leastOfEachReading(model, decomposed(model, shape, thunk, options, Objective.SizeFirst))
+
+  /** The fillings, in filling order, that the thunk's candidates settle to
+    * their first entry when each filling has as many entries as
+    * `entryCounts` says (`gezi.extraction.CostModel.settledChildren`), of
+    * the path `decomposed` takes at those numbers: the jointly read
+    * fillings, each of more than one entry, when the product of their
+    * numbers exceeds the enumeration bound (`CodeCandidates.settledPositions`),
+    * and the fillings the code does not read, each of more than one entry,
+    * whose first entry is taken at every number.
+    */
+  def settledFillings[C <: NativeSpecializer & Singleton](model: ModuleCostModel[C], thunk: Thunk[Int], entryCounts: Vector[Int]): Vector[Boolean] =
+    val Thunk(code, holes, _) = thunk
+    val (joint, unread) =
+      if byParts(model, thunk, entryCounts) then
+        (CodeCandidates.jointPositions(code, holes, entryCounts.size), CodeCandidates.unreadPositions(code, holes, entryCounts.size))
+      else
+        val read = readFillings(code, holes, entryCounts.size)
+        (jointFillings(code, holes, entryCounts.size), entryCounts.indices.filterNot(read.contains).toSet)
+    val settled = CodeCandidates.settledPositions(joint, entryCounts, model.jointReading.enumerationBound) ++ unread.filter(entryCounts(_) > 1)
+    entryCounts.indices.toVector.map(settled.contains)
+
+  /** Whether `decomposed` folds the thunk part by part at the numbers of
+    * entries given (`CodeCandidates`) rather than reading it whole.
+    */
+  private def byParts[C <: NativeSpecializer & Singleton](model: ModuleCostModel[C], thunk: Thunk[Int], entryCounts: Vector[Int]): Boolean =
+    val Thunk(code, holes, _) = thunk
+    model.modules.forall(_.codeFolding.isDefined) && jointProduct(thunk, entryCounts) > BigInt(model.jointReading.wholeFoldLimit) &&
+    CodeCandidates.foldsByParts(code, holes, entryCounts.size) &&
+    CodeCandidates.contractListingsWithinBound(code, holes, entryCounts, model.jointReading.enumerationBound)
 
   /** What the alternatives of a part are ordered by. */
   private enum Objective:
     case CostFirst
     case SizeFirst
 
-  private def decomposed(
-      model: ModuleCostModel,
-      shape: Shape,
+  private def decomposed[C <: NativeSpecializer & Singleton](
+      model: ModuleCostModel[C],
+      shape: Shape[C],
       thunk: Thunk[Int],
-      options: Vector[Vector[Entry[ModuleCost]]],
+      options: Vector[Vector[Entry[C, ModuleCost]]],
       objective: Objective
-  ): Vector[Entry[ModuleCost]] =
+  ): Vector[Entry[C, ModuleCost]] =
     val Thunk(code, holes, _) = thunk
     val foldings = model.modules.flatMap(_.codeFolding)
     // A thunk whose jointly read fillings have at most the model's
-    // `JointReading.wholeFoldBound` combinations of entries is read whole
+    // `JointReading.wholeFoldLimit` combinations of entries is read whole
     // (`JointReading.measured` gives the measurement of the bound 1). That
     // both paths give the extraction each reading's least cost is the law
     // `CostMonotonicityLaws.wholeFoldBoundKeepsLeastCosts`, and at product 1
     // the same least entry, ties included, `productOneReadWhole`.
     //
-    // FIXME (2026-11-16): two paths remain. A thunk is read whole https://github.com/Atry/private-overlay/issues/1961
-    // (`wholeCandidates`, every combination of its jointly read fillings'
-    // entries up to `JointReading.enumerationBound`) when a module of the model has no
-    // code folding or when its code holds a choice or a parallel whose
-    // criterion is no filling slot (`CodeCandidates.foldsByParts`). The modules
+    // FIXME (2026-11-16, rewritten 2026-11-24): paths remain. A thunk is read https://github.com/Atry/private-overlay/issues/1961
+    // whole (`wholeCandidates`, every combination of its jointly read
+    // fillings' entries up to `JointReading.enumerationBound`) when a module of
+    // the model has no code folding, when its code holds a choice of more
+    // than two members, a choice inside an inner thunk, or a parallel whose
+    // criterion is no filling slot (`CodeCandidates.foldsByParts`), or when
+    // its contract fillings' entries make more listings than the bound
+    // (`CodeCandidates.contractListingsWithinBound`); a choice of two members
+    // outside the inner thunks is folded by parts, its dispatch included. The modules
     // of the lemma route (narrow_blocks, compression) and of the native route
     // (specialization_attraction, compression) all fold codes; the other six
     // modules of `BaselineModules.table` do not, and an extraction that names
-    // one of them reads every thunk whole. On the 18 hot points of a published
-    // points file (`contest-entries-solo` and `contest-entries-wren`,
-    // joint-code-folds table 4) 7 thunk readings per point take this
-    // path, all for a code that fails `foldsByParts`: 3 with no fillings and 4
-    // with 6 fillings. A code fold of a choice's dispatch
-    // and of a criterion read whole would close it.
-    if foldings.size == model.modules.size && jointProduct(thunk, options.map(_.size)) > BigInt(model.jointReading.wholeFoldBound) &&
-      CodeCandidates.foldsByParts(code, holes, options.size)
+    // one of them reads every thunk whole. A code fold of a longer choice, of
+    // a choice inside an inner thunk and of a criterion read whole would close
+    // it.
+    if byParts(model, thunk, options.map(_.size))
     then CodeCandidates.candidates(model, foldings, shape, code, holes, options, objective == Objective.CostFirst)
     else wholeCandidates(model, shape, code, holes, options, objective)
 
@@ -123,23 +154,30 @@ object ThunkCandidates:
     val fillingOfSlot = Defunctionalization.slotValues(holes, holes.map(_ => -1), Vector.range(0, fillingCount))
     jointSlots(code, holes).toVector.map(fillingOfSlot).filter(_ >= 0).sorted
 
+  /** The fillings, by position, that the code reads, its inner thunks'
+    * fillings included.
+    */
+  private def readFillings(code: Code, holes: Vector[Hole], fillingCount: Int): Set[Int] =
+    val fillingOfSlot = Defunctionalization.slotValues(holes, holes.map(_ => -1), Vector.range(0, fillingCount))
+    slotsRead(code).map(fillingOfSlot).filter(_ >= 0)
+
   /** The candidates of a thunk whose inner thunks are read whole: every
     * combination of the entries of its jointly read fillings, those under an
     * inner thunk or a choice among them, each decomposed over the rest.
     */
-  private def wholeCandidates(
-      model: ModuleCostModel,
-      shape: Shape,
+  private def wholeCandidates[C <: NativeSpecializer & Singleton](
+      model: ModuleCostModel[C],
+      shape: Shape[C],
       code: Code,
       holes: Vector[Hole],
-      options: Vector[Vector[Entry[ModuleCost]]],
+      options: Vector[Vector[Entry[C, ModuleCost]]],
       objective: Objective
-  ): Vector[Entry[ModuleCost]] =
+  ): Vector[Entry[C, ModuleCost]] =
     val fillingOfSlot = Defunctionalization.slotValues(holes, holes.map(_ => -1), options.indices.toVector)
     val reader = Reader(model, holes, fillingOfSlot, options, objective)
-    val read = slotsRead(code).map(fillingOfSlot).filter(_ >= 0)
+    val read = readFillings(code, holes, options.size)
     val (joint, settled) = CodeCandidates.enumeratedOrSettled(jointFillings(code, holes, options.size), options, model.jointReading.enumerationBound)
-    val unread = options.indices.filterNot(read.contains).map(position => position -> first(options(position))).toMap ++ settled
+    val unread = options.indices.filterNot(read.contains).map(position => position -> CodeCandidates.first(options(position))).toMap ++ settled
     // The product over the jointly read fillings is bounded
     // (`CodeCandidates.enumeratedOrSettled`): above the bound each is settled
     // to its first entry and the code is read once. Since an unpriced child
@@ -158,7 +196,20 @@ object ThunkCandidates:
     // filling's readings by what the code reads at its slot does not merge
     // them. A candidate remedy is a dynamic program over the narrow parse
     // with a summary per operand subcode, which may or may not stay
-    // polynomial.
+    // polynomial. The least over every combination under one entry per
+    // filling is extraction with sharing, whose exact elimination over the
+    // repeated fillings costs R to the power of one more than their induced
+    // width, R a filling's number of readings: measured 2026-11-24 on
+    // repeated_cses_distinct_numbers_numbers_200000 (seed 20261031, one repetition)
+    // under the native route, 25 to 40 readings per repeated filling, 1,600
+    // to about 27,000 combinations, a bound of 65,536 running past 300 s.
+    // The readings are many because specialization attraction's carries its
+    // holes' use counts (`SpecializationReading`); a narrower reading of that
+    // module, if its parents can do without the counts, is a candidate fix.
+    // The settling depends on the numbers of entries offered, so
+    // `CountedExtraction` fixes it from its first run (`CostModel.settledChildren`)
+    // and reads such a thunk under the combinations that run kept, in every
+    // pass alike.
     // The combinations are drawn on demand (`CostModel.lazyCombinations`) and
     // drawing ends when a stop is requested (`model.stop`): the candidates
     // found so far are given, and the extraction that reads the same signal
@@ -187,21 +238,21 @@ object ThunkCandidates:
     * read jointly in place, and the entries chosen for the other fillings it
     * reads, by filling position.
     */
-  private final case class Alternative(cost: ModuleCost, chosen: Map[Int, Entry[ModuleCost]]):
+  private final case class Alternative[C <: NativeSpecializer & Singleton](cost: ModuleCost, chosen: Map[Int, Entry[C, ModuleCost]]):
     def size: BigInt = chosen.values.map(_.size).sum
 
-  private final case class Reader(
-      model: ModuleCostModel,
+  private final case class Reader[C <: NativeSpecializer & Singleton](
+      model: ModuleCostModel[C],
       holes: Vector[Hole],
       fillingOfSlot: Vector[Int],
-      options: Vector[Vector[Entry[ModuleCost]]],
+      options: Vector[Vector[Entry[C, ModuleCost]]],
       objective: Objective
   ):
 
     /** The best alternative of each reading of the part, the fillings in
       * `fixed` read as given.
       */
-    def alternatives(code: Code, fixed: Map[Int, Entry[ModuleCost]]): Vector[Alternative] = code.layer match
+    def alternatives(code: Code, fixed: Map[Int, Entry[C, ModuleCost]]): Vector[Alternative[C]] = code.layer match
       case Slot(slot) if fillingOfSlot(slot) >= 0 && !fixed.contains(fillingOfSlot(slot)) =>
         val position = fillingOfSlot(slot)
         pruned(options(position).map(entry => Alternative(entry.cost, Map(position -> entry))))
@@ -229,7 +280,7 @@ object ThunkCandidates:
       * module reads an unpriced child's reading (`OrderTerm.Unpriced`); the
       * best alternative of each reading.
       */
-    private def wholes(code: Code, fixed: Map[Int, Entry[ModuleCost]]): Vector[Alternative] =
+    private def wholes(code: Code, fixed: Map[Int, Entry[C, ModuleCost]]): Vector[Alternative[C]] =
       val free = slotsRead(code).toVector.map(fillingOfSlot).filter(position => position >= 0 && !fixed.contains(position)).distinct.sorted
       pruned(CostModel.combinations(free.map(position => firstOfEachReading(options(position)))).map { chosen =>
         val unpriced = free.zip(chosen).toMap
@@ -242,14 +293,14 @@ object ThunkCandidates:
     /** The first entry of each reading among the entries, by size, then
       * content, in the order the readings first occur.
       */
-    private def firstOfEachReading(entries: Vector[Entry[ModuleCost]]): Vector[Entry[ModuleCost]] =
+    private def firstOfEachReading(entries: Vector[Entry[C, ModuleCost]]): Vector[Entry[C, ModuleCost]] =
       entries
-        .foldLeft(Vector.empty[Vector[Entry[ModuleCost]]]) { (groups, entry) =>
+        .foldLeft(Vector.empty[Vector[Entry[C, ModuleCost]]]) { (groups, entry) =>
           groups.indexWhere(group => group.headOption.exists(member => model.sameReading(member.cost, entry.cost))) match
             case -1       => groups :+ Vector(entry)
             case position => groups.updated(position, groups(position) :+ entry)
         }
-        .map(first)
+        .map(CodeCandidates.first)
 
     /** The part's term at the module, its holes `Bound`, the fillings in
       * `fixed` read through their states and those in `unpriced` through
@@ -257,29 +308,29 @@ object ThunkCandidates:
       */
     private def resolved(
         code: Code,
-        fixed: Map[Int, Entry[ModuleCost]],
-        unpriced: Map[Int, Entry[ModuleCost]],
+        fixed: Map[Int, Entry[C, ModuleCost]],
+        unpriced: Map[Int, Entry[C, ModuleCost]],
         modulePosition: Int
-    ): OrderTerm =
+    ): OrderTerm[C] =
       val module = model.modules(modulePosition)
       val fillings = options.indices.toVector.map(position =>
         fixed.get(position) match
-          case Some(entry) => OrderTerm.Folded(entry.cost.states(modulePosition), entry.cost.identityContract)
+          case Some(entry) => OrderTerm.Folded[C](entry.cost.states(modulePosition), entry.cost.identityContract)
           case None =>
-            val entry = unpriced.getOrElse(position, first(options(position)))
-            OrderTerm.Unpriced(module.reading(entry.cost.states(modulePosition)))
+            val entry = unpriced.getOrElse(position, CodeCandidates.first(options(position)))
+            OrderTerm.Unpriced[C](module.reading(entry.cost.states(modulePosition)))
       )
       TermReading.resolved(code, holes, fillings)
 
     /** The application or parallel of two parts, each read through its
       * state.
       */
-    private def combined(left: Alternative, right: Alternative, layer: (OrderTerm, OrderTerm) => OrderTerm): Alternative =
+    private def combined(left: Alternative[C], right: Alternative[C], layer: (OrderTerm[C], OrderTerm[C]) => OrderTerm[C]): Alternative[C] =
       val states = model.modules.indices.toVector.map(position =>
         model.modules(position).folded(
           layer(
-            OrderTerm.Folded(left.cost.states(position), left.cost.identityContract),
-            OrderTerm.Folded(right.cost.states(position), right.cost.identityContract)
+            OrderTerm.Folded[C](left.cost.states(position), left.cost.identityContract),
+            OrderTerm.Folded[C](right.cost.states(position), right.cost.identityContract)
           ),
           model.reading
         )
@@ -292,8 +343,8 @@ object ThunkCandidates:
     /** The best alternative of each reading, in the order the readings
       * first occur.
       */
-    private def pruned(found: Vector[Alternative]): Vector[Alternative] =
-      found.foldLeft(Vector.empty[Alternative]) { (kept, next) =>
+    private def pruned(found: Vector[Alternative[C]]): Vector[Alternative[C]] =
+      found.foldLeft(Vector.empty[Alternative[C]]) { (kept, next) =>
         kept.indexWhere(alternative => model.sameReading(alternative.cost, next.cost)) match
           case -1       => kept :+ next
           case position => if better(next, kept(position)) then kept.updated(position, next) else kept
@@ -303,7 +354,7 @@ object ThunkCandidates:
       * less size, then the first by content at the first filling where the
       * two differ.
       */
-    private def better(candidate: Alternative, alternative: Alternative): Boolean =
+    private def better(candidate: Alternative[C], alternative: Alternative[C]): Boolean =
       val order = objective match
         case Objective.CostFirst => model.ordering.compare(candidate.cost, alternative.cost)
         case Objective.SizeFirst => 0
@@ -316,13 +367,6 @@ object ThunkCandidates:
             .map(position => ContentOrder.compare(candidate.chosen(position), alternative.chosen(position)))
             .find(_ != 0)
             .exists(_ < 0)
-
-  /** The first entry by size, then content. */
-  private def first(entries: Vector[Entry[ModuleCost]]): Entry[ModuleCost] =
-    entries.reduce((kept, next) =>
-      val bySize = next.size.compare(kept.size)
-      if bySize < 0 || (bySize == 0 && ContentOrder.compare(next, kept) < 0) then next else kept
-    )
 
   /** The slots of the code, its inner thunks' fillings included and their
     * codes, whose slots are their own, not.

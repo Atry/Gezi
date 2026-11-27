@@ -16,11 +16,11 @@ object Hidden37Billboard:
   private val family = "hidden_37_billboard"
 
   /** `Go Rods 0 0` (`billboard_term/2`). */
-  def billboardTerm(attractors: Attractors, rods: Vector[Int]): Term =
+  def billboardTerm(attractors: Attractors, rods: Vector[Int]): ProblemTerm =
     goFunction(attractors)(SetFree.scottList(attractors, rods.map(rod => binary(rod))))(binary(0))(binary(0))
 
   /** The search over the rods (`go_function/1`). */
-  private def goFunction(attractors: Attractors): Term =
+  private def goFunction(attractors: Attractors): ProblemTerm =
     val equal = attractors.functionSurface("merge_binary_equality", Spelling.Direct)
     val plusOne = attractors.functionSurface("merge_binary_plus", Spelling.Direct)
     val plusTwo = attractors.functionSurface("merge_binary_plus", Spelling.Direct)

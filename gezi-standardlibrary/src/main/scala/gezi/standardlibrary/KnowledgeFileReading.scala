@@ -1,11 +1,11 @@
 package gezi.standardlibrary
 
-import gezi.ir.Instruction
 import gezi.knowledgereading.KnowledgeReading
 import gezi.knowledgereading.KnowledgeReadingError
 import gezi.knowledgereading.Reading
 import gezi.weakhead.Computation
-import gezi.weakhead.Value
+import gezi.ir.Value
+import gezi.ir.{Configured, NoFacts, Pure}
 
 /** The declarations a knowledge term encodes.
   *
@@ -30,7 +30,8 @@ import gezi.weakhead.Value
   * typed_branch,
   * name_marker,
   * closure_marker,
-  * tag_origin, tag_next     λk. k term
+  * tag_origin, tag_next,
+  * repeller                 λk. k term
   * representations          λs. s term "representation"
   * families                 λs. s term arity (list of term)    arity an integer
   * fields                   λs. s term constructor (list of criterion)
@@ -61,11 +62,13 @@ import gezi.weakhead.Value
   */
 object KnowledgeFileReading:
 
+  private given NoFacts.type = NoFacts
+
   /** The declarations of the knowledge term: the members of each slot in the
     * order of `StandardLibrary.knowledgeSlots`, each slot's members in the
     * order their heads are enumerated.
     */
-  def declarations(knowledge: Instruction): Reading[Vector[Declaration]] =
+  def declarations(knowledge: Configured[NoFacts.type]): Reading[NoFacts.type, Vector[Declaration]] =
     Computation
       .traversed(StandardLibrary.knowledgeSlots)(slot => slotDeclarations(knowledge, slot))
       .map(_.flatten)
@@ -75,9 +78,9 @@ object KnowledgeFileReading:
     * two contributions give (a knowledge file two presets import) is read
     * once, as a choice is a set.
     */
-  def slotDeclarations(knowledge: Instruction, slot: KnowledgeSlot): Reading[Vector[Declaration]] =
+  def slotDeclarations(knowledge: Configured[NoFacts.type], slot: KnowledgeSlot): Reading[NoFacts.type, Vector[Declaration]] =
     KnowledgeReading
-      .groupSlots(knowledge, KnowledgeSlot.width, slot.group, KnowledgeSlot.groupWidths(slot.group))
+      .groupSlots(Value.of(knowledge), KnowledgeSlot.width, slot.group, KnowledgeSlot.groupWidths(slot.group))
       .flatMap(slots =>
         slots(slot.position).reduceOption(Value.Choice(_, _)) match
           case None      => Computation.pure(Vector.empty)
@@ -85,9 +88,16 @@ object KnowledgeFileReading:
       )
       .flatMap(members => Computation.traversed(members)(member(slot, _)))
 
-  private def libraryTerm(value: Value): Instruction = KnowledgeReading.term(value, Set.empty)
+  private def libraryTerm(value: Value[NoFacts.type]): Configured[NoFacts.type] = KnowledgeReading.term(value, Set.empty)
 
-  private def member(slot: KnowledgeSlot, fields: Vector[Value]): Reading[Declaration] = (slot, fields) match
+  /** The library term of the value as a fact's key, pure. Throws `StandardLibraryMalformed` with
+    * `MalformedReason.ImpureKey` for a term that is not (a parallel layer, a storage or a thunk without holes inside it).
+    */
+  private def keyTerm(value: Value[NoFacts.type], what: String): Pure =
+    val term = libraryTerm(value)
+    Pure.of(term).getOrElse(throw StandardLibraryMalformed(MalformedReason.ImpureKey(what, term.toString)))
+
+  private def member(slot: KnowledgeSlot, fields: Vector[Value[NoFacts.type]]): Reading[NoFacts.type, Declaration] = (slot, fields) match
     case (KnowledgeSlot.Lemmas, Vector(name, left, right, proof)) =>
       for
         nameText <- KnowledgeReading.trieText(name)
@@ -98,37 +108,38 @@ object KnowledgeFileReading:
       // the implementation is a CBOR diagnostic notation string literal the host looks up in `NativeBackend`, an
       // explicit exception to the Scott encoding by default, since the implementations are an open
       // set (`NativesProvider`, `NativeBackend.extended`) and a published Scott list a closed one.
-      KnowledgeReading.trieText(implementation).map(Declaration.NativeBinding(libraryTerm(file), _))
-    case (KnowledgeSlot.Associative, Vector(file))           => Computation.pure(Declaration.PropertyBinding(libraryTerm(file), Property.Associative))
-    case (KnowledgeSlot.Leaves, Vector(file))                => Computation.pure(Declaration.PropertyBinding(libraryTerm(file), Property.Noinline))
-    case (KnowledgeSlot.FirstOrderConstructor, Vector(file)) => Computation.pure(Declaration.PropertyBinding(libraryTerm(file), Property.FirstOrderConstructor))
-    case (KnowledgeSlot.TypedBranch, Vector(file))           => Computation.pure(Declaration.PropertyBinding(libraryTerm(file), Property.TypedBranch))
-    case (KnowledgeSlot.NameMarker, Vector(file))            => Computation.pure(Declaration.PropertyBinding(libraryTerm(file), Property.NameMarker))
-    case (KnowledgeSlot.ClosureMarker, Vector(file))         => Computation.pure(Declaration.PropertyBinding(libraryTerm(file), Property.ClosureMarker))
-    case (KnowledgeSlot.TagOrigin, Vector(file))             => Computation.pure(Declaration.PropertyBinding(libraryTerm(file), Property.TagOrigin))
-    case (KnowledgeSlot.TagNext, Vector(file))               => Computation.pure(Declaration.PropertyBinding(libraryTerm(file), Property.TagNext))
+      KnowledgeReading.trieText(implementation).map(Declaration.NativeBinding(keyTerm(file, "a native's library term"), _))
+    case (KnowledgeSlot.Associative, Vector(file))           => Computation.pure(Declaration.PropertyBinding(keyTerm(file, "a property's library term"), Property.Associative))
+    case (KnowledgeSlot.Leaves, Vector(file))                => Computation.pure(Declaration.PropertyBinding(keyTerm(file, "a property's library term"), Property.Noinline))
+    case (KnowledgeSlot.FirstOrderConstructor, Vector(file)) => Computation.pure(Declaration.PropertyBinding(keyTerm(file, "a property's library term"), Property.FirstOrderConstructor))
+    case (KnowledgeSlot.TypedBranch, Vector(file))           => Computation.pure(Declaration.PropertyBinding(keyTerm(file, "a property's library term"), Property.TypedBranch))
+    case (KnowledgeSlot.NameMarker, Vector(file))            => Computation.pure(Declaration.PropertyBinding(keyTerm(file, "a property's library term"), Property.NameMarker))
+    case (KnowledgeSlot.ClosureMarker, Vector(file))         => Computation.pure(Declaration.PropertyBinding(keyTerm(file, "a property's library term"), Property.ClosureMarker))
+    case (KnowledgeSlot.TagOrigin, Vector(file))             => Computation.pure(Declaration.PropertyBinding(keyTerm(file, "a property's library term"), Property.TagOrigin))
+    case (KnowledgeSlot.TagNext, Vector(file))               => Computation.pure(Declaration.PropertyBinding(keyTerm(file, "a property's library term"), Property.TagNext))
+    case (KnowledgeSlot.Repeller, Vector(file))              => Computation.pure(Declaration.PropertyBinding(keyTerm(file, "a property's library term"), Property.Repeller))
     // A representation is the name of a codec the backend implements in Scala (`NativeBackend.extended` adds a codec
     // by a name of its own, the fixture natural_pairs's natural_pair). A family declared by facts (jvm_types generic,
     // `DeclaredFamilies`) takes its criterion's term as its identity, so it has no representation.
     case (KnowledgeSlot.Representations, Vector(file, argument)) =>
       // DOWNGRADE: the name is a CBOR diagnostic notation string
       // literal the host looks up, the same explicit exception as a native's implementation, above.
-      KnowledgeReading.trieText(argument).map(text => Declaration.PropertyBinding(libraryTerm(file), Property.NativeSpecialization(text)))
+      KnowledgeReading.trieText(argument).map(text => Declaration.PropertyBinding(keyTerm(file, "a property's library term"), Property.NativeSpecialization(text)))
     case (KnowledgeSlot.JvmTypes, Vector(file, argument)) =>
-      jvmType(argument).map(name => Declaration.PropertyBinding(libraryTerm(file), Property.JvmType(name)))
+      jvmType(argument).map(name => Declaration.PropertyBinding(keyTerm(file, "a property's library term"), Property.JvmType(name)))
     case (KnowledgeSlot.Families, Vector(criterion, arity, constructors)) =>
       for
         arityRead <- KnowledgeReading.integer(arity)
         constructorItems <- KnowledgeReading.items(constructors)
       yield Declaration.PropertyBinding(
-        libraryTerm(criterion),
-        Property.DataFamily(number(arityRead), constructorItems.map(libraryTerm))
+        keyTerm(criterion, "a data family's criterion"),
+        Property.DataFamily(number(arityRead), constructorItems.map(keyTerm(_, "a data family's constructor")))
       )
     case (KnowledgeSlot.Fields, Vector(criterion, constructor, criteria)) =>
       for
         items <- KnowledgeReading.items(criteria)
         read <- Computation.traversed(items)(fieldCriterion)
-      yield Declaration.FieldsBinding(libraryTerm(criterion), libraryTerm(constructor), read)
+      yield Declaration.FieldsBinding(keyTerm(criterion, "a data family's criterion"), keyTerm(constructor, "a constructor"), read)
     case (_, other) => throw KnowledgeReadingError(s"a member of the slot $slot has ${other.size} fields")
 
   /** The JVM type a constructor of the published list
@@ -137,7 +148,7 @@ object KnowledgeFileReading:
     * the file's. A value that is no constructor of no field of that many
     * alternatives is a `KnowledgeReadingError`.
     */
-  private def jvmType(value: Value): Reading[JvmTypeName] =
+  private def jvmType(value: Value[NoFacts.type]): Reading[NoFacts.type, JvmTypeName] =
     KnowledgeReading.alternative(value, JvmTypeName.values.size).map {
       case (position, Vector()) => JvmTypeName.fromOrdinal(position)
       case (position, other) =>
@@ -151,7 +162,7 @@ object KnowledgeFileReading:
     * `KnowledgeReadingError`; the content is not checked here
     * (`ProofCitations.citationsChecked` checks a Markdown link).
     */
-  private def lemmaProof(value: Value): Reading[LemmaProof] =
+  private def lemmaProof(value: Value[NoFacts.type]): Reading[NoFacts.type, LemmaProof] =
     KnowledgeReading.alternative(value, 3).flatMap {
       case (position, Vector(content)) =>
         KnowledgeReading.trieText(content).map(text =>
@@ -166,14 +177,14 @@ object KnowledgeFileReading:
     * its index, `recursive`, or `closed` of the list of the head and the
     * arguments.
     */
-  private def fieldCriterion(value: Value): Reading[FieldCriterion] =
+  private def fieldCriterion(value: Value[NoFacts.type]): Reading[NoFacts.type, FieldCriterion] =
     KnowledgeReading.alternative(value, 3).flatMap {
       case (0, Vector(index)) => KnowledgeReading.integer(index).map(read => FieldCriterion.Parameter(number(read)))
       case (1, Vector())      => Computation.pure(FieldCriterion.Recursive)
       case (2, Vector(terms)) =>
         KnowledgeReading.items(terms).map(items =>
           items.headOption match
-            case Some(head) => FieldCriterion.Closed(libraryTerm(head), items.drop(1).map(libraryTerm))
+            case Some(head) => FieldCriterion.Closed(keyTerm(head, "a closed field criterion's head"), items.drop(1).map(keyTerm(_, "a closed field criterion's argument")))
             case None       => throw KnowledgeReadingError("a closed field criterion names no term")
         )
       case (position, other) =>

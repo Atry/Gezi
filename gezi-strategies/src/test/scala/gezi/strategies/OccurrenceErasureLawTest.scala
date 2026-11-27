@@ -10,7 +10,9 @@ import gezi.frontend.Term
 import gezi.generatedinputs.GeneratedProperties
 import gezi.generatedinputs.HoasGenerators
 import gezi.generatedinputs.LambdalatticeText
-import gezi.ir.Instruction
+import gezi.ir.Configured
+import gezi.ir.NoFacts
+import gezi.ir.Pure
 import gezi.rewritetrace.OccurrenceErasure
 import gezi.rewritetrace.TraceLemma
 
@@ -31,27 +33,33 @@ import gezi.rewritetrace.TraceLemma
   */
 class OccurrenceErasureLawTest extends GeneratedProperties:
 
-  private def closed(text: String): Instruction = Defunctionalization.thunkInstruction(Lambdalattice.term(text))
+  private given NoFacts.type = NoFacts
+
+  private given gezi.ir.StorageAccess = gezi.ir.StorageAccess.granted()
+
+  private def closed(text: String): Configured[NoFacts.type] = Defunctionalization.thunkInstruction[gezi.ir.NoFacts.type](Lambdalattice.term(text))(using gezi.ir.NoFacts)
 
   /** Two markers that behave as the library's `$name` and `$closure` do,
     * each the identity on its second argument by the β rule, spelled without
     * the literal the library's markers read, and two tag constructors.
     */
+  private def pure(text: String): Pure = Defunctionalization.pure(Lambdalattice.term(text))
+
   private val markers: OccurrenceMarkers = OccurrenceMarkers(
-    closed("λt. λx. (λy. λz. z) t x"),
-    closed("λt. λc. (λy. λz. y) c t"),
-    closed("λa. λb. λc. c"),
-    closed("λn. λa. λb. λc. n")
+    pure("λt. λx. (λy. λz. z) t x"),
+    pure("λt. λc. (λy. λz. y) c t"),
+    pure("λa. λb. λc. c"),
+    pure("λn. λa. λb. λc. n")
   )
 
-  private val libraryTerms: Vector[Term] =
+  private val libraryTerms: Vector[StrategyTesting.ProgramTerm] =
     Vector("λx. x", "λx. λy. x", "λf. λx. f (f x)").map(text => Term.closed(closed(text)))
 
   /** The two erasure lemmas, `λt. λx. M t x = λt. λx. x` for each marker M,
     * each in the orientation drawn.
     */
-  private val lemmas: Gen[Vector[TraceLemma]] =
-    val sides = Vector(markers.name, markers.closure).map(marker => (OccurrenceMarkers.erasing(marker), OccurrenceMarkers.erased))
+  private val lemmas: Gen[Vector[TraceLemma[NoFacts.type]]] =
+    val sides = Vector(markers.name, markers.closure).map(marker => (OccurrenceMarkers.erasing[NoFacts.type](marker), OccurrenceMarkers.erased[NoFacts.type]))
     Gen
       .list(Gen.boolean, hedgehog.Range.singleton(sides.size))
       .map(turned =>
@@ -66,8 +74,8 @@ class OccurrenceErasureLawTest extends GeneratedProperties:
       erasureLemmas <- lemmas.forAll
     yield
       val term = program.deBruijnTerm(Map.empty)
-      val encoded = Defunctionalization.thunkInstruction(term)
-      val tagged = Defunctionalization.thunkInstruction(Occurrences.tagged(term, markers))
+      val encoded = Defunctionalization.thunkInstruction[gezi.ir.NoFacts.type](term)(using gezi.ir.NoFacts)
+      val tagged = Defunctionalization.thunkInstruction[gezi.ir.NoFacts.type](Occurrences.tagged(term, markers))(using gezi.ir.NoFacts)
       val end = OccurrenceErasure.trace(tagged, markers, erasureLemmas).output(tagged)
       Result.diff(Defunctionalization.instructionTerm(end), Defunctionalization.instructionTerm(encoded))(_ == _)
   }

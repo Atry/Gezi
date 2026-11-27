@@ -1,6 +1,8 @@
 package gezi.frontend
 
-import gezi.ir.Instruction
+import gezi.ir.Configured
+import gezi.ir.NoFacts
+import gezi.ir.StorageAccess
 
 /** Generated programs are thousands of nodes deep: every conversion of the
   * front end takes a right-nested chain of 100,000 applications,
@@ -12,6 +14,11 @@ import gezi.ir.Instruction
   */
 class DeepTermsTest extends gezi.generatedinputs.FailFastSuite:
 
+  given NoFacts.type = NoFacts
+  given StorageAccess = StorageAccess.granted()
+
+  private type NoFactsTerm = Configured[NoFacts.type]
+
   // Measured 2026-11-16 on 2 CPUs (contest-lean.slice, CPUs 10,11, nice 10), the 1-minute load 9 to 22 over the run, every deadline raised to 600 s: the slowest test of DeepTermsTest, "theOccurrenceTaggingOfADeepChain", takes 12.111 s; the bound is 1.5 times that rounded up to 5 s.
   // FIXME: this suite exceeds the 3 s default with no reason yet; its slow tests are to be made fast. The body runs on the JVM's default stack, as the test thread of the framework did. https://github.com/Atry/private-overlay/issues/1925
   override val munitTimeout: scala.concurrent.duration.Duration = scala.concurrent.duration.Duration(20, "s")
@@ -20,14 +27,15 @@ class DeepTermsTest extends gezi.generatedinputs.FailFastSuite:
 
   private val length = 100000
 
-  private val function =
-    Defunctionalization.thunkInstruction(Lambda(Variable(0)))
+  private val functionPure = Defunctionalization.pure(Lambda(Variable(0)))
 
-  private val definitions: Map[String, Instruction] = Map("f" -> function)
+  private val function: NoFactsTerm = Configured.fromPure(NoFacts)(functionPure)
+
+  private val definitions: Map[String, NoFactsTerm] = Map("f" -> function)
 
   /** The chain as a de Bruijn term, built by a fold. */
-  private val expected: DeBruijnTerm =
-    Lambda((1 to length).foldLeft(Variable(0): DeBruijnTerm)((inner, _) =>
+  private val expected: DeBruijnTermOf[NoFactsTerm] =
+    Lambda((1 to length).foldLeft(Variable(0): DeBruijnTermOf[NoFactsTerm])((inner, _) =>
       Apply(Constant(function), inner)
     ))
 
@@ -56,42 +64,44 @@ class DeepTermsTest extends gezi.generatedinputs.FailFastSuite:
       parsed,
       Lambda((1 to length).foldLeft(Variable(0): DeBruijnTerm)((inner, _) => Apply(Free("f"), inner)))
     )
-    assertEquals(
-      Defunctionalization.thunkInstruction(parsed, definitions),
-      Defunctionalization.thunkInstruction(expected)
+    assert(
+      Configured.same(
+        Defunctionalization.thunkInstruction[NoFacts.type](parsed, definitions),
+        Defunctionalization.thunkInstruction[NoFacts.type](expected)
+      )
     )
     assertEquals(Lambdalattice.freeNames(text), Vector("f"))
   }
 
   test("theDefunctionalizationInterningAndReadbackOfADeepChain") {
-    val instruction = Defunctionalization.thunkInstruction(expected)
+    val instruction = Defunctionalization.thunkInstruction[NoFacts.type](expected)
     // The chain with the literal of f in place of each reference: one instruction,
     // whose readback writes every reference out.
     val literal = Lambda((1 to length).foldLeft(Variable(0): DeBruijnTerm)((inner, _) =>
       Apply(Lambda(Variable(0)), inner)
     ))
-    val literalInstruction = Defunctionalization.thunkInstruction(literal)
-    assertEquals(literalInstruction, instruction)
+    val literalInstruction = Defunctionalization.thunkInstruction[NoFacts.type](literal)
+    assert(Configured.same(literalInstruction, instruction))
     assertEquals(Defunctionalization.instructionTerm(instruction), literal)
     // The respelling on the IR walks the chain without the stack, the
     // function's instruction a name or not, and gives back the front end's
     // instruction.
-    assertEquals(Respelling.respelled(instruction, Set(function)), instruction)
-    val closed = Defunctionalization.thunkInstruction(Apply(expected, Constant(function)))
-    assertEquals(Respelling.respelled(closed, Set.empty), closed)
+    assert(Configured.same(Respelling.respelled(instruction, Set(function)), instruction))
+    val closed = Defunctionalization.thunkInstruction[NoFacts.type](Apply(expected, Constant(function)))
+    assert(Configured.same(Respelling.respelled(closed, Set.empty), closed))
   }
 
   test("theOccurrenceTaggingOfADeepChain") {
     // The role next_tag is a define of its own: were it f, the marking
     // `name tag` of an occurrence would be the next tag's term, one instruction.
-    val nextTag = Defunctionalization.thunkInstruction(Lambda(Lambda(Variable(1))))
-    val markers = OccurrenceMarkers(function, function, function, nextTag)
+    val nextTag = Defunctionalization.pure(Lambda(Lambda(Variable(1))))
+    val markers = OccurrenceMarkers(functionPure, functionPure, functionPure, nextTag)
     val Counted(tagged, operations) = Occurrences.taggedCounted(expected, markers)
     // One tag interned after each of the length + 1 occurrences (the chain
     // and each constant), and 2 * length + 3 nodes visited: the lambda twice
     // (as an occurrence and as its chain), each application, constant and
     // the variable once.
     assertEquals(operations, (2L * length + 3) + (length + 1))
-    val taggedInstruction = Defunctionalization.thunkInstruction(tagged)
-    assertEquals(Respelling.respelled(taggedInstruction, Set.empty), taggedInstruction)
+    val taggedInstruction = Defunctionalization.thunkInstruction[NoFacts.type](tagged)
+    assert(Configured.same(Respelling.respelled(taggedInstruction, Set.empty), taggedInstruction))
   }

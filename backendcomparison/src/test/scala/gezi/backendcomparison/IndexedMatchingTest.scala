@@ -13,8 +13,7 @@ import gezi.orientation.Orientations
 import gezi.saturation.Saturation
 import gezi.ir.BuiltInRule
 import gezi.ir.Direction
-import gezi.ir.Instruction
-import gezi.ir.Layer
+import gezi.generatedinputs.StandInStorages
 import gezi.ir.LemmaIdentifier
 import gezi.ir.Pattern
 import gezi.generatedinputs.GeneratedProperties
@@ -27,6 +26,10 @@ import gezi.ir.{Apply, Choice, Parallel, Thunk}
   * tries every pattern at every class.
   */
 class IndexedMatchingTest extends gezi.generatedinputs.FailFastSuite with GeneratedProperties:
+
+  private type C = StandInStorages.type
+
+  private given StandInStorages.type = StandInStorages
 
   /** Catches a seed, a witness, a shared step of a tree or a signature
     * lookup that loses a match or finds a false one:
@@ -53,14 +56,14 @@ class IndexedMatchingTest extends gezi.generatedinputs.FailFastSuite with Genera
     * program finds from every node under every key are those the naive
     * matching finds, as sets.
     */
-  private def instancesAgree(generated: GeneratedStore, orientations: Vector[Orientation], stop: StopSignal): Result =
+  private def instancesAgree(generated: GeneratedStore, orientations: Vector[Orientation[C]], stop: StopSignal): Result =
     val store = generated.store
     val program = Indexing.program(orientations, generated.codes)
     val instructions = generated.instructions
     val initial = Saturation.initialGraph(store, Orientations.headArityBounds(orientations), Vector.empty, explained = false)
     val (withInstructions, _) = Saturation.inputsAdded(initial, instructions)
     val compiled = ClosureCompilation.compiled(program)
-    val (graph, _) = Saturation.saturated(program, compiled, BuiltInRule.all, withInstructions, budget = 40, stop)
+    val (graph, _) = Saturation.saturated(program, compiled, BuiltInRule.beforeOptIn, withInstructions, budget = 40, stop)
     val nodes = graph.liveNodes
     val found = (for
       (kind, key) <- program.seeds.keySet.toVector
@@ -76,48 +79,7 @@ class IndexedMatchingTest extends gezi.generatedinputs.FailFastSuite with Genera
     val naive = (for
       orientation <- orientations
       root <- nodes.map(_.root).distinct
-      bindings <- naiveMatches(graph, orientation.matched, root, Map.empty)
+      bindings <- NaiveMatching.matches(graph, orientation.matched, root, Map.empty)
     yield (orientation.index, root, orientation.essential.map(bindings.get))).toSet
     Result.diff(found, naive)(_ == _)
 
-  /** The bindings of the metavariables, extending the given ones, under
-    * which the class has the pattern: a metavariable is its class, a lambda
-    * pattern a class with a closure state, an instruction the class of its node,
-    * and a layer a live node of the class with that layer over classes that
-    * have the children's patterns.
-    */
-  private def naiveMatches(
-      graph: EGraph,
-      pattern: Pattern,
-      root: Int,
-      bindings: Map[Int, Int]
-  ): Vector[Map[Int, Int]] = pattern match
-    case Pattern.Metavariable(index) =>
-      bindings.get(index) match
-        case Some(bound) => if bound == root then Vector(bindings) else Vector.empty
-        case None        => Vector(bindings.updated(index, root))
-    case Pattern.Closure(index) =>
-      if graph.hasClosure(root) then
-        naiveMatches(graph, Pattern.Metavariable(index), root, bindings)
-      else Vector.empty
-    case Pattern.InstructionReference(instruction) =>
-      if graph.instructionNode(instruction).exists(graph.root(_) == root) then Vector(bindings)
-      else Vector.empty
-    case compound =>
-      graph.liveNodes
-        .filter(node => node.root == root && sameShape(compound, node.layer))
-        .flatMap(node =>
-          compound.children.zip(node.layer.children).foldLeft(Vector(bindings)) {
-            case (gathered, (child, childRoot)) =>
-              gathered.flatMap(naiveMatches(graph, child, childRoot, _))
-          }
-        )
-
-  private def sameShape(pattern: Pattern, layer: Layer[Int]): Boolean =
-    (pattern, layer) match
-      case (Pattern.Apply(_, _), Apply(_, _))       => true
-      case (Pattern.Parallel(_, _), Parallel(_, _)) => true
-      case (Pattern.Choice(_, _), Choice(_, _))     => true
-      case (Pattern.Thunk(code, holes, fillings), Thunk(layerCode, layerHoles, nodes)) =>
-        code == layerCode && holes == layerHoles && fillings.size == nodes.size
-      case _ => false

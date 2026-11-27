@@ -1,0 +1,51 @@
+# The sum over i from 1 to a limit of the sum of the divisors of i, written by the
+# definition (each i tried against every d from 1 to i), and its typed version modulo a
+# modulus, which a native computes. The recursions have the structure
+# problems/cses/sum_of_divisors gives them, so that a program's function is the same IR
+# term.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "prelude") "fixpoint")
+λ fixpoint
+. omega (omega (omega (omega corpora "library") "binary") "natural")
+λ binary_zero _ binary_odd _ binary_set
+. omega (omega (omega (omega corpora "library") "binary") "arithmetic")
+λ merge_binary_increment merge_binary_plus _ merge_binary_equality
+. omega (omega (omega (omega corpora "library") "binary") "order")
+λ binary_less_than _ _
+. omega (omega (omega (omega corpora "library") "native_types") "boolean")
+λ criterion_true criterion_false _ _
+. omega (omega (omega (omega corpora "library") "plover_compositions") "plover_compositions")
+λ _ _ plover_binary_modulo _ _ _
+. (λtuple. tuple (binary_odd binary_zero))
+λ one
+. ( λ tuple
+    . tuple
+    λ number
+    . fixpoint
+      ( λ self divisor sum
+        . binary_less_than number divisor sum (self (merge_binary_increment divisor) (merge_binary_equality (plover_binary_modulo number divisor) binary_zero (merge_binary_plus sum divisor) sum))
+      ) one binary_zero
+  )
+λ divisor_sum
+# plover_total_of_divisor_sums:
+# The function a program writes for the total, a noinline attractor.
+. ( λ tuple
+    . tuple
+    λ limit
+    . fixpoint
+      ( λ self number sum
+        . binary_less_than limit number sum (self (merge_binary_increment number) (merge_binary_plus sum (divisor_sum number)))
+      ) one binary_zero
+  )
+λ plover_total_of_divisor_sums
+# plover_typed_divisor_sums:
+# The limit a canonical natural and the modulus a positive one.
+. ( λ tuple
+    . tuple
+    λ limit modulus
+    . (plover_binary_modulo (plover_total_of_divisor_sums (limit ∥ binary_set criterion_true)) (modulus ∥ binary_set criterion_false) ∥ binary_set criterion_true)
+  )
+λ plover_typed_divisor_sums
+. export plover_total_of_divisor_sums plover_typed_divisor_sums

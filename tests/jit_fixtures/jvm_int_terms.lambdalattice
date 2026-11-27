@@ -1,0 +1,23 @@
+# The library terms JvmIntStorageLawTest builds its values from, each imported from its own
+# file of corpora/library and exported at its position of the file's Scott tuple, whose names
+# the test's term table keeps.
+# FIXME: the imports project "corpora" off the variable gezi, the name https://github.com/Atry/private-overlay/issues/1924
+# of the project root's own directory; they break if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "native_types") "boolean")
+λ true false boolean_type _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "fixed_width") "word_representation")
+λ word_end word_cell _ _ word_type _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "fixed_width") "int32_representation")
+λ _ int32_type _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "fixed_width") "jvm_int_type")
+λ jvm_int_type
+. omega (omega (omega (omega (omega gezi "corpora") "library") "fixed_width") "int32_arithmetic")
+λ int32_add int32_subtract int32_multiply int32_negate
+. omega (omega (omega (omega (omega gezi "corpora") "library") "fixed_width") "int32_comparison")
+λ int32_equal int32_less_than
+. export
+λ s
+. s true false boolean_type word_end word_cell word_type int32_type jvm_int_type int32_add int32_subtract int32_multiply int32_negate int32_equal int32_less_than

@@ -1,16 +1,15 @@
 package gezi.jit
 
 import gezi.ir.ConstructorIdentity
-import gezi.ir.Instruction
 import gezi.weakhead.ListCase
 import gezi.weakhead.ListRepresentation
-import gezi.weakhead.ListTail
-import gezi.weakhead.Value
+import gezi.ir.Value
 import gezi.weakhead.Values
 import scala.annotation.tailrec
 import scala.util.control.TailCalls.TailRec
 import scala.util.control.TailCalls.done
 import scala.util.control.TailCalls.tailcall
+import gezi.ir.{Configured, NativeSpecializer}
 
 /** A node of a value as a key: equal to itself only and hashed by its
   * identity, so that a subvalue the heap shares is one key, found in time
@@ -61,6 +60,111 @@ final case class CaseWalk(caseFree: Option[CaseFreeValues], visits: Long)
   */
 object JitValues:
 
+  /** A decode point's head of `x ∥ list_type E` as the array list
+    * (`Representation.ArrayListOf`) of `x ∥ array_list E`, the same term by
+    * the β rule: the list's cells walked once, on the heap, each item a
+    * storage of E's representation and each tail a storage of the list down
+    * to its nil, their elements one array; none when a cell is not of that
+    * form (an item left as written, a tail not read), the list's head then
+    * standing for the term.
+    */
+  // FIXME: https://github.com/Atry/private-overlay/issues/2228 a cell whose item
+  // is a storage of another representation of the element's family (a positive
+  // natural under `array_list N`) is not packed, so the JIT reads such a list as
+  // cells where the group blocks relabel it as an array list: one term, two
+  // representations. To be fixed by relabelling here as the blocks do
+  // (`StorageEncoding`'s relabelling), the snapshots' diffs derived first.
+  def arrayPacked[C <: NativeSpecializer & Singleton](
+      operations: StorageEncodingOperations[C],
+      representation: Representation[JitValue[C]],
+      element: Representation[JitValue[C]],
+      head: JitHead[C]
+  )(using C): Option[JitHead[C]] =
+    head match
+      case JitHead.Represented(listRepresentation @ Representation.ListOf(_), first) =>
+        @scala.annotation.tailrec
+        def walked(value: NativeValue[JitValue[C]], found: Vector[ArrayItem]): Option[Vector[ArrayItem]] = value match
+          case NativeValue.Listed(ListRepresentation.Items(0, _)) => Some(found)
+          case NativeValue.Listed(ListRepresentation.Cell(item, tail)) =>
+            val itemOf: Option[ArrayItem] = operations.storedThrough(item) match
+              case Some(JitValue.Stored(natural: BinaryNaturalStorage)) if natural.representation == element => Some(natural.natural.bigInteger)
+              case Some(JitValue.Stored(word: IntStorage)) if word.representation == element                   => Some(word.bits)
+              case _                                                                                          => None
+            (itemOf, operations.storedThrough(tail)) match
+              case (Some(read), Some(JitValue.Stored(next))) if next.representation == listRepresentation =>
+                walked(StorageOf.nativeValue(next), found :+ read)
+              case _ => None
+          case _ => None
+        walked(first, Vector.empty).flatMap(values =>
+          operations.storageOf(representation, operations.arrayList(representation, values)) match
+            case JitValue.Stored(storage) => Some(storage)
+            case _                        => None
+        )
+      case _ => None
+
+  /** Whether a value a decoding gave may hold a case of a decoding, the
+    * neutral value a list's or a data family's decoding applies a value to
+    * (`ListCase`, `DataCase`). A decoded value stands for the filtered value
+    * only when it holds none (`gezi.weakhead.ListCodec`, WHY A DECODED LIST
+    * STANDS FOR THE FILTERED VALUE): a value that passes its own case to a
+    * constructor's case keeps that neutral value as a field. Each item, unread
+    * tail and unread field is walked as a tree within its own
+    * `decodingCaseWalkLimit` values, true where a walk does not decide,
+    * so that the check of a list costs, as its decoding does, time linear in
+    * its items; the cells and the fields are walked with no recursion on the
+    * stack.
+    */
+  def mayHoldDecodingCase[C <: NativeSpecializer & Singleton](value: NativeValue[JitValue[C]])(using C): Boolean =
+    holdsDecodingCase(List(value), Nil)
+
+  /** The most values the walk of one term in `mayHoldDecodingCase` takes before it answers true: the normal-form
+    * reader's own limit for the walk of a plain value (`gezi.weakhead.NormalForms`, 4,096), so that a term is walked as
+    * far as the reader would walk it.
+    */
+  val decodingCaseWalkLimit: Int = 4096
+
+  @tailrec
+  private def holdsDecodingCase[C <: NativeSpecializer & Singleton](held: List[NativeValue[JitValue[C]]], terms: List[JitValue[C]])(using C): Boolean =
+    terms match
+      case term :: rest =>
+        termWalked(List(term), decodingCaseWalkLimit, held) match
+          case None        => true
+          case Some(found) => holdsDecodingCase(found, rest)
+      case Nil =>
+        held match
+          case Nil => false
+          case value :: rest =>
+            value match
+              case NativeValue.Listed(ListRepresentation.Items(_, items)) => holdsDecodingCase(rest, items.toList)
+              case NativeValue.Listed(ListRepresentation.Cell(item, tail)) => holdsDecodingCase(rest, List(item, tail))
+              case NativeValue.Stored(term)              => holdsDecodingCase(rest, storedFields(term))
+              case NativeValue.Constructed(_, _, fields) => holdsDecodingCase(fields.toList ::: rest, Nil)
+              case NativeValue.Unread(term)              => holdsDecodingCase(rest, List(term))
+              case _                                     => holdsDecodingCase(rest, Nil)
+
+  /** The walk of one term within the values remaining: `None` where it meets
+    * a case of a decoding or spends them, otherwise the held values with the
+    * represented values it met added, to be walked each on its own.
+    */
+  @tailrec
+  private def termWalked[C <: NativeSpecializer & Singleton](pending: List[JitValue[C]], remaining: Int, held: List[NativeValue[JitValue[C]]])(using C): Option[List[NativeValue[JitValue[C]]]] =
+    pending match
+      case Nil                 => Some(held)
+      case _ if remaining <= 0 => None
+      case value :: rest =>
+        value match
+          case JitValue.IrTerm(_)            => termWalked(rest, remaining - 1, held)
+          case JitValue.Apply(function, argument) => termWalked(function :: argument :: rest, remaining - 1, held)
+          case JitValue.Parallel(left, right)     => termWalked(left :: right :: rest, remaining - 1, held)
+          case JitValue.Choice(members)           => termWalked(members.toList ::: rest, remaining - 1, held)
+          case JitValue.Thunk(_, _, fillings)     => termWalked(fillings.toList ::: rest, remaining - 1, held)
+          case JitValue.Represented(_, found)     => termWalked(rest, remaining - 1, found :: held)
+          case JitValue.Grouped(members)          => termWalked(members.toList ::: rest, remaining - 1, held)
+          case JitValue.Neutral(variable, arguments) =>
+            variable match
+              case ListCase(_, _, _) | DataCase(_, _, _, _) => None
+              case _                                        => termWalked(arguments.toList ::: rest, remaining - 1, held)
+
   /** The images of the nodes converted so far, by identity. */
   private type Images[Image] = Map[Identity, Image]
 
@@ -100,9 +204,14 @@ object JitValues:
     * for a field of the family `unread`, the value of the representation
     * otherwise.
     */
-  def fieldTerm(representation: Representation, value: NativeValue): JitValue = value match
+  def fieldTerm[C <: NativeSpecializer & Singleton](
+      operations: StorageEncodingOperations[C],
+      representation: Representation[JitValue[C]],
+      value: NativeValue[JitValue[C]]
+  )(using C): JitValue[C] = value match
     case NativeValue.Unread(term) => term
-    case other                    => JitValue.Represented(representation, other)
+    case NativeValue.Stored(term) => term
+    case other                    => operations.storageOf(representation, other)
 
   /** Whether the value holds a case of a decoding (`DataCase`, `ListCase`):
     * a field kept unread that holds one refers to the binder the decoding
@@ -111,7 +220,7 @@ object JitValues:
     * state grows by a part at each step visits that part and not the whole
     * state. The values it visited become known only when it found no case.
     */
-  def caseWalk(value: JitValue, known: CaseFreeValues, retention: InstanceRetention): CaseWalk =
+  def caseWalk[C <: NativeSpecializer & Singleton](value: JitValue[C], known: CaseFreeValues, retention: InstanceRetention)(using C): CaseWalk =
     val (seen, visits) = walkedForCase(List(value), known.young, known.older, 0L)
     CaseWalk(
       seen.map(young =>
@@ -123,15 +232,15 @@ object JitValues:
     )
 
   @tailrec
-  private def walkedForCase(
-      pending: List[JitValue],
+  private def walkedForCase[C <: NativeSpecializer & Singleton](
+      pending: List[JitValue[C]],
       seen: Set[Identity],
       older: Set[Identity],
       visits: Long
-  ): (Option[Set[Identity]], Long) = pending match
+  )(using C): (Option[Set[Identity]], Long) = pending match
     case Nil => (Some(seen), visits)
     case value :: rest =>
-      val key = Identity(value)
+      val key = Identity(value.representation)
       if seen.contains(key) then walkedForCase(rest, seen, older, visits)
       else if older.contains(key) then walkedForCase(rest, seen + key, older, visits)
       else
@@ -139,217 +248,30 @@ object JitValues:
         val counted = visits + 1
         value match
           case JitValue.Neutral(_: DataCase | _: ListCase, _) => (None, counted)
-          case JitValue.Neutral(JitCarried(carried), arguments) =>
-            walkedForCase(carried :: arguments.toList ++ rest, visited, older, counted)
           case JitValue.Neutral(_, arguments)     => walkedForCase(arguments.toList ++ rest, visited, older, counted)
           case JitValue.Apply(function, argument) => walkedForCase(function :: argument :: rest, visited, older, counted)
           case JitValue.Parallel(left, right)     => walkedForCase(left :: right :: rest, visited, older, counted)
           case JitValue.Choice(members)           => walkedForCase(members.toList ++ rest, visited, older, counted)
           case JitValue.Thunk(_, _, fillings)     => walkedForCase(fillings.toList ++ rest, visited, older, counted)
-          case JitValue.Cell(inner)               => walkedForCase(inner :: rest, visited, older, counted)
-          case JitValue.Evaluated(written, _, _)  => walkedForCase(written :: rest, visited, older, counted)
           case JitValue.Represented(_, native)    => walkedForCase(nativeParts(native) ++ rest, visited, older, counted)
+          case JitValue.Grouped(members)          => walkedForCase(members.toList ++ rest, visited, older, counted)
           case _                                  => walkedForCase(rest, visited, older, counted)
 
   /** The run-time values a native value holds. */
-  private def nativeParts(value: NativeValue): List[JitValue] = value match
+  private def nativeParts[C <: NativeSpecializer & Singleton](value: NativeValue[JitValue[C]])(using C): List[JitValue[C]] = value match
     case NativeValue.Unread(term)             => List(term)
+    case NativeValue.Stored(term)             => storedFields(term)
     case NativeValue.Constructed(_, _, fields) => fields.toList.flatMap(nativeParts)
     case NativeValue.Listed(list)             => listParts(list)
     case _                                    => Nil
 
-  private def listParts(list: ListRepresentation[JitValue]): List[JitValue] = list match
-    case ListRepresentation.Items(_, items)                 => items.toList
-    case ListRepresentation.Cell(item, ListTail.Unread(term)) => List(item, term)
-    case ListRepresentation.Cell(item, ListTail.Listed(rest)) => item :: listParts(rest)
-
-  /** The JIT's value of a value a reader gives: a carried leaf is the value
-    * it carries; an instruction (`ConstructorIdentity.isInstruction`, one
-    * field read: no neutral value under it) is a reference to itself, as an
-    * instruction was; every other value is taken over part by part, each shared
-    * part once.
+  /** The fields of a declared family's stored value, one layer: the terms its storage holds. Walking the stored term
+    * itself would read it as a value of a representation again, whose native value is that term.
     */
-  def fromValue(value: Value): JitValue = converted(value, Map.empty).result._1
+  private def storedFields[C <: NativeSpecializer & Singleton](term: JitValue[C])(using C): List[JitValue[C]] = term match
+    case JitValue.Stored(storage) => StorageOf.constructed[C](storage).fold(List.empty[JitValue[C]])(_.fields.toList)
+    case _                        => Nil
 
-  private def converted(value: Value, images: Images[JitValue]): TailRec[(JitValue, Images[JitValue])] = value match
-    case Value.Neutral(JitCarried(carried), arguments) if arguments.isEmpty => done((carried, images))
-    case instruction if ConstructorIdentity.isInstruction(instruction) =>
-      // Sound: one pool interns both, and a value made of the IR's
-      // constructors only is an instruction, which is a value of the JIT as it is.
-      done((instruction.asInstanceOf[Instruction], images))
-    case _ => shared(value, images)(convertedNode)
-
-  private def convertedNode(value: Value, images: Images[JitValue]): TailRec[(JitValue, Images[JitValue])] = value match
-    case Value.Apply(function, argument) =>
-      bothImages(function, argument, images)(converted).map { case ((jitFunction, jitArgument), after) =>
-        (JitValue.Apply(jitFunction, jitArgument), after)
-      }
-    case Value.Parallel(left, right) =>
-      bothImages(left, right, images)(converted).map { case ((jitLeft, jitRight), after) =>
-        (JitValue.Parallel(jitLeft, jitRight), after)
-      }
-    case Value.Choice(left, right) =>
-      bothImages(left, right, images)(converted).map { case ((jitLeft, jitRight), after) =>
-        (JitValue.Choice(Vector(jitLeft, jitRight)), after)
-      }
-    case Value.Thunk(code, holes, fillings) =>
-      allImages(fillings, images)(converted).map((found, after) => (JitValue.Thunk(code, holes, found), after))
-    case Value.Neutral(variable, arguments) =>
-      allImages(arguments, images)(converted).map((found, after) => (JitValue.Neutral(variable, found), after))
-    case other => throw IllegalStateException(s"a ${other.layer.productPrefix} value is no layer of a value")
-
-  /** The value as a reader holds it, in one step whatever its size: an
-    * instruction is a value as it is, any other value is carried
-    * (`JitCarried`).
-    */
-  def carried(value: JitValue): Value = value match
-    case JitValue.Instruction(instruction) => instruction
-    case other                        => Value.Neutral(JitCarried(other), Vector.empty)
-
-  /** The plain value of a JIT value that holds no value of the JIT's own,
-    * each shared part converted once. Throws `IllegalArgumentException` on a
-    * represented or `Evaluated` value.
-    */
-  def plain(value: JitValue): Value = plainOf(value, Map.empty).result._1
-
-  private def plainOf(value: JitValue, images: Images[Value]): TailRec[(Value, Images[Value])] = value match
-    case JitValue.Instruction(instruction) => done((instruction, images))
-    case JitValue.Cell(inner)         => tailcall(plainOf(inner, images))
-    case _                            => shared(value, images)(plainNode)
-
-  /** The plain value of the choice of no member ([[EmptyChoice]]): top
-    * (`gezi.frontend.Literals.top`), the term of no answer.
-    */
-  private lazy val noAnswer: Value =
-    gezi.frontend.Defunctionalization.thunkInstruction(gezi.frontend.Literals.top)
-
-  private def plainNode(value: JitValue, images: Images[Value]): TailRec[(Value, Images[Value])] = value match
-    case JitValue.Apply(function, argument) =>
-      bothImages(function, argument, images)(plainOf).map { case ((plainFunction, plainArgument), after) =>
-        (Value.Apply(plainFunction, plainArgument), after)
-      }
-    case JitValue.Parallel(left, right) =>
-      bothImages(left, right, images)(plainOf).map { case ((plainLeft, plainRight), after) =>
-        (Value.Parallel(plainLeft, plainRight), after)
-      }
-    case JitValue.Choice(members) =>
-      allImages(members, images)(plainOf).map((found, after) =>
-        (if found.isEmpty then noAnswer else gezi.ir.ChoiceSpine.nested[Value](found, Value.Choice(_, _)), after)
-      )
-    case JitValue.Thunk(code, holes, fillings) =>
-      allImages(fillings, images)(plainOf).map((found, after) => (Value.Thunk(code, holes, found), after))
-    case JitValue.Neutral(variable, arguments) =>
-      allImages(arguments, images)(plainOf).map((found, after) => (Value.Neutral(variable, found), after))
-    case other => throw IllegalArgumentException(s"a ${other.layer.productPrefix} value is no plain value")
-
-  /** The value with every represented value replaced by the term it stands
-    * for, whole (represented_term/3: successor^n zero over the codec's
-    * instructions, a boolean's define, a list's cells), and every `Evaluated`
-    * value by its written operand, encoded likewise (value_encoded/2); each
-    * shared subvalue encoded once, so that the result shares as the value
-    * does (SHARING).
-    */
-  def encoded(value: JitValue, facts: BackendFacts): JitValue = encodedOf(value, facts, Map.empty).result._1
-
-  private def encodedOf(value: JitValue, facts: BackendFacts, images: Images[JitValue]): TailRec[(JitValue, Images[JitValue])] =
-    value match
-      case JitValue.Instruction(_) => done((value, images))
-      case _                       => shared(value, images)(encodedNode(_, facts, _))
-
-  private def encodedNode(value: JitValue, facts: BackendFacts, images: Images[JitValue]): TailRec[(JitValue, Images[JitValue])] =
-    def encodedPart(part: JitValue, current: Images[JitValue]) = encodedOf(part, facts, current)
-    value match
-      case JitValue.Represented(representation, native) => representedTerm(representation, native, facts, images)
-      case JitValue.Evaluated(written, _, _) => tailcall(encodedOf(written, facts, images))
-      case JitValue.Cell(inner) =>
-        tailcall(encodedOf(inner, facts, images)).map((found, after) => (JitValue.Cell(found), after))
-      case JitValue.Apply(function, argument) =>
-        bothImages(function, argument, images)(encodedPart).map { case ((encodedFunction, encodedArgument), after) =>
-          (JitValue.Apply(encodedFunction, encodedArgument), after)
-        }
-      case JitValue.Parallel(left, right) =>
-        bothImages(left, right, images)(encodedPart).map { case ((encodedLeft, encodedRight), after) =>
-          (JitValue.Parallel(encodedLeft, encodedRight), after)
-        }
-      case JitValue.Choice(members) =>
-        allImages(members, images)(encodedPart).map((found, after) => (JitValue.Choice(found), after))
-      case JitValue.Thunk(code, holes, fillings) =>
-        allImages(fillings, images)(encodedPart).map((found, after) => (JitValue.Thunk(code, holes, found), after))
-      case JitValue.Neutral(variable, arguments) =>
-        allImages(arguments, images)(encodedPart).map((found, after) => (JitValue.Neutral(variable, found), after))
-      case JitValue.Instruction(_) => done((value, images))
-
-  private def representedTerm(
-      representation: Representation,
-      value: NativeValue,
-      facts: BackendFacts,
-      images: Images[JitValue]
-  ): TailRec[(JitValue, Images[JitValue])] =
-    def encodedPart(part: JitValue, current: Images[JitValue]) = encodedOf(part, facts, current)
-    (representation, value) match
-      case (Representation.Data(familyIdentity, parameter), _) =>
-        val family = facts.nativeBackend.family(familyIdentity).getOrElse(
-          throw IllegalStateException(s"no data family ${familyIdentity.shown} in the backend")
-        )
-        val DataLayer(constructor, fields) = family.layer(parameter, value)
-        val atParameter = family.constructors(parameter)(constructor)
-        val represented = atParameter.fields.zip(fields).map((field, fieldValue) =>
-          fieldTerm(field.representation(parameter), fieldValue)
-        )
-        allImages(represented, images)(encodedPart).map((encodedFields, after) =>
-          (
-            encodedFields.foldLeft(facts.constructorDefine(atParameter.native): JitValue)(
-              JitValue.Apply(_, _)
-            ),
-            after
-          )
-        )
-      case (Representation.ListOf(element), NativeValue.Listed(ListRepresentation.Items(_, items))) =>
-        allImages(items, images)(encodedPart).map((encodedItems, after) =>
-          (
-            encodedItems.foldRight(facts.nil: JitValue)((item, rest) =>
-              JitValue.Apply(JitValue.Apply(facts.cons, JitValue.Parallel(item, element)), rest)
-            ),
-            after
-          )
-        )
-      case (Representation.ListOf(element), NativeValue.Listed(ListRepresentation.Cell(item, tail))) =>
-        val tailTerm = tail match
-          case ListTail.Unread(term) => term
-          case ListTail.Listed(list) => JitValue.Represented(representation, NativeValue.Listed(list))
-        bothImages(item, tailTerm, images)(encodedPart).map { case ((encodedItem, encodedTail), after) =>
-          (JitValue.Apply(JitValue.Apply(facts.cons, JitValue.Parallel(encodedItem, element)), encodedTail), after)
-        }
-      case _ => throw IllegalStateException(s"a value of another representation than ${representation.familyIdentity.shown}")
-
-  /** The value with every `Evaluated` value in it replaced by its written
-    * operand (written_throughout/2), each shared subvalue rebuilt once
-    * (SHARING); represented values stay.
-    */
-  def writtenThroughout(value: JitValue): JitValue = writtenOf(value, Map.empty).result._1
-
-  private def writtenOf(value: JitValue, images: Images[JitValue]): TailRec[(JitValue, Images[JitValue])] = value match
-    case JitValue.Evaluated(written, _, _) => done((written, images))
-    case JitValue.Instruction(_)           => done((value, images))
-    case JitValue.Apply(_, _) | JitValue.Parallel(_, _) | JitValue.Choice(_) | JitValue.Thunk(_, _, _) | JitValue.Neutral(_, _) |
-        JitValue.Cell(_) =>
-      shared(value, images)(writtenNode)
-    case other => done((other, images))
-
-  private def writtenNode(value: JitValue, images: Images[JitValue]): TailRec[(JitValue, Images[JitValue])] = value match
-    case JitValue.Apply(function, argument) =>
-      bothImages(function, argument, images)(writtenOf).map { case ((writtenFunction, writtenArgument), after) =>
-        (JitValue.Apply(writtenFunction, writtenArgument), after)
-      }
-    case JitValue.Parallel(left, right) =>
-      bothImages(left, right, images)(writtenOf).map { case ((writtenLeft, writtenRight), after) =>
-        (JitValue.Parallel(writtenLeft, writtenRight), after)
-      }
-    case JitValue.Choice(members) =>
-      allImages(members, images)(writtenOf).map((found, after) => (JitValue.Choice(found), after))
-    case JitValue.Thunk(code, holes, fillings) =>
-      allImages(fillings, images)(writtenOf).map((found, after) => (JitValue.Thunk(code, holes, found), after))
-    case JitValue.Neutral(variable, arguments) =>
-      allImages(arguments, images)(writtenOf).map((found, after) => (JitValue.Neutral(variable, found), after))
-    case JitValue.Cell(inner) => tailcall(writtenOf(inner, images)).map((found, after) => (JitValue.Cell(found), after))
-    case other => done((other, images))
+  private def listParts[C <: NativeSpecializer & Singleton](list: ListRepresentation[JitValue[C]])(using C): List[JitValue[C]] = list match
+    case ListRepresentation.Items(_, items) => items.toList
+    case ListRepresentation.Cell(item, tail) => List(item, tail)

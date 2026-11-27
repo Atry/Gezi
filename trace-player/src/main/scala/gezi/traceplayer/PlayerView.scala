@@ -138,7 +138,7 @@ object PlayerView:
     // print nothing again), the same printing for both views; the library
     // terms the trace names are written by those names and their bodies not
     // shown.
-    val folded: Binding[(Int, (ReadableText.Printed, BoxFolding), (ReadableText.Printed, BoxFolding))] =
+    val folded: Binding[(Int, (ReadableText.Printed[gezi.ir.NoFacts.type], BoxFolding), (ReadableText.Printed[gezi.ir.NoFacts.type], BoxFolding))] =
       frame
         .map(_.step)
         .flatMap(step =>

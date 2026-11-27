@@ -1,0 +1,85 @@
+# ferris_wheel:
+# CSES 1090, Ferris Wheel (https://cses.fi/problemset/task/1090), in our own words:
+# children with given weights queue for a ferris wheel whose gondolas each hold one
+# child or two, together at most x in weight; the fewest gondolas that carry every
+# child. The input is the binary natural x (corpora/library/binary/natural) and a
+# Scott list (corpora/library/prelude/list) of the weights, binary naturals, each at
+# most x; the answer is a binary natural. Part of the CSES port's fourth batch.
+#
+# THE PROGRAM, written by the definition: every way to partition the children into
+# groups of one or two that fit is built (the first child is alone, or is paired with
+# any later child whose weight fits with its own, the partition then going on with the
+# others), the number of groups of each partition is listed, and the least is taken.
+# Its reading builds every such partition, the matchings of the children, which grow
+# faster than the factorial of half their number; the replacement the family asks for
+# is to sort the weights and pair the lightest with the heaviest that fits, two
+# pointers, in about n log n steps, on fixed-width integers.
+#
+# DEFINITION 14: the program P, the point's term, is built of λ and application only:
+# its text holds no top, no choice, no parallel and no literal. It β-reduces to V, the
+# canonical binary numeral of the answer: every recursion ends, since the partitions
+# of a list are built from the partitions of a shorter list, and every other recursion
+# consumes a finite list; the branches that a Scott boolean discards are never read.
+# The list of the numbers of groups is never empty, since a child alone is a group
+# (each weight is at most x), so the least is taken of a nonempty list. The program
+# calls no subtraction. So ⊢_β P = V, and P ≃_O V by the soundness of the derivable
+# equations for the contextual preorder of Definition 14 (Lean
+# `ContextualPreorder.contextualEquivalenceOfDerivableLatticeEta`): V is an answer, P
+# ⊑_O V. No other closed βη normal form W has P ⊑_O W: then V ⊑_O W, while Böhm's
+# theorem gives a pure context that takes V to λx y. x and W to λx y. y, and applying
+# both to λa. a and Ω makes the first solvable and the second not.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "fixpoint")
+λ fixpoint
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
+λ nil cons append map _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "pair")
+λ pair _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "natural")
+λ binary_zero _ _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "arithmetic")
+λ merge_binary_increment merge_binary_plus _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "order")
+λ binary_less_than _ binary_minimum
+. ( λ tuple
+    . tuple λ. fixpoint λ self least candidates. candidates least λ candidate rest. self (binary_minimum least candidate) rest
+  )
+λ fold_minimum
+. ( λ tuple
+    . tuple
+    λ. fixpoint
+    λ self items
+    . items nil
+      λ head tail
+      . cons (pair head tail) λ. map (λ picked. picked λ other rest. pair other (cons head rest)) λ. self tail
+  )
+λ picks
+. ( λ tuple
+    . tuple λ. fixpoint λ self lists. lists nil λ head tail. append head λ. self tail
+  )
+λ flatten
+. ( λ tuple
+    . tuple
+    λ capacity
+    . fixpoint
+      ( λ self children
+        . children (cons binary_zero nil)
+          λ head tail
+          . append (map merge_binary_increment (self tail))
+            λ. flatten
+              ( map
+                ( λ picked
+                  . picked
+                    λ other rest
+                    . binary_less_than capacity (merge_binary_plus head other) nil (map merge_binary_increment (self rest))
+                )
+                (picks tail)
+              )
+      )
+  )
+λ group_counts
+. (λtuple. tuple λcapacity children. (group_counts capacity children) binary_zero λhead tail. fold_minimum head tail)
+λ ferris_wheel
+. export ferris_wheel

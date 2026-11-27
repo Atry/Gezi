@@ -4,17 +4,19 @@ import hedgehog.Gen
 import hedgehog.Range
 import gezi.orientation.Orientation
 import gezi.ir.Direction
-import gezi.ir.Instruction
 import gezi.ir.Layer
 import gezi.ir.LemmaIdentifier
 import gezi.ir.Pattern
 import gezi.ir.Store
 import gezi.ir.{Apply, Choice, Parallel}
 
-/** Generators of orientations over a generated store (`StoreGenerators`),
-  * generic, no Gezi data.
+/** Generators of orientations over a generated store (`StoreGenerators`), whose terms are of the stand-in
+  * configuration, no Gezi data.
   */
 object OrientationGenerators:
+
+  private type C = StandInStorages.type
+  private type Term = StandInStorages.Term
 
   /** Two to five orientations whose matched sides abstract one stored
     * application, parallel or choice:
@@ -24,7 +26,7 @@ object OrientationGenerators:
     * metavariables essential in every other orientation, so that both plain
     * and witness steps occur.
     */
-  def orientationsOver(generated: GeneratedStore): Gen[Vector[Orientation]] =
+  def orientationsOver(generated: GeneratedStore): Gen[Vector[Orientation[C]]] =
     val instructions = generated.instructions
     val positions = instructions.zipWithIndex.toMap
     val store = generated.store
@@ -32,7 +34,7 @@ object OrientationGenerators:
     for
       layer <-
         if compounds.isEmpty then
-          Gen.constant(Parallel(instructions.head, instructions.head))
+          Gen.constant(store.expanded(StandInStorages.parallel(instructions.head, instructions.head)))
         else Gen.element(compounds.head, compounds.tail.toList)
       common <- abstraction(store, positions, layer.children.head, 3)
       count <- Gen.int(Range.linear(2, 5))
@@ -64,7 +66,7 @@ object OrientationGenerators:
     * later copies are determined), or the instruction's application, parallel or
     * choice over patterns of its children.
     */
-  private def abstraction(store: Store, positions: Map[Instruction, Int], instruction: Instruction, depth: Int): Gen[Pattern] =
+  private def abstraction(store: Store[C], positions: Map[Term, Int], instruction: Term, depth: Int): Gen[Pattern[C]] =
     val leaf = Gen.frequency1(
       2 -> Gen.constant(Pattern.Metavariable(positions(instruction) % metavariableCount)),
       1 -> Gen.constant(Pattern.InstructionReference(instruction))
@@ -76,21 +78,21 @@ object OrientationGenerators:
       case _ => leaf
 
   /** A layer a pattern may abstract: an application, a parallel or a choice. */
-  private def abstractable(layer: Layer[Instruction]): Boolean = layer match
+  private def abstractable(layer: Layer[Term]): Boolean = layer match
     case Apply(_, _) | Parallel(_, _) | Choice(_, _) => true
     case _                                                             => false
 
   /** The pattern of the layer's shape over patterns of its children, in
     * child order.
     */
-  private def patternOver(layer: Layer[Instruction], children: Vector[Pattern]): Pattern = layer match
+  private def patternOver(layer: Layer[Term], children: Vector[Pattern[C]]): Pattern[C] = layer match
     case Apply(_, _)     => Pattern.Apply(children(0), children(1))
     case Parallel(_, _)  => Pattern.Parallel(children(0), children(1))
     case _                     => Pattern.Choice(children(0), children(1))
 
   /** One value of each generator, in order. */
-  private def each(generators: Vector[Gen[Pattern]]): Gen[Vector[Pattern]] =
-    generators.foldLeft(Gen.constant(Vector.empty[Pattern]))((gathered, generator) =>
+  private def each(generators: Vector[Gen[Pattern[C]]]): Gen[Vector[Pattern[C]]] =
+    generators.foldLeft(Gen.constant(Vector.empty[Pattern[C]]))((gathered, generator) =>
       for
         earlier <- gathered
         next <- generator

@@ -35,11 +35,11 @@ book_shop_point
   cses_book_shop_budget_exactly_spent: Site(Vector((1,2)),1) => 2
   cses_book_shop_skip_the_middle_book: Site(Vector((1,1), (2,3), (3,4)),4) => 5
 shortest_routes_single_source_point
-  cses_shortest_routes_single_source_one_city_no_flights: Site(1,Vector()) => [0]
-  cses_shortest_routes_single_source_two_hops_beat_direct: Site(3,Vector((1,2,5), (2,3,4), (1,3,10))) => [0, 5, 9]
-  cses_shortest_routes_single_source_cycle_and_back_flight: Site(4,Vector((1,2,1), (1,3,4), (2,3,2), (3,4,1), (4,2,1), (3,1,1))) => [0, 1, 3, 4]
-  cses_shortest_routes_single_source_parallel_flights: Site(3,Vector((1,2,7), (1,2,3), (2,3,1))) => [0, 3, 4]
-  cses_shortest_routes_single_source_long_chain_beats_direct: Site(5,Vector((1,2,1), (2,3,1), (3,4,1), (4,5,1), (1,5,10), (1,3,5))) => [0, 1, 2, 3, 4]
+  cses_shortest_routes_single_source_one_city_no_flights: Site(1,Vector()) => 0
+  cses_shortest_routes_single_source_two_hops_beat_direct: Site(3,Vector((1,2,5), (2,3,4), (1,3,10))) => 14
+  cses_shortest_routes_single_source_cycle_and_back_flight: Site(4,Vector((1,2,1), (1,3,4), (2,3,2), (3,4,1), (4,2,1), (3,1,1))) => 8
+  cses_shortest_routes_single_source_parallel_flights: Site(3,Vector((1,2,7), (1,2,3), (2,3,1))) => 7
+  cses_shortest_routes_single_source_long_chain_beats_direct: Site(5,Vector((1,2,1), (2,3,1), (3,4,1), (4,5,1), (1,5,10), (1,3,5))) => 10
 shortest_routes_queries_point
   cses_shortest_routes_queries_one_road_both_directions: Site(2,Vector((1,2,3)),Vector((1,2), (2,1), (1,1))) => [some 3, some 3, some 0]
   cses_shortest_routes_queries_detour_beats_long_road: Site(4,Vector((1,2,1), (2,3,2), (3,4,1), (1,4,9)),Vector((1,4), (4,2), (2,4))) => [some 4, some 3, some 3]
@@ -48,11 +48,11 @@ shortest_routes_queries_point
   cses_shortest_routes_queries_city_to_itself_only: Site(1,Vector(),Vector((1,1))) => [some 0]
   cses_shortest_routes_queries_no_queries: Site(3,Vector((1,2,1)),Vector()) => []
 counting_divisors_point
-  cses_counting_divisors_prime_and_one: Site(Vector(1, 7)) => [1, 2]
-  cses_counting_divisors_square_and_composite: Site(Vector(16, 12)) => [5, 6]
-  cses_counting_divisors_highly_composite: Site(Vector(36, 30)) => [9, 8]
-  cses_counting_divisors_single_prime_square: Site(Vector(25)) => [3]
-  cses_counting_divisors_empty_list: Site(Vector()) => []
+  cses_counting_divisors_prime_and_one: Site(Vector(1, 7)) => 3
+  cses_counting_divisors_square_and_composite: Site(Vector(16, 12)) => 11
+  cses_counting_divisors_highly_composite: Site(Vector(36, 30)) => 17
+  cses_counting_divisors_single_prime_square: Site(Vector(25)) => 3
+  cses_counting_divisors_empty_list: Site(Vector()) => 0
 binomial_coefficients_point
   cses_binomial_coefficients_choose_none_and_all: Site(Vector((4,0), (4,4), (0,0))) => [1, 1, 1]
   cses_binomial_coefficients_middle_of_row_five: Site(Vector((5,2), (5,3))) => [10, 10]

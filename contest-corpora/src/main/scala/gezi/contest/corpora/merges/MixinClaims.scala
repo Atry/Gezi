@@ -111,7 +111,7 @@ final class MixinClaims(problems: ProblemFamilies, library: MixinLibrary):
     * Scott unary numeral, enough for every path of the graph
     * (`reductions.Encodings.unary`).
     */
-  def graphSurface(name: MixinGraphName, query: MixinQuery): Term =
+  def graphSurface(name: MixinGraphName, query: MixinQuery): ProblemTerm =
     val (edges, nodes, order) = graph(name)
     library.withMixinLibrary(
       Vector.empty,
@@ -126,7 +126,7 @@ final class MixinClaims(problems: ProblemFamilies, library: MixinLibrary):
   /** The module's mixin that implements the node's class, over the module's
     * self (`node_module_mixin/5`).
     */
-  private def nodeModuleMixin(edges: Vector[(String, String)], nodes: Vector[String], order: String, node: String): Term =
+  private def nodeModuleMixin(edges: Vector[(String, String)], nodes: Vector[String], order: String, node: String): ProblemTerm =
     library.selfMixin(graphModule(nodes), node, module => nodeClass(edges, nodes, order, module, node))
 
   /** The mixins of the marker, of reachable, of next and of two_hop
@@ -141,7 +141,7 @@ final class MixinClaims(problems: ProblemFamilies, library: MixinLibrary):
     * https://github.com/Atry/private-overlay/issues/1989). With it the
     * recursion terminates and the selection theorem applies.
     */
-  private def nodeClass(edges: Vector[(String, String)], nodes: Vector[String], order: String, module: Term, node: String): Term =
+  private def nodeClass(edges: Vector[(String, String)], nodes: Vector[String], order: String, module: ProblemTerm, node: String): ProblemTerm =
     val hierarchy = graphNode(nodes)
     val nexts = edges.collect { case (from, to) if from == node => to }
     val direct = nexts.map(successorClass(nodes, module, _))
@@ -161,7 +161,7 @@ final class MixinClaims(problems: ProblemFamilies, library: MixinLibrary):
       )
     )
 
-  private def successorClass(nodes: Vector[String], module: Term, next: String): Term =
+  private def successorClass(nodes: Vector[String], module: ProblemTerm, next: String): ProblemTerm =
     library.readSlot(graphModule(nodes), next, module)
 
   /** The graph points, each with its graph, its query and the path of its
@@ -205,7 +205,7 @@ final class MixinClaims(problems: ProblemFamilies, library: MixinLibrary):
   /** `{search_0, accumulated : 0}.found`, read at church, over the module of
     * the levels and the binary library (`subset_surface/3`).
     */
-  def subsetSurface(items: Vector[BigInt], target: BigInt): Term =
+  def subsetSurface(items: Vector[BigInt], target: BigInt): ProblemTerm =
     val count = items.length
     library.withMixinLibrary(
       Vector("binary"),
@@ -217,11 +217,11 @@ final class MixinClaims(problems: ProblemFamilies, library: MixinLibrary):
     )
 
   /** `{class, accumulated : accumulated}.found` (`search_found/3`). */
-  private def searchFound(classTerm: Term, accumulated: Term): Term =
+  private def searchFound(classTerm: ProblemTerm, accumulated: ProblemTerm): ProblemTerm =
     library.readSlot(search, "found", choice(classTerm, library.valueMixin(search, "accumulated" -> accumulated)))
 
   /** The module's mixin that implements search_level (`search_module_mixin/5`). */
-  private def searchModuleMixin(names: LibraryNames, items: Vector[BigInt], target: BigInt, level: Int): Term =
+  private def searchModuleMixin(names: LibraryNames, items: Vector[BigInt], target: BigInt, level: Int): ProblemTerm =
     library.selfMixin(searchModule(items.length), s"search_$level", module =>
       choice(searchNodeMixin(names, items, target, module, level))
     )
@@ -230,7 +230,7 @@ final class MixinClaims(problems: ProblemFamilies, library: MixinLibrary):
     * other level chooses leaving its item out or taking it
     * (`search_node_mixin/7`).
     */
-  private def searchNodeMixin(names: LibraryNames, items: Vector[BigInt], target: BigInt, module: Term, level: Int): Term =
+  private def searchNodeMixin(names: LibraryNames, items: Vector[BigInt], target: BigInt, module: ProblemTerm, level: Int): ProblemTerm =
     val count = items.length
     if level == count then
       library.selfMixin(search, "found", self =>
@@ -267,7 +267,7 @@ final class MixinClaims(problems: ProblemFamilies, library: MixinLibrary):
     * read at church; the Booleans and the unary need the natural library's,
     * the strings module let bound once (`common_subsequence_surface/4`).
     */
-  def commonSubsequenceSurface(left: Vector[Char], right: Vector[Char], need: Int): Term =
+  def commonSubsequenceSurface(left: Vector[Char], right: Vector[Char], need: Int): ProblemTerm =
     library.withMixinLibrary(
       Vector("natural"),
       names =>
@@ -285,7 +285,7 @@ final class MixinClaims(problems: ProblemFamilies, library: MixinLibrary):
   /** The symbols' and lists' classes and common_subsequence
     * (`strings_module/2`).
     */
-  private def stringsModuleTerm(names: LibraryNames): Term =
+  private def stringsModuleTerm(names: LibraryNames): ProblemTerm =
     choice(
       library.valueMixin(
         stringsModule,
@@ -297,7 +297,7 @@ final class MixinClaims(problems: ProblemFamilies, library: MixinLibrary):
       library.selfMixin(stringsModule, "common_subsequence", module => choice(commonSubsequenceMixin(names, module)))
     )
 
-  private def stringObject(module: Term, symbols: Vector[Char]): Term =
+  private def stringObject(module: ProblemTerm, symbols: Vector[Char]): ProblemTerm =
     symbols.foldRight(library.readSlot(stringsModule, "nil", module))((head, tail) =>
       choice(
         library.readSlot(stringsModule, "cons", module),
@@ -308,7 +308,7 @@ final class MixinClaims(problems: ProblemFamilies, library: MixinLibrary):
   /** `{common_subsequence, left : Left, right : Right, need : Need}.found`,
     * the class read from the module (`common_subsequence_found/5`).
     */
-  private def commonSubsequenceFound(module: Term, left: Term, right: Term, need: Term): Term =
+  private def commonSubsequenceFound(module: ProblemTerm, left: ProblemTerm, right: ProblemTerm, need: ProblemTerm): ProblemTerm =
     library.readSlot(
       commonSubsequence,
       "found",
@@ -321,10 +321,10 @@ final class MixinClaims(problems: ProblemFamilies, library: MixinLibrary):
   /** found over self's left, right and need, each read anew from self where
     * it is used (`common_subsequence_mixin/3`).
     */
-  private def commonSubsequenceMixin(names: LibraryNames, module: Term): Term =
+  private def commonSubsequenceMixin(names: LibraryNames, module: ProblemTerm): ProblemTerm =
     library.selfMixin(commonSubsequence, "found", self =>
-      def read(slot: String): Term = library.readSlot(commonSubsequence, slot, self)
-      def falseClass: Term = library.libraryClass(names, "natural", "false")
+      def read(slot: String): ProblemTerm = library.readSlot(commonSubsequence, slot, self)
+      def falseClass: ProblemTerm = library.libraryClass(names, "natural", "false")
       val leaveLeft = commonSubsequenceFound(module, listFieldRead(self, "left", "tail"), read("right"), read("need"))
       val leaveRight = commonSubsequenceFound(module, read("left"), listFieldRead(self, "right", "tail"), read("need"))
       val headsCompared = library.slotApplied(
@@ -343,7 +343,7 @@ final class MixinClaims(problems: ProblemFamilies, library: MixinLibrary):
   /** Left's head is the symbol: right's head is the symbol too, and both
     * tails are left out with need - 1, or it is not, false (`head_match/5`).
     */
-  private def headMatch(names: LibraryNames, module: Term, self: Term, symbolName: Char): Term =
+  private def headMatch(names: LibraryNames, module: ProblemTerm, self: ProblemTerm, symbolName: Char): ProblemTerm =
     val diagonal = commonSubsequenceFound(
       module,
       listFieldRead(self, "left", "tail"),
@@ -355,7 +355,7 @@ final class MixinClaims(problems: ProblemFamilies, library: MixinLibrary):
     library.slotApplied(symbol, "accept", listFieldRead(self, "right", "head"), onA, onB)
 
   /** self.field.slot, the field the list left or right (`list_field_read/4`). */
-  private def listFieldRead(self: Term, field: String, slot: String): Term =
+  private def listFieldRead(self: ProblemTerm, field: String, slot: String): ProblemTerm =
     library.readSlot(list, slot, library.readSlot(commonSubsequence, field, self))
 
   /** The common subsequence points, each with its length
@@ -369,7 +369,7 @@ final class MixinClaims(problems: ProblemFamilies, library: MixinLibrary):
   // ---- the corpus's predicates ----
 
   /** The point's program. */
-  def program(name: String): Term =
+  def program(name: String): ProblemTerm =
     graphPoints.find(_._1 == name).map((_, graphName, query, _) => graphSurface(graphName, query))
       .orElse(subsetPoints.find(_._1 == name).map((_, count) =>
         val items = DynamicReferences.subsetItems(count).map(BigInt(_))

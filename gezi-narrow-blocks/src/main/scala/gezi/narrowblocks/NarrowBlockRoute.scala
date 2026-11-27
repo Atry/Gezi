@@ -1,6 +1,6 @@
 package gezi.narrowblocks
 
-import gezi.ir.Instruction
+import gezi.ir.{Configured, NativeSpecializer}
 import gezi.jit.NativeBackend
 import gezi.saturation.StopSignal
 import gezi.standardlibrary.StandardLibraryIndex
@@ -22,16 +22,22 @@ trait NarrowBlockRoute:
   /** The modules of a round's extraction and of its write-backs: the narrow
     * blocks over the natives first, then the size.
     */
-  def extractorModules(natives: NativeBackend): Vector[NormalityModule]
+  def extractorModules[C <: NativeSpecializer & Singleton](
+      natives: NativeBackend,
+      configuration: gezi.weakhead.ReadingConfiguration[C]
+  ): Vector[NormalityModule[C]]
 
   /** The lemma rounds on one shared graph, then the last round's extraction
-    * with its narrow blocks computed (`LemmaRoute.compiledRounds`).
+    * with its narrow blocks computed (`LemmaRoute.compiledRounds`); `encoding`
+    * is the specializer of the rounds' configuration, its backend facts, which
+    * a route that refines its output by them reads.
     */
-  def compiledRounds(
-      index: StandardLibraryIndex,
-      rounds: Vector[PreparedLemmaCompilation],
+  def compiledRounds[C <: NativeSpecializer & Singleton](
+      index: StandardLibraryIndex[C],
+      rounds: Vector[PreparedLemmaCompilation[C]],
       natives: NativeBackend,
-      program: Instruction,
+      encoding: gezi.jit.StorageEncoding & C,
+      program: Configured[C],
       explained: Boolean,
       stop: StopSignal
-  ): LemmaRoundsResult
+  )(using C): LemmaRoundsResult[C]

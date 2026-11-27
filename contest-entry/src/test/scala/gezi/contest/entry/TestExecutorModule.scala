@@ -5,11 +5,13 @@ import gezi.hotspot.Budget
 import gezi.hotspot.ExecutionDependencies
 import gezi.hotspot.Executor
 import gezi.hotspot.Progress
-import gezi.ir.Instruction
+import gezi.ir.Configured
+import gezi.ir.NoFacts
 import gezi.knowledgereading.KnowledgeReading
 import gezi.knowledgereading.KnowledgeReadingError
 import gezi.narrowblocks.ProgramCompilation
 import gezi.weakhead.ReadingSuspension
+import gezi.ir.{Configured, NativeSpecializer}
 
 /** The executor module of contest-entry's tests (`ExecutorModuleLawTest`),
   * registered with `java.util.ServiceLoader` in the tests' resources: its
@@ -27,9 +29,9 @@ final class TestExecutorModule extends ExecutorModule:
     * parameters' one field holds and the inputs' compilation. Throws
     * `EntryDataError` for parameters that are no tuple of one integer.
     */
-  def executor(parameters: Instruction, inputs: ExecutorModuleInputs): Executor[?] =
+  def executor[C <: NativeSpecializer & Singleton](parameters: Configured[NoFacts.type], inputs: ExecutorModuleInputs[C]): Executor[C, ?] =
     ParameterCarryingExecutor(
-      TestModuleParameters.integer("executor", parameters),
+      TestModuleParameters.integer("executor", parameters)(using NoFacts),
       inputs.compilation,
       Defaults.executor(inputs.jit, inputs.reading)
     )
@@ -49,7 +51,7 @@ object TestModuleParameters:
     * naming the module's interface, for parameters that are no tuple of one
     * integer.
     */
-  def integer(interface: String, parameters: Instruction): BigInt =
+  def integer[C <: NativeSpecializer & Singleton](interface: String, parameters: Configured[C])(using C): BigInt =
     try
       KnowledgeReading.run(
         KnowledgeReading.fields(parameters, 1).flatMap {
@@ -64,24 +66,27 @@ object TestModuleParameters:
   * compilation it was handed: every call is the framework executor's, and
   * the executor it returns carries both again.
   */
-final case class ParameterCarryingExecutor(parameter: BigInt, compilation: ProgramCompilation, framework: Executor[ReadingSuspension])
-    extends Executor[ReadingSuspension]:
+final case class ParameterCarryingExecutor[C <: NativeSpecializer & Singleton](
+    parameter: BigInt,
+    compilation: ProgramCompilation[C],
+    framework: Executor[C, ReadingSuspension[C]]
+) extends Executor[C, ReadingSuspension[C]]:
 
   def executed(
-      term: Instruction,
+      term: Configured[C],
       dependencies: ExecutionDependencies,
       budget: Budget
-  ): (Executor[ReadingSuspension], ExecutionDependencies, Progress[ReadingSuspension]) =
+  ): (Executor[C, ReadingSuspension[C]], ExecutionDependencies, Progress[C, ReadingSuspension[C]]) =
     val (next, after, progress) = framework.executed(term, dependencies, budget)
     (copy(framework = next), after, progress)
 
   def resumed(
-      suspension: ReadingSuspension,
+      suspension: ReadingSuspension[C],
       dependencies: ExecutionDependencies,
       budget: Budget
-  ): (Executor[ReadingSuspension], ExecutionDependencies, Progress[ReadingSuspension]) =
+  ): (Executor[C, ReadingSuspension[C]], ExecutionDependencies, Progress[C, ReadingSuspension[C]]) =
     val (next, after, progress) = framework.resumed(suspension, dependencies, budget)
     (copy(framework = next), after, progress)
 
-  def exported(suspension: ReadingSuspension, dependencies: ExecutionDependencies): (ExecutionDependencies, Option[Instruction]) =
+  def exported(suspension: ReadingSuspension[C], dependencies: ExecutionDependencies): (ExecutionDependencies, Option[Configured[C]]) =
     framework.exported(suspension, dependencies)

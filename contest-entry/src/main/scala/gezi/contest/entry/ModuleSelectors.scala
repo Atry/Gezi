@@ -2,17 +2,18 @@ package gezi.contest.entry
 
 import java.nio.file.Path
 import java.util.ServiceLoader
-import gezi.ir.Instruction
 import gezi.knowledgereading.KnowledgeReading
 import gezi.standardlibrary.StandardLibrary
 import scala.jdk.CollectionConverters.*
+import gezi.ir.{Configured, NoFacts}
 
 /** How the tables of an interface's modules are made and looked up, the same
   * for every interface an entry's data opens to modules, the executors'
   * (`ExecutorModules`) and the extractors' (`ExtractorModules`):
   * the modules
   * registered with `java.util.ServiceLoader`, keyed by the interned
-  * instruction of each one's selector, the one member of its selector file.
+  * term of each one's selector, the one member of its selector file, read under no facts like every
+  * term of an entry's data.
   * The `interface` given to each function is the interface's name in an
   * error's message, and decides nothing.
   */
@@ -38,10 +39,10 @@ private[entry] object ModuleSelectors:
       visible: Path,
       modules: Vector[Module],
       selectorFile: Module => Path
-  ): Map[Instruction, Module] =
+  ): Map[Configured[NoFacts.type], Module] =
     val root = visible.toAbsolutePath.normalize
     val (selectors, _) =
-      modules.foldLeft((Vector.empty[(Instruction, Module)], KnowledgeReading.startingState.expansions)) {
+      modules.foldLeft((Vector.empty[(Configured[NoFacts.type], Module)], KnowledgeReading.startingState.expansions)) {
         case ((found, expansions), module) =>
           val (selector, after) = StandardLibrary.entryMember(root, root.resolve(selectorFile(module)), expansions)
           (found :+ (selector -> module), after)
@@ -58,7 +59,7 @@ private[entry] object ModuleSelectors:
     * `EntryDataError` for a term no module of the table gives as its
     * selector.
     */
-  def chosen[Module](interface: String, bySelector: Map[Instruction, Module], selector: Instruction): Module =
+  def chosen[Module](interface: String, bySelector: Map[Configured[NoFacts.type], Module], selector: Configured[NoFacts.type]): Module =
     bySelector.getOrElse(
       selector,
       throw EntryDataError(

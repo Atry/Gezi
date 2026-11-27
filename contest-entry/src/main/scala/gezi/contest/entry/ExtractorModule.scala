@@ -1,10 +1,11 @@
 package gezi.contest.entry
 
 import java.nio.file.Path
-import gezi.ir.Instruction
 import gezi.jit.NativeBackend
 import gezi.narrowblocks.NarrowBlockRoute
 import gezi.strategies.Extractor
+import gezi.ir.{Configured, NativeSpecializer, NoFacts}
+import gezi.weakhead.ReadingConfiguration
 
 /** A round's extraction outside the framework, with the narrow blocks' route
   * it pairs with, that an entry's data chooses by the constructor `module` of
@@ -20,7 +21,7 @@ import gezi.strategies.Extractor
   * module's by a synthetic label, `(λ"$name". M) "$name"`, which the host
   * never reads. An entry imports the same file and writes the term it gives
   * as the selector, so that the entry's selector and the module's are one
-  * interned instruction; the framework finds the module by that identity
+  * interned term; the framework finds the module by that identity
   * alone (`ExtractorModules`), never by a name or a string of the entry's
   * data.
   */
@@ -42,7 +43,7 @@ trait ExtractorModule:
     * `EntryDataError`), and from the framework's inputs
     * (`ExtractorModuleInputs`).
     */
-  def extractor(parameters: Instruction, inputs: ExtractorModuleInputs): Extractor
+  def extractor[C <: NativeSpecializer & Singleton](parameters: Configured[NoFacts.type], inputs: ExtractorModuleInputs[C]): Extractor[C]
 
   /** The narrow blocks' route the module's extraction pairs with
     * (`Defaults.route`): the modules that spell the round's write-backs, and
@@ -50,31 +51,33 @@ trait ExtractorModule:
     * blocks compiled and run. A module that changes only the extraction
     * returns the framework's, `gezi.narrowblocks.LemmaRoute`.
     */
-  def route(parameters: Instruction, inputs: ExtractorModuleInputs): NarrowBlockRoute
+  def route(parameters: Configured[NoFacts.type]): NarrowBlockRoute
 
 /** What the framework hands an extractor module beside the parameters the
   * entry wrote (`ExtractorModule.extractor`, `ExtractorModule.route`): what
   * the framework's own extraction and route are built from, the entry's
-  * natives (`Defaults.extractor`). One value, so that an input is added as a
-  * field without changing the factories' signatures.
+  * natives and the configuration its readings run under (`Defaults.extractor`). One value, so that an input is
+  * added as a field without changing the factories' signatures.
   *
   * @param natives
   *   the entry's natives, which the framework's narrow blocks read first
+  * @param configuration
+  *   the configuration of the entry's readings, whose native specializer builds the terms the extraction spells
   */
-final case class ExtractorModuleInputs(natives: NativeBackend)
+final case class ExtractorModuleInputs[C <: NativeSpecializer & Singleton](natives: NativeBackend, configuration: ReadingConfiguration[C])
 
-/** The extractor modules registered, by the interned instruction of each
+/** The extractor modules registered, by the interned term of each
   * one's selector.
   * The host compares a selector by identity only: two modules whose
   * selector files give one term are refused when the table is made, and a
   * selector no module gives is refused when it is looked up.
   */
-final case class ExtractorModules(bySelector: Map[Instruction, ExtractorModule]):
+final case class ExtractorModules(bySelector: Map[Configured[NoFacts.type], ExtractorModule]):
 
   /** The module whose selector is the term given. Throws `EntryDataError`
     * for a term no registered module gives as its selector.
     */
-  def chosen(selector: Instruction): ExtractorModule = ModuleSelectors.chosen("extractor", bySelector, selector)
+  def chosen(selector: Configured[NoFacts.type]): ExtractorModule = ModuleSelectors.chosen("extractor", bySelector, selector)
 
 object ExtractorModules:
 

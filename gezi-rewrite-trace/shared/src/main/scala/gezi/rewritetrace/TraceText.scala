@@ -5,8 +5,11 @@ import gezi.frontend.FreeNames
 import gezi.frontend.Lambdalattice
 import gezi.frontend.Respelling
 import gezi.ir.Hole
-import gezi.ir.Instruction
+import gezi.ir.NoFacts
+import gezi.ir.NonEmptyHoles
 import gezi.ir.Spine
+import gezi.ir.StorageAccess
+import gezi.ir.{Apply, Thunk}
 import gezi.knowledgereading.KnowledgeReading
 import gezi.knowledgereading.KnowledgeReadingError
 import gezi.knowledgereading.Reading
@@ -16,7 +19,8 @@ import gezi.locations.Location
 import gezi.locations.SourceMap
 import gezi.locations.Span
 import gezi.weakhead.Computation
-import gezi.weakhead.Value
+import gezi.ir.Value
+import gezi.ir.{Configured, NativeSpecializer}
 
 /** A trace read with where each of its lemmas is written
   * (`TraceText.readLocated`), none for a lemma the text writes as closed
@@ -28,10 +32,10 @@ import gezi.weakhead.Value
   * view prints by name (`ReadableText.printed` with `known`).
   */
 final case class LocatedTrace(
-    trace: Trace,
+    trace: Trace[NoFacts.type],
     lemmaLocations: Vector[Option[LemmaLocation]],
     lemmaMaps: Vector[(SourceMap, SourceMap)],
-    names: Map[Instruction, String]
+    names: Map[Configured[NoFacts.type], String]
 ):
   require(lemmaLocations.size == trace.lemmas.size, s"${lemmaLocations.size} locations for ${trace.lemmas.size} lemmas")
   require(lemmaMaps.size == trace.lemmas.size, s"${lemmaMaps.size} maps for ${trace.lemmas.size} lemmas")
@@ -121,10 +125,18 @@ final case class TraceTextError(reason: String) extends RuntimeException(reason)
   */
 object TraceText:
 
+  /** The configuration a trace's text is read in: a text holds no storage, a storage written as its view, and its
+    * reader is the player's, which knows no facts.
+    */
+  private type Read = NoFacts.type
+
+  private given Read = NoFacts
+
   /** The text of the trace. Throws `TraceTextError` when a term it holds is
     * not read back as the same instruction (`readBack`).
     */
-  def written(trace: Trace): String = writtenWith(trace, Map.empty)
+  def written[C <: NativeSpecializer & Singleton](trace: Trace[C])(using C, StorageAccess): String =
+    writtenWith(trace, Map.empty[(Configured[C], Configured[C]), LemmaText[C]])
 
   /** The text of the trace with each lemma of `lemmaTexts`, keyed by its two sides, written as its file writes it,
     * with its location (`gezi.locations.LemmaText`), a CBOR literal in the
@@ -133,9 +145,13 @@ object TraceText:
     * their values by one β redex around the trace, each name once. Throws
     * `TraceTextError` when two lemmas give one name two values, when a name
     * is one the text's own data binds, when a lemma's text reads as another
-    * term than its sides, and as `written` throws.
+    * term than its sides (the two written as text, a storage as its view, since
+    * the text is read with no facts), and as `written` throws.
     */
-  def writtenWith(trace: Trace, lemmaTexts: Map[(Instruction, Instruction), LemmaText]): String =
+  def writtenWith[C <: NativeSpecializer & Singleton](trace: Trace[C], lemmaTexts: Map[(Configured[C], Configured[C]), LemmaText[C]])(using
+      C,
+      StorageAccess
+  ): String =
     val used = trace.lemmas.flatMap(lemma => lemmaTexts.get((lemma.left, lemma.right)))
     val names = namesUsed(trace, lemmaTexts)
     names.groupBy(_._1).find(_._2.size > 1).foreach((name, values) =>
@@ -154,9 +170,11 @@ object TraceText:
           tupleText(Vector(constructorText(2, 1, Vector(location)), s"(${text.leftText})", s"(${text.rightText})"))
     )
     val values = trace.values.map(value =>
-      tupleText(Vector(sourceText(value.from), inlineListText(commandsText(value.commands, 0, Map.empty)), positionText(value.at)))
+      tupleText(
+        Vector(sourceText(value.from), inlineListText(commandsText(value.commands, 0, Map.empty[Configured[C], String])), positionText(value.at))
+      )
     )
-    val rounds = trace.rounds.map(round => listText(commandsText(round, 0, Map.empty), "    "))
+    val rounds = trace.rounds.map(round => listText(commandsText(round, 0, Map.empty[Configured[C], String]), "    "))
     val body = s"λtrace. trace\n  ${listText(lemmas, "  ")}\n  ${listText(values, "  ")}\n  ${listText(rounds, "  ")}\n"
     val written =
       if names.isEmpty then body
@@ -165,9 +183,13 @@ object TraceText:
           names.map((_, value) => s"  ${closedText(value)}\n").mkString
     if used.nonEmpty then
       val read = TraceText.read(written, readingLimit(written))
-      read.lemmas.zip(trace.lemmas).find((again, lemma) => !((again.left eq lemma.left) && (again.right eq lemma.right))).foreach(
-        (again, lemma) => throw TraceTextError(s"a lemma's text reads as $again, not as $lemma")
-      )
+      read.lemmas
+        .zip(trace.lemmas)
+        .find((again, lemma) =>
+          Lambdalattice.closedText(again.left) != Lambdalattice.closedTextViewed(lemma.left) ||
+            Lambdalattice.closedText(again.right) != Lambdalattice.closedTextViewed(lemma.right)
+        )
+        .foreach((again, lemma) => throw TraceTextError(s"a lemma's text reads as $again, not as $lemma"))
     written
 
   /** The evaluator steps reading a trace's text may take: one per character,
@@ -212,9 +234,9 @@ object TraceText:
     * Throws `KnowledgeReadingError` for a text of another shape or one the
     * budget stops.
     */
-  def read(text: String, limit: Long): Trace =
-    val value = Defunctionalization.thunkInstruction(Lambdalattice.term(text))
-    KnowledgeReading.run(traceRead(value), limit)
+  def read(text: String, limit: Long): Trace[Read] =
+    val value = Defunctionalization.thunkInstruction[Read](Lambdalattice.term(text))
+    KnowledgeReading.run(traceRead(Value.of(value)), limit)
 
   /** The trace of the text, as `read` reads it, with where each of its
     * lemmas is written and the maps of its lemmas' sides: the text read with
@@ -232,8 +254,8 @@ object TraceText:
   // (`LocatedTrace.names`), and a view prints each value by its name.
   def readLocated(text: String, limit: Long): LocatedTrace =
     val read = Lambdalattice.located(text, FreeNames.Rejected)
-    val (whole, wholeMap) = Defunctionalization.locatedThunkInstruction(read.term, read.spans, traceUri)
-    val (trace, lemmaLocations) = KnowledgeReading.run(locatedTraceRead(whole), limit)
+    val (whole, wholeMap) = Defunctionalization.locatedThunkInstruction[Read](read.term, read.spans, traceUri)
+    val (trace, lemmaLocations) = KnowledgeReading.run(locatedTraceRead(Value.of(whole)), limit)
     val (body, bodyMap, names) = namesContracted(whole, wholeMap)
     val Vector((lemmaList, lemmaListMap), _, _) = fields(body, bodyMap, 3): @unchecked
     val sides = listItems(lemmaList, lemmaListMap).map((lemma, lemmaMap) =>
@@ -244,7 +266,7 @@ object TraceText:
     if sides.size != trace.lemmas.size then
       throw TraceTextError(s"the trace's text has ${sides.size} lemmas' sides for ${trace.lemmas.size} lemmas")
     trace.lemmas.zip(sides).foreach { case (lemma, ((left, _), (right, _))) =>
-      if !((left eq lemma.left) && (right eq lemma.right)) then
+      if !(Configured.same(left, lemma.left) && Configured.same(right, lemma.right)) then
         throw TraceTextError(s"the lemma $lemma is read from the sides $left and $right of the trace's text")
     }
     LocatedTrace(trace, lemmaLocations, sides.map((left, right) => (left._2, right._2)), names)
@@ -252,7 +274,7 @@ object TraceText:
   /** The names the texts of the trace's lemmas use, each with its value,
     * each once: what `writtenWith` binds around the trace.
     */
-  def namesUsed(trace: Trace, lemmaTexts: Map[(Instruction, Instruction), LemmaText]): Vector[(String, Instruction)] =
+  def namesUsed[C <: NativeSpecializer & Singleton](trace: Trace[C], lemmaTexts: Map[(Configured[C], Configured[C]), LemmaText[C]])(using C): Vector[(String, Configured[C])] =
     trace.lemmas.flatMap(lemma => lemmaTexts.get((lemma.left, lemma.right))).flatMap(_.names).distinct
 
   /** The URI the places of a trace's text are located under. */
@@ -266,13 +288,13 @@ object TraceText:
     * binder is written with. The instruction as it is, and no names, when
     * the text binds none. Recursive on the k applications of the redex.
     */
-  private def namesContracted(instruction: Instruction, map: SourceMap): (Instruction, SourceMap, Map[Instruction, String]) =
-    def filled(at: Instruction, atMap: SourceMap): (Instruction, SourceMap, Map[Instruction, String]) = at match
-      case Instruction.Apply(function, value) =>
+  private def namesContracted(instruction: Configured[Read], map: SourceMap): (Configured[Read], SourceMap, Map[Configured[Read], String]) =
+    def filled(at: Configured[Read], atMap: SourceMap): (Configured[Read], SourceMap, Map[Configured[Read], String]) = at.layer match
+      case Apply(function, value) =>
         val (functionFilled, functionMap, names) = filled(function, atMap.children.lift(0).getOrElse(SourceMap.unlocated))
         val valueMap = atMap.children.lift(1).getOrElse(SourceMap.unlocated)
-        functionFilled match
-          case Instruction.Thunk(code, hole +: rest, fillings) =>
+        functionFilled.layer match
+          case Thunk(code, hole +: rest, fillings) =>
             val children = functionMap.children.padTo(fillings.size, SourceMap.unlocated)
             val (residueFillings, residueChildren) = hole match
               case Hole.Bound(slot) =>
@@ -280,17 +302,20 @@ object TraceText:
                 (fillings.patch(position, Vector(value), 0), children.patch(position, Vector(valueMap), 0))
               case Hole.Ignored => (fillings, children)
             val name = functionMap.binders.headOption.toVector.flatten.collectFirst { case BinderOrigin.Written(written, _) => written }
+            val residue = NonEmptyHoles.of(rest) match
+              case Some(present) => NoFacts.thunk(code, present, residueFillings)
+              case None          => NoFacts.instance(code, residueFillings)
             (
-              Instruction.Thunk(code, rest, residueFillings),
+              residue,
               SourceMap(functionMap.locations, functionMap.code, residueChildren, functionMap.binders.drop(1)),
               name.fold(names)(written => names.updated(value, written))
             )
           case other => throw TraceTextError(s"the names of a trace's text are bound by no abstraction: $other")
-      case other => (other, atMap, Map.empty)
-    instruction match
-      case Instruction.Apply(_, _) =>
+      case _ => (at, atMap, Map.empty)
+    instruction.layer match
+      case Apply(_, _) =>
         val (residue, residueMap, names) = filled(instruction, map)
-        val spelled = Defunctionalization.thunkInstruction(Defunctionalization.instructionTerm(residue))
+        val spelled = Defunctionalization.thunkInstruction[Read](Defunctionalization.instructionTerm(residue))
         (spelled, Defunctionalization.relocatedMap(residue, residueMap, spelled), names)
       case _ => (instruction, map, Map.empty)
 
@@ -303,16 +328,16 @@ object TraceText:
     * one instruction). Throws `TraceTextError` for a term of another shape
     * or of another number of fields than `count`.
     */
-  private def fields(instruction: Instruction, map: SourceMap, count: Int): Vector[(Instruction, SourceMap)] =
+  private def fields(instruction: Configured[Read], map: SourceMap, count: Int): Vector[(Configured[Read], SourceMap)] =
     val found = constructorFields(instruction, map)
     if found.size != count then
       throw TraceTextError(s"the trace's data $instruction has ${found.size} fields, not $count")
     found
 
   /** `fields` of a constructor of any number of fields. */
-  private def constructorFields(instruction: Instruction, map: SourceMap): Vector[(Instruction, SourceMap)] =
-    instruction match
-      case Instruction.Thunk(code, holes, fillings) =>
+  private def constructorFields(instruction: Configured[Read], map: SourceMap): Vector[(Configured[Read], SourceMap)] =
+    instruction.layer match
+      case Thunk(code, holes, fillings) =>
         val bound = holes.collect { case Hole.Bound(slot) => slot }.toSet
         val (head, arguments) = Spine.of(code)
         val found = arguments.map(_.layer match
@@ -334,7 +359,7 @@ object TraceText:
     * filling). Throws `TraceTextError` for a constructor whose code map
     * locates no argument, which a text read with its spans always locates.
     */
-  private def fieldSpans(instruction: Instruction, map: SourceMap): Vector[Set[Span]] =
+  private def fieldSpans(instruction: Configured[Read], map: SourceMap): Vector[Set[Span]] =
     val count = constructorFields(instruction, map).size
     // The spine's arguments, last first: the map of `f a1 … an` holds the map
     // of `f a1 … an-1` first and that of `an` second.
@@ -375,9 +400,9 @@ object TraceText:
     * `λn. λc. c ITEM REST`, with their maps. A loop, since a list nests as
     * deep as it is long.
     */
-  private def listItems(list: Instruction, map: SourceMap): Vector[(Instruction, SourceMap)] =
+  private def listItems(list: Configured[Read], map: SourceMap): Vector[(Configured[Read], SourceMap)] =
     @scala.annotation.tailrec
-    def collected(at: Instruction, atMap: SourceMap, items: Vector[(Instruction, SourceMap)]): Vector[(Instruction, SourceMap)] =
+    def collected(at: Configured[Read], atMap: SourceMap, items: Vector[(Configured[Read], SourceMap)]): Vector[(Configured[Read], SourceMap)] =
       constructorFields(at, atMap) match
         case Vector()                      => items
         case Vector(item, (rest, restMap)) => collected(rest, restMap, items :+ item)
@@ -399,9 +424,9 @@ object TraceText:
     * of the trace: a command that computes the term in
     * place of the one that writes it, as `Convert` does for a conversion.
     */
-  def readBack(instruction: Instruction): Instruction =
-    val again = Defunctionalization.thunkInstruction(Lambdalattice.term(Lambdalattice.closedText(instruction)))
-    if again == instruction then instruction
+  def readBack[C <: NativeSpecializer & Singleton](instruction: Configured[C])(using C, StorageAccess): Configured[C] =
+    val again = Defunctionalization.thunkInstruction[C](Lambdalattice.term(Lambdalattice.closedTextViewed(instruction)))
+    if Configured.same(again, instruction) then instruction
     else throw TraceTextError(s"the front end reads the text of $instruction as $again")
 
   /** The closed Scott list of the items, each item on a line of its own:
@@ -416,8 +441,8 @@ object TraceText:
     items.map(item => s"(λn. λc. c $item ").mkString + "(λn. λc. n)" + ")" * items.size
 
   /** The text of a closed instruction, in parentheses. */
-  private def closedText(instruction: Instruction): String =
-    s"(${Lambdalattice.closedText(readBack(instruction))})"
+  private def closedText[C <: NativeSpecializer & Singleton](instruction: Configured[C])(using C, StorageAccess): String =
+    s"(${Lambdalattice.closedTextViewed(readBack(instruction))})"
 
   /** The text of an instruction under openings, in parentheses, each
     * eigenvariable of `names` written as the name of its λ. Throws
@@ -425,11 +450,14 @@ object TraceText:
     * (`KnowledgeReading.term`, the front end's respelling), would read
     * another instruction.
     */
-  private def termText(instruction: Instruction, names: Map[Instruction, String]): String =
+  private def termText[C <: NativeSpecializer & Singleton](instruction: Configured[C], names: Map[Configured[C], String])(using
+      C,
+      StorageAccess
+  ): String =
     if !Conversions.holds(instruction, names.keySet) then closedText(instruction)
     else
       val again = Respelling.respelled(instruction, Set.empty)
-      if again == instruction then s"(${Lambdalattice.text(Defunctionalization.instructionTerm(instruction), names)})"
+      if Configured.same(again, instruction) then s"(${Lambdalattice.text(Defunctionalization.instructionTermViewed(instruction), names)})"
       else throw TraceTextError(s"the front end respells $instruction under its eigenvariables as $again")
 
   /** The alternative of a Scott constructor of `count` alternatives, from 0:
@@ -445,7 +473,7 @@ object TraceText:
   /** The trie of the integer's CBOR literal, in the diagnostic notation. */
   private def integerText(value: Int): String = s"(λk. k $value)"
 
-  private def optionText(named: Option[ThunkShape], names: Map[Instruction, String]): String = named match
+  private def optionText[C <: NativeSpecializer & Singleton](named: Option[ThunkShape[C]], names: Map[Configured[C], String])(using C, StorageAccess): String = named match
     case None => constructorText(2, 0, Vector.empty)
     case Some(shape) =>
       val holes = inlineListText(shape.holes.map {
@@ -454,7 +482,7 @@ object TraceText:
       })
       constructorText(2, 1, Vector(tupleText(Vector(givenText(shape.codeOf, names), holes))))
 
-  private def givenText(named: Given, names: Map[Instruction, String]): String = named match
+  private def givenText[C <: NativeSpecializer & Singleton](named: Given[C], names: Map[Configured[C], String])(using C, StorageAccess): String = named match
     case Given.Value(index)   => constructorText(2, 0, Vector(integerText(index)))
     case Given.Written(term) => constructorText(2, 1, Vector(termText(term, names)))
 
@@ -467,7 +495,7 @@ object TraceText:
     * λ per eigenvariable of its thunk, named by its depth and place, and
     * the reader applies them to its own eigenvariables.
     */
-  private def commandText(command: TraceCommand, depth: Int, names: Map[Instruction, String], move: String): String =
+  private def commandText[C <: NativeSpecializer & Singleton](command: TraceCommand[C], depth: Int, names: Map[Configured[C], String], move: String)(using C, StorageAccess): String =
     command match
       case TraceCommand.Rewrite(reason, _, direction, bindings) =>
         constructorText(4, 0, Vector(reasonText(reason, names), move, directionText(direction), bindingsText(bindings, names)))
@@ -485,7 +513,7 @@ object TraceText:
     * move from the position of the command before it (`moveText`), the
     * first's from the root.
     */
-  private def commandsText(commands: Vector[TraceCommand], depth: Int, names: Map[Instruction, String]): Vector[String] =
+  private def commandsText[C <: NativeSpecializer & Singleton](commands: Vector[TraceCommand[C]], depth: Int, names: Map[Configured[C], String])(using C, StorageAccess): Vector[String] =
     val (texts, _) = commands.foldLeft((Vector.empty[String], Vector.empty[PositionSegment])) { case ((written, previous), command) =>
       (written :+ commandText(command, depth, names, moveText(previous, command.at)), command.at)
     }
@@ -504,7 +532,7 @@ object TraceText:
 
   private def directionText(direction: RewriteDirection): String = constructorText(2, direction.ordinal, Vector.empty)
 
-  private def bindingsText(bindings: Vector[(Int, Given)], names: Map[Instruction, String]): String =
+  private def bindingsText[C <: NativeSpecializer & Singleton](bindings: Vector[(Int, Given[C])], names: Map[Configured[C], String])(using C, StorageAccess): String =
     inlineListText(bindings.map((place, named) => tupleText(Vector(integerText(place), givenText(named, names)))))
 
   private def conversionText(conversion: Conversion): String = conversion match
@@ -512,7 +540,7 @@ object TraceText:
       constructorText(2, 0, Vector(integerText(lemma), constructorText(2, side.ordinal, Vector.empty), integerText(occurrence)))
     case Conversion.RootReverseBeta(lemma) => constructorText(2, 1, Vector(integerText(lemma)))
 
-  private def reasonText(reason: ProvedReason, names: Map[Instruction, String]): String = reason match
+  private def reasonText[C <: NativeSpecializer & Singleton](reason: ProvedReason[C], names: Map[Configured[C], String])(using C, StorageAccess): String = reason match
     case ProvedReason.Lemma(index)     => constructorText(5, 0, Vector(integerText(index)))
     case ProvedReason.Equation(number) => constructorText(5, 1, Vector(integerText(number)))
     case ProvedReason.Fill(written)    => constructorText(5, 2, Vector(optionText(written, names)))
@@ -528,12 +556,12 @@ object TraceText:
       case PositionSegment.Filling(index) => constructorText(5, 4, Vector(integerText(index)))
     })
 
-  private def traceRead(value: Value): Reading[Trace] = locatedTraceRead(value).map(_._1)
+  private def traceRead(value: Value[Read]): Reading[Read, Trace[Read]] = locatedTraceRead(value).map(_._1)
 
   /** The trace and the location of each of its lemmas, none for a lemma the
     * text writes as closed terms.
     */
-  private def locatedTraceRead(value: Value): Reading[(Trace, Vector[Option[LemmaLocation]])] =
+  private def locatedTraceRead(value: Value[Read]): Reading[Read, (Trace[Read], Vector[Option[LemmaLocation]])] =
     KnowledgeReading.fields(value, 3).flatMap {
       case Vector(lemmas, values, rounds) =>
         for
@@ -544,7 +572,7 @@ object TraceText:
       case other => throw KnowledgeReadingError(s"a tuple of three has ${other.size} fields")
     }
 
-  private def valueRead(value: Value): Reading[TraceValue] =
+  private def valueRead(value: Value[Read]): Reading[Read, TraceValue[Read]] =
     KnowledgeReading.fields(value, 3).flatMap {
       case Vector(source, commands, at) =>
         for
@@ -560,19 +588,19 @@ object TraceText:
       case other => throw KnowledgeReadingError(s"a tuple of three has ${other.size} fields")
     }
 
-  private def givenRead(value: Value): Reading[Given] =
+  private def givenRead(value: Value[Read]): Reading[Read, Given[Read]] =
     KnowledgeReading.alternative(value, 2).flatMap {
-      case (0, Vector(index)) => integerRead(index).map(Given.Value(_))
+      case (0, Vector(index)) => integerRead(index).map(Given.Value[Read](_))
       case (1, Vector(term))  => Computation.pure(Given.Written(termRead(term)))
       case (alternative, fields) => throw KnowledgeReadingError(s"a given term's alternative $alternative has ${fields.size} fields")
     }
 
-  private def listRead[Item](value: Value)(item: Value => Reading[Item]): Reading[Vector[Item]] =
+  private def listRead[Item](value: Value[Read])(item: Value[Read] => Reading[Read, Item]): Reading[Read, Vector[Item]] =
     KnowledgeReading.items(value).flatMap(Computation.traversed(_)(item))
 
-  private def termRead(value: Value): Instruction = KnowledgeReading.term(value, Set.empty)
+  private def termRead(value: Value[Read]): Configured[Read] = KnowledgeReading.term(value, Set.empty)
 
-  private def lemmaRead(value: Value): Reading[(TraceLemma, Option[LemmaLocation])] =
+  private def lemmaRead(value: Value[Read]): Reading[Read, (TraceLemma[Read], Option[LemmaLocation])] =
     KnowledgeReading.fields(value, 3).flatMap {
       case Vector(location, left, right) =>
         locationRead(location).map(read => (TraceLemma(termRead(left), termRead(right)), read))
@@ -582,7 +610,7 @@ object TraceText:
   /** A lemma's location: none, or its file's URI, a trie of its text, and
     * the span, decoded by the host.
     */
-  private def locationRead(value: Value): Reading[Option[LemmaLocation]] =
+  private def locationRead(value: Value[Read]): Reading[Read, Option[LemmaLocation]] =
     KnowledgeReading.alternative(value, 2).flatMap {
       case (0, Vector()) => Computation.pure(None)
       case (1, Vector(location)) =>
@@ -599,7 +627,7 @@ object TraceText:
     }
 
   /** The integer of a trie of its CBOR literal, decoded by the host. */
-  private def integerRead(value: Value): Reading[Int] =
+  private def integerRead(value: Value[Read]): Reading[Read, Int] =
     KnowledgeReading.trieInteger(value).map(read =>
       if read.isValidInt then read.toInt else throw KnowledgeReadingError(s"the integer $read is no Int")
     )
@@ -608,16 +636,16 @@ object TraceText:
     * segments its move drops from the position before it, the segments it
     * adds, and the command at the position the two make.
     */
-  private final case class Moved(dropped: Int, added: Vector[PositionSegment], placed: Vector[PositionSegment] => TraceCommand)
+  private final case class Moved(dropped: Int, added: Vector[PositionSegment], placed: Vector[PositionSegment] => TraceCommand[Read])
 
   /** The commands of a list under `depth` openings, each placed at the
     * position its move makes of the position before it, the first's from
     * the root (`moveText`). Throws `KnowledgeReadingError` for a move that
     * drops more segments than the position before it has.
     */
-  private def commandsRead(value: Value, depth: Int): Reading[Vector[TraceCommand]] =
+  private def commandsRead(value: Value[Read], depth: Int): Reading[Read, Vector[TraceCommand[Read]]] =
     listRead(value)(commandRead(_, depth)).map(moved =>
-      val (commands, _) = moved.foldLeft((Vector.empty[TraceCommand], Vector.empty[PositionSegment])) {
+      val (commands, _) = moved.foldLeft((Vector.empty[TraceCommand[Read]], Vector.empty[PositionSegment])) {
         case ((placed, previous), Moved(dropped, added, command)) =>
           if dropped > previous.size then
             throw KnowledgeReadingError(s"a move drops $dropped segments of a position of ${previous.size}")
@@ -628,7 +656,7 @@ object TraceText:
     )
 
   /** A move: the segments dropped and the segments added. */
-  private def moveRead(value: Value): Reading[(Int, Vector[PositionSegment])] =
+  private def moveRead(value: Value[Read]): Reading[Read, (Int, Vector[PositionSegment])] =
     KnowledgeReading.fields(value, 2).flatMap {
       case Vector(dropped, added) =>
         for
@@ -642,7 +670,7 @@ object TraceText:
     * it (`Moved`): an abstraction's commands applied to the eigenvariables
     * of its depth and read under one more.
     */
-  private def commandRead(value: Value, depth: Int): Reading[Moved] =
+  private def commandRead(value: Value[Read], depth: Int): Reading[Read, Moved] =
     KnowledgeReading.alternative(value, 4).flatMap {
       case (0, Vector(reason, move, direction, bindings)) =>
         for
@@ -650,31 +678,31 @@ object TraceText:
           (dropped, added) <- moveRead(move)
           directionRead <- this.directionRead(direction)
           bindingsRead <- this.bindingsRead(bindings)
-        yield Moved(dropped, added, TraceCommand.Rewrite(reasonRead, _, directionRead, bindingsRead))
+        yield Moved(dropped, added, TraceCommand.Rewrite[Read](reasonRead, _, directionRead, bindingsRead))
       case (1, Vector(conversion, move, direction, bindings)) =>
         for
           conversionRead <- this.conversionRead(conversion)
           (dropped, added) <- moveRead(move)
           directionRead <- this.directionRead(direction)
           bindingsRead <- this.bindingsRead(bindings)
-        yield Moved(dropped, added, TraceCommand.Convert(conversionRead, _, directionRead, bindingsRead))
+        yield Moved(dropped, added, TraceCommand.Convert[Read](conversionRead, _, directionRead, bindingsRead))
       case (2, Vector(move, written)) =>
-        moveRead(move).map((dropped, added) => Moved(dropped, added, TraceCommand.Native(_, termRead(written))))
+        moveRead(move).map((dropped, added) => Moved(dropped, added, TraceCommand.Native[Read](_, termRead(written))))
       case (3, Vector(move, count, commands)) =>
         for
           (dropped, added) <- moveRead(move)
           countRead <- integerRead(count)
           leaves = Conversions.eigenvariables(depth, countRead)
-          applied = leaves.foldLeft(commands)((function, leaf) => Value.Apply(function, leaf))
+          applied = leaves.foldLeft(commands)((function, leaf) => Value.Apply(function, Value.of(leaf)))
           commandsRead <- this.commandsRead(applied, depth + 1)
-        yield Moved(dropped, added, TraceCommand.Abstraction(_, countRead, commandsRead))
+        yield Moved(dropped, added, TraceCommand.Abstraction[Read](_, countRead, commandsRead))
       case (alternative, fields) => throw KnowledgeReadingError(s"a command's alternative $alternative has ${fields.size} fields")
     }
 
-  private def directionRead(value: Value): Reading[RewriteDirection] =
+  private def directionRead(value: Value[Read]): Reading[Read, RewriteDirection] =
     KnowledgeReading.alternative(value, 2).map((alternative, _) => RewriteDirection.fromOrdinal(alternative))
 
-  private def bindingsRead(value: Value): Reading[Vector[(Int, Given)]] =
+  private def bindingsRead(value: Value[Read]): Reading[Read, Vector[(Int, Given[Read])]] =
     listRead(value)(binding =>
       KnowledgeReading.fields(binding, 2).flatMap {
         case Vector(place, bound) =>
@@ -686,7 +714,7 @@ object TraceText:
       }
     )
 
-  private def conversionRead(value: Value): Reading[Conversion] =
+  private def conversionRead(value: Value[Read]): Reading[Read, Conversion] =
     KnowledgeReading.alternative(value, 2).flatMap {
       case (0, Vector(lemma, side, occurrence)) =>
         for
@@ -698,17 +726,17 @@ object TraceText:
       case (alternative, fields) => throw KnowledgeReadingError(s"a conversion's alternative $alternative has ${fields.size} fields")
     }
 
-  private def reasonRead(value: Value): Reading[ProvedReason] =
+  private def reasonRead(value: Value[Read]): Reading[Read, ProvedReason[Read]] =
     KnowledgeReading.alternative(value, 5).flatMap {
-      case (0, Vector(index))   => integerRead(index).map(ProvedReason.Lemma(_))
-      case (1, Vector(number))  => integerRead(number).map(ProvedReason.Equation(_))
+      case (0, Vector(index))   => integerRead(index).map(ProvedReason.Lemma[Read](_))
+      case (1, Vector(number))  => integerRead(number).map(ProvedReason.Equation[Read](_))
       case (2, Vector(written)) => optionRead(written).map(ProvedReason.Fill(_))
       case (3, Vector(written)) => optionRead(written).map(ProvedReason.Body(_))
       case (4, Vector(written)) => optionRead(written).map(ProvedReason.Eta(_))
       case (alternative, fields) => throw KnowledgeReadingError(s"a reason's alternative $alternative has ${fields.size} fields")
     }
 
-  private def optionRead(value: Value): Reading[Option[ThunkShape]] =
+  private def optionRead(value: Value[Read]): Reading[Read, Option[ThunkShape[Read]]] =
     KnowledgeReading.alternative(value, 2).flatMap {
       case (0, Vector()) => Computation.pure(None)
       case (1, Vector(shape)) =>
@@ -730,7 +758,7 @@ object TraceText:
       case (alternative, fields) => throw KnowledgeReadingError(s"an option's alternative $alternative has ${fields.size} fields")
     }
 
-  private def positionRead(value: Value): Reading[Vector[PositionSegment]] =
+  private def positionRead(value: Value[Read]): Reading[Read, Vector[PositionSegment]] =
     listRead(value)(segment =>
       KnowledgeReading.alternative(segment, 5).flatMap {
         case (0, Vector())      => Computation.pure(PositionSegment.Function)

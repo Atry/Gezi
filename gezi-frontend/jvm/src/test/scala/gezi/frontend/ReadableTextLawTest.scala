@@ -11,7 +11,10 @@ import gezi.generatedinputs.HoasGenerators
 import gezi.generatedinputs.SeededSnapshots
 import gezi.ir
 import gezi.ir.Code
-import gezi.ir.Instruction
+import gezi.ir.Configured
+import gezi.ir.NativeSpecializer.*
+import gezi.ir.NoFacts
+import gezi.ir.StorageAccess
 import gezi.locations.BinderOrigin
 import gezi.locations.Location
 import gezi.locations.SourceMap
@@ -49,7 +52,12 @@ import snapshot4s.generated.snapshotConfig
   */
 class ReadableTextLawTest extends GeneratedProperties with SeededSnapshots:
 
-  private val libraryName: Instruction = Instruction.opaque("library_name")
+  given NoFacts.type = NoFacts
+  given StorageAccess = StorageAccess.granted()
+
+  private type NoFactsTerm = Configured[NoFacts.type]
+
+  private val libraryName: NoFactsTerm = NoFacts.opaque("library_name")
 
   private val uri: java.net.URI = java.net.URI.create("file:///generated.lambdalattice")
 
@@ -57,7 +65,7 @@ class ReadableTextLawTest extends GeneratedProperties with SeededSnapshots:
     * its name one of few chosen by the binder's place in the map, so that
     * names clash with one another and with the helper's `t`.
     */
-  private def namedMap(instruction: Instruction): SourceMap =
+  private def namedMap(instruction: NoFactsTerm): SourceMap =
     def origins(path: Vector[Int], count: Int): Vector[Set[BinderOrigin]] =
       Vector.tabulate(count)(position =>
         Set(BinderOrigin.Written(Vector("x", "y", "t", "f")(Math.floorMod((path :+ position).hashCode, 4)), Location.Source(uri, Span(0, 0))))
@@ -74,11 +82,11 @@ class ReadableTextLawTest extends GeneratedProperties with SeededSnapshots:
           fillings.zipWithIndex.map((filling, index) => codeMap(filling, path :+ index)),
           origins(path, holes.size)
         )
-    def instructionMap(at: Instruction, path: Vector[Int]): SourceMap = at match
-      case Instruction.Apply(function, argument) => pair(Vector(instructionMap(function, path :+ 0), instructionMap(argument, path :+ 1)))
-      case Instruction.Choice(left, right)       => pair(Vector(instructionMap(left, path :+ 0), instructionMap(right, path :+ 1)))
-      case Instruction.Parallel(left, right)     => pair(Vector(instructionMap(left, path :+ 0), instructionMap(right, path :+ 1)))
-      case Instruction.Thunk(code, holes, fillings) =>
+    def instructionMap(at: NoFactsTerm, path: Vector[Int]): SourceMap = at.layer match
+      case ir.Apply(function, argument) => pair(Vector(instructionMap(function, path :+ 0), instructionMap(argument, path :+ 1)))
+      case ir.Choice(left, right)       => pair(Vector(instructionMap(left, path :+ 0), instructionMap(right, path :+ 1)))
+      case ir.Parallel(left, right)     => pair(Vector(instructionMap(left, path :+ 0), instructionMap(right, path :+ 1)))
+      case ir.Thunk(code, holes, fillings) =>
         SourceMap(
           Set.empty,
           Some(codeMap(code, path :+ -1)),
@@ -90,40 +98,40 @@ class ReadableTextLawTest extends GeneratedProperties with SeededSnapshots:
     instructionMap(instruction, Vector.empty)
 
   /** The term printed, its binders named by `namedMap`. */
-  private def printedNamed(instruction: Instruction): ReadableText.Printed =
+  private def printedNamed(instruction: NoFactsTerm): ReadableText.Printed[NoFacts.type] =
     ReadableText.printed(instruction, namedMap(instruction))
 
   /** A closed term over the constants, written twice in a diamond when
     * `diamond` holds: `λf. f c c`.
     */
-  private def instructionsOver(constants: Vector[Term]): Gen[Instruction] =
+  private def instructionsOver(constants: Vector[TermOf[NoFactsTerm]]): Gen[NoFactsTerm] =
     for
       term <- HoasGenerators.closedTermOver(constants)
       diamond <- Gen.boolean
     yield
       val written = if diamond then Term.Abstraction(function => function(term)(term)) else term
-      Defunctionalization.thunkInstruction(written.deBruijnTerm(Map.empty))
+      Defunctionalization.thunkInstruction[NoFacts.type](written.deBruijnTerm(Map.empty))
 
   /** A closed term over the library name, in a diamond or not. */
-  private val instructions: Gen[Instruction] = instructionsOver(Vector(Term.closed(libraryName)))
+  private val instructions: Gen[NoFactsTerm] = instructionsOver(Vector(Term.closed(libraryName)))
 
   /** The instruction the text reads back to, its bindings contracted. */
-  private def readBack(printed: ReadableText.Printed): Instruction = readBack(printed, printed.text)
+  private def readBack(printed: ReadableText.Printed[NoFacts.type]): NoFactsTerm = readBack(printed, printed.text)
 
   /** The instruction a text of the printed term reads back to, its
     * bindings contracted.
     */
-  private def readBack(printed: ReadableText.Printed, text: String): Instruction =
-    val read = Defunctionalization.thunkInstruction(
+  private def readBack(printed: ReadableText.Printed[NoFacts.type], text: String): NoFactsTerm =
+    val read = Defunctionalization.thunkInstruction[NoFacts.type](
       Lambdalattice.term(text, FreeNames.Allowed),
       Map("library_name" -> libraryName)
     )
     (1 to printed.bindings).foldLeft(read)((term, _) =>
-      term match
-        case Instruction.Apply(helper, rest) =>
+      term.layer match
+        case ir.Apply(helper, rest) =>
           Defunctionalization.instructionTerm(helper) match
             case DeBruijnTerm.Lambda(DeBruijnTerm.Apply(DeBruijnTerm.Variable(0), value)) =>
-              Defunctionalization.bodyInstantiated(rest, Defunctionalization.thunkInstruction(value))
+              Defunctionalization.bodyInstantiated(rest, Defunctionalization.thunkInstruction[NoFacts.type](value))
             case other => throw AssertionError(s"a binding's helper is no λt. t V: $other")
         case other => throw AssertionError(s"a binding is no application: $other")
     )
@@ -131,7 +139,7 @@ class ReadableTextLawTest extends GeneratedProperties with SeededSnapshots:
   property("the text reads back as the term once its bindings are contracted") {
     instructions.forAllWithLog(instruction => printedNamed(instruction).text).map(instruction =>
       val printed = printedNamed(instruction)
-      Result.diff(readBack(printed), instruction)(_ eq _).log(printed.text)
+      Result.diff(readBack(printed), instruction)(Configured.same(_, _)).log(printed.text)
     )
   }
 
@@ -154,7 +162,7 @@ class ReadableTextLawTest extends GeneratedProperties with SeededSnapshots:
       val printed = ReadableText.printed(instruction, map, ReadableText.KnownNames.Bound(Map.empty), inlined)
       Result.all(
         List(
-          Result.diff(readBack(printed), instruction)(_ eq _).log(printed.text),
+          Result.diff(readBack(printed), instruction)(Configured.same(_, _)).log(printed.text),
           Result.assert(printed.sharedValues.forall(value => !inlined.contains(value.instruction))).log(s"bound: ${printed.text}")
         )
       )
@@ -176,7 +184,7 @@ class ReadableTextLawTest extends GeneratedProperties with SeededSnapshots:
       val again = LambdalatticeLayout.laidOut(Lambdalattice.lexemes(laidOut), LambdalatticeLayout.ParameterLists.Prefixed).stripTrailing
       Result.all(
         List(
-          Result.diff(readBack(printed, laidOut), instruction)(_ eq _),
+          Result.diff(readBack(printed, laidOut), instruction)(Configured.same(_, _)),
           Result.diff(again, laidOut)(_ == _).log("laid out again")
         )
       ).log(laidOut)
@@ -263,29 +271,29 @@ class ReadableTextLawTest extends GeneratedProperties with SeededSnapshots:
     )
 
   /** The term of the use over the closed head. */
-  private def literalTerm(use: LiteralUse, head: DeBruijnTerm): DeBruijnTerm =
+  private def literalTerm(use: LiteralUse, head: DeBruijnTermOf[NoFactsTerm]): DeBruijnTermOf[NoFactsTerm] =
     val applied = (use.arguments.flatMap(Literals.arguments) ++ use.bitRead.map(bitReading))
       .foldLeft(if use.headOutside then DeBruijnTerm.Variable(0) else head)(DeBruijnTerm.Apply(_, _))
     val bound = use.binders.foldRight(applied)(Literals.partialFunction)
     if use.headOutside then DeBruijnTerm.Lambda(bound) else bound
 
-  private def literalInstructionsOver(constants: Vector[Term]): Gen[Instruction] =
+  private def literalInstructionsOver(constants: Vector[TermOf[NoFactsTerm]]): Gen[NoFactsTerm] =
     for
       use <- literalUses
       head <- HoasGenerators.closedTermOver(constants)
       diamond <- Gen.boolean
     yield
       val term = literalTerm(use, head.deBruijnTerm(Map.empty))
-      Defunctionalization.thunkInstruction(
+      Defunctionalization.thunkInstruction[NoFacts.type](
         if diamond then DeBruijnTerm.Lambda(DeBruijnTerm.Apply(DeBruijnTerm.Apply(DeBruijnTerm.Variable(0), term), term)) else term
       )
 
-  private val literalInstructions: Gen[Instruction] = literalInstructionsOver(Vector(Term.closed(libraryName)))
+  private val literalInstructions: Gen[NoFactsTerm] = literalInstructionsOver(Vector(Term.closed(libraryName)))
 
   property("a term with literals reads back as the term once its bindings are contracted") {
     literalInstructions.forAllWithLog(instruction => printedNamed(instruction).text).map(instruction =>
       val printed = printedNamed(instruction)
-      Result.diff(readBack(printed), instruction)(_ eq _).log(printed.text)
+      Result.diff(readBack(printed), instruction)(Configured.same(_, _)).log(printed.text)
     )
   }
 
@@ -294,7 +302,7 @@ class ReadableTextLawTest extends GeneratedProperties with SeededSnapshots:
     */
   test("the text of terms with literals") {
     assertSeededSnapshot(literalUses, 20261119L, 40, "readable-text/literals.txt")(_.text, identity[String])(use =>
-      printedNamed(Defunctionalization.thunkInstruction(literalTerm(use, Term.closed(libraryName).deBruijnTerm(Map.empty)))).text
+      printedNamed(Defunctionalization.thunkInstruction[NoFacts.type](literalTerm(use, Term.closed(libraryName).deBruijnTerm(Map.empty)))).text
     )
   }
 
@@ -361,7 +369,7 @@ class ReadableTextLawTest extends GeneratedProperties with SeededSnapshots:
     val leaf = Term.Abstraction(x => x)
     val lines = (1 to 12).map(height =>
       val tower = (1 to height).foldLeft(leaf)((below, _) => Term.Abstraction(function => function(below)(below)))
-      val printed = printedNamed(Defunctionalization.thunkInstruction(tower.deBruijnTerm(Map.empty)))
+      val printed = printedNamed(Defunctionalization.thunkInstruction[NoFacts.type](tower.deBruijnTerm(Map.empty)))
       s"height $height: ${printed.bindings} bindings, ${printed.text.length} characters"
     )
     assertFileSnapshot(lines.mkString("\n") + "\n", "readable-text/diamond-towers.txt")
@@ -377,7 +385,7 @@ class ReadableTextLawTest extends GeneratedProperties with SeededSnapshots:
     val leaf = Term.Abstraction(x => x)
     val lines = (1 to 12).map(height =>
       val tower = (1 to height).foldLeft(leaf)((below, _) => Term.Abstraction(function => function(Term.Abstraction(inner => function(inner)(below)(below)))))
-      val printed = printedNamed(Defunctionalization.thunkInstruction(tower.deBruijnTerm(Map.empty)))
+      val printed = printedNamed(Defunctionalization.thunkInstruction[NoFacts.type](tower.deBruijnTerm(Map.empty)))
       s"height $height: ${printed.bindings} bindings, ${printed.text.length} characters"
     )
     assertFileSnapshot(lines.mkString("\n") + "\n", "readable-text/inner-diamond-towers.txt")
@@ -389,7 +397,7 @@ class ReadableTextLawTest extends GeneratedProperties with SeededSnapshots:
       .map(instruction =>
         val text = printedNamed(instruction).text
         val read = Lambdalattice.located(text, FreeNames.Rejected)
-        val (again, map) = Defunctionalization.locatedThunkInstruction(read.term, read.spans, uri)
+        val (again, map) = Defunctionalization.locatedThunkInstruction[NoFacts.type](read.term, read.spans, uri)
         Result.diff(ReadableText.printed(again, map).text, text)(_ == _)
       )
   }
@@ -415,17 +423,17 @@ class ReadableTextLawTest extends GeneratedProperties with SeededSnapshots:
   }
 
   /** The distinct instructions under the root, the root included. */
-  private def subinstructions(root: Instruction): Vector[Instruction] =
+  private def subinstructions(root: NoFactsTerm): Vector[NoFactsTerm] =
     @scala.annotation.tailrec
-    def walked(pending: List[Instruction], found: Vector[Instruction]): Vector[Instruction] = pending match
+    def walked(pending: List[NoFactsTerm], found: Vector[NoFactsTerm]): Vector[NoFactsTerm] = pending match
       case Nil                                       => found
-      case current :: rest if found.contains(current) => walked(rest, found)
+      case current :: rest if found.exists(Configured.same(_, current)) => walked(rest, found)
       case current :: rest =>
-        walked((if current.opaque then Nil else current.layered.children.toList) ++ rest, found :+ current)
+        walked((if current.opaque then Nil else current.layer.children.toList) ++ rest, found :+ current)
     walked(List(root), Vector.empty)
 
   /** The subterm at the path, by the child positions of `DeBruijnTerm`. */
-  private def readbackAt(term: DeBruijnTerm, path: Vector[Int]): DeBruijnTerm =
+  private def readbackAt(term: DeBruijnTermOf[NoFactsTerm], path: Vector[Int]): DeBruijnTermOf[NoFactsTerm] =
     path.foldLeft(term)((current, index) =>
       (current, index) match
         case (DeBruijnTerm.Lambda(body), 0)            => body
@@ -439,8 +447,8 @@ class ReadableTextLawTest extends GeneratedProperties with SeededSnapshots:
     )
 
   /** The instruction at the path, by the indices of `Layer.children`. */
-  private def instructionAt(root: Instruction, path: Vector[Int]): Instruction =
-    path.foldLeft(root)((current, index) => current.layered.children(index))
+  private def instructionAt(root: NoFactsTerm, path: Vector[Int]): NoFactsTerm =
+    path.foldLeft(root)((current, index) => current.layer.children(index))
 
   /** Purpose: catch a place (`ReadableText.placed`) at a node of the
     * readback that is not where the readback writes the subterm the place
@@ -458,7 +466,7 @@ class ReadableTextLawTest extends GeneratedProperties with SeededSnapshots:
     withStops.forAllWithLog((instruction, stops) => s"$instruction, stops $stops").map((instruction, stops) =>
       val whole = Defunctionalization.instructionTerm(instruction, stops)
       // A stop is written as its constant, which `instructionTerm` of the stop alone expands.
-      def readbackOf(subterm: Instruction): DeBruijnTerm =
+      def readbackOf(subterm: NoFactsTerm): DeBruijnTermOf[NoFactsTerm] =
         if stops.contains(subterm) then DeBruijnTerm.Constant(subterm) else Defunctionalization.instructionTerm(subterm, stops)
       val wrong = ReadableText.placed(instruction, stops, None).entries.filterNot((readbackPath, place) =>
         readbackAt(whole, readbackPath) == readbackOf(instructionAt(instruction, place.path))

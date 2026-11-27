@@ -3,7 +3,7 @@ package gezi.weakhead
 import gezi.standardlibrary.CombinatorProperty
 import gezi.standardlibrary.Property
 import gezi.standardlibrary.StandardLibraryIndex
-import gezi.ir.Instruction
+import gezi.ir.{Configured, NativeSpecializer, Value}
 
 /** The number of a decoding (the JIT gives each decoding its own, so that a
   * decoding that starts while another is in progress never reads the
@@ -79,19 +79,23 @@ object Codecs:
     * one head reads what the head reads, and any other set, which is no case
     * of a constructor, reads `noCase`.
     */
-  def readingsWithin[Reading](term: Value, noCase: Reading)(
-      read: Head => Reading
-  ): CaseReadings[Reading] =
+  def readingsWithin[C <: NativeSpecializer & Singleton, Reading](term: Value[C], noCase: Reading)(
+      read: Head[C] => Reading
+  )(using C, gezi.ir.StorageAccess): CaseReadings[Reading] =
     WeakHead
       .heads(Mode.TablingWeakHead, term)
       .collected
-      .result(ReadingState.fresh(shapeStepLimit)) match
+      .result(
+        ReadingState.fresh(shapeStepLimit, ReadingConfiguration(summon[C], summon[gezi.ir.StorageAccess]))
+      ) match
       case Computed.Done(sets, _) =>
         CaseReadings.Read(
           sets
-            .map(_.view match
-              case ParallelView.Single(head) => read(head)
-              case _                         => noCase)
+            .map(set =>
+              set.view(summon[C]) match
+                case ParallelView.Single(head) => read(head)
+                case _                         => noCase
+            )
             .distinct
         )
       case Computed.Stopped(_) => CaseReadings.LimitReached
@@ -118,12 +122,12 @@ object Codecs:
     * such a list, never a name, and never a term alone: α-equivalent library
     * files such as zero, true and nil are one term. A family whose criterion has no
     * `native_specialization` gives none. These are backend facts of the
-    * knowledge, read by the instruction of the criterion; none is a type.
+    * knowledge, read by the pure key of the criterion; none is a type.
     */
-  def declaredConstructors(index: StandardLibraryIndex): Vector[(String, Vector[Instruction])] =
+  def declaredConstructors(index: StandardLibraryIndex[?]): Vector[(String, Vector[gezi.ir.Pure])] =
     val firstSpecialization = index.combinatorProperties
       .collect { case CombinatorProperty(criterion, Property.NativeSpecialization(representation)) => criterion -> representation }
-      .foldLeft(Map.empty[Instruction, String]) { case (found, (criterion, representation)) =>
+      .foldLeft(Map.empty[gezi.ir.Pure, String]) { case (found, (criterion, representation)) =>
         if found.contains(criterion) then found else found.updated(criterion, representation)
       }
     index.combinatorProperties.collect {

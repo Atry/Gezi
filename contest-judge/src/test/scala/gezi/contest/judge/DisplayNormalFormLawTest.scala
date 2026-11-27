@@ -42,20 +42,31 @@ class DisplayNormalFormLawTest extends GeneratedProperties:
     case DeBruijnTerm.Parallel(left, right)     => occurs(left, index) || occurs(right, index)
     case _                                      => false
 
-  private val terms: Gen[Term] =
+  /** The term, or the term twice in a diamond `λf. f t t`, which is a normal
+    * form exactly when t is.
+    */
+  private def maybeInADiamond(generated: Gen[Term]): Gen[Term] =
     for
-      term <- Gen.choice1(HoasGenerators.closedTerm, HoasGenerators.normalForm, HoasGenerators.etaRedexTerm)
+      term <- generated
       diamond <- Gen.boolean
     yield if diamond then Term.λ(function => function(term)(term)) else term
 
+  /** The law on one term, and, where the construction gives it, the verdict. */
+  private def checked(term: Term, expected: Option[Boolean]): Result =
+    val instruction = Defunctionalization.thunkInstruction(term.deBruijnTerm(Map.empty))(using gezi.ir.NoFacts)
+    val found = Display.normalForm(instruction)
+    Result
+      .diff(found, normalFormTerm(Defunctionalization.instructionTerm(instruction)))(_ == _)
+      .and(expected.fold(Result.success)(verdict => Result.diff(found, verdict)(_ == _)))
+      .log(gezi.frontend.Lambdalattice.closedText(instruction))
+
+  /** Every iteration checks a term of every construct, a βη normal form, which
+    * is one by construction, and a term with an η redex, which is none.
+    */
   property("an instruction is a normal form exactly when its readback is") {
-    terms.forAll
-      .cover(20, "a normal form", term => normalFormTerm(term.deBruijnTerm(Map.empty)))
-      .cover(20, "no normal form", term => !normalFormTerm(term.deBruijnTerm(Map.empty)))
-      .map(term =>
-        val instruction = Defunctionalization.thunkInstruction(term.deBruijnTerm(Map.empty))
-        Result
-          .diff(Display.normalForm(instruction), normalFormTerm(Defunctionalization.instructionTerm(instruction)))(_ == _)
-          .log(gezi.frontend.Lambdalattice.closedText(instruction))
-      )
+    for
+      any <- maybeInADiamond(HoasGenerators.closedTerm).forAll
+      normal <- maybeInADiamond(HoasGenerators.normalForm).forAll
+      withRedex <- maybeInADiamond(HoasGenerators.etaRedexTerm).forAll
+    yield checked(any, None).and(checked(normal, Some(true))).and(checked(withRedex, Some(false)))
   }

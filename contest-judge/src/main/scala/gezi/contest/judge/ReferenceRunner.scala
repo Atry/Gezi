@@ -5,36 +5,45 @@ import gezi.contest.entry.Entry
 import gezi.contest.entry.Interaction
 import gezi.contest.entry.OutputDisplay
 import gezi.contest.runner.EntryRunner
+import gezi.frontend.DeBruijnTermOf
+import gezi.hotspot.ExpansionSource
+import gezi.ir.{Closed, Configured, NoFacts, Value}
 import gezi.weakhead.Computed
 import gezi.weakhead.Mode
-import gezi.weakhead.NormalForms
 import gezi.weakhead.Reading
+import gezi.weakhead.ReadingConfiguration
 import gezi.weakhead.ReadingState
-import gezi.weakhead.Value
-import gezi.frontend.DeBruijnTerm
-import gezi.frontend.Defunctionalization
+import gezi.weakhead.ScottADTChoices
 import gezi.saturation.StopSignal
 
-/** A reference reader as an entry: the weak-head evaluator under the mode
+/** A reference reader as an entry of no facts: the weak-head evaluator under the mode
   * (`tabling(weak_head)`), each cell's Output
-  * (`Cells.outputInstruction`) read as the reduction judge reads a program
-  * (`Reduction.answeredNormalForms`): every normal form read from an empty
-  * store within the limit and read back, and displayed (`Cells.displayed`);
-  * a stopped reading displays the Output not evaluated, which asserts
-  * nothing. A judgment cell's Output `N ∥ T` reads as the normal forms of T
+  * (`Cells.outputInstruction`) read as its Scott ADT values (`ScottADTChoices.of`) from an empty
+  * store within the limit, and displayed; a stopped reading displays the Output not evaluated, which asserts
+  * nothing. A judgment cell's Output `N ∥ T` reads as the Scott ADT values of T
   * that are N (the weak-head reading of a parallel). The state is kept as a
   * term (`Cells.nextState`); nothing else passes from one cell to the next,
   * and it keeps no cache. It reports no phases. It ignores the stop signal:
   * the judge's wall-clock limit ends its reading.
   */
-final case class ReferenceEntry(mode: Mode, state: DeBruijnTerm) extends Entry:
+final case class ReferenceEntry(mode: Mode, state: DeBruijnTermOf[Configured[NoFacts.type]]) extends Entry[NoFacts.type]:
 
-  def run(cell: DeBruijnTerm, source: gezi.hotspot.ExpansionSource, stop: StopSignal): Interaction =
-    val output = Cells.outputInstruction(cell, state)
-    val display = NormalForms.normalForms(mode, output).result(ReadingState.knowingTop(ReferenceEntry.limit)) match
-      case Computed.Done(normalForms, _) => Cells.displayed(normalForms.map(Defunctionalization.instructionTerm).toSet)
-      case Computed.Stopped(_)           => OutputDisplay.shown(Cells.output(cell, state))
+  def specializer: NoFacts.type = NoFacts
+
+  def run(cell: DeBruijnTermOf[Configured[NoFacts.type]], source: ExpansionSource, stop: StopSignal): Interaction[NoFacts.type] =
+    val output = Cells.outputInstruction[NoFacts.type](cell, state)
+    val display = valuesDisplayed(Value.of(output), OutputDisplay.remainder[NoFacts.type](Cells.output(cell, state)))
     Interaction.Finished(display, Vector.empty, copy(state = Cells.nextState(cell, state)))
+
+  /** The reference reads no FFI program. */
+  def displayed(value: Closed[NoFacts.type], source: ExpansionSource, stop: StopSignal): (Entry[NoFacts.type], OutputDisplay[NoFacts.type]) =
+    (this, valuesDisplayed(Closed.value(value), OutputDisplay.noScottADTValue[NoFacts.type]))
+
+  /** The value's Scott ADT values within the limit, or `stopped` when the reading ends first. */
+  private def valuesDisplayed(value: Value[NoFacts.type], stopped: OutputDisplay[NoFacts.type]): OutputDisplay[NoFacts.type] =
+    ScottADTChoices.of(mode, value).result(ReadingState.knowingTop(ReferenceEntry.limit, ReadingConfiguration.withoutFacts)) match
+      case Computed.Done(read, _) => OutputDisplay.Values(read.choices)
+      case Computed.Stopped(_)    => stopped
 
 /** The reference readers by their names in the judge's table. */
 object ReferenceEntry:

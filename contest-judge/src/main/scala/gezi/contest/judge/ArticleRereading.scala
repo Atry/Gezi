@@ -53,8 +53,10 @@ object ArticleRereading:
     * under the article root, `<point directory>/article` the article
     * directory and the point directory itself the log directory, within
     * the reader's family budget times the allowance, then `ArticleCheck`,
-    * and the point's `ArticleManifest` written in the point directory;
-    * then the page under the article root, made here when it does not exist
+    * and, once every point is checked, the points' `ArticleManifest`s
+    * written in their point directories by `manifestsWritten`, which the
+    * supervisor runs in a JVM of their own (`ArticleManifests`); then the
+    * page under the article root, made here when it does not exist
     * yet (a pass that answered no point selects none), that lists the points'
     * trace pages, with the player's copy when its directory is given
     * (`TracePages.written`). The lines of `articles.tsv`: the article seed and the allowance as
@@ -72,7 +74,7 @@ object ArticleRereading:
       articleSeed: Long,
       allowance: Double,
       articleRoot: Path,
-      provenance: ManifestProvenance,
+      manifestsWritten: Vector[(Point, ArticleOutcome, Path)] => Unit,
       limits: Limits,
       player: Option[Path]
   ): Vector[String] =
@@ -99,12 +101,9 @@ object ArticleRereading:
       )
       val scored = answers.getOrElse(point.name, throw IllegalStateException(s"no scored answer of ${point.name}"))
       val verdict = ArticleCheck.checked(articleDirectory, scored, reread)
-      ArticleManifest.written(
-        directory,
-        ArticleManifest.lines(point, verdict, ArticleCheck.articleFiles(articleDirectory), directory, provenance)
-      )
-      (ArticleCheck.row(point.name, reader.name, verdict), (point.name, directory))
+      (ArticleCheck.row(point.name, reader.name, verdict), (point.name, directory), (point, verdict.outcome, directory))
     }
+    manifestsWritten(rows.map(_._3))
     TracePages.written(articleRoot, rows.map(_._2), player)
     Vector(s"# article-seed $articleSeed", s"# article-allowance $allowance", ArticleCheck.header) ++ rows.map(_._1)
 

@@ -1,9 +1,12 @@
 package gezi.jmh.pipeline
 
+import gezi.ir.{Configured, NativeSpecializer}
 import java.util.concurrent.TimeUnit // the JMH protocol's exception (the user, 2026-10-31: "好的，用sbt-jmh，需要配合JMH协议时，必要时可以作为例外使用可变数据结构"): the time unit of JMH's annotations, an immutable enum of the concurrency package
 import gezi.contest.entry.BackendOption
 import gezi.contest.entry.CheckpointOption
 import gezi.contest.entry.LookaheadOption
+import gezi.contest.entry.InstanceReuseOption
+import gezi.contest.entry.GroupBlocksOption
 import gezi.contest.entry.Defaults
 import gezi.contest.entry.DispatchOption
 import gezi.contest.entry.GranularityOption
@@ -13,10 +16,10 @@ import gezi.contest.entry.NativeBlocksOption
 import gezi.frontend.Defunctionalization
 import gezi.frontend.Term
 import gezi.frontend.Term.λ
-import gezi.ir.Instruction
 import gezi.jit.BackendChecks
 import gezi.jit.BackendFacts
 import gezi.jit.JitConfiguration
+import gezi.jit.StorageEncoding
 import gezi.jit.TableCost
 import gezi.programfamilies.FixedPointLines
 import gezi.saturation.StopSignal
@@ -28,7 +31,6 @@ import gezi.weakhead.JitEvaluator
 import gezi.weakhead.Mode as ReadingMode
 import gezi.weakhead.NormalForms
 import gezi.weakhead.ReadingState
-import gezi.weakhead.Value
 import org.openjdk.jmh.annotations.Benchmark
 import org.openjdk.jmh.annotations.BenchmarkMode
 import org.openjdk.jmh.annotations.Fork
@@ -40,7 +42,8 @@ import org.openjdk.jmh.annotations.State
 import org.openjdk.jmh.annotations.Warmup
 
 /** The input of the trampoline's stop check benchmark: the evaluator of the
-  * benchmarks' knowledge (`KnowledgeReadings.knowledgeFile`) and one hot site
+  * benchmarks' generated knowledge for an executor
+  * (`KnowledgeReadings.executorKnowledgeTerm`) and one hot site
   * in the hot ladder's iterated shape, its library terms the members of the
   * cancel law's fixture read by projection, let bound as the hot ladder's
   * generator binds them, a count of `TrampolineStopInput.bits` binary digits
@@ -54,18 +57,37 @@ import org.openjdk.jmh.annotations.Warmup
 @State(Scope.Benchmark)
 class TrampolineStopInput:
 
-  lazy val evaluator: JitEvaluator =
-    Defaults.jit(BackendFacts.of(KnowledgeReadings.compiled(KnowledgeReadings.knowledgeFile, Vector(BackendChecks))), TrampolineStopInput.jitOptions)
+  /** The evaluator and the program, in the configuration of the encoding of the executor knowledge's facts, which the
+    * setup's type parameter names for the benchmarks that open it.
+    */
+  lazy val setup: TrampolineStopSetup[?] =
+    val library = KnowledgeReadings.compiled(KnowledgeReadings.executorKnowledgeTerm, Vector(BackendChecks))
+    val encoding = BackendFacts.of(library).storageEncoding
+    TrampolineStopInput.setupOf[encoding.type](encoding)
 
-  lazy val program: Instruction =
-    val root = FixedPointLines.buildRoot
-    val terms = StandardLibrary
-      .entryMembers(root, gezi.standardlibrary.TermTables.hotSiteTerms, Expansions.none)
-      ._1
-      .map((key, instruction) => key -> Term.closed(instruction))
-    Defunctionalization.thunkInstruction(TrampolineStopInput.site(TrampolineStopInput.keys.map(terms)).deBruijnTerm(Map.empty))
+/** The JIT and the program it reads, in the configuration `C`. */
+final case class TrampolineStopSetup[C <: NativeSpecializer & Singleton](evaluator: JitEvaluator[C], program: Configured[C]):
+
+  /** The specializer of the configuration, the one the JIT is built over. */
+  def specializer: C = evaluator.readingConfiguration.specializer
 
 object TrampolineStopInput:
+
+  /** The JIT of `jitOptions` over the encoding, and the site read by it, the library terms of the cancel law's
+    * fixture crossed from no facts into the encoding's configuration.
+    */
+  def setupOf[C <: NativeSpecializer & Singleton](encoding: StorageEncoding & C): TrampolineStopSetup[C] =
+    given C = encoding
+    val root = FixedPointLines.buildRoot
+    val members = StandardLibrary
+      .entryMembers(root, gezi.standardlibrary.TermTables.hotSiteTerms, Expansions.none)
+      ._1
+    val crossed = encoding.crossedAllFromNoFacts(members.values)
+    val terms = members.map((key, instruction) => key -> Term.closed(crossed(instruction)))
+    TrampolineStopSetup(
+      Defaults.jit[C](encoding, jitOptions, GroupBlocksOption.None, gezi.ir.StorageAccess.granted()),
+      Defunctionalization.thunkInstruction[C](site(keys.map(terms)).deBruijnTerm(Map.empty))
+    )
 
   /** The JIT's options the benchmark reads with, named here rather than taken
     * from an entry: one predicate per code, the closure backend, the
@@ -83,7 +105,8 @@ object TrampolineStopInput:
       budget = JitConfiguration.defaultBudget,
       checkpoints = CheckpointOption.Profitable,
       nativeBlocks = NativeBlocksOption.None,
-      lookahead = LookaheadOption.Lazily
+      lookahead = LookaheadOption.Lazily,
+      instanceReuse = InstanceReuseOption.WithinVersion
     )
 
   /** The names of the cancel law's library terms the site uses
@@ -136,26 +159,36 @@ object TrampolineStopInput:
 @Measurement(iterations = 5, time = 1, timeUnit = TimeUnit.SECONDS)
 class TrampolineStopBenchmark:
 
-  /** A signal that reads the clock against a deadline an hour away, and the
-    * reading's start under it: the budget reads the same signal in both
-    * benchmarks, so that they differ in the trampoline's reads alone.
-    */
-  private def started(): (StopSignal, ReadingState) =
-    val deadline = System.nanoTime + 3_600_000_000_000L
-    val stop = new StopSignal:
-      def stopRequested: Boolean = System.nanoTime > deadline
-    (stop, ReadingState.knowingTop(0).copy(budget = Budget.stoppedBy(Long.MaxValue, stop)))
-
   /** The reading on the plain trampoline. */
   @Benchmark
   @OutputTimeUnit(TimeUnit.MILLISECONDS)
-  def plain(input: TrampolineStopInput): Computed[ReadingState, Vector[Instruction]] =
-    val (_, state) = started()
-    NormalForms.normalForms(ReadingMode.Jit(input.evaluator), input.program).result(state)
+  def plain(input: TrampolineStopInput): Computed[?, Vector[Configured[?]]] = TrampolineStopBenchmark.plain(input.setup)
 
   /** The reading on the trampoline that reads the signal. */
   @Benchmark
   @OutputTimeUnit(TimeUnit.MILLISECONDS)
-  def stopChecked(input: TrampolineStopInput): Option[Computed[ReadingState, Vector[Instruction]]] =
-    val (stop, state) = started()
-    NormalForms.normalForms(ReadingMode.Jit(input.evaluator), input.program).resultUnless(state, stop)
+  def stopChecked(input: TrampolineStopInput): Option[Computed[?, Vector[Configured[?]]]] = TrampolineStopBenchmark.stopChecked(input.setup)
+
+object TrampolineStopBenchmark:
+
+  /** A signal that reads the clock against a deadline an hour away, and the
+    * reading's start under it: the budget reads the same signal in both
+    * benchmarks, so that they differ in the trampoline's reads alone.
+    */
+  def started[C <: NativeSpecializer & Singleton](configuration: gezi.weakhead.ReadingConfiguration[C]): (StopSignal, ReadingState[C]) =
+    val deadline = System.nanoTime + 3_600_000_000_000L
+    val stop = new StopSignal:
+      def stopRequested: Boolean = System.nanoTime > deadline
+    (stop, ReadingState.knowingTop(0, configuration).copy(budget = Budget.stoppedBy(Long.MaxValue, stop)))
+
+  /** The reading of the setup's program on the plain trampoline, in the setup's configuration, which the method binds. */
+  def plain[C <: NativeSpecializer & Singleton](setup: TrampolineStopSetup[C]): Computed[ReadingState[C], Vector[Configured[C]]] =
+    given C = setup.specializer
+    val (_, state) = started(setup.evaluator.readingConfiguration)
+    NormalForms.normalForms(ReadingMode.Jit(setup.evaluator), setup.program).result(state)
+
+  /** The reading of the setup's program on the trampoline that reads the signal. */
+  def stopChecked[C <: NativeSpecializer & Singleton](setup: TrampolineStopSetup[C]): Option[Computed[ReadingState[C], Vector[Configured[C]]]] =
+    given C = setup.specializer
+    val (stop, state) = started(setup.evaluator.readingConfiguration)
+    NormalForms.normalForms(ReadingMode.Jit(setup.evaluator), setup.program).resultUnless(state, stop)

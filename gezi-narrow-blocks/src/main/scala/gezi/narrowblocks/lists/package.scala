@@ -41,5 +41,27 @@ package gezi.narrowblocks
   * without the memo. It needs no mark in the term: it answers only from
   * finished calls, its key holds every input, it applies to every call of
   * every block alike, and emptying it changes only time (the clearing law).
+  *
+  * THE RECORD LISTS, the opt-in route [[DeclaredFamilyRoute]]. A filter
+  * `e ∥ list_type (T c1 … ck)`, T a data family the backend declares with one
+  * constructor whose fields are `parameter(0)` to `parameter(k - 1)` and each
+  * ci a narrow criterion, is a decode point of a list of records: a closed
+  * list decodes there, column by column, into a [[NarrowRecords]]. The grammar
+  * gets no new kind: the operand stays a closed term, read by the one decoding
+  * entry of a block's literals (`NarrowBlockCompilation.constant`), and only a
+  * native's `gezi.jit.NativePlace.NaturalRecordList` whose declared
+  * representations are those the filter names reads it. The family is read
+  * from the backend's facts and the filter in the term, never from a name or
+  * from the record's constructors alone. [[LemmaRoute]] decodes no record.
+  *
+  * THE FAMILY RESULTS, on the same route. A native whose result place is
+  * `gezi.jit.NativePlace.DeclaredFamilyValue` returns a
+  * `gezi.jit.ConstructedNaturals`, a constructor's position and its natural
+  * fields, and a block calls it only at its root, so that no arithmetic reads
+  * it. The block is replaced by that constructor applied to the fields'
+  * numerals (`NarrowBlockCompilation.constructedTerm`). The family and the
+  * fields' criteria are those of the filter `∥ F c1 … ck` at the root of the
+  * body of the term the native is bound to; a value that does not fit them
+  * gives no term, and the reader reads the program.
   */
 package object lists

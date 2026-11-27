@@ -15,6 +15,10 @@ import scala.concurrent.duration.Duration
   * The suite is in `strategies` because it runs the strategy.
   */
 class RoundCertificateCheckTest extends FailFastSuite:
+
+  given gezi.ir.StorageAccess = gezi.ir.StorageAccess.granted()
+
+  private given gezi.ir.NoFacts.type = gezi.ir.NoFacts
   import RewriteTraceLawTest.*
 
   // Measured 2026-11-17 on 2 CPUs (contest.slice, CPUs 10 and 11, nice 10), the Lean package built:

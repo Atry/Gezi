@@ -1,0 +1,17 @@
+# The Prolog backend's preset with the choice rule of the HM judgments
+# (wren_choice_typing): the library is prolog_backend_preset and
+# wren_choice_typing; the type-check round is prolog_backend_type_check and
+# wren_choice_typing, so that a choice of typed values is judged. No entry
+# lists it yet (#2163, step 1b).
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega corpora "compiler") "prolog_backend_preset")
+λ prolog_backend_preset prolog_backend_type_check
+. omega (omega (omega corpora "compiler") "wren_choice_typing")
+λ wren_choice_typing
+. (λtuple. tuple (wren_choice_typing + prolog_backend_preset))
+λ wren_choice_preset
+. (λtuple. tuple (wren_choice_typing + prolog_backend_type_check))
+λ wren_choice_type_check
+. export wren_choice_preset wren_choice_type_check

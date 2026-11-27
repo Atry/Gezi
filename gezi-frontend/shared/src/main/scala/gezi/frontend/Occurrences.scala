@@ -1,22 +1,21 @@
 package gezi.frontend
 
-import gezi.ir.Instruction
-import gezi.ir.Layer
+import gezi.ir.{Configured, NativeSpecializer, Pure}
 import scala.util.control.TailCalls.TailRec
 import scala.util.control.TailCalls.done
 import scala.util.control.TailCalls.tailcall
-import gezi.ir.Apply
 
 /** The four library terms the tagging uses, those the library declares under
   * the front end entries `name_marker`, `closure_marker`, `tag_origin` and
   * `tag_next` (`gezi.standardlibrary.CombinatorPropertyVocabulary`),
-  * read and checked by `gezi.standardlibrary.StandardLibraryIndex.occurrenceMarkers`.
+  * read and checked by `gezi.standardlibrary.StandardLibraryIndex.occurrenceMarkers`: pure keys of the facts, which
+  * enter a program's configuration as they are (`Configured.fromPure`).
   */
 final case class OccurrenceMarkers(
-    name: Instruction,
-    closure: Instruction,
-    firstTag: Instruction,
-    nextTag: Instruction
+    name: Pure,
+    closure: Pure,
+    firstTag: Pure,
+    nextTag: Pure
 )
 
 object OccurrenceMarkers:
@@ -24,15 +23,16 @@ object OccurrenceMarkers:
   /** The side `λt. λx. M t x` of the marker M's erasure lemma, spelled by
     * the front end as a lemma's sides are.
     */
-  def erasing(marker: Instruction): Instruction =
-    Defunctionalization.thunkInstruction(
-      Term.λ(tag => Term.λ(bound => Term.closed(marker)(tag)(bound))).deBruijnTerm(Map.empty)
+  def erasing[C <: NativeSpecializer & Singleton](marker: Pure)(using specializer: C): Configured[C] =
+    Defunctionalization.thunkInstruction[C](
+      Term.λ(tag => Term.λ(bound => Term.closed(Configured.fromPure(specializer)(marker))(tag)(bound))).deBruijnTerm(Map.empty)
     )
 
   /** The side `λt. λx. x` of every marker's erasure lemma, spelled by the
     * front end as a lemma's sides are.
     */
-  def erased: Instruction = Defunctionalization.thunkInstruction(Term.λ(_ => Term.λ(bound => bound)).deBruijnTerm(Map.empty))
+  def erased[C <: NativeSpecializer & Singleton](using C): Configured[C] =
+    Defunctionalization.thunkInstruction[C](Term.λ(_ => Term.λ(bound => bound)).deBruijnTerm(Map.empty))
 
 /** The occurrence tagging of a program (the module comment of
   * `gezi/prolog/gezi/surface.pl`, OCCURRENCES). Hash consing
@@ -57,104 +57,111 @@ object OccurrenceMarkers:
   */
 object Occurrences:
 
-  /** The term with each constant and each lambda chain tagged. */
-  def tagged(term: DeBruijnTerm, markers: OccurrenceMarkers): DeBruijnTerm =
+  /** The term with each constant and each lambda chain tagged, in the configuration of the specializer in scope. */
+  def tagged[C <: NativeSpecializer & Singleton](term: DeBruijnTermOf[Configured[C]], markers: OccurrenceMarkers)(using
+      C
+  ): DeBruijnTermOf[Configured[C]] =
     taggedCounted(term, markers).value
 
   /** `tagged` with the count of its operations: one for each node the walk
     * visits, and one for each tag interned
     * (`Interning.layerInternedCounted`).
     */
-  def taggedCounted(term: DeBruijnTerm, markers: OccurrenceMarkers): Counted[DeBruijnTerm] =
+  def taggedCounted[C <: NativeSpecializer & Singleton](term: DeBruijnTermOf[Configured[C]], markers: OccurrenceMarkers)(using
+      specializer: C
+  ): Counted[DeBruijnTermOf[Configured[C]]] =
     val (result, state) =
-      occurrencesTagged(
-        term,
-        markers,
-        TagState(markers.firstTag, 0)
-      ).result
+      Tagging(markers, specializer).occurrencesTagged(term, TagState(Configured.fromPure(specializer)(markers.firstTag), 0)).result
     Counted(result, state.operations)
 
   /** The instruction of the first tag not yet given, and the count of the
     * operations so far.
     */
-  private final case class TagState(tag: Instruction, operations: Long):
+  private final case class TagState[C <: NativeSpecializer & Singleton](tag: Configured[C], operations: Long):
 
     /** The state after the walk visited one more node. */
-    def visited: TagState = copy(operations = operations + 1)
+    def visited: TagState[C] = copy(operations = operations + 1)
 
     /** The state after the tag was given: the next tag, `next` applied to
       * this one, interned.
       */
-    def advanced(next: Instruction): TagState =
-      val Counted(instruction, counted) = Interning.layerInternedCounted(Apply(next, tag))
-      TagState(instruction, operations + counted)
+    def advanced(next: Configured[C])(using C): TagState[C] =
+      val Counted(term, counted) = Interning.applicationInternedCounted(next, tag)
+      TagState(term, operations + counted)
 
-  private def marked(
-      marker: Instruction,
-      tag: Instruction,
-      term: DeBruijnTerm
-  ): DeBruijnTerm =
-    DeBruijnTerm.Apply(
-      DeBruijnTerm.Apply(DeBruijnTerm.Constant(marker), DeBruijnTerm.Constant(tag)),
-      term
-    )
+  /** The walk of one tagging, in the configuration of the specializer, its markers as terms of that configuration. */
+  private final class Tagging[C <: NativeSpecializer & Singleton](markers: OccurrenceMarkers, specializer: C):
 
-  private def occurrencesTagged(
-      term: DeBruijnTerm,
-      markers: OccurrenceMarkers,
-      entered: TagState
-  ): TailRec[(DeBruijnTerm, TagState)] =
-    val state = entered.visited
-    term match
-      case DeBruijnTerm.Variable(_) => done((term, state))
-      case DeBruijnTerm.Free(name) =>
-        throw IllegalArgumentException(s"occurrences are tagged in a term with no free name, found $name")
-      case DeBruijnTerm.Constant(_) =>
-        done(
-          (marked(markers.name, state.tag, term), state.advanced(markers.nextTag))
-        )
-      case DeBruijnTerm.Lambda(_) =>
-        tailcall(chainTagged(term, markers, state.advanced(markers.nextTag)))
-          .map((chain, after) => (marked(markers.closure, state.tag, chain), after))
-      case DeBruijnTerm.Apply(function, argument) =>
-        for
-          (functionTagged, afterFunction) <- tailcall(
-            occurrencesTagged(function, markers, state)
-          )
-          (argumentTagged, afterArgument) <- tailcall(
-            occurrencesTagged(argument, markers, afterFunction)
-          )
-        yield (DeBruijnTerm.Apply(functionTagged, argumentTagged), afterArgument)
-      case DeBruijnTerm.Parallel(left, right) =>
-        for
-          (leftTagged, afterLeft) <- tailcall(
-            occurrencesTagged(left, markers, state)
-          )
-          (rightTagged, afterRight) <- tailcall(
-            occurrencesTagged(right, markers, afterLeft)
-          )
-        yield (DeBruijnTerm.Parallel(leftTagged, rightTagged), afterRight)
-      case DeBruijnTerm.Choice(left, right) =>
-        for
-          (leftTagged, afterLeft) <- tailcall(
-            occurrencesTagged(left, markers, state)
-          )
-          (rightTagged, afterRight) <- tailcall(
-            occurrencesTagged(right, markers, afterLeft)
-          )
-        yield (DeBruijnTerm.Choice(leftTagged, rightTagged), afterRight)
+    private given C = specializer
 
-  /** A lambda of a chain and the lambdas directly in its body, which continue
-    * the chain and take no tag of their own, then the body tagged.
-    */
-  private def chainTagged(
-      term: DeBruijnTerm,
-      markers: OccurrenceMarkers,
-      entered: TagState
-  ): TailRec[(DeBruijnTerm, TagState)] =
-    val state = entered.visited
-    term match
-      case DeBruijnTerm.Lambda(body) =>
-        tailcall(chainTagged(body, markers, state))
-          .map((chain, after) => (DeBruijnTerm.Lambda(chain), after))
-      case body => tailcall(occurrencesTagged(body, markers, entered))
+    private val name: Configured[C] = Configured.fromPure(specializer)(markers.name)
+    private val closure: Configured[C] = Configured.fromPure(specializer)(markers.closure)
+    private val nextTag: Configured[C] = Configured.fromPure(specializer)(markers.nextTag)
+
+    private def marked(
+        marker: Configured[C],
+        tag: Configured[C],
+        term: DeBruijnTermOf[Configured[C]]
+    ): DeBruijnTermOf[Configured[C]] =
+      DeBruijnTerm.Apply(
+        DeBruijnTerm.Apply(DeBruijnTerm.Constant(marker), DeBruijnTerm.Constant(tag)),
+        term
+      )
+
+    def occurrencesTagged(
+        term: DeBruijnTermOf[Configured[C]],
+        entered: TagState[C]
+    ): TailRec[(DeBruijnTermOf[Configured[C]], TagState[C])] =
+      val state = entered.visited
+      term match
+        case DeBruijnTerm.Variable(_) => done((term, state))
+        case DeBruijnTerm.Free(name) =>
+          throw IllegalArgumentException(s"occurrences are tagged in a term with no free name, found $name")
+        case DeBruijnTerm.Constant(_) =>
+          done(
+            (marked(name, state.tag, term), state.advanced(nextTag))
+          )
+        case DeBruijnTerm.Lambda(_) =>
+          tailcall(chainTagged(term, state.advanced(nextTag)))
+            .map((chain, after) => (marked(closure, state.tag, chain), after))
+        case DeBruijnTerm.Apply(function, argument) =>
+          for
+            (functionTagged, afterFunction) <- tailcall(
+              occurrencesTagged(function, state)
+            )
+            (argumentTagged, afterArgument) <- tailcall(
+              occurrencesTagged(argument, afterFunction)
+            )
+          yield (DeBruijnTerm.Apply(functionTagged, argumentTagged), afterArgument)
+        case DeBruijnTerm.Parallel(left, right) =>
+          for
+            (leftTagged, afterLeft) <- tailcall(
+              occurrencesTagged(left, state)
+            )
+            (rightTagged, afterRight) <- tailcall(
+              occurrencesTagged(right, afterLeft)
+            )
+          yield (DeBruijnTerm.Parallel(leftTagged, rightTagged), afterRight)
+        case DeBruijnTerm.Choice(left, right) =>
+          for
+            (leftTagged, afterLeft) <- tailcall(
+              occurrencesTagged(left, state)
+            )
+            (rightTagged, afterRight) <- tailcall(
+              occurrencesTagged(right, afterLeft)
+            )
+          yield (DeBruijnTerm.Choice(leftTagged, rightTagged), afterRight)
+
+    /** A lambda of a chain and the lambdas directly in its body, which continue
+      * the chain and take no tag of their own, then the body tagged.
+      */
+    private def chainTagged(
+        term: DeBruijnTermOf[Configured[C]],
+        entered: TagState[C]
+    ): TailRec[(DeBruijnTermOf[Configured[C]], TagState[C])] =
+      val state = entered.visited
+      term match
+        case DeBruijnTerm.Lambda(body) =>
+          tailcall(chainTagged(body, state))
+            .map((chain, after) => (DeBruijnTerm.Lambda(chain), after))
+        case body => tailcall(occurrencesTagged(body, entered))

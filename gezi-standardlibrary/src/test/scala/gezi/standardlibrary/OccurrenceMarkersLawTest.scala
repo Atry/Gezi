@@ -8,8 +8,10 @@ import gezi.frontend.OccurrenceMarkers
 import gezi.frontend.Term
 import gezi.generatedinputs.GeneratedProperties
 import gezi.generatedinputs.HoasGenerators
-import gezi.ir.Instruction
+import gezi.ir.Configured
 import gezi.ir.LemmaIdentifier
+import gezi.ir.NoFacts
+import gezi.ir.Pure
 
 /** The laws of `StandardLibraryIndex.occurrenceMarkers`:
   * the four front
@@ -20,25 +22,36 @@ import gezi.ir.LemmaIdentifier
   */
 class OccurrenceMarkersLawTest extends GeneratedProperties:
 
-  private def closed(term: Term): Instruction = Defunctionalization.thunkInstruction(term.deBruijnTerm(Map.empty))
+  given NoFacts.type = NoFacts
 
-  /** Four closed terms, the name marker, the closure marker, the tag origin
+  private type NoFactsTerm = Configured[NoFacts.type]
+
+  private def closed(term: Term): NoFactsTerm = Defunctionalization.thunkInstruction[NoFacts.type](term.deBruijnTerm(Map.empty))
+
+  /** The pure term of the term, none when it holds a parallel. */
+  private def pureOf(term: Term): Option[Pure] = Pure.of(closed(term))
+
+  /** Four closed pure terms, the name marker, the closure marker, the tag origin
     * and the tag next, distinct by construction: the term of position p under
     * p + 1 binders it does not read.
     */
-  private val fourTerms: Gen[Vector[Instruction]] =
-    HoasGenerators.closedTerm.list(hedgehog.Range.singleton(4)).map(_.toVector.zipWithIndex.map((term, position) =>
-      closed((0 to position).foldLeft(term)((body, _) => Term.λ(_ => body)))
-    ))
+  private val fourTerms: Gen[Vector[Pure]] =
+    HoasGenerators.closedTerm
+      .filter(term => pureOf(term).isDefined)
+      .list(hedgehog.Range.singleton(4))
+      .map(_.toVector.zipWithIndex.map((term, position) =>
+        val wrapped = (0 to position).foldLeft(term)((body, _) => Term.λ(_ => body))
+        pureOf(wrapped).getOrElse(throw IllegalStateException("a pure term under binders is pure"))
+      ))
 
-  private val erased: Instruction = Defunctionalization.thunkInstruction(Lambdalattice.term("λt. λx. x"))
+  private val erased: NoFactsTerm = OccurrenceMarkers.erased[NoFacts.type]
 
-  private def erasing(marker: Instruction): Instruction =
-    closed(Term.λ(tag => Term.λ(bound => Term.closed(marker)(tag)(bound))))
+  private def erasing(marker: Pure): NoFactsTerm = OccurrenceMarkers.erasing[NoFacts.type](marker)
 
-  private def index(markers: Vector[Instruction], lemmas: Vector[(Instruction, Instruction)]): StandardLibraryIndex =
+  private def index(markers: Vector[Pure], lemmas: Vector[(NoFactsTerm, NoFactsTerm)]): StandardLibraryIndex[NoFacts.type] =
     val Vector(name, closure, origin, next) = markers: @unchecked
     StandardLibraryIndex(
+      NoFacts,
       Vector.empty,
       lemmas.zipWithIndex.map { case ((left, right), number) => LemmaSides(LemmaIdentifier(number), left, right) },
       Vector.empty,
@@ -51,7 +64,7 @@ class OccurrenceMarkersLawTest extends GeneratedProperties:
     )
 
   /** Whether reading the index's markers throws `IllegalArgumentException`. */
-  private def refusal(index: StandardLibraryIndex): Boolean =
+  private def refusal(index: StandardLibraryIndex[NoFacts.type]): Boolean =
     scala.util.Try(index.occurrenceMarkers).failed.toOption.exists(_.isInstanceOf[IllegalArgumentException])
 
   /** Purpose: catch a reader that takes the four entries from the wrong keys,
@@ -63,7 +76,7 @@ class OccurrenceMarkersLawTest extends GeneratedProperties:
       flipped <- Gen.boolean.forAll
     yield
       val Vector(name, closure, origin, next) = markers: @unchecked
-      val sides = (marker: Instruction) => if flipped then (erased, erasing(marker)) else (erasing(marker), erased)
+      val sides = (marker: Pure) => if flipped then (erased, erasing(marker)) else (erasing(marker), erased)
       Result.diff(
         index(markers, Vector(sides(name), sides(closure))).occurrenceMarkers,
         Some(OccurrenceMarkers(name, closure, origin, next))

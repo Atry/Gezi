@@ -37,7 +37,7 @@ class RoundRepliesLawTest extends GeneratedProperties:
     else answered()
 
   private val reply: Gen[ForeignValue] =
-    HoasGenerators.normalForm.map(term => ForeignValue.Term(Defunctionalization.thunkInstruction(Lambdalattice.term(LambdalatticeText.text(term)))))
+    HoasGenerators.normalForm.map(term => ForeignValue.Term(Defunctionalization.thunkInstruction(Lambdalattice.term(LambdalatticeText.text(term)))(using gezi.ir.NoFacts)))
 
   stoppableProperty("each call gets the replies its method gave, in order, once every method is done") { stopped =>
     for

@@ -1,0 +1,55 @@
+# The typed branch of the fewest cuts of a rectangle: a call of the function a program
+# writes by the definition equals the choice of itself and the typed version at filtered
+# operands, for all operands, by monotonicity alone, by the paper proof its declaration
+# cites. That function is the IR term plover_rectangle_cutting itself, so no lemma folds
+# it.
+#
+# The typed version is a noinline leaf, so the lemma never matches inside its own right
+# side. Termination of this module's saturation, derived and not proved: the left sides'
+# instances are the program's own subterms of those shapes, and the right sides add only
+# an application of a term already there to the leaf, the typed leaf and filters of
+# operands already there.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "binary") "natural")
+λ _ _ _ _ binary_set
+. omega (omega (omega (omega corpora "library") "native_types") "boolean")
+λ _ false _ _
+. omega (omega (omega (omega corpora "library") "plover_compositions") "plover_rectangle_cutting")
+λ plover_rectangle_cutting plover_typed_rectangle_cutting
+. export
+  ( λ _ rewriting _ _
+    . rewriting
+    λ _ _ leaves
+    . leaves (λkey. key plover_rectangle_cutting + λkey. key plover_typed_rectangle_cutting)
+  + λ _ _ _ backend
+    . backend
+    λ _ natives _ _ _ _
+    . natives (λ binding. binding plover_typed_rectangle_cutting λkey. key "plover_rectangle_cutting")
+  + λ _ rewriting _ _
+    . rewriting
+    λ _ lemmas _
+    . lemmas
+      # A program binds the function once and calls it at each site. The let
+      # is an instance of the β rule.
+      ( λ lemma
+        . lemma
+          (λkey. key "plover_rectangle_cutting_let")
+          (λ body. (λ function. body function) plover_rectangle_cutting)
+          (λ body. body plover_rectangle_cutting)
+        λ _ metadata _
+        . metadata λkey. key "[plover_rectangle_cutting_let](docs/design/gezi-plover-ordered-compositions-proofs.md)"
+      + λ lemma
+        . lemma
+          (λkey. key "plover_rectangle_cutting_branch")
+          (λ first_side second_side. plover_rectangle_cutting first_side second_side)
+          ( λ first_side second_side
+            . ( plover_rectangle_cutting first_side second_side
+              + plover_typed_rectangle_cutting (first_side ∥ binary_set false) (second_side ∥ binary_set false)
+              )
+          )
+        λ _ metadata _
+        . metadata λkey. key "[plover_rectangle_cutting_branch](docs/design/gezi-plover-ordered-compositions-proofs.md)"
+      )
+  )

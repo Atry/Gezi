@@ -1,8 +1,8 @@
 package gezi.standardlibrary
 
 import gezi.frontend.OccurrenceMarkers
-import gezi.ir.Instruction
 import gezi.ir.LemmaIdentifier
+import gezi.ir.{Configured, NativeSpecializer, NoFacts, Pure}
 
 /** An entry of the vocabulary of combinator properties
   * (`CombinatorPropertyVocabulary`).
@@ -23,7 +23,8 @@ enum Property:
   case FirstOrderConstructor
   case NativeSpecialization(representation: String)
   case TypedBranch
-  case DataFamily(arity: Int, constructors: Vector[Instruction])
+  case Repeller
+  case DataFamily(arity: Int, constructors: Vector[Pure])
   case DataFields(constructor: Int, fields: Vector[FieldCriterion])
   case JvmType(name: JvmTypeName)
 
@@ -37,7 +38,7 @@ enum Property:
 enum FieldCriterion:
   case Parameter(index: Int)
   case Recursive
-  case Closed(criterion: Instruction, arguments: Vector[Instruction])
+  case Closed(criterion: Pure, arguments: Vector[Pure])
 
 /** A JVM type a data family's values are held as, from the published list
   * of the backend entry `jvm_type(Name)`: the framework's generic constructed
@@ -63,26 +64,29 @@ enum JvmTypeName:
   */
 final case class LemmaNamed(lemma: LemmaIdentifier, name: String)
 
-/** `lemma_sides(LemmaAddress, Left, Right)`: a lemma's two sides, each the
-  * instruction of a closed term; every lemma is an equation. The index holds
+/** `lemma_sides(LemmaAddress, Left, Right)`: a lemma's two sides, each a
+  * closed term of the configuration `C`; every lemma is an equation. The index holds
   * no number of metavariables and no pattern: how the two closed terms
-  * become patterns is an entry's encoding (`gezi.lemmaencoding`).
+  * become patterns is an entry's encoding (`gezi.lemmaencoding`). A side may
+  * hold a parallel (a filter), so it is no `Pure` key and enters a configuration
+  * by the library's crossing (`StandardLibraryIndex.crossed`).
   */
-final case class LemmaSides(
+final case class LemmaSides[C <: NativeSpecializer & Singleton](
     lemma: LemmaIdentifier,
-    left: Instruction,
-    right: Instruction
+    left: Configured[C],
+    right: Configured[C]
 )
 
-/** `native_bound(Address, Name)`: the library term at the instruction has the
-  * native implementation of the name.
+/** `native_bound(Address, Name)`: the library term has the native
+  * implementation of the name. The term is a key of the facts, so it is pure
+  * (`gezi.ir.Pure`), its own specialized spelling under every configuration.
   */
-final case class NativeBound(instruction: Instruction, native: String)
+final case class NativeBound(instruction: Pure, native: String)
 
-/** `combinator_property(Address, Property)`: the library term at the instruction
-  * has the property.
+/** `combinator_property(Address, Property)`: the library term has the
+  * property, a pure key of the facts.
   */
-final case class CombinatorProperty(instruction: Instruction, property: Property)
+final case class CombinatorProperty(instruction: Pure, property: Property)
 
 /** The index of the standard library, the port of
   * `gezi/prolog/gezi/standard_library_index.pl`: three facts and
@@ -95,12 +99,15 @@ final case class CombinatorProperty(instruction: Instruction, property: Property
   * decodes; a combinator property is a fact about a library term and gives
   * no term and no node a type.
   */
-final case class StandardLibraryIndex(
+final case class StandardLibraryIndex[C <: NativeSpecializer & Singleton](
+    specializer: C,
     lemmaNames: Vector[LemmaNamed],
-    lemmaSides: Vector[LemmaSides],
+    lemmaSides: Vector[LemmaSides[C]],
     nativeBound: Vector[NativeBound],
     combinatorProperties: Vector[CombinatorProperty]
 ):
+
+  private given C = specializer
 
   /** The hash, computed once when the index is made: an index is a part of
     * the keys of the cache service's namespaces that are valid for one
@@ -119,17 +126,21 @@ final case class StandardLibraryIndex(
         throw IllegalArgumentException(s"the index names ${found.size} lemmas $name")
 
   /** The sides of the lemma, if the index holds them. */
-  def sides(lemma: LemmaIdentifier): Option[LemmaSides] =
+  def sides(lemma: LemmaIdentifier): Option[LemmaSides[C]] =
     lemmaSides.find(_.lemma == lemma)
 
-  /** The instructions of the library terms that have the property. */
-  def withProperty(property: Property): Vector[Instruction] =
+  /** The library terms that have the property, pure keys. */
+  def withProperty(property: Property): Vector[Pure] =
     combinatorProperties.collect { case CombinatorProperty(instruction, `property`) =>
       instruction
     }
 
-  /** The instructions of the noinline library terms (the matching entry `noinline`). */
-  def noinline: Set[Instruction] = withProperty(Property.Noinline).toSet
+  /** The library terms that have the property, as terms of this configuration. */
+  def termsWithProperty(property: Property): Vector[Configured[C]] =
+    withProperty(property).map(Configured.fromPure(specializer))
+
+  /** The noinline library terms (the matching entry `noinline`), as terms of this configuration. */
+  lazy val noinline: Set[Configured[C]] = termsWithProperty(Property.Noinline).toSet
 
   /** The terms the front end tags occurrences with
     * (`gezi.frontend.Occurrences.tagged`), the library terms of the four
@@ -171,16 +182,22 @@ final case class StandardLibraryIndex(
     * marker's erasure `λt. λx. M t x = λt. λx. x`, its sides in either order,
     * spelled by the front end as the lemma's sides are.
     */
-  private def erasureChecked(marker: Instruction, key: String): Unit =
-    val erasing = OccurrenceMarkers.erasing(marker)
-    val erased = OccurrenceMarkers.erased
+  private def erasureChecked(marker: Pure, key: String): Unit =
+    val erasing = OccurrenceMarkers.erasing[C](marker)
+    val erased = OccurrenceMarkers.erased[C]
     if !lemmaSides.exists(sides =>
-        (sides.left == erasing && sides.right == erased) || (sides.left == erased && sides.right == erasing)
+        (Configured.same(sides.left, erasing) && Configured.same(sides.right, erased)) ||
+          (Configured.same(sides.left, erased) && Configured.same(sides.right, erasing))
       )
     then
       throw IllegalArgumentException(
         s"the $key $marker has no lemma λt. λx. M t x = λt. λx. x of it in the library, so tagging with it would not be an instance of a proved lemma"
       )
+
+  /** Every term this index holds: the lemmas' sides, the terms bound to natives and those with properties. */
+  def instructions: Vector[Configured[C]] =
+    lemmaSides.flatMap(sides => Vector(sides.left, sides.right)) ++
+      (nativeBound.map(_.instruction) ++ combinatorProperties.map(_.instruction)).map(Configured.fromPure(specializer))
 
   /** The index whose noinline terms are the leaves, every other fact kept:
     * the index a round is compiled against, its e-graph's leaves the round's
@@ -189,23 +206,43 @@ final case class StandardLibraryIndex(
     * `IllegalArgumentException` for a leaf that is no noinline term of this
     * index, which holds the leaves of every round.
     */
-  def withLeaves(leaves: Set[Instruction]): StandardLibraryIndex =
+  def withLeaves(leaves: Set[Configured[C]]): StandardLibraryIndex[C] =
     val unknown = leaves -- noinline
     if unknown.nonEmpty then throw IllegalArgumentException(s"${unknown.size} leaves of a round are no noinline terms of the library's index")
     if leaves == noinline then this
-    else copy(combinatorProperties = combinatorProperties.filter(fact => fact.property != Property.Noinline || leaves.contains(fact.instruction)))
+    else
+      copy(combinatorProperties =
+        combinatorProperties.filter(fact =>
+          fact.property != Property.Noinline || leaves.contains(Configured.fromPure(specializer)(fact.instruction))
+        )
+      )
 
   /** The sides of the lemmas of direction `equation` among those given, by
     * ascending identifier: the lemmas a round enables, those its knowledge
     * term declares (`StandardLibrary.lemmas`; the Prolog e-graph's
     * `enabled_lemma/2`, which sorted them by instruction).
     */
-  def enabledEquations(lemmas: Vector[LemmaIdentifier]): Vector[LemmaSides] =
+  def enabledEquations(lemmas: Vector[LemmaIdentifier]): Vector[LemmaSides[C]] =
     val enabled = lemmas.toSet
     equations.filter(sides => enabled.contains(sides.lemma))
 
   /** The sides of every lemma, whichever module declares it, by ascending
     * identifier.
     */
-  def equations: Vector[LemmaSides] =
+  def equations: Vector[LemmaSides[C]] =
     lemmaSides.sortBy(_.lemma.number)
+
+object StandardLibraryIndex:
+
+  /** The index read with no facts in the configuration of the specializer: the lemmas' sides crossed into its spelling
+    * (`NativeSpecializer.crossedAllFromNoFacts`, the library's one crossing), its pure keys as they are.
+    */
+  def crossed[C <: NativeSpecializer & Singleton](index: StandardLibraryIndex[NoFacts.type], specializer: C): StandardLibraryIndex[C] =
+    val sides: Map[Configured[NoFacts.type], Configured[C]] = (specializer: C).crossedAllFromNoFacts(index.lemmaSides.flatMap(found => Vector(found.left, found.right)))
+    StandardLibraryIndex(
+      specializer,
+      index.lemmaNames,
+      index.lemmaSides.map(found => LemmaSides(found.lemma, sides(found.left), sides(found.right))),
+      index.nativeBound,
+      index.combinatorProperties
+    )

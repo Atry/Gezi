@@ -74,7 +74,7 @@ object SetFreeDynamic:
   /** `(Y (Template equal at_least successor)) LeftList RightList`
     * (`common_subsequence_point_surface/2`).
     */
-  def pointSurface(attractors: Attractors, point: CommonSubsequencePoint): Term =
+  def pointSurface(attractors: Attractors, point: CommonSubsequencePoint): ProblemTerm =
     attractors.fixpoint(
       recursionTemplate(attractors, point.recursion, point.spelling)(
         attractors.functionSurface("merge_symbols_equal", point.spelling)
@@ -87,7 +87,7 @@ object SetFreeDynamic:
     * `\equal. \at_least. \successor. \self. \xs. \ys. ...`
     * (`recursion_template/3`).
     */
-  private def recursionTemplate(attractors: Attractors, recursion: Recursion, spelling: Spelling): Term =
+  private def recursionTemplate(attractors: Attractors, recursion: Recursion, spelling: Spelling): ProblemTerm =
     val zeroOne = attractors.attractorSurface("zero", Spelling.Direct)
     val zeroTwo = attractors.attractorSurface("zero", Spelling.Direct)
     Attractors.spelledSurface(

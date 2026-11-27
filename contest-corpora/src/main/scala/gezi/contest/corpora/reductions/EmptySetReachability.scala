@@ -43,17 +43,17 @@ object EmptySetReachability:
   private val family = "empty_set_reachability"
 
   /** `cons` as a function, `\h. \t. \_. \c. c h t` (`cons_term/1`). */
-  private def consTerm: Term = λ(head => λ(tail => λ(_ => λ(consCase => consCase(head)(tail)))))
+  private def consTerm: ProblemTerm = λ(head => λ(tail => λ(_ => λ(consCase => consCase(head)(tail)))))
 
   /** `\n. \_. n` (`nil_term/1`). */
-  private def nilTerm: Term = λ(nilCase => λ(_ => nilCase))
+  private def nilTerm: ProblemTerm = λ(nilCase => λ(_ => nilCase))
 
   /** The program of `reach Count Start` on the graph, the Church true at the
     * target and top at every other node, under the lets of true, the nodes,
     * is_target and reach, a step budget of the node count
     * (`Graphs.budgetedReachBody`).
     */
-  def cyclicGraphTerm(count: Int, edges: Vector[(Int, Int)], start: Int, target: Int): Term =
+  def cyclicGraphTerm(count: Int, edges: Vector[(Int, Int)], start: Int, target: Int): ProblemTerm =
     λ(trueValue =>
       Graphs.numeralLets(
         count,
@@ -97,11 +97,11 @@ object EmptySetReachability:
       if index < 0 then throw IllegalArgumentException(s"no bit $dropped to drop")
       bits.patch(index, Vector.empty, 1)
 
-  private def bitsList(bits: Vector[Int]): Term =
+  private def bitsList(bits: Vector[Int]): ProblemTerm =
     bits.foldRight(nilTerm)((bit, rest) => consTerm(bitBoolean(bit))(rest))
 
   /** The Boolean equality of two Scott lists of Booleans (`equality/1`). */
-  private def equality(attractors: Attractors): Term =
+  private def equality(attractors: Attractors): ProblemTerm =
     attractors.fixpoint(
       λ(self =>
         λ(left =>
@@ -128,7 +128,7 @@ object EmptySetReachability:
     * branches (`treeReachable`), and a dropped branch is a trap whose answer
     * set is empty.
     */
-  def infiniteTreeTerm(attractors: Attractors, order: TreeOrder, branches: Option[Int], targetBits: Vector[Int]): Term =
+  def infiniteTreeTerm(attractors: Attractors, order: TreeOrder, branches: Option[Int], targetBits: Vector[Int]): ProblemTerm =
     val kept = keptBits(orderedBits(order), branches)
     val equal = equality(attractors)
     val target = bitsList(targetBits)
@@ -215,7 +215,7 @@ object EmptySetReachability:
     }
 
   /** The program of a point's graph (`graph_term/2`). */
-  def graphTerm(attractors: Attractors, graph: ReachabilityGraph): Term = graph match
+  def graphTerm(attractors: Attractors, graph: ReachabilityGraph): ProblemTerm = graph match
     case ReachabilityGraph.Cyclic(shape, size) =>
       val built = Graphs.graph(shape, size)
       cyclicGraphTerm(built.count, built.edges, built.start, built.target)

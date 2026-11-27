@@ -43,7 +43,7 @@ object SetFreeEmptySearch:
   /** The depth-first recursion with its leading parameters E and append
     * (`empty_on_exhaustion_template/1`).
     */
-  def emptyOnExhaustionTemplate(attractors: Attractors): Term =
+  def emptyOnExhaustionTemplate(attractors: Attractors): ProblemTerm =
     val trueValue = attractors.attractorSurface("true", Spelling.Direct)
     λ(empty =>
       λ(append =>
@@ -62,13 +62,13 @@ object SetFreeEmptySearch:
     )
 
   /** `E = Y (\e. \x. x e)` (`empty_term/1`). */
-  def emptyTerm(attractors: Attractors): Term =
+  def emptyTerm(attractors: Attractors): ProblemTerm =
     attractors.fixpoint(λ(self => λ(argument => argument(self))))
 
   /** `(Y (Template E append)) Successors Goal Stack`
     * (`empty_search_point_surface/2`).
     */
-  def pointSurface(attractors: Attractors, point: EmptySearchPoint): Term =
+  def pointSurface(attractors: Attractors, point: EmptySearchPoint): ProblemTerm =
     attractors.fixpoint(
       Attractors.spelledSurface(point.spelling, emptyOnExhaustionTemplate(attractors))(emptyTerm(attractors))(
         attractors.functionSurface("append", point.spelling)

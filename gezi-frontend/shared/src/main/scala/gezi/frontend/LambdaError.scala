@@ -25,7 +25,7 @@ enum LambdaErrorReason:
   case VariableOutsideItsAbstraction(level: Int, depth: Int)
 
   /** A term converted to the IR mentions a variable no binder of it binds. */
-  case NotClosed(term: DeBruijnTerm)
+  case NotClosed(term: DeBruijnTermOf[Any])
 
   /** A code reads a slot its thunk does not have. */
   case SlotOutOfRange(slot: Int, slotCount: Int)

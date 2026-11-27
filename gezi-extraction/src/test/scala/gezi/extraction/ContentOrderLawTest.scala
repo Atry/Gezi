@@ -6,8 +6,9 @@ import hedgehog.Result
 import gezi.generatedinputs.GeneratedProperties
 import gezi.ir.Code
 import gezi.ir.Hole
-import gezi.ir.Instruction
-import gezi.ir.Layer
+import gezi.ir.Configured
+import gezi.ir.LayerWith
+import gezi.ir.NoFacts
 import gezi.ir.{Apply, Choice, NoinlineLeaf, Parallel, Slot, Thunk}
 
 /** The laws of `ContentOrder.compare` on generated entries: it is a total
@@ -22,10 +23,12 @@ import gezi.ir.{Apply, Choice, NoinlineLeaf, Parallel, Slot, Thunk}
   */
 class ContentOrderLawTest extends GeneratedProperties:
 
-  private val leaves = Vector(Instruction.opaque("first"), Instruction.opaque("second"))
+  private type C = NoFacts.type
 
-  private val instructions: Vector[Instruction] =
-    leaves ++ Vector(Instruction(Apply(leaves(0), leaves(1))), Instruction(Parallel(leaves(1), leaves(0))))
+  private val leaves = Vector(NoFacts.opaque("first"), NoFacts.opaque("second"))
+
+  private val instructions: Vector[Configured[C]] =
+    leaves ++ Vector(NoFacts.application(leaves(0), leaves(1)), NoFacts.parallel(leaves(1), leaves(0)))
 
   private val codes: Vector[Code] =
     Vector(Code(Slot(0)), Code(Slot(1)),
@@ -36,15 +39,15 @@ class ContentOrderLawTest extends GeneratedProperties:
 
   private val nodeNumber: Gen[Int] = Gen.int(Range.linear(0, 5))
 
-  private def entry(depth: Int): Gen[Entry[Unit]] =
-    val leaf: Gen[Entry[Unit]] = Gen.choice1(
+  private def entry(depth: Int): Gen[Entry[C, Unit]] =
+    val leaf: Gen[Entry[C, Unit]] = Gen.choice1(
       Gen.element1(instructions.head, instructions.tail*).map(instruction => Entry((), Shape.Name(instruction), Vector.empty)),
       for number <- nodeNumber; instruction <- Gen.element1(instructions.head, instructions.tail*)
       yield Entry((), Shape.Node(number, NoinlineLeaf(instruction)), Vector.empty)
     )
     if depth == 0 then leaf
     else
-      def node(layer: Int => Layer[Int], children: Int): Gen[Entry[Unit]] =
+      def node(layer: Int => LayerWith[Int, Configured[C]], children: Int): Gen[Entry[C, Unit]] =
         for
           number <- nodeNumber
           childEntries <- entry(depth - 1).list(Range.singleton(children))
@@ -65,14 +68,14 @@ class ContentOrderLawTest extends GeneratedProperties:
   /** The term an entry spells: its shapes without node numbers and child
     * classes, over its child entries' terms.
     */
-  private def spelling(entry: Entry[Unit]): Any =
+  private def spelling(entry: Entry[C, Unit]): Any =
     val shape = entry.shape match
-      case Shape.Name(instruction)    => ("name", instruction)
+      case Shape.Name(instruction)    => ("name", instruction.representation)
       case Shape.Node(_, layer)  => ("node", layer.map(_ => 0))
       case pattern               => throw IllegalStateException(s"the generator makes names and nodes only, not $pattern")
     (shape, entry.childEntries.map(spelling))
 
-  private val entries: Gen[Entry[Unit]] = Gen.int(Range.linear(0, 3)).flatMap(entry)
+  private val entries: Gen[Entry[C, Unit]] = Gen.int(Range.linear(0, 3)).flatMap(entry)
 
   property("the order of content is a total order that is zero exactly on one spelled term") {
     for

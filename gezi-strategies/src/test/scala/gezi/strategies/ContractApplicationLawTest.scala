@@ -6,7 +6,8 @@ import hedgehog.Result
 import gezi.generatedinputs.GeneratedProperties
 import gezi.ir.Code
 import gezi.ir.Hole
-import gezi.ir.Instruction
+import gezi.ir.Configured
+import gezi.ir.NoFacts
 import gezi.standardlibrary.StandardLibraryIndex
 
 /** The law of `specialization_attraction`'s contracts: a closure whose body
@@ -29,11 +30,11 @@ import gezi.standardlibrary.StandardLibraryIndex
   */
 class ContractApplicationLawTest extends GeneratedProperties:
 
-  private val reading = TermReading(StandardLibraryIndex(Vector.empty, Vector.empty, Vector.empty, Vector.empty))
+  private val reading = TermReading(StandardLibraryIndex(NoFacts, Vector.empty, Vector.empty, Vector.empty, Vector.empty))
 
-  private val head = OrderTerm.Name(Instruction.opaque("contract-application-head"))
-  private val criterion = OrderTerm.Name(Instruction.opaque("contract-application-criterion"))
-  private val other = OrderTerm.Name(Instruction.opaque("contract-application-other"))
+  private val head = OrderTerm.Name(NoFacts.opaque("contract-application-head"))
+  private val criterion = OrderTerm.Name(NoFacts.opaque("contract-application-criterion"))
+  private val other = OrderTerm.Name(NoFacts.opaque("contract-application-other"))
 
   /** One occurrence of a hole in the body: the hole and whether it is
     * filtered there.
@@ -67,7 +68,7 @@ class ContractApplicationLawTest extends GeneratedProperties:
   /** Arguments that read as no marker and no contract: a name, an
     * application, a filter, an application to a filter.
     */
-  private val plainArgument: Gen[OrderTerm] = Gen.element1(
+  private val plainArgument: Gen[OrderTerm[NoFacts.type]] = Gen.element1(
     other,
     OrderTerm.Apply(other, other),
     OrderTerm.Parallel(other, criterion, false),
@@ -75,7 +76,7 @@ class ContractApplicationLawTest extends GeneratedProperties:
   )
 
   /** Every argument: the plain ones and the one-hole contract `λx. x ∥ c`. */
-  private val anyArgument: Gen[OrderTerm] = Gen.frequency1(
+  private val anyArgument: Gen[OrderTerm[NoFacts.type]] = Gen.frequency1(
     4 -> plainArgument,
     1 -> Gen.constant(OrderTerm.Thunk(Code.Parallel(Code.Slot(0), Code.Slot(1)), Vector(Hole.Bound(0)), Vector(criterion)))
   )
@@ -100,8 +101,8 @@ class ContractApplicationLawTest extends GeneratedProperties:
     )
     if shape.underContract then apply(outerContractTerm, applied) else parallel(applied, criterionTerm)
 
-  private def stateOf(term: OrderTerm): SpecializationState =
-    TermOrder.ownState[SpecializationState](SpecializationAttraction.folded(term, reading))
+  private def stateOf(term: OrderTerm[NoFacts.type]): SpecializationState[NoFacts.type] =
+    TermOrder.ownState[SpecializationState[NoFacts.type]](SpecializationAttraction.folded(term, reading))
 
   property("aContractAppliedToItsArgumentsCountsAsItsBodyWithTheArgumentsInItsHoles") {
     for
@@ -120,9 +121,9 @@ class ContractApplicationLawTest extends GeneratedProperties:
         Code.Parallel(_, _)
       )
       val closure = OrderTerm.Thunk(code, Vector.tabulate(shape.holeCount)(Hole.Bound(_)), Vector(head, criterion, outerContract))
-      val applied = arguments.foldLeft[OrderTerm](closure)(OrderTerm.Apply(_, _))
+      val applied = arguments.foldLeft[OrderTerm[NoFacts.type]](closure)(OrderTerm.Apply(_, _))
       val substitutedBody =
-        body[OrderTerm](shape, arguments, head, criterion, outerContract, OrderTerm.Apply(_, _), OrderTerm.Parallel(_, _, false))
+        body[OrderTerm[NoFacts.type]](shape, arguments, head, criterion, outerContract, OrderTerm.Apply(_, _), OrderTerm.Parallel(_, _, false))
       val substituted = arguments.drop(shape.holeCount).foldLeft(substitutedBody)(OrderTerm.Apply(_, _))
       val appliedState = stateOf(applied)
       val substitutedState = stateOf(substituted)
@@ -148,7 +149,7 @@ class ContractApplicationLawTest extends GeneratedProperties:
   )
 
   /** The closure `λy. c1 (c2 (… (cn y)))` of the members. */
-  private def chain(members: Vector[OrderTerm]): OrderTerm =
+  private def chain(members: Vector[OrderTerm[NoFacts.type]]): OrderTerm[NoFacts.type] =
     val code = members.indices.foldRight[Code](Code.Slot(members.size))((position, inner) => Code.Apply(Code.Slot(position), inner))
     OrderTerm.Thunk(code, Vector(Hole.Bound(members.size)), members)
 

@@ -1,5 +1,7 @@
 package gezi.strategies
 
+import gezi.ir.NativeSpecializer
+
 import gezi.ir.Code
 import gezi.ir.Hole
 
@@ -58,7 +60,7 @@ final case class ChoiceReading(pending: Option[PendingFilter]) extends ModuleRea
   * attractor-interface-repeller-check exhausted the budget on the naturals
   * (1355 instances).
   */
-object ChoiceAttraction extends NormalityModule:
+object ChoiceAttraction extends ConfigurationFreeModule:
 
   val name: String = "choice_attraction"
 
@@ -74,7 +76,7 @@ object ChoiceAttraction extends NormalityModule:
     */
   val meetsExtractionContract: Boolean = false
 
-  def folded(layer: OrderTerm, reading: TermReading): FoldState = state(layer, reading)
+  def folded[C <: NativeSpecializer & Singleton](layer: OrderTerm[C], reading: TermReading[C]): FoldState = state(layer, reading)
 
   private def deeper(depth: Option[Int]): Option[Int] = depth.map(_ + 1)
 
@@ -84,7 +86,7 @@ object ChoiceAttraction extends NormalityModule:
       case (other, None)                => other
       case (Some(depth), Some(another)) => Some(depth.min(another))
 
-  private def state(term: OrderTerm, reading: TermReading): ChoiceState = term match
+  private def state[C <: NativeSpecializer & Singleton](term: OrderTerm[C], reading: TermReading[C]): ChoiceState = term match
     case OrderTerm.Folded(folded, _) => TermOrder.ownState[ChoiceState](folded)
     case name @ OrderTerm.Name(_) =>
       reading.filterFunction(name) match

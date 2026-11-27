@@ -1,0 +1,285 @@
+Constructor(big_integer,0)	-		=> natural 0
+Constructor(big_integer,0)	-		=> natural 0
+Constructor(big_integer,0)	-		=> natural 0
+Constructor(big_integer,0)	-		=> natural 0
+Constructor(big_integer,0)	-		=> natural 0
+Constructor(big_integer,0)	-		=> natural 0
+Constructor(big_integer,1)	-	natural 3397092959382929408	=> natural 3397092959382929409
+Constructor(big_integer,1)	-	natural 23198533874624	=> natural 23198533874625
+Constructor(big_integer,1)	-	natural 7573139673200	=> natural 7573139673201
+Constructor(big_integer,1)	-	natural 233637127132160	=> natural 233637127132161
+Constructor(big_integer,1)	-	natural 293971093040795452702720	=> natural 293971093040795452702721
+Constructor(big_integer,1)	-	natural 6562186764639847579648	=> natural 6562186764639847579649
+Constructor(binary_natural,0)	truth true		=> binary_natural 0
+Constructor(binary_natural,0)	truth true		=> binary_natural 0
+Constructor(binary_natural,0)	truth true		=> binary_natural 0
+Constructor(binary_natural,0)	truth true		=> binary_natural 0
+Constructor(binary_natural,0)	truth true		=> binary_natural 0
+Constructor(binary_natural,0)	truth true		=> binary_natural 0
+Constructor(binary_natural,1)	truth true	binary_natural 5	=> binary_natural 10
+Constructor(binary_natural,1)	truth false	binary_natural 7	=> binary_natural 14
+Constructor(binary_natural,1)	truth false	binary_natural 11	=> binary_natural 22
+Constructor(binary_natural,1)	truth true	binary_natural 15	=> binary_natural 30
+Constructor(binary_natural,1)	truth false	binary_natural 26	=> binary_natural 52
+Constructor(binary_natural,1)	truth true	binary_natural 31	=> binary_natural 62
+Constructor(binary_natural,2)	truth false	binary_natural 6	=> binary_natural 13
+Constructor(binary_natural,2)	truth false	binary_natural 25	=> binary_natural 51
+Constructor(binary_natural,2)	truth false	binary_natural 22	=> binary_natural 45
+Constructor(binary_natural,2)	truth false	binary_natural 0	=> binary_natural 1
+Constructor(binary_natural,2)	truth true	binary_natural 24	=> binary_natural 49
+Constructor(binary_natural,2)	truth true	binary_natural 39	=> binary_natural 79
+Constructor(boolean,0)	-		=> truth true
+Constructor(boolean,0)	-		=> truth true
+Constructor(boolean,0)	-		=> truth true
+Constructor(boolean,0)	-		=> truth true
+Constructor(boolean,0)	-		=> truth true
+Constructor(boolean,0)	-		=> truth true
+Constructor(boolean,1)	-		=> truth false
+Constructor(boolean,1)	-		=> truth false
+Constructor(boolean,1)	-		=> truth false
+Constructor(boolean,1)	-		=> truth false
+Constructor(boolean,1)	-		=> truth false
+Constructor(boolean,1)	-		=> truth false
+Constructor(declared#0,0)	parameters [binary_natural, big_integer]	binary_natural 15, natural 669095514212352	=> constructed declared#0 0 [binary_natural 15, natural 669095514212352]
+Constructor(declared#0,0)	parameters [binary_natural, binary_natural]	binary_natural 38, binary_natural 21	=> constructed declared#0 0 [binary_natural 38, binary_natural 21]
+Constructor(declared#0,0)	parameters [boolean, big_integer]	truth false, natural 554725055025	=> constructed declared#0 0 [truth false, natural 554725055025]
+Constructor(declared#0,0)	parameters [boolean, boolean]	truth true, truth false	=> constructed declared#0 0 [truth true, truth false]
+Constructor(declared#0,0)	parameters [big_integer, boolean]	natural 1793910875512, truth false	=> constructed declared#0 0 [natural 1793910875512, truth false]
+Constructor(declared#0,0)	parameters [big_integer, boolean]	natural 25515530910629888, truth false	=> constructed declared#0 0 [natural 25515530910629888, truth false]
+Constructor(declared#1,0)	parameters [boolean]		=> constructed declared#1 0 []
+Constructor(declared#1,0)	parameters [boolean]		=> constructed declared#1 0 []
+Constructor(declared#1,0)	parameters [big_integer]		=> constructed declared#1 0 []
+Constructor(declared#1,0)	parameters [binary_natural]		=> constructed declared#1 0 []
+Constructor(declared#1,0)	parameters [big_integer]		=> constructed declared#1 0 []
+Constructor(declared#1,0)	parameters [binary_natural]		=> constructed declared#1 0 []
+Constructor(declared#1,1)	parameters [binary_natural]	binary_natural 33	=> constructed declared#1 1 [binary_natural 33]
+Constructor(declared#1,1)	parameters [binary_natural]	binary_natural 14	=> constructed declared#1 1 [binary_natural 14]
+Constructor(declared#1,1)	parameters [binary_natural]	binary_natural 36	=> constructed declared#1 1 [binary_natural 36]
+Constructor(declared#1,1)	parameters [big_integer]	natural 2613955780130373632	=> constructed declared#1 1 [natural 2613955780130373632]
+Constructor(declared#1,1)	parameters [binary_natural]	binary_natural 21	=> constructed declared#1 1 [binary_natural 21]
+Constructor(declared#1,1)	parameters [binary_natural]	binary_natural 35	=> constructed declared#1 1 [binary_natural 35]
+Constructor(jvm_bits_16,0)	-	truth false, truth false, truth true, truth true, truth true, truth true, truth false, truth false, truth true, truth true, truth false, truth false, truth false, truth false, truth true, truth true	=> jvm_bits 16 15555
+Constructor(jvm_bits_16,0)	-	truth true, truth false, truth true, truth true, truth false, truth true, truth true, truth false, truth false, truth true, truth false, truth true, truth false, truth true, truth true, truth true	=> jvm_bits 16 46679
+Constructor(jvm_bits_16,0)	-	truth true, truth true, truth true, truth false, truth true, truth true, truth false, truth true, truth false, truth true, truth false, truth true, truth false, truth false, truth true, truth false	=> jvm_bits 16 60754
+Constructor(jvm_bits_16,0)	-	truth true, truth false, truth true, truth false, truth true, truth false, truth false, truth false, truth true, truth true, truth false, truth false, truth false, truth true, truth true, truth true	=> jvm_bits 16 43207
+Constructor(jvm_bits_16,0)	-	truth true, truth false, truth false, truth false, truth true, truth false, truth true, truth true, truth true, truth false, truth false, truth false, truth false, truth false, truth false, truth false	=> jvm_bits 16 35712
+Constructor(jvm_bits_16,0)	-	truth false, truth false, truth true, truth false, truth true, truth false, truth true, truth true, truth true, truth true, truth true, truth true, truth true, truth true, truth false, truth true	=> jvm_bits 16 11261
+Constructor(jvm_bits_32,0)	-	truth true, truth false, truth true, truth false, truth true, truth true, truth true, truth false, truth true, truth false, truth false, truth false, truth true, truth true, truth true, truth true, truth false, truth false, truth true, truth true, truth true, truth false, truth true, truth false, truth true, truth true, truth true, truth true, truth false, truth false, truth false, truth true	=> jvm_bits 32 2928622321
+Constructor(jvm_bits_32,0)	-	truth false, truth true, truth false, truth false, truth true, truth true, truth true, truth false, truth true, truth false, truth true, truth false, truth true, truth false, truth false, truth true, truth true, truth true, truth true, truth false, truth false, truth true, truth true, truth false, truth false, truth true, truth true, truth false, truth true, truth false, truth false, truth false	=> jvm_bits 32 1319757416
+Constructor(jvm_bits_32,0)	-	truth true, truth true, truth false, truth false, truth true, truth false, truth false, truth false, truth false, truth false, truth false, truth false, truth false, truth true, truth false, truth true, truth true, truth false, truth false, truth true, truth false, truth false, truth true, truth false, truth false, truth true, truth true, truth true, truth false, truth false, truth false, truth true	=> jvm_bits 32 3355808369
+Constructor(jvm_bits_32,0)	-	truth true, truth true, truth false, truth false, truth true, truth false, truth false, truth false, truth false, truth false, truth true, truth false, truth true, truth false, truth false, truth true, truth true, truth true, truth true, truth true, truth false, truth true, truth false, truth true, truth true, truth true, truth true, truth true, truth false, truth false, truth true, truth false	=> jvm_bits 32 3358193138
+Constructor(jvm_bits_32,0)	-	truth true, truth false, truth false, truth true, truth false, truth false, truth true, truth true, truth false, truth true, truth false, truth false, truth false, truth true, truth true, truth true, truth false, truth false, truth false, truth true, truth false, truth true, truth false, truth false, truth true, truth true, truth false, truth false, truth false, truth true, truth false, truth true	=> jvm_bits 32 2470909125
+Constructor(jvm_bits_32,0)	-	truth true, truth true, truth true, truth true, truth true, truth false, truth false, truth true, truth true, truth false, truth false, truth true, truth false, truth false, truth true, truth false, truth true, truth false, truth false, truth false, truth false, truth false, truth true, truth false, truth true, truth true, truth false, truth true, truth false, truth false, truth false, truth true	=> jvm_bits 32 4187128529
+Constructor(jvm_bits_64,0)	-	truth true, truth false, truth false, truth true, truth true, truth true, truth false, truth true, truth false, truth true, truth true, truth false, truth false, truth true, truth false, truth true, truth false, truth false, truth true, truth false, truth true, truth true, truth true, truth true, truth false, truth false, truth false, truth true, truth true, truth true, truth true, truth false, truth false, truth true, truth true, truth true, truth true, truth false, truth false, truth false, truth true, truth false, truth true, truth false, truth true, truth false, truth true, truth true, truth true, truth true, truth false, truth false, truth false, truth false, truth false, truth false, truth false, truth true, truth false, truth false, truth true, truth true, truth false, truth true	=> jvm_bits 64 -7105221029187043251
+Constructor(jvm_bits_64,0)	-	truth true, truth true, truth false, truth false, truth false, truth false, truth false, truth true, truth false, truth true, truth false, truth false, truth true, truth true, truth true, truth true, truth false, truth false, truth false, truth false, truth true, truth false, truth true, truth false, truth true, truth true, truth true, truth true, truth true, truth false, truth false, truth false, truth false, truth false, truth true, truth true, truth false, truth false, truth false, truth false, truth true, truth true, truth false, truth false, truth true, truth true, truth false, truth false, truth false, truth false, truth true, truth true, truth true, truth false, truth false, truth false, truth true, truth true, truth true, truth true, truth true, truth false, truth false, truth false	=> jvm_bits 64 -4517379840142460680
+Constructor(jvm_bits_64,0)	-	truth false, truth true, truth true, truth false, truth false, truth true, truth true, truth false, truth false, truth false, truth true, truth true, truth false, truth false, truth false, truth true, truth true, truth true, truth false, truth true, truth false, truth false, truth true, truth false, truth true, truth false, truth false, truth false, truth true, truth false, truth true, truth false, truth true, truth true, truth false, truth true, truth true, truth true, truth true, truth false, truth true, truth true, truth false, truth true, truth false, truth false, truth false, truth true, truth false, truth true, truth true, truth true, truth true, truth true, truth false, truth false, truth false, truth false, truth false, truth true, truth true, truth false, truth false, truth true	=> jvm_bits 64 7363898359613062169
+Constructor(jvm_bits_64,0)	-	truth false, truth false, truth false, truth true, truth true, truth true, truth false, truth true, truth true, truth true, truth true, truth false, truth false, truth false, truth false, truth true, truth false, truth false, truth true, truth true, truth true, truth false, truth true, truth true, truth true, truth true, truth false, truth true, truth false, truth true, truth true, truth true, truth true, truth true, truth true, truth true, truth true, truth false, truth false, truth true, truth false, truth false, truth true, truth false, truth false, truth true, truth true, truth false, truth false, truth false, truth false, truth false, truth false, truth false, truth false, truth false, truth true, truth false, truth true, truth true, truth true, truth false, truth false, truth true	=> jvm_bits 64 2153067895643832505
+Constructor(jvm_bits_64,0)	-	truth false, truth true, truth true, truth false, truth true, truth true, truth false, truth true, truth true, truth false, truth true, truth false, truth true, truth false, truth true, truth false, truth true, truth true, truth true, truth true, truth true, truth false, truth true, truth true, truth false, truth false, truth true, truth false, truth true, truth false, truth false, truth true, truth true, truth true, truth false, truth true, truth true, truth true, truth false, truth false, truth false, truth false, truth false, truth false, truth true, truth true, truth true, truth true, truth true, truth false, truth false, truth false, truth true, truth false, truth false, truth false, truth true, truth false, truth true, truth true, truth false, truth true, truth false, truth true	=> jvm_bits 64 7902404653379193013
+Constructor(jvm_bits_64,0)	-	truth false, truth true, truth false, truth false, truth true, truth true, truth true, truth false, truth false, truth true, truth false, truth false, truth true, truth true, truth false, truth true, truth false, truth false, truth true, truth true, truth false, truth true, truth false, truth true, truth false, truth true, truth false, truth false, truth false, truth false, truth false, truth true, truth false, truth true, truth false, truth false, truth true, truth false, truth false, truth true, truth true, truth false, truth false, truth false, truth false, truth false, truth false, truth false, truth false, truth false, truth false, truth true, truth true, truth true, truth true, truth false, truth true, truth true, truth true, truth false, truth false, truth false, truth true, truth true	=> jvm_bits 64 5642224462687379171
+Constructor(jvm_bits_8,0)	-	truth true, truth true, truth true, truth true, truth true, truth true, truth false, truth true	=> jvm_bits 8 253
+Constructor(jvm_bits_8,0)	-	truth true, truth false, truth false, truth false, truth true, truth true, truth true, truth false	=> jvm_bits 8 142
+Constructor(jvm_bits_8,0)	-	truth true, truth true, truth false, truth true, truth true, truth true, truth true, truth false	=> jvm_bits 8 222
+Constructor(jvm_bits_8,0)	-	truth true, truth false, truth false, truth true, truth true, truth true, truth false, truth false	=> jvm_bits 8 156
+Constructor(jvm_bits_8,0)	-	truth false, truth false, truth true, truth true, truth true, truth false, truth true, truth true	=> jvm_bits 8 59
+Constructor(jvm_bits_8,0)	-	truth true, truth true, truth false, truth false, truth true, truth false, truth true, truth false	=> jvm_bits 8 202
+Constructor(list,0)	-		=> nil
+Constructor(list,0)	-		=> nil
+Constructor(list,0)	-		=> nil
+Constructor(list,0)	-		=> nil
+Constructor(list,0)	-		=> nil
+Constructor(list,0)	-		=> nil
+Constructor(list,1)	-	item term#0, tail term#0	=> cell term#0 term#0
+Constructor(list,1)	-	item term#1, tail term#0	=> cell term#1 term#0
+Constructor(list,1)	-	item term#4, tail term#1	=> cell term#4 term#1
+Constructor(list,1)	-	item term#1, tail term#0	=> cell term#1 term#0
+Constructor(list,1)	-	item term#1, tail term#0	=> cell term#1 term#0
+Constructor(list,1)	-	item term#1, tail term#0	=> cell term#1 term#0
+Constructor(word,0)	natural 0		=> word 0 0
+Constructor(word,0)	natural 0		=> word 0 0
+Constructor(word,0)	natural 0		=> word 0 0
+Constructor(word,0)	natural 0		=> word 0 0
+Constructor(word,0)	natural 0		=> word 0 0
+Constructor(word,0)	natural 0		=> word 0 0
+Constructor(word,1)	natural 16	truth true, word 15 555	=> word 16 1111
+Constructor(word,1)	natural 59	truth false, word 58 137913625275889410	=> word 59 275827250551778820
+Constructor(word,1)	natural 11	truth true, word 10 873	=> word 11 1747
+Constructor(word,1)	natural 15	truth true, word 14 15818	=> word 15 31637
+Constructor(word,1)	natural 62	truth false, word 61 1130260793060289138	=> word 62 2260521586120578276
+Constructor(word,1)	natural 19	truth true, word 18 60635	=> word 19 121271
+Function(jvm_int_add)	-	jvm_bits 32 1476275136, jvm_bits 32 1476275136	=> jvm_bits 32 2952550272
+Function(jvm_int_add)	-	jvm_bits 32 2725105464, jvm_bits 32 1444313906	=> jvm_bits 32 4169419370
+Function(jvm_int_add)	-	jvm_bits 32 3352379928, jvm_bits 32 1053161381	=> jvm_bits 32 110574013
+Function(jvm_int_add)	-	jvm_bits 32 328056573, jvm_bits 32 366925127	=> jvm_bits 32 694981700
+Function(jvm_int_add)	-	jvm_bits 32 1556660159, jvm_bits 32 3513516146	=> jvm_bits 32 775209009
+Function(jvm_int_add)	-	jvm_bits 32 3120450806, jvm_bits 32 2024043742	=> jvm_bits 32 849527252
+Function(jvm_int_equal)	-	jvm_bits 32 1009664447, jvm_bits 32 1009664447	=> truth true
+Function(jvm_int_equal)	-	jvm_bits 32 3937634240, jvm_bits 32 3565124523	=> truth false
+Function(jvm_int_equal)	-	jvm_bits 32 2290388840, jvm_bits 32 620748799	=> truth false
+Function(jvm_int_equal)	-	jvm_bits 32 3788277883, jvm_bits 32 3222832003	=> truth false
+Function(jvm_int_equal)	-	jvm_bits 32 3787529933, jvm_bits 32 1971108492	=> truth false
+Function(jvm_int_equal)	-	jvm_bits 32 3834691405, jvm_bits 32 2559180513	=> truth false
+Function(jvm_int_less_than)	-	jvm_bits 32 1283565893, jvm_bits 32 1283565893	=> truth false
+Function(jvm_int_less_than)	-	jvm_bits 32 2216316895, jvm_bits 32 819800419	=> truth true
+Function(jvm_int_less_than)	-	jvm_bits 32 1034932202, jvm_bits 32 1407965599	=> truth true
+Function(jvm_int_less_than)	-	jvm_bits 32 3812589022, jvm_bits 32 1292142667	=> truth true
+Function(jvm_int_less_than)	-	jvm_bits 32 71618589, jvm_bits 32 2037654729	=> truth true
+Function(jvm_int_less_than)	-	jvm_bits 32 3800902011, jvm_bits 32 611711744	=> truth true
+Function(jvm_int_multiply)	-	jvm_bits 32 2401191936, jvm_bits 32 2401191936	=> jvm_bits 32 2218786816
+Function(jvm_int_multiply)	-	jvm_bits 32 3714341868, jvm_bits 32 3401997194	=> jvm_bits 32 1431204152
+Function(jvm_int_multiply)	-	jvm_bits 32 2568817402, jvm_bits 32 1372882215	=> jvm_bits 32 2603126294
+Function(jvm_int_multiply)	-	jvm_bits 32 864871401, jvm_bits 32 115912473	=> jvm_bits 32 1505134785
+Function(jvm_int_multiply)	-	jvm_bits 32 2582316599, jvm_bits 32 921914583	=> jvm_bits 32 2322566193
+Function(jvm_int_multiply)	-	jvm_bits 32 852427311, jvm_bits 32 3555911294	=> jvm_bits 32 3410447650
+Function(jvm_int_negate)	-	jvm_bits 32 1983722790	=> jvm_bits 32 2311244506
+Function(jvm_int_negate)	-	jvm_bits 32 3072366765	=> jvm_bits 32 1222600531
+Function(jvm_int_negate)	-	jvm_bits 32 342238720	=> jvm_bits 32 3952728576
+Function(jvm_int_negate)	-	jvm_bits 32 2156539567	=> jvm_bits 32 2138427729
+Function(jvm_int_negate)	-	jvm_bits 32 3462440441	=> jvm_bits 32 832526855
+Function(jvm_int_negate)	-	jvm_bits 32 3660659423	=> jvm_bits 32 634307873
+Function(jvm_int_subtract)	-	jvm_bits 32 2858334626, jvm_bits 32 2858334626	=> jvm_bits 32 0
+Function(jvm_int_subtract)	-	jvm_bits 32 4133064232, jvm_bits 32 253872267	=> jvm_bits 32 3879191965
+Function(jvm_int_subtract)	-	jvm_bits 32 154205916, jvm_bits 32 3979322629	=> jvm_bits 32 469850583
+Function(jvm_int_subtract)	-	jvm_bits 32 385838830, jvm_bits 32 2316210736	=> jvm_bits 32 2364595390
+Function(jvm_int_subtract)	-	jvm_bits 32 4062903164, jvm_bits 32 2545225290	=> jvm_bits 32 1517677874
+Function(jvm_int_subtract)	-	jvm_bits 32 3016313291, jvm_bits 32 3473026099	=> jvm_bits 32 3838254488
+Function(natural_double)	-	natural 3084481668158907744256	=> natural 6168963336317815488512
+Function(natural_double)	-	natural 13276001520685416448	=> natural 26552003041370832896
+Function(natural_double)	-	natural 97050239607841463730176	=> natural 194100479215682927460352
+Function(natural_double)	-	natural 13971857805213696	=> natural 27943715610427392
+Function(natural_double)	-	natural 469695293067074994176	=> natural 939390586134149988352
+Function(natural_double)	-	natural 553427401562	=> natural 1106854803124
+Function(natural_even)	-	natural 1214323706848	=> truth true
+Function(natural_even)	-	natural 5106557787228105342976	=> truth true
+Function(natural_even)	-	natural 13146870376368	=> truth true
+Function(natural_even)	-	natural 572512562734929281024	=> truth true
+Function(natural_even)	-	natural 35711478719102058496	=> truth true
+Function(natural_even)	-	natural 1188911322736015441920	=> truth true
+Function(plover_digit_steps)	-	binary_natural 32	=> binary_natural 6
+Function(plover_digit_steps)	-	binary_natural 21	=> binary_natural 4
+Function(plover_digit_steps)	-	binary_natural 5	=> binary_natural 1
+Function(plover_digit_steps)	-	binary_natural 15	=> binary_natural 3
+Function(plover_digit_steps)	-	binary_natural 19	=> binary_natural 3
+Function(plover_digit_steps)	-	binary_natural 16	=> binary_natural 3
+Function(plover_divisor_sums)	-	binary_natural 29, binary_natural 32	=> binary_natural 18
+Function(plover_divisor_sums)	-	binary_natural 9, binary_natural 12	=> binary_natural 9
+Function(plover_divisor_sums)	-	binary_natural 23, binary_natural 23	=> binary_natural 17
+Function(plover_divisor_sums)	-	binary_natural 24, binary_natural 32	=> binary_natural 11
+Function(plover_divisor_sums)	-	binary_natural 36, binary_natural 34	=> binary_natural 10
+Function(plover_divisor_sums)	-	binary_natural 10, binary_natural 30	=> binary_natural 27
+Function(plover_modular_power)	-	binary_natural 2, binary_natural 5, binary_natural 27	=> binary_natural 5
+Function(plover_modular_power)	-	binary_natural 7, binary_natural 0, binary_natural 12	=> binary_natural 1
+Function(plover_modular_power)	-	binary_natural 16, binary_natural 12, binary_natural 7	=> binary_natural 1
+Function(plover_modular_power)	-	binary_natural 16, binary_natural 33, binary_natural 35	=> binary_natural 1
+Function(plover_modular_power)	-	binary_natural 23, binary_natural 19, binary_natural 39	=> binary_natural 23
+Function(plover_modular_power)	-	binary_natural 5, binary_natural 12, binary_natural 25	=> binary_natural 0
+Function(plover_modular_tower)	-	binary_natural 30, binary_natural 38, binary_natural 30, binary_natural 2	=> binary_natural 0
+Function(plover_modular_tower)	-	binary_natural 3, binary_natural 7, binary_natural 23, binary_natural 5	=> binary_natural 2
+Function(plover_modular_tower)	-	binary_natural 14, binary_natural 18, binary_natural 37, binary_natural 9	=> binary_natural 1
+Function(plover_modular_tower)	-	binary_natural 0, binary_natural 33, binary_natural 12, binary_natural 34	=> binary_natural 0
+Function(plover_modular_tower)	-	binary_natural 7, binary_natural 17, binary_natural 39, binary_natural 12	=> binary_natural 7
+Function(plover_modular_tower)	-	binary_natural 1, binary_natural 8, binary_natural 3, binary_natural 4	=> binary_natural 1
+Function(plover_natural_difference)	-	binary_natural 23, binary_natural 23	=> binary_natural 0
+Function(plover_natural_difference)	-	binary_natural 24, binary_natural 24	=> binary_natural 0
+Function(plover_natural_difference)	-	binary_natural 9, binary_natural 30	=> binary_natural 11
+Function(plover_natural_difference)	-	binary_natural 13, binary_natural 1	=> binary_natural 12
+Function(plover_natural_difference)	-	binary_natural 2, binary_natural 36	=> binary_natural 2
+Function(plover_natural_difference)	-	binary_natural 39, binary_natural 32	=> binary_natural 7
+Function(plover_natural_modulo)	-	binary_natural 0, binary_natural 0	=> binary_natural 0
+Function(plover_natural_modulo)	-	binary_natural 13, binary_natural 36	=> binary_natural 13
+Function(plover_natural_modulo)	-	binary_natural 2, binary_natural 7	=> binary_natural 2
+Function(plover_natural_modulo)	-	binary_natural 35, binary_natural 12	=> binary_natural 11
+Function(plover_natural_modulo)	-	binary_natural 38, binary_natural 8	=> binary_natural 6
+Function(plover_natural_modulo)	-	binary_natural 17, binary_natural 23	=> binary_natural 17
+Function(plover_rectangle_cutting)	-	binary_natural 15, binary_natural 15	=> binary_natural 0
+Function(plover_rectangle_cutting)	-	binary_natural 25, binary_natural 34	=> binary_natural 8
+Function(plover_rectangle_cutting)	-	binary_natural 23, binary_natural 24	=> binary_natural 7
+Function(plover_rectangle_cutting)	-	binary_natural 10, binary_natural 1	=> binary_natural 9
+Function(plover_rectangle_cutting)	-	binary_natural 22, binary_natural 37	=> binary_natural 8
+Function(plover_rectangle_cutting)	-	binary_natural 26, binary_natural 14	=> binary_natural 5
+Function(plover_trailing_zeros)	-	binary_natural 14	=> binary_natural 2
+Function(plover_trailing_zeros)	-	binary_natural 4	=> binary_natural 0
+Function(plover_trailing_zeros)	-	binary_natural 20	=> binary_natural 4
+Function(plover_trailing_zeros)	-	binary_natural 37	=> binary_natural 8
+Function(plover_trailing_zeros)	-	binary_natural 18	=> binary_natural 3
+Function(plover_trailing_zeros)	-	binary_natural 0	=> binary_natural 0
+Function(solo_binary_times)	-	binary_natural 13, binary_natural 13	=> binary_natural 169
+Function(solo_binary_times)	-	binary_natural 3, binary_natural 6	=> binary_natural 18
+Function(solo_binary_times)	-	binary_natural 39, binary_natural 32	=> binary_natural 1248
+Function(solo_binary_times)	-	binary_natural 15, binary_natural 33	=> binary_natural 495
+Function(solo_binary_times)	-	binary_natural 27, binary_natural 10	=> binary_natural 270
+Function(solo_binary_times)	-	binary_natural 31, binary_natural 6	=> binary_natural 186
+Function(wren_binary_bitwise_or)	-	binary_natural 23, binary_natural 23	=> binary_natural 23
+Function(wren_binary_bitwise_or)	-	binary_natural 12, binary_natural 9	=> binary_natural 13
+Function(wren_binary_bitwise_or)	-	binary_natural 23, binary_natural 26	=> binary_natural 31
+Function(wren_binary_bitwise_or)	-	binary_natural 21, binary_natural 30	=> binary_natural 31
+Function(wren_binary_bitwise_or)	-	binary_natural 11, binary_natural 36	=> binary_natural 47
+Function(wren_binary_bitwise_or)	-	binary_natural 38, binary_natural 27	=> binary_natural 63
+Function(wren_binary_equality)	-	binary_natural 29, binary_natural 29	=> truth true
+Function(wren_binary_equality)	-	binary_natural 17, binary_natural 2	=> truth false
+Function(wren_binary_equality)	-	binary_natural 21, binary_natural 18	=> truth false
+Function(wren_binary_equality)	-	binary_natural 26, binary_natural 29	=> truth false
+Function(wren_binary_equality)	-	binary_natural 19, binary_natural 10	=> truth false
+Function(wren_binary_equality)	-	binary_natural 33, binary_natural 34	=> truth false
+Function(wren_binary_increment)	-	binary_natural 23	=> binary_natural 24
+Function(wren_binary_increment)	-	binary_natural 21	=> binary_natural 22
+Function(wren_binary_increment)	-	binary_natural 25	=> binary_natural 26
+Function(wren_binary_increment)	-	binary_natural 30	=> binary_natural 31
+Function(wren_binary_increment)	-	binary_natural 0	=> binary_natural 1
+Function(wren_binary_increment)	-	binary_natural 5	=> binary_natural 6
+Function(wren_binary_maximum)	-	binary_natural 32, binary_natural 32	=> binary_natural 32
+Function(wren_binary_maximum)	-	binary_natural 0, binary_natural 25	=> binary_natural 25
+Function(wren_binary_maximum)	-	binary_natural 11, binary_natural 8	=> binary_natural 11
+Function(wren_binary_maximum)	-	binary_natural 25, binary_natural 16	=> binary_natural 25
+Function(wren_binary_maximum)	-	binary_natural 16, binary_natural 0	=> binary_natural 16
+Function(wren_binary_maximum)	-	binary_natural 31, binary_natural 35	=> binary_natural 35
+Function(wren_binary_minimum)	-	binary_natural 7, binary_natural 7	=> binary_natural 7
+Function(wren_binary_minimum)	-	binary_natural 8, binary_natural 27	=> binary_natural 8
+Function(wren_binary_minimum)	-	binary_natural 5, binary_natural 29	=> binary_natural 5
+Function(wren_binary_minimum)	-	binary_natural 4, binary_natural 26	=> binary_natural 4
+Function(wren_binary_minimum)	-	binary_natural 6, binary_natural 23	=> binary_natural 6
+Function(wren_binary_minimum)	-	binary_natural 29, binary_natural 21	=> binary_natural 21
+Function(wren_binary_plus)	-	binary_natural 30, binary_natural 30	=> binary_natural 60
+Function(wren_binary_plus)	-	binary_natural 11, binary_natural 6	=> binary_natural 17
+Function(wren_binary_plus)	-	binary_natural 5, binary_natural 9	=> binary_natural 14
+Function(wren_binary_plus)	-	binary_natural 15, binary_natural 25	=> binary_natural 40
+Function(wren_binary_plus)	-	binary_natural 5, binary_natural 4	=> binary_natural 9
+Function(wren_binary_plus)	-	binary_natural 18, binary_natural 12	=> binary_natural 30
+block only	Function(plover_billboard)
+block only	Function(plover_book_shop)
+block only	Function(plover_edit_distance)
+block only	Function(plover_longest_common_subsequence)
+block only	Function(plover_minimizing_coins)
+block only	Function(plover_money_sums)
+block only	Function(plover_ordered_compositions)
+block only	Function(plover_smallest_team)
+block only	Function(plover_unordered_combinations)
+static method	Function(jvm_int_add)
+static method	Function(jvm_int_equal)
+static method	Function(jvm_int_less_than)
+static method	Function(jvm_int_multiply)
+static method	Function(jvm_int_negate)
+static method	Function(jvm_int_subtract)
+static method	Function(plover_billboard)
+static method	Function(plover_book_shop)
+static method	Function(plover_digit_steps)
+static method	Function(plover_divisor_sums)
+static method	Function(plover_edit_distance)
+static method	Function(plover_longest_common_subsequence)
+static method	Function(plover_minimizing_coins)
+static method	Function(plover_modular_power)
+static method	Function(plover_modular_tower)
+static method	Function(plover_money_sums)
+static method	Function(plover_natural_difference)
+static method	Function(plover_natural_modulo)
+static method	Function(plover_ordered_compositions)
+static method	Function(plover_rectangle_cutting)
+static method	Function(plover_smallest_team)
+static method	Function(plover_trailing_zeros)
+static method	Function(plover_unordered_combinations)
+static method	Function(solo_binary_times)
+static method	Function(wren_binary_bitwise_or)
+static method	Function(wren_binary_equality)
+static method	Function(wren_binary_increment)
+static method	Function(wren_binary_maximum)
+static method	Function(wren_binary_minimum)
+static method	Function(wren_binary_plus)

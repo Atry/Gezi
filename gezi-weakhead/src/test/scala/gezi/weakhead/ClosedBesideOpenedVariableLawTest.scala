@@ -1,5 +1,7 @@
 package gezi.weakhead
 
+import gezi.ir.NoFacts
+
 import hedgehog.Result
 import gezi.frontend.Term
 import gezi.frontend.Term.*
@@ -28,6 +30,8 @@ import gezi.weakhead.EvaluatorTesting.*
   */
 class ClosedBesideOpenedVariableLawTest extends GeneratedProperties:
 
+  given NoFacts.type = NoFacts
+
   private val modes = Vector(Mode.WeakHead, Mode.TablingWeakHead)
 
   private def fixedPoint: Term = λ(f => λ(x => f(x(x)))(λ(x => f(x(x)))))
@@ -35,7 +39,7 @@ class ClosedBesideOpenedVariableLawTest extends GeneratedProperties:
   private def top: Term = fixedPoint(λ(z => λ(x => z ∥ x)))
 
   /** The evaluator's variant that knows top as a greatest term. */
-  private def knowingTop: KnownExtremes = KnownExtremes(Vector(valueOf(top)), Vector.empty)
+  private def knowingTop: KnownExtremes = KnownExtremes(Vector(gezi.frontend.Defunctionalization.pure(lambdaTerm(top))), Vector.empty)
 
   /** The steps a reading that evaluates no argument of a known top may take.
     * A choice: the readings take a handful of steps each, which were not

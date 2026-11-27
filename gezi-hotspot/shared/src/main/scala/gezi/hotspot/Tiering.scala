@@ -1,5 +1,7 @@
 package gezi.hotspot
 
+import gezi.ir.NativeSpecializer
+
 /** The place of the strategy: a function of
   * costs and what the cache service holds to a decision among the parts a
   * tiered executor holds. Thresholds and the detection of hot units are the
@@ -9,7 +11,7 @@ package gezi.hotspot
   * is the JIT alone (`gezi.contest.entry.Defaults.executor`), and the baseline's `WholeBudgetInterpretation` is the
   * one policy. A policy is to become an option of the entry's data once a tiered executor exists.
   */
-trait TieringPolicy:
+trait TieringPolicy[C <: NativeSpecializer & Singleton]:
 
   /** The decision for the program being run, after what was spent on it so
     * far. The program is the unit the tiered executor runs, which a decision
@@ -17,24 +19,26 @@ trait TieringPolicy:
     * in the cache service under the compiler's key; the policy reads it as a
     * key only, never its term (costs only).
     */
-  def decided(program: CompilationUnit.Program, spent: Spent, cache: Cache): Decision
+  def decided(program: CompilationUnit.Program[C], spent: Spent, cache: Cache): Decision[C]
 
 /** What a tiering policy decides. A decision chooses among the parts the
   * tiered executor holds and never hands out an executor or a compiler,
   * whose suspension type would not be the tiered executor's.
   */
-enum Decision:
+sealed trait Decision[C <: NativeSpecializer & Singleton]
+
+object Decision:
 
   /** Run the interpreting executor within the budget. */
-  case Interpret(budget: Budget)
+  final case class Interpret[C <: NativeSpecializer & Singleton](budget: Budget) extends Decision[C]
 
   /** Run the compiled executor within the budget. */
-  case RunCompiled(budget: Budget)
+  final case class RunCompiled[C <: NativeSpecializer & Singleton](budget: Budget) extends Decision[C]
 
   /** Compile the units. */
-  case Compile(units: Vector[CompilationUnit])
+  final case class Compile[C <: NativeSpecializer & Singleton](units: Vector[CompilationUnit[C]]) extends Decision[C]
 
   /** Answer that the point is not known now, so that the points after it in
     * its family are read.
     */
-  case GiveUp
+  final case class GiveUp[C <: NativeSpecializer & Singleton]() extends Decision[C]

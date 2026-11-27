@@ -43,7 +43,7 @@ import gezi.weakhead.Expansions
   * keeps a detour the inlined point's proof takes (`RewriteTrace`'s
   * `detoursDropped`). Under
   * `ArticleDestination.Written` no such trace is written (the judge's
-  * article re-read; `GenericEntry`'s Scaladoc).
+  * article re-read; `GenericEntry[?]`'s Scaladoc).
   *
   * It reads a contributed entry, so a change of
   * `contest-entries-wren/entry.lambdalattice` can break it: no in-tree
@@ -95,7 +95,7 @@ class EntryTracesTest extends gezi.generatedinputs.FailFastSuite:
       afterEntry,
       gezi.contest.entry.Defaults.caches()
     )
-    val entry = GenericEntryProvider.withLemmaTexts(initialized, root.resolve("contest-entries-wren"))
+    val entry = initialized.withLemmaTexts(library, root.resolve("contest-entries-wren"))
     val group = ReductionGroup(root, Expansions.none, gezi.contest.entry.Defaults.caches())
     val Vector(variant) = RepeatedVariants.families
       .filter((name, _) => name == family)
@@ -124,7 +124,7 @@ class EntryTracesTest extends gezi.generatedinputs.FailFastSuite:
     val text = Files.readString(traceFile)
     val trace = TraceText.read(text, TraceText.readingLimit(text))
     val start = TraceStart.readLocated(Files.readString(TraceFiles.startFile(traceFile)), java.net.URI("trace:start"))
-    assertEquals(start.start, Defunctionalization.thunkInstruction(point))
+    assertEquals(start.start, Defunctionalization.thunkInstruction(point)(using gezi.ir.NoFacts))
     assert(trace.replayed(start.start).flatten.nonEmpty, "the trace replays no step")
     assert(
       trace.rounds.flatten.exists {

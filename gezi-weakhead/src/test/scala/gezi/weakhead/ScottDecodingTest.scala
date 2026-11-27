@@ -1,5 +1,7 @@
 package gezi.weakhead
 
+import gezi.ir.NoFacts
+
 import gezi.weakhead.EvaluatorTesting.*
 import gezi.weakhead.oldcorpora.Confirmation
 import gezi.weakhead.oldcorpora.ConstructorTree
@@ -17,6 +19,8 @@ import gezi.frontend.Term.*
   * bounded by a budget of steps.
   */
 class ScottDecodingTest extends gezi.generatedinputs.FailFastSuite:
+
+  given NoFacts.type = NoFacts
 
   private def omega: Term = λ(a => a(a))(λ(b => b(b)))
 

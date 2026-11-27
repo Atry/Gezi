@@ -150,7 +150,7 @@ object ReductionMixinTheorems:
     * at church (`proposition_surface/2`), the budget `searchBudget` as a
     * Scott unary numeral.
     */
-  def propositionSurface(mixins: MixinLibrary, proposition: Proposition): Term =
+  def propositionSurface(mixins: MixinLibrary, proposition: Proposition): ProblemTerm =
     val (step, check) = proposition match
       case Proposition.Stepped(stepBy, stepped) =>
         require(stepBy > 0, s"a search steps by a positive integer: $stepBy")
@@ -165,7 +165,7 @@ object ReductionMixinTheorems:
   /** The module of the classes counterexample_search and periodic
     * (`theorem_module/4`).
     */
-  private def theoremModule(mixins: MixinLibrary, names: MixinNames, step: Int, check: Proposition): Term =
+  private def theoremModule(mixins: MixinLibrary, names: MixinNames, step: Int, check: Proposition): ProblemTerm =
     members(
       Vector(
         mixins.selfMixin("theorem_module", "counterexample_search")(searchModule =>
@@ -176,7 +176,7 @@ object ReductionMixinTheorems:
     )
 
   /** `{counterexample_search, n : N}.found` (`search_found/3`). */
-  private def searchFound(mixins: MixinLibrary, search: Term, number: Term): Term =
+  private def searchFound(mixins: MixinLibrary, search: ProblemTerm, number: ProblemTerm): ProblemTerm =
     mixins.readSlot(
       "counterexample_search",
       "found",
@@ -195,7 +195,7 @@ object ReductionMixinTheorems:
     * budget and reads true, a true theorem's spends the budget and has no
     * answer.
     */
-  private def searchMixin(mixins: MixinLibrary, names: MixinNames, step: Int, proposition: Proposition, module: Term): Term =
+  private def searchMixin(mixins: MixinLibrary, names: MixinNames, step: Int, proposition: Proposition, module: ProblemTerm): ProblemTerm =
     mixins.selfMixin("counterexample_search", "found")(self =>
       val checked = check(mixins, names, module, self, proposition)
       val trueValue = mixins.libraryClass(names, "natural", "true")
@@ -215,7 +215,7 @@ object ReductionMixinTheorems:
     )
 
   /** The Boolean object of the proposition at self.n (`check/5`). */
-  private def check(mixins: MixinLibrary, names: MixinNames, module: Term, self: Term, proposition: Proposition): Term =
+  private def check(mixins: MixinLibrary, names: MixinNames, module: ProblemTerm, self: ProblemTerm, proposition: Proposition): ProblemTerm =
     proposition match
       case Proposition.Both(left, right) =>
         mixins.slotApplied(
@@ -244,7 +244,7 @@ object ReductionMixinTheorems:
         throw IllegalArgumentException(s"a stepped proposition is checked only at the top: $proposition")
 
   /** `{periodic, n : self.n}.Slot`, the class read from the module. */
-  private def periodicRead(mixins: MixinLibrary, module: Term, self: Term, slot: PeriodicSlot): Term =
+  private def periodicRead(mixins: MixinLibrary, module: ProblemTerm, self: ProblemTerm, slot: PeriodicSlot): ProblemTerm =
     val periodic = mixins.readSlot("theorem_module", "periodic", module)
     val number = mixins.readSlot("counterexample_search", "n", self)
     mixins.readSlot("periodic", slot.written, members(Vector(periodic, mixins.valueMixin("periodic", "n" -> number))))
@@ -252,7 +252,7 @@ object ReductionMixinTheorems:
   /** The object of the expression at self.n, each n read anew
     * (`natural_term/4`).
     */
-  private def naturalTerm(mixins: MixinLibrary, names: MixinNames, self: Term, expression: NaturalExpression): Term =
+  private def naturalTerm(mixins: MixinLibrary, names: MixinNames, self: ProblemTerm, expression: NaturalExpression): ProblemTerm =
     expression match
       case NaturalExpression.SelfNumber => mixins.readSlot("counterexample_search", "n", self)
       case NaturalExpression.Successor(inner) =>
@@ -271,7 +271,7 @@ object ReductionMixinTheorems:
   /** even and the three residues by recursion on self.n's accept
     * (`periodic_mixins/3`).
     */
-  private def periodicMixins(mixins: MixinLibrary, names: MixinNames, module: Term): Term =
+  private def periodicMixins(mixins: MixinLibrary, names: MixinNames, module: ProblemTerm): ProblemTerm =
     members(
       Vector(
         (PeriodicSlot.Even, "true", PeriodicSlot.Even, true),

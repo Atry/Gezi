@@ -52,7 +52,7 @@ object ReductionNonCanonical:
   /** `plus Left Right` under the lets of the arithmetic, the operands the
     * canonical terms of the trees (`sum_surface/3`).
     */
-  def sumSurface(group: ReductionGroup, left: ScottTree, right: ScottTree): Term =
+  def sumSurface(group: ReductionGroup, left: ScottTree, right: ScottTree): ProblemTerm =
     group.arithmetic.withArithmetic(names =>
       names.plus(group.scott.canonical("binary", left))(group.scott.canonical("binary", right))
     )

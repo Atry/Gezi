@@ -4,7 +4,8 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
 import gezi.directorysugar.DirectoryTree
-import gezi.ir.Instruction
+import gezi.ir.Configured
+import gezi.ir.NoFacts
 import gezi.knowledgereading.KnowledgeReading
 import gezi.knowledgereading.Reading
 import gezi.weakhead.ContinuationReading
@@ -61,6 +62,8 @@ class ExportFormStepsTest extends gezi.generatedinputs.FailFastSuite with snapsh
   // times 4.33 s rounded up, which covers the reading with four forms.
   override val munitTimeout: scala.concurrent.duration.Duration = scala.concurrent.duration.Duration(7, "s")
 
+  given NoFacts.type = NoFacts
+
   /** The steps a read may take: the largest read below takes far fewer. */
   private val limit: Long = 2000000
 
@@ -95,8 +98,8 @@ class ExportFormStepsTest extends gezi.generatedinputs.FailFastSuite with snapsh
       val _ = Files.writeString(corpora.resolve(s"d_$index${DirectoryTree.fileExtension}"), moduleText(index, form))
     )
     val read = (0 to deepest).toVector.map(depth =>
-      val instance = DirectoryTree.instance(corpora, corpora.resolve(s"d_$depth${DirectoryTree.fileExtension}"))
-      val reading: Reading[Vector[Instruction]] =
+      val instance = gezi.ir.Value.of(DirectoryTree.instance[NoFacts.type](corpora, corpora.resolve(s"d_$depth${DirectoryTree.fileExtension}")))
+      val reading: Reading[NoFacts.type, Vector[Configured[NoFacts.type]]] =
         KnowledgeReading.alternative(instance, 1).map(_._2.map(KnowledgeReading.term(_, Set.empty)))
       val continuations = if form == Form.ExportPackedReading then ContinuationReading.Packed else ContinuationReading.Substituted
       val (_, after) = KnowledgeReading.run(reading, limit, KnowledgeReading.compilationState.copy(continuations = continuations))

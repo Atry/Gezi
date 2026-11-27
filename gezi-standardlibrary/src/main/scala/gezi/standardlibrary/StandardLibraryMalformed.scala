@@ -48,6 +48,12 @@ enum MalformedReason:
     */
   case BrokenCitation(lemma: String, link: String, reason: String)
 
+  /** A library term that a fact uses as its key (a native's, a property's, a data family's constructor or a field
+    * criterion's) is no pure term (`gezi.ir.Pure`): it holds a parallel layer, a storage or a thunk without holes.
+    * `what` says which key, `term` is the term as text.
+    */
+  case ImpureKey(what: String, term: String)
+
 /** Why the declaration of a combinator property is malformed. */
 enum PropertyProblem:
 

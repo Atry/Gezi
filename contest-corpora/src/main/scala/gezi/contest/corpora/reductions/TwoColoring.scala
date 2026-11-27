@@ -15,7 +15,7 @@ object TwoColoring:
   /** The program under the lets of the nodes: `Color (successor last) nil`
     * (`two_coloring_term/3`).
     */
-  def twoColoringTerm(attractors: Attractors, count: Int, edges: Vector[(Int, Int)]): Term =
+  def twoColoringTerm(attractors: Attractors, count: Int, edges: Vector[(Int, Int)]): ProblemTerm =
     Graphs.numeralLets(
       count,
       nodes =>
@@ -27,7 +27,7 @@ object TwoColoring:
   /** `Y (\self. \r. \colors. r Check (\p. Choice (\c. self p (cons c colors))))`,
     * Choice `[\f. f true, \s. s false]` (`color_function/2`).
     */
-  private def colorFunction(attractors: Attractors, check: Term => Term): Term =
+  private def colorFunction(attractors: Attractors, check: ProblemTerm => ProblemTerm): ProblemTerm =
     val trueValue = attractors.attractorSurface("true", Spelling.Direct)
     val falseValue = attractors.attractorSurface("false", Spelling.Direct)
     val cons = attractors.functionSurface("cons", Spelling.Direct)
@@ -48,14 +48,14 @@ object TwoColoring:
   /** For each edge, `equal (at colors from) (at colors to) [] Rest`, the
     * last Rest the code of the colors (`edge_checks/5`).
     */
-  private def edgeChecks(attractors: Attractors, edges: Vector[(Int, Int)], nodes: Vector[Term], colors: Term): Term =
+  private def edgeChecks(attractors: Attractors, edges: Vector[(Int, Int)], nodes: Vector[ProblemTerm], colors: ProblemTerm): ProblemTerm =
     edges.foldRight(codeFunction(attractors)(colors))((edge, rest) =>
       val equal = attractors.functionSurface("merge_symbols_equal", Spelling.Direct)
       equal(atFunction(attractors)(colors)(nodes(edge._1)))(atFunction(attractors)(colors)(nodes(edge._2)))(top)(rest)
     )
 
   /** The element of a list at a unary index (`at_function/1`). */
-  private def atFunction(attractors: Attractors): Term =
+  private def atFunction(attractors: Attractors): ProblemTerm =
     attractors.fixpoint(
       λ(self =>
         λ(list =>
@@ -67,7 +67,7 @@ object TwoColoring:
   /** The binary code of a list of Booleans, a leading one above them
     * (`code_function/1`).
     */
-  private def codeFunction(attractors: Attractors): Term =
+  private def codeFunction(attractors: Attractors): ProblemTerm =
     val oddOne = attractors.functionSurface("binary_odd", Spelling.Direct)
     val oddTwo = attractors.functionSurface("binary_odd", Spelling.Direct)
     val even = attractors.functionSurface("binary_even", Spelling.Direct)

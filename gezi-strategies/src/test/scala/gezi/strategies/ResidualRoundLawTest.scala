@@ -10,7 +10,8 @@ import gezi.generatedinputs.GeneratedProperties
 import gezi.generatedinputs.HoasGenerators
 import gezi.generatedinputs.LambdalatticeText
 import gezi.ir.BuiltInRule
-import gezi.ir.Instruction
+import gezi.ir.Configured
+import gezi.ir.NoFacts
 import gezi.lemmaencoding.baseline.BaselineLemmaEncoding
 import gezi.orientation.StandardOrientationCompiler
 import gezi.proofs.ArticleDerivation
@@ -25,13 +26,16 @@ import gezi.saturation.StopSignal
   * articles. A suite of its own for its deadline (below).
   */
 class ResidualRoundLawTest extends GeneratedProperties:
+
+  given gezi.ir.StorageAccess = gezi.ir.StorageAccess.granted()
+
+  private given gezi.ir.NoFacts.type = gezi.ir.NoFacts
   import RewriteTraceLawTest.*
 
-  // Measured 2026-11-17 (trace-side-spelling, cores 8-9 in contest.slice): the law takes 2.95, 3.47, 3.49 and
-  // 4.40 s under HEDGEHOG_SEED 1, 120041236817045, 2 and 3, at the 1-minute load 8 to 10; most of it is the
-  // OpenTheory tool, a process of its own for each crossing round's article (18 to 24 ms a run alone, 50 to 80 ms
-  // with the article written, from a 2 GB test JVM), and the first round's warm-up (about 0.7 s). The default
-  // 3 s failed it on its first reading (16 of 20 inputs done). The bound is 1.5 times the slowest, rounded up.
+  // Measured 2026-11-25 (cores 0-5 in contest.slice, two rounds an iteration, the constructed one always
+  // crossing): 4.21, 3.47 and 4.06 s under three random seeds; most of it is the OpenTheory tool, a process of
+  // its own for each crossing round's article, and the first round's warm-up (about 0.7 s). The bound, set
+  // on 2026-11-17 at 1.5 times the slowest reading of the law with one round an iteration (4.40 s), still holds.
   override val munitTimeout: scala.concurrent.duration.Duration = scala.concurrent.duration.Duration(7, "s")
 
   /** A program with one to three β residuals for the residual lemma to make:
@@ -53,6 +57,15 @@ class ResidualRoundLawTest extends GeneratedProperties:
       case 1 => Term.choice(redex(first, argument), redex(second, other))
       case _ => redex(first, redex(second, argument))
 
+  /** `(λu. u) (T A)`, T of `ResidualPrograms.lambdasIgnoringTheFirstBinder`:
+    * a round whose output is read through the β residual of `T A`.
+    */
+  private val crossingRoundPrograms: Gen[Term] =
+    for
+      function <- ResidualPrograms.lambdasIgnoringTheFirstBinder
+      argument <- HoasGenerators.closedTerm
+    yield Term.λ(bound => bound)(function(argument))
+
   /** The instances a round of `residualRoundPrograms` may add: twice the
     * most a round added, measured on 2026-11-16 (trace-side-spelling
     * 1ecce8bdc) on 100 programs drawn by `SeededSamples` from the seed
@@ -61,21 +74,21 @@ class ResidualRoundLawTest extends GeneratedProperties:
     */
   private val residualRoundBudget: Int = 4
 
-  private val residualStrategy: FixpointEgraph = FixpointEgraph(
+  private val residualStrategy: FixpointEgraph[NoFacts.type] = FixpointEgraph(
     residualIndex,
     StandardSaturator(
       SaturationOptions(
         residualLemmas.map(_.lemma),
-        BuiltInRule.all,
+        BuiltInRule.beforeOptIn,
         residualRoundBudget,
         BaselineLemmaEncoding,
         ClosureCompilation,
-        StandardIndexer,
+        StandardIndexer.of[gezi.ir.NoFacts.type],
         StandardOrientationCompiler,
         MemoRetention.Kept
-      )
+      , gezi.ir.TermConstruction(gezi.ir.NoFacts))
     ),
-    CountedExtractor(ExtractionOptions(Vector("compression")), BaselineModules.table)
+    CountedExtractor(ExtractionOptions(Vector("compression")), BaselineModules.table[gezi.ir.NoFacts.type])
   )
 
   /** Purpose: catch a trace whose later commands are indexed against a term
@@ -91,20 +104,16 @@ class ResidualRoundLawTest extends GeneratedProperties:
     * the other proof laws check).
     *
     * Whether a round's proof crosses a residual is the extraction's choice
-    * (the round's output need not be reached through one), so the law covers
-    * it rather than asserting it of each round: a step's term holding a
-    * thunk that is not its own respelling. Measured 2026-11-16
-    * (trace-side-spelling, HEDGEHOG_SEED 98770467182228): 50% of 100 rounds
-    * cross; the cover asks 15%, 3 of the default 20, which a rate of 50%
-    * misses with a probability of about 2 in 10,000.
+    * (the round's output need not be reached through one), so each
+    * iteration checks the law on a round of `residualRoundPrograms` and on a
+    * round that crosses one by construction: `(λu. u) (T A)` with T of
+    * `ResidualPrograms.lambdasIgnoringTheFirstBinder`, whose β reduct is
+    * smaller than `T A`, so that the compression extraction reads the
+    * output through the residual the β rule leaves (a step's term holding a
+    * thunk that is not its own respelling).
     */
   stoppableProperty("the trace of a round that crosses β residuals replays to its output, and its article checks") { stopped =>
-    for
-      round <- residualRoundPrograms
-        .forAllWithLog(LambdalatticeText.text)
-        .map(program => residualRound(program, StopSignal.completedWith(stopped)))
-        .cover(15, "the round's proof crosses an unspelled residual", _.crossings > 0)
-    yield
+    def checked(round: ResidualRound): Result =
       val trace = RewriteTrace.trace(round.derivation)
       val text = TraceText.written(trace)
       val checked =
@@ -124,6 +133,13 @@ class ResidualRoundLawTest extends GeneratedProperties:
           )
         )
         .log(s"${trace.rounds.flatten.size} commands, ${round.crossings} terms crossing a residual")
+    for
+      drawn <- residualRoundPrograms.forAllWithLog(LambdalatticeText.text)
+      crossing <- crossingRoundPrograms.forAllWithLog(LambdalatticeText.text)
+    yield
+      val stop = StopSignal.completedWith(stopped)
+      val crossed = residualRound(crossing, stop)
+      Result.all(List(checked(residualRound(drawn, stop)), Result.assert(crossed.crossings > 0).log("the constructed round crosses no residual"), checked(crossed)))
   }
 
   /** A round of `residualStrategy`: its input, its output, its proof, the
@@ -131,15 +147,15 @@ class ResidualRoundLawTest extends GeneratedProperties:
     * steps' terms that hold a thunk that is not its own respelling.
     */
   private final case class ResidualRound(
-      input: Instruction,
-      output: Instruction,
-      proof: StrategyProof,
-      derivation: ArticleDerivation,
+      input: Configured[NoFacts.type],
+      output: Configured[NoFacts.type],
+      proof: StrategyProof[NoFacts.type],
+      derivation: ArticleDerivation[NoFacts.type],
       crossings: Int
   )
 
   private def residualRound(program: Term, stop: StopSignal): ResidualRound =
-    val input = Defunctionalization.thunkInstruction(program.deBruijnTerm(Map.empty))
+    val input = Defunctionalization.thunkInstruction[gezi.ir.NoFacts.type](program.deBruijnTerm(Map.empty))(using gezi.ir.NoFacts)
     val outcome = residualStrategy.ran(Vector(input), true, stop).getOrElse(fail("the strategy gave no answer"))
     val Vector(output) = outcome.outputs: @unchecked
     val proof = outcome.proof.getOrElse(fail("the strategy gave no proof"))

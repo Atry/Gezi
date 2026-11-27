@@ -1,5 +1,7 @@
 package gezi.strategies
 
+import gezi.ir.NativeSpecializer
+
 import gezi.ir.Code
 import gezi.ir.Hole
 
@@ -26,28 +28,28 @@ final case class Measure(height: Int, main: BigInt, rest: Rest, coveredMain: Big
   * term from: a term already given, or the argument at an index among the
   * next ones.
   */
-enum ValueSource:
-  case Given(value: OrderTerm)
+enum ValueSource[C <: NativeSpecializer & Singleton]:
+  case Given(value: OrderTerm[C])
   case Pending(index: Int)
 
 /** How a term extends when it is the function of an application. */
-enum Absorb:
+enum Absorb[C <: NativeSpecializer & Singleton]:
 
   /** The term is a spine, or one child of one: its children's tallest
     * height, the sums of their Mains and of their Rests, and whether a
     * filter is read in any of them; an argument adds a child.
     */
-  case SpineChildren(tallest: Int, below: BigInt, rest: Rest, read: Boolean)
+  case SpineChildren[C <: NativeSpecializer & Singleton](tallest: Int, below: BigInt, rest: Rest, read: Boolean) extends Absorb[C]
 
   /** The term is a filter's value, or the value of a parallel at the head:
     * the absorb, covered.
     */
-  case Covered(absorb: Absorb)
+  case Covered(absorb: Absorb[C])
 
   /** A filter function applied to fewer arguments than its holes, some of
     * them left, and the source of its value.
     */
-  case FilterFunction(remaining: Int, source: ValueSource)
+  case FilterFunction(remaining: Int, source: ValueSource[C])
 
 /** The fold state of `filter_attraction` (`filter_fold(Flag, Measure,
   * Absorbs, Operands)`): whether some filter is read outside criteria; the
@@ -55,10 +57,10 @@ enum Absorb:
   * and, for a parallel, the flag and the measure of the position of its two
   * operands.
   */
-final case class FilterState(
+final case class FilterState[C <: NativeSpecializer & Singleton](
     read: Boolean,
     measure: Measure,
-    absorbs: Vector[Absorb],
+    absorbs: Vector[Absorb[C]],
     operands: Option[(Boolean, Measure)]
 ) extends FoldState
 
@@ -126,7 +128,7 @@ final case class FilterState(
   * place of one best. What row 1 prefers is unchanged: it is the HM
   * baseline, and no measured defect points at it yet.
   */
-object FilterAttraction extends NormalityModule:
+object FilterAttraction extends ConfigurationFreeModule:
 
   val name: String = "filter_attraction"
 
@@ -135,37 +137,37 @@ object FilterAttraction extends NormalityModule:
     */
   val meetsExtractionContract: Boolean = false
 
-  def folded(layer: OrderTerm, reading: TermReading): FoldState = state(layer, reading)
+  def folded[C <: NativeSpecializer & Singleton](layer: OrderTerm[C], reading: TermReading[C]): FoldState = state(layer, reading)
 
   /** The weight of one uncovered position of the height, 33^min(h, 15)
     * (`height_weight/2`).
     */
   private def heightWeight(height: Int): BigInt = BigInt(33).pow(height.min(15))
 
-  private val leafChild: Absorb.SpineChildren = Absorb.SpineChildren(0, heightWeight(0), Rest.empty, false)
+  private def leafChild[C <: NativeSpecializer & Singleton]: Absorb.SpineChildren[C] = Absorb.SpineChildren[C](0, heightWeight(0), Rest.empty, false)
 
   /** `leaf_fold_state/1`. */
-  private val leafState: FilterState =
-    FilterState(false, Measure(0, heightWeight(0), Rest.empty, 0, Rest.empty), Vector(leafChild), None)
+  private def leafState[C <: NativeSpecializer & Singleton]: FilterState[C] =
+    FilterState(false, Measure(0, heightWeight(0), Rest.empty, 0, Rest.empty), Vector(leafChild[C]), None)
 
   /** `filter_fold_state/2`. */
-  private def state(term: OrderTerm, reading: TermReading): FilterState = term match
-    case OrderTerm.Folded(folded, _) => TermOrder.ownState[FilterState](folded)
+  private def state[C <: NativeSpecializer & Singleton](term: OrderTerm[C], reading: TermReading[C]): FilterState[C] = term match
+    case OrderTerm.Folded(folded, _) => TermOrder.ownState[FilterState[C]](folded)
     case name @ OrderTerm.Name(_) =>
       reading.filterFunction(name) match
         case Some(filter) => filterFunctionApplied(filter.code, filter.holes, filter.fillings, Vector.empty, reading)
         case None =>
           reading.applicationNamed(name) match
             case Some(definition) => state(definition, reading)
-            case None             => leafState
-    case leaf if TermReading.leafTerm(leaf) => leafState
+            case None             => leafState[C]
+    case leaf if TermReading.leafTerm(leaf) => leafState[C]
     case OrderTerm.Parallel(value, criterion, _) =>
       val valueState = state(value, reading)
       val covered = stateCovered(valueState)
       val criterionState = state(criterion, reading)
       val body = spineChildrenApplied(stateChild(valueState), Vector(criterionState))
       covered.copy(operands = Some((body.read, body.measure)))
-    case OrderTerm.Choice(Vector())  => leafState
+    case OrderTerm.Choice(Vector())  => leafState[C]
     case OrderTerm.Choice(members)   => statesJoined(members.map(state(_, reading)))
     case OrderTerm.Thunk(code, holes, fillings) =>
       if TermReading.slotPair(code) then filterFunctionApplied(code, holes, fillings, Vector.empty, reading)
@@ -179,18 +181,18 @@ object FilterAttraction extends NormalityModule:
   /** The head applied to the arguments, the spine flattened within the layer
     * and read through names of applications (`filter_fold_applied/3`).
     */
-  private def applied(head: OrderTerm, arguments: Vector[OrderTerm], reading: TermReading): FilterState =
+  private def applied[C <: NativeSpecializer & Singleton](head: OrderTerm[C], arguments: Vector[OrderTerm[C]], reading: TermReading[C]): FilterState[C] =
     head match
       case OrderTerm.Apply(function, argument) => applied(function, argument +: arguments, reading)
       case OrderTerm.Folded(folded, _) =>
-        absorbsApplied(TermOrder.ownState[FilterState](folded).absorbs, arguments, reading)
+        absorbsApplied(TermOrder.ownState[FilterState[C]](folded).absorbs, arguments, reading)
       case name @ OrderTerm.Name(_) =>
         reading.filterFunction(name) match
           case Some(filter) => filterFunctionApplied(filter.code, filter.holes, filter.fillings, arguments, reading)
           case None =>
             reading.applicationNamed(name) match
               case Some(definition) => applied(definition, arguments, reading)
-              case None             => spineChildrenApplied(leafChild, arguments.map(state(_, reading)))
+              case None             => spineChildrenApplied(leafChild[C], arguments.map(state(_, reading)))
       case OrderTerm.Thunk(code, holes, fillings) if TermReading.slotPair(code) =>
         filterFunctionApplied(code, holes, fillings, arguments, reading)
       case OrderTerm.Choice(members) if members.nonEmpty =>
@@ -199,17 +201,17 @@ object FilterAttraction extends NormalityModule:
       case other => absorbsApplied(state(other, reading).absorbs, arguments, reading)
 
   /** `absorbs_applied/3`. */
-  private def absorbsApplied(absorbs: Vector[Absorb], arguments: Vector[OrderTerm], reading: TermReading): FilterState =
+  private def absorbsApplied[C <: NativeSpecializer & Singleton](absorbs: Vector[Absorb[C]], arguments: Vector[OrderTerm[C]], reading: TermReading[C]): FilterState[C] =
     val argumentStates = arguments.map(state(_, reading))
     statesJoined(absorbs.map(absorbApplied(_, arguments, argumentStates, reading)))
 
   /** `absorb_applied/4`. */
-  private def absorbApplied(
-      absorb: Absorb,
-      arguments: Vector[OrderTerm],
-      argumentStates: Vector[FilterState],
-      reading: TermReading
-  ): FilterState = absorb match
+  private def absorbApplied[C <: NativeSpecializer & Singleton](
+      absorb: Absorb[C],
+      arguments: Vector[OrderTerm[C]],
+      argumentStates: Vector[FilterState[C]],
+      reading: TermReading[C]
+  ): FilterState[C] = absorb match
     case children @ Absorb.SpineChildren(_, _, _, _) => spineChildrenApplied(children, argumentStates)
     case Absorb.Covered(inner) => stateCovered(absorbApplied(inner, arguments, argumentStates, reading))
     case Absorb.FilterFunction(remaining, source) =>
@@ -232,9 +234,9 @@ object FilterAttraction extends NormalityModule:
     * children's Mains and whose Main once covered is the sum of the
     * children's Mains (`spine_children_applied/3`).
     */
-  private def spineChildrenApplied(children: Absorb.SpineChildren, argumentStates: Vector[FilterState]): FilterState =
+  private def spineChildrenApplied[C <: NativeSpecializer & Singleton](children: Absorb.SpineChildren[C], argumentStates: Vector[FilterState[C]]): FilterState[C] =
     val joined = argumentStates.map(stateChild).foldLeft(children) { (accumulated, child) =>
-      Absorb.SpineChildren(
+      Absorb.SpineChildren[C](
         accumulated.tallest.max(child.tallest),
         accumulated.below + child.below,
         accumulated.rest + child.rest,
@@ -246,23 +248,23 @@ object FilterAttraction extends NormalityModule:
     FilterState(joined.read, Measure(height, main, joined.rest, joined.below, joined.rest), Vector(joined), None)
 
   /** The state as one child of a spine (`fold_state_child/2`). */
-  private def stateChild(state: FilterState): Absorb.SpineChildren = measureChild(state.read, state.measure)
+  private def stateChild[C <: NativeSpecializer & Singleton](state: FilterState[C]): Absorb.SpineChildren[C] = measureChild(state.read, state.measure)
 
-  private def measureChild(read: Boolean, measure: Measure): Absorb.SpineChildren =
-    Absorb.SpineChildren(measure.height, measure.main, measure.rest, read)
+  private def measureChild[C <: NativeSpecializer & Singleton](read: Boolean, measure: Measure): Absorb.SpineChildren[C] =
+    Absorb.SpineChildren[C](measure.height, measure.main, measure.rest, read)
 
   /** A filter function applied to the arguments: applied to all its holes
     * it is its value, covered, applied to the arguments beyond its holes;
     * applied to fewer it is a filter on its value slot's term or on a hole
     * (`filter_function_applied/5`).
     */
-  private def filterFunctionApplied(
+  private def filterFunctionApplied[C <: NativeSpecializer & Singleton](
       code: Code,
       holes: Vector[Hole],
-      fillings: Vector[OrderTerm],
-      arguments: Vector[OrderTerm],
-      reading: TermReading
-  ): FilterState =
+      fillings: Vector[OrderTerm[C]],
+      arguments: Vector[OrderTerm[C]],
+      reading: TermReading[C]
+  ): FilterState[C] =
     TermReading.instantiated(code, holes, fillings, arguments) match
       case (OrderTerm.Parallel(value, _, _), extra) =>
         if arguments.size >= holes.size then valueCovered(value, extra, reading)
@@ -278,20 +280,20 @@ object FilterAttraction extends NormalityModule:
   /** A filter function with holes left whose value comes from the source
     * (`filter_function_pending/3`).
     */
-  private def filterFunctionPending(remaining: Int, source: ValueSource, reading: TermReading): FilterState =
+  private def filterFunctionPending[C <: NativeSpecializer & Singleton](remaining: Int, source: ValueSource[C], reading: TermReading[C]): FilterState[C] =
     val valueState = source match
       case ValueSource.Given(value) => state(value, reading)
-      case ValueSource.Pending(_)   => leafState
+      case ValueSource.Pending(_)   => leafState[C]
     FilterState(true, stateCovered(valueState).measure, Vector(Absorb.FilterFunction(remaining, source)), None)
 
   /** The value of a filter function applied to all its holes, applied to the
     * arguments beyond them, covered (`filter_value_covered/3`).
     */
-  private def valueCovered(value: OrderTerm, extra: Vector[OrderTerm], reading: TermReading): FilterState =
+  private def valueCovered[C <: NativeSpecializer & Singleton](value: OrderTerm[C], extra: Vector[OrderTerm[C]], reading: TermReading[C]): FilterState[C] =
     stateCovered(if extra.isEmpty then state(value, reading) else applied(value, extra, reading))
 
   /** Every position covered by a filter (`fold_state_covered/2`). */
-  private def stateCovered(state: FilterState): FilterState =
+  private def stateCovered[C <: NativeSpecializer & Singleton](state: FilterState[C]): FilterState[C] =
     val measure = state.measure
     FilterState(
       true,
@@ -303,7 +305,7 @@ object FilterAttraction extends NormalityModule:
   /** The states of the members of a choice, or of the ways a term extends at
     * the head of a spine, at least one, joined (`fold_states_joined/2`).
     */
-  private def statesJoined(states: Vector[FilterState]): FilterState =
+  private def statesJoined[C <: NativeSpecializer & Singleton](states: Vector[FilterState[C]]): FilterState[C] =
     val first = states.head
     val (read, measure, absorbs) = states.tail.foldLeft((first.read, first.measure, first.absorbs)) {
       case ((accumulatedRead, accumulatedMeasure, accumulatedAbsorbs), next) =>
@@ -329,7 +331,7 @@ object FilterAttraction extends NormalityModule:
   /** The key absorbs are sorted by, stably, without the value a filter
     * function's source holds (`absorb_key/2`), in Prolog's standard order.
     */
-  private def absorbKey(absorb: Absorb): OrderValue = absorb match
+  private def absorbKey[C <: NativeSpecializer & Singleton](absorb: Absorb[C]): OrderValue = absorb match
     case Absorb.SpineChildren(tallest, below, rest, read) =>
       OrderValue.Compound(
         "spine_children",
@@ -348,7 +350,7 @@ object FilterAttraction extends NormalityModule:
       OrderValue.Compound("filter_function", Vector(OrderValue.number(remaining), kind))
 
   def rank(state: FoldState): OrderValue =
-    val own = TermOrder.ownState[FilterState](state)
+    val own = TermOrder.ownState[FilterState[?]](state)
     if !own.read then OrderValue.list(OrderValue.number(1))
     else
       OrderValue.list(
@@ -359,7 +361,7 @@ object FilterAttraction extends NormalityModule:
       )
 
   def value(state: FoldState): OrderValue =
-    val own = TermOrder.ownState[FilterState](state)
+    val own = TermOrder.ownState[FilterState[?]](state)
     if !own.read then OrderValue.Atom("no_filter")
     else
       OrderValue.Compound(

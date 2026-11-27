@@ -6,6 +6,7 @@ import java.nio.file.Path
 import gezi.contest.entry.ArticleDestination
 import gezi.contest.entry.Cells
 import gezi.contest.entry.CompilationPlaceOption
+import gezi.contest.entry.OccurrenceTaggingOption
 import gezi.contest.entry.Count
 import gezi.contest.entry.Defaults
 import gezi.contest.entry.Entry
@@ -20,6 +21,7 @@ import gezi.contest.entry.OutputDisplay
 import gezi.contest.entry.Phase
 import gezi.contest.entry.Report
 import gezi.frontend.DeBruijnTerm
+import gezi.frontend.DeBruijnTermOf
 import gezi.frontend.Defunctionalization
 import gezi.hotspot.Budget
 import gezi.hotspot.Cache
@@ -27,9 +29,9 @@ import gezi.hotspot.ExecutionDependencies
 import gezi.hotspot.Executor
 import gezi.hotspot.ExpansionSource
 import gezi.hotspot.ForeignService
-import gezi.ir.Instruction
 import gezi.jit.BackendChecks
 import gezi.jit.BackendFacts
+import gezi.jit.StorageEncoding
 import gezi.jit.Jit
 import gezi.jit.NativeBackend
 import gezi.jit.NativesProvider
@@ -48,8 +50,12 @@ import gezi.standardlibrary.StandardLibrary
 import gezi.standardlibrary.StandardLibraryIndex
 import gezi.strategies.GraphProof
 import gezi.strategies.TraceFiles
+import gezi.weakhead.Mode
 import gezi.weakhead.Reading
+import gezi.weakhead.ReadingConfiguration
 import gezi.weakhead.ReadingState
+import gezi.weakhead.ScottADTChoices
+import gezi.ir.{Closed, Configured, NativeSpecializer, NoFacts, StorageAccess}
 
 /** The framework's entry for an entry written as data, whose compiler is
   * written with lemmas and natives and no Scala of its own: it reads the
@@ -64,11 +70,11 @@ final class GenericEntryProvider extends EntryProvider:
   // The cache service `caches` is the dependencies of the entry's executor, which keeps the complete tables of its
   // readings there, the weak head's and the JIT's instance table's, and the JIT's compiled codes, when the entry's
   // data chooses a `table_sharing` other than `local`.
-  def initial(entryDirectory: Path, caches: Cache, articles: ArticleDestination): Entry =
+  def initial(entryDirectory: Path, caches: Cache, articles: ArticleDestination): Entry[?] =
     val (data, afterEntry) =
       EntryData.read(entryDirectory, Defaults.entryDataState)
-    val entry =
-      GenericEntryProvider.initialized(
+    val (library, entry) =
+      GenericEntryProvider.initializedWithLibrary(
         data,
         ExecutorModules.registeredFor(entryDirectory),
         ExtractorModules.registeredFor(entryDirectory),
@@ -78,21 +84,11 @@ final class GenericEntryProvider extends EntryProvider:
         caches
       )
     articles match
-      case ArticleDestination.WrittenWithTraces(_) => GenericEntryProvider.withLemmaTexts(entry, entryDirectory)
+      case ArticleDestination.WrittenWithTraces(_) => entry.withLemmaTexts(library, entryDirectory)
       case _                                       => entry
 
 object GenericEntryProvider:
 
-  /** The entry with its lemmas' texts, for its traces only: read once, beside the library, from the knowledge files
-    * under the tree's corpora and the entry's own directory, the tree read
-    * off the entry directory's parent as `EntryData.read` reads it
-    * (`LemmaSources.textsUnder`). `initial` reads them when traces are
-    * written.
-    */
-  def withLemmaTexts(entry: GenericEntry, entryDirectory: Path): GenericEntry =
-    val directory = entryDirectory.toAbsolutePath.normalize
-    val visible = directory.getParent
-    entry.copy(lemmaTexts = LemmaSources.textsUnder(visible, Vector(visible.resolve("corpora"), directory), entry.index))
 
   /** The entry of the data, its library the data's knowledge, one term
     * (`EntryData.knowledge`), compiled and checked against the natives, each
@@ -117,9 +113,9 @@ object GenericEntryProvider:
       extractorModules: ExtractorModules,
       natives: NativeBackend,
       articles: ArticleDestination,
-      state: ReadingState,
+      state: ReadingState[NoFacts.type],
       caches: Cache
-  ): GenericEntry =
+  ): GenericEntry[?] =
     initializedWithLibrary(data, executorModules, extractorModules, natives, articles, state, caches)._2
 
   /** The compiled library of `initialized`'s entry, with the entry: what the
@@ -132,36 +128,71 @@ object GenericEntryProvider:
       extractorModules: ExtractorModules,
       natives: NativeBackend,
       articles: ArticleDestination,
-      state: ReadingState,
+      state: ReadingState[NoFacts.type],
       caches: Cache
-  ): (StandardLibrary, GenericEntry) =
+  ): (StandardLibrary, GenericEntry[?]) =
     // The knowledge, the lemmas and the leaves are read as the entry's reading options say a function is applied to a
     // continuation: a library whose files export through their
     // continuation reads its imports once per path under `substituted`.
     val knowledgeState = state.copy(continuations = Defaults.continuations(data.reading.continuation))
     val (library, afterKnowledge) = StandardLibrary.compiled(data.knowledge, Vector(BackendChecks(natives)), knowledgeState)
-    val facts = BackendFacts.of(library, natives)
-    val jit = Defaults.jit(facts, data.jit)
-    val (rounds, _) = data.rounds.foldLeft((Vector.empty[PreparedLemmaCompilation], afterKnowledge)) {
+    // The library is read under no facts, and the facts are built once from it (the entry's one facts, one encoding);
+    // the entry's configuration is that encoding's singleton type, in which the rest of the entry is typed.
+    val encoding = BackendFacts.of(library, natives).storageEncoding
+    library -> initializedIn[encoding.type](encoding, data, library, executorModules, extractorModules, natives, articles, afterKnowledge, caches)
+
+  /** The entry of the configuration `C` of the encoding of the library's facts: its index crossed into the
+    * encoding once (`StandardLibraryIndex.crossed`, read here as `encoding.operations.index`), each round prepared
+    * against it with the round's own leaves, and the JIT built over the encoding.
+    */
+  private def initializedIn[C <: NativeSpecializer & Singleton](
+      encoding: StorageEncoding & C,
+      data: EntryData,
+      library: StandardLibrary,
+      executorModules: ExecutorModules,
+      extractorModules: ExtractorModules,
+      natives: NativeBackend,
+      articles: ArticleDestination,
+      afterKnowledge: ReadingState[NoFacts.type],
+      caches: Cache
+  ): GenericEntry[C] =
+    val operations: gezi.jit.StorageEncodingOperations[C] = encoding.operations
+    val index = operations.index
+    // The one capability of the entry's readings, granted where the entry is set up.
+    val jit = Defaults.jit[C](encoding, data.jit, data.groupBlocks, StorageAccess.granted())
+    val construction = gezi.jit.ConvertedTermConstruction[C](encoding)(jit.configuration.storageAccess)
+    val (rounds, _) = data.rounds.foldLeft((Vector.empty[PreparedLemmaCompilation[C]], afterKnowledge)) {
       case ((prepared, before), round) =>
         val (lemmas, afterLemmas) = library.lemmas(round.knowledge, before)
         val (leaves, afterLeaves) = library.leaves(round.knowledge, afterLemmas)
         val compilation =
           Defaults
-            .lemmaCompilation(lemmas, round.settings, GenericEntry.roundCap, natives, extractorModules)
-            .prepared(library.index.withLeaves(leaves))
+            // The rounds write back through the facts' native specializer, as the entry's JIT builds, so that a term has one
+            // object in both.
+            .lemmaCompilation[C](
+              lemmas,
+              round.settings,
+              GenericEntry.roundCap,
+              natives,
+              extractorModules,
+              construction,
+              jit.readingConfiguration
+            )
+            .prepared(index.withLeaves(leaves.map(Configured.fromPure[C](encoding))))
+            .scaledBy(GenericEntry.roundInstancesPerNode)
         (prepared :+ compilation, afterLeaves)
     }
     // The entry's prepared compilation, built once and the same whatever its data says of where its programs are
     // compiled: the generic entry compiles by it under `Upfront`, and an executor module is handed it under either.
-    val compilation = ProgramCompilation(library.index, rounds, natives)
-    library -> GenericEntry(
+    val compilation = ProgramCompilation(index, rounds, natives, encoding)
+    GenericEntry[C](
       compilation,
       data.compilationPlace,
+      data.occurrenceTagging,
       jit,
       GenericEntry.readingLimit,
       GenericEntry.judgmentLimit,
-      Defaults.executor(jit, data.reading, compilation, data.executor, executorModules),
+      Defaults.executor[C](jit, data.reading, compilation, data.executor, executorModules),
       caches,
       Vector.empty,
       Cells.initialState,
@@ -179,21 +210,24 @@ object GenericEntryProvider:
   * state, the cache service its readings run in, the reports of the cell
   * being run, and the state after the cells run so far).
   */
-final case class GenericEntry(
-    compilation: ProgramCompilation,
+final case class GenericEntry[C <: NativeSpecializer & Singleton](
+    compilation: ProgramCompilation[C],
     // Where the entry's programs are compiled by its rounds, as its data chooses (`Defaults.compilationPlace`).
     compilationPlace: CompilationPlaceOption,
-    jit: Jit,
+    // How the entry's programs are tagged as occurrences before its rounds, as its data chooses
+    // (`Defaults.occurrencesTagged`).
+    occurrenceTagging: OccurrenceTaggingOption,
+    jit: Jit[C],
     readingLimit: Long,
     judgmentLimit: Long,
     // The executor the entry's data chooses (`Defaults.executor`), whatever its suspensions' type: the
     // framework's, whose suspensions are `ReadingSuspension`, or a module's.
     // The entry resumes no suspension, so the type is never
     // needed.
-    executor: Executor[?],
+    executor: Executor[C, ?],
     caches: Cache,
     reports: Vector[Report],
-    cellState: DeBruijnTerm,
+    cellState: DeBruijnTermOf[Configured[C]],
     articles: ArticleDestination,
     nextArticle: Int,
     nextTrace: Int,
@@ -201,17 +235,26 @@ final case class GenericEntry(
     // their sides, for the traces' debug information (`LemmaSources.textsUnder`):
     // read by `initial` when traces are written,
     // empty otherwise, and never read by a choice.
-    lemmaTexts: Map[(Instruction, Instruction), gezi.locations.LemmaText]
-) extends Entry:
+    lemmaTexts: Map[(Configured[C], Configured[C]), gezi.locations.LemmaText[C]]
+) extends Entry[C]:
+
+  /** The native specializer of the entry's configuration, the JIT's. */
+  def specializer: C = jit.configuration.specializer
+
+  /** The entry's specializer as its backend facts' storage encoding. */
+  def encoding: StorageEncoding & C = jit.configuration.specializer
+
+  /** The capability to read a storage's view, the JIT's. */
+  private def storageAccess: StorageAccess = jit.configuration.storageAccess
 
   /** The library's index, the compilation's. */
-  def index: StandardLibraryIndex = compilation.index
+  def index: StandardLibraryIndex[C] = compilation.index
 
   /** The natives, the compilation's. */
   def natives: NativeBackend = compilation.natives
 
   /** The prepared lemma rounds, the compilation's. */
-  def rounds: Vector[PreparedLemmaCompilation] = compilation.rounds
+  def rounds: Vector[PreparedLemmaCompilation[C]] = compilation.rounds
 
   /** The cell's Output under the judge's cancel: a judgment `N ∥ T` judged
     * by the framework (`Judgments`); any other Output the lemma rounds in
@@ -219,7 +262,9 @@ final case class GenericEntry(
     * or not evaluated when the reading stops. Every reading of the cell runs
     * with the cache service and the expansion source given.
     */
-  def run(cell: DeBruijnTerm, source: ExpansionSource, stop: StopSignal): Interaction =
+  def run(cell: DeBruijnTermOf[Configured[C]], source: ExpansionSource, stop: StopSignal): Interaction[C] =
+    given C = specializer
+    given StorageAccess = storageAccess
     val dependencies = ExecutionDependencies(caches, source)
     val output = Cells.output(cell, cellState)
     val (after, display) = output match
@@ -228,22 +273,42 @@ final case class GenericEntry(
       // It is to become an option of one interface chosen by configuration (entry data and `Defaults`) once a second
       // one exists.
       case DeBruijnTerm.Parallel(candidate, point) =>
-        val judged = Judgments.judged(executor, dependencies, candidate, point, judgmentLimit, stop)
-        (copy(executor = judged.executor, reports = judged.reports), Judgments.displayed(output, candidate, judged.judgment))
+        val judged = Judgments.judged(executor, dependencies, candidate, point, judgmentLimit, stop, jit.readingConfiguration)
+        (copy(executor = judged.executor, reports = judged.reports), judged.display)
       case _ =>
-        val (afterAnswered, normalForms) = answered(output, dependencies, stop)
-        (afterAnswered, normalForms.fold(OutputDisplay.shown(output))(Cells.displayed))
+        val (afterAnswered, scottADTValues) = answered(output, dependencies, stop)
+        (afterAnswered, scottADTValues.fold(OutputDisplay.remainder[C](output))(read => OutputDisplay.Values(read.choices)))
     Interaction.Finished(display, after.reports, after.copy(cellState = Cells.nextState(cell, cellState)))
+
+  /** The display of one value an FFI program gave: its Scott ADT values, read under the entry's JIT configuration
+    * within the reading limit (`Judgments.scottADTValuesOf`). A reading the limit or the stop ends is displayed as
+    * the value's term when it is one.
+    *
+    * FIXME (https://github.com/Atry/private-overlay/issues/2266): the value is read under a fresh state of the entry's
+    * configuration, not with the executor's tables and JIT state, which the generic `Executor` interface does not give: the Scott ADT values read are the same (a table
+    * saves steps only), but a value that needs the executor's tables to finish within the limit stops here, and is
+    * displayed as its term, or as no Scott ADT value when it is no term (it holds a suspension), which says less than
+    * the truth (not evaluated): `OutputDisplay` has no case for it. Candidates: an `Executor` method that reads a
+    * value's Scott ADT values in its own state; a case of `OutputDisplay` for a reading that did not finish.
+    */
+  def displayed(value: Closed[C], source: ExpansionSource, stop: StopSignal): (Entry[C], OutputDisplay[C]) =
+    given C = specializer
+    val display = Judgments.scottADTValuesOf(Mode.Jit, Closed.value(value), readingLimit, stop, jit.readingConfiguration) match
+      case Some(read) => OutputDisplay.Values(read.choices)
+      case None       => Closed.configured(Closed.value(value)).fold(OutputDisplay.noScottADTValue[C])(OutputDisplay.Remainder(_))
+    (this, display)
 
   /** The FFI program of the state, as the executor the entry's data chooses
     * filters it (`Executor.foreignProgram`), compiled where the data says
     * and run by that executor with the service in its dependencies; none
     * for an executor that runs no FFI program.
     */
-  override def interacted(state: Instruction, service: ForeignService, source: ExpansionSource, stop: StopSignal): Option[Interacted] =
+  override def interacted(state: Configured[C], service: ForeignService, source: ExpansionSource, stop: StopSignal): Option[Interacted[C]] =
+    given C = specializer
     executor.foreignProgram(state).map { program =>
-      val (routed, _) = Defaults.compilationPlace(compilationPlace, compilation, program, explained = false, stop)
-      val (after, _, progress) = executor.interacted(routed, ExecutionDependencies(caches, source, service), Budget(readingLimit, countedUnits = false, stop))
+      val dependencies = ExecutionDependencies(caches, source, service)
+      val (routed, _) = Defaults.compilationPlace(compilationPlace, compilation, program, dependencies, explained = false, stop)
+      val (after, _, progress) = executor.interacted(routed, dependencies, Budget(readingLimit, countedUnits = false, stop))
       Interacted(progress.answers, progress.finished, copy(executor = after))
     }
 
@@ -268,11 +333,13 @@ final case class GenericEntry(
     * trace written.
     */
   private def answered(
-      point: DeBruijnTerm,
+      point: DeBruijnTermOf[Configured[C]],
       dependencies: ExecutionDependencies,
       stop: StopSignal
-  ): (GenericEntry, Option[Set[DeBruijnTerm]]) =
-    val (program, defunctionalization) = Phase.timed("defunctionalization")(Defunctionalization.thunkInstruction(point))
+  )(using C, StorageAccess): (GenericEntry[C], Option[ScottADTChoices.Read[C]]) =
+    val (program, defunctionalization) = Phase.timed("defunctionalization")(
+      Defaults.occurrencesTagged(occurrenceTagging, compilation.index, Defunctionalization.thunkInstruction[C](point))
+    )
     // The graph records the terms made only when the destination is a
     // directory (`evidenceWritten` reads its proof), so a scored reading
     // pays nothing.
@@ -284,7 +351,7 @@ final case class GenericEntry(
     // reports, no article and no trace are written in this mode, whatever the destination: what the executor
     // compiles, it compiles out of the entry's sight. The executor's result is to carry the compilation's evidence
     // (its rounds' reports, the program equal to its extraction) for the entry to report and write.
-    val (routed, roundResult) = Defaults.compilationPlace(compilationPlace, compilation, program, explained, stop)
+    val (routed, roundResult) = Defaults.compilationPlace(compilationPlace, compilation, program, dependencies, explained, stop)
     val (roundReports, (articlesWritten, tracesWritten)) =
       roundResult match
         case None => (Vector.empty[Report], (0, 0))
@@ -297,10 +364,10 @@ final case class GenericEntry(
                   case End.BudgetExhausted(_) => 1L
                   case _                      => 0L)
               )
-            ),
+            ) ++ Option.when(result.units.nonEmpty)(Count("closure_units_kept", result.units.count(_.kept).toLong)),
             evidenceWritten(program, result, stop)
           )
-    val reading = Judgments.read(executor, dependencies, routed, readingLimit, stop)
+    val reading = Judgments.read(executor, dependencies, routed, readingLimit, stop, jit.readingConfiguration)
     (
       copy(
         executor = reading.executor,
@@ -308,14 +375,40 @@ final case class GenericEntry(
         nextArticle = nextArticle + articlesWritten,
         nextTrace = nextTrace + tracesWritten
       ),
-      reading.normalForms
+      reading.read
     )
 
   /** The encodings of the lemmas of every round into patterns, each once:
     * what the proofs of the rounds name their lemmas by, and what a
     * statement of a lemma is built from (`gezi.proofs.LeanStatements`).
     */
-  def lemmaEncodings: Vector[EncodedLemma] = rounds.flatMap(_.saturator.lemmas(index)).distinct
+  def lemmaEncodings: Vector[EncodedLemma[C]] = rounds.flatMap(_.saturator.lemmas(index)).distinct
+
+  /** The entry with its lemmas' texts, for its traces only: read once, beside the library, from the knowledge files
+    * under the tree's corpora and the entry's own directory, the tree read
+    * off the entry directory's parent as `EntryData.read` reads it
+    * (`LemmaSources.textsUnder`, against the library's index of no facts), and crossed into the entry's configuration
+    * as the library's terms are (`NativeSpecializer.crossedAllFromNoFacts`), so that a text is keyed by the entry's
+    * sides of its lemma and its names' values are the entry's terms. `GenericEntryProvider.initial` reads them when traces are written.
+    */
+  def withLemmaTexts(library: StandardLibrary, entryDirectory: Path): GenericEntry[C] =
+    val directory = entryDirectory.toAbsolutePath.normalize
+    val visible = directory.getParent
+    val texts = LemmaSources.textsUnder(visible, Vector(visible.resolve("corpora"), directory), library.index)
+    val crossed = (specializer: C).crossedAllFromNoFacts(
+      texts.toVector.flatMap { case ((left, right), text) => Vector(left, right) ++ text.names.map(_._2) }
+    )
+    copy(lemmaTexts = texts.map { case ((left, right), text) =>
+      (crossed(left), crossed(right)) -> text.copy(names = text.names.map((name, value) => (name, crossed(value))))
+    })
+
+  /** The Lean module of the statements of the lemmas named, as the entry's articles import them: from the entry's
+    * index and lemma encodings, in its configuration, a storage written as its view
+    * (`gezi.proofs.LeanStatements.selectedText`), each lemma's proof from the library.
+    */
+  def leanStatementsText(library: gezi.standardlibrary.StandardLibrary, repository: java.nio.file.Path, lemmaNames: Vector[String]): String =
+    given StorageAccess = storageAccess
+    gezi.proofs.LeanStatements.selectedText(library, index, lemmaEncodings, repository, lemmaNames)
 
   /** Writes, when the destination is a directory and the rounds gave an
     * extraction, the evidence of the program equal to its extraction under
@@ -374,13 +467,16 @@ final case class GenericEntry(
     * steps, returned 0.53 s after it. The longest step bounds what a cancel
     * waits for; on a larger proof it can exceed the judge's grace.
     */
-  private def evidenceWritten(program: Instruction, result: LemmaRoundsResult, stop: StopSignal): (Int, Int) =
+  private def evidenceWritten(program: Configured[C], result: LemmaRoundsResult[C], stop: StopSignal): (Int, Int) =
     val (directory, everyTrace) = articles match
       case ArticleDestination.Discarded                    => (None, false)
       case ArticleDestination.Written(directory)           => (Some(directory), false)
       case ArticleDestination.WrittenWithTraces(directory) => (Some(directory), true)
     (directory, result.extracted) match
       case (Some(directory), Some(extracted)) =>
+        // The proof's terms are the graph's, read with the capability its construction holds.
+        given gezi.ir.StorageAccess = result.graph.store.storageAccess
+        given C = specializer
         val texts =
           for
             proof <- GenericEntry.unlessStopped(stop)(GraphProof.proof(result.graph, Vector((program, extracted)), lemmaEncodings))
@@ -419,8 +515,10 @@ object GenericEntry:
   /** The value, computed only while the signal asks for no stop. */
   private def unlessStopped[A](stop: StopSignal)(value: => A): Option[A] = Option.unless(stop.stopRequested)(value)
 
-  /** The safety cap of a lemma round: the instances a round may add before
-    * it is stopped, the same for every entry.
+  /** The least safety cap of a lemma round: the instances a round may add
+    * before it is stopped are this many, or `roundInstancesPerNode`
+    * for each node of the program's IR graph when that is more
+    * (`PreparedLemmaCompilation.budgetFor`), the same for every entry.
     * It is no fuel: a
     * round is meant to reach its fixed point, and a round that hits the cap
     * is reported (`lemma_saturation_capped`).
@@ -437,11 +535,43 @@ object GenericEntry:
     * nested shape, at 10^4, 10^5 and 10^6, direct and respelled alike, none
     * capped. The count does not grow with the rung, which changes only the
     * numeral a loop is applied to, not the program's shape.
-    *
-    * FIXME (2026-11-07): that points file's 18 stopped points are unmeasured; their https://github.com/Atry/private-overlay/issues/1995
-    * count 0 is a hypothesis. Revise the value from their readings.
     */
   val roundCap: Int = 10000
+
+  /** The instances a lemma round may add for each node of the IR graph of the
+    * program it saturates (`PreparedLemmaCompilation.graphNodes`),
+    * above `roundCap`: a round that types a program
+    * walks it, adding instances in proportion to its instructions, so a cap
+    * fixed whatever the program cuts a large one's typing short.
+    *
+    * Measured 2026-11-22 under the rounds of `contest-entries-fixture`
+    * (closure_application, the Prolog backend's type check and
+    * occurrence_erasure) with the occurrence tagging `names_and_closures`,
+    * the cap raised for the readings, every round reaching its fixed point;
+    * the nodes are the tagged program's (its distinct instructions and the
+    * nodes of their thunks' codes, `PreparedLemmaCompilation.graphNodes`),
+    * and the type check is the round with the most instances on every point:
+    *
+    *   - on main 42ce7fc04, one evaluation point of each family of the
+    *     public seed 885189454962688 (the hot ladders at their 10^4 rung,
+    *     both spellings), 31 points: the type check reads from 1.35
+    *     instances per node (`repeated_closures`) to 19.10
+    *     (`repeated_reduction_meanings/repetitions_12`, 40,357 on 2,113
+    *     nodes), then 17.75 (`repeated_reduction_interpreter/repetitions_4`,
+    *     15,712 on 885), 14.93 and 14.44 (the inlined hot calls), 13.51
+    *     (`repeated_reduction_problems_products/repetitions_4`); the list
+    *     families read 1.8 to 2.8 (`repeated_library_edit_distances/direct/repetitions_1`,
+    *     49,372 on 24,879);
+    *   - on main 865a410be, the point
+    *     `repeated_speculative_untabling_weighted_paths_recurring_nodes_10000_steps_9999/direct/repetitions_1`
+    *     of seed 20261031, 6.01 (531,108 on 88,431), whose type check and
+    *     erasure stopped under the cap of 10,000 alone.
+    *
+    * The ratio is no constant of the type check, so the value is about 2.6
+    * times the largest measured, 19.10; a cap of 16 per node cut the
+    * type check of the two largest short.
+    */
+  val roundInstancesPerNode: Int = 50
 
   /** The steps a reading of normal forms may take: the framework's, the
     * same for every entry.

@@ -9,7 +9,8 @@ import gezi.generatedinputs.GeneratedProperties
 import gezi.frontend.Defunctionalization
 import gezi.frontend.Term
 import gezi.frontend.Term.λ
-import gezi.ir.Instruction
+import gezi.ir.Configured
+import gezi.ir.NoFacts
 import gezi.saturation.StopSignal
 import gezi.jit.BackendChecks
 import gezi.jit.NativesProvider
@@ -24,6 +25,8 @@ import gezi.weakhead.Expansions
 import gezi.weakhead.Mode
 import gezi.weakhead.NormalForms
 import gezi.weakhead.ReadingState
+
+private given narrowListCorporaLawTestNoFacts: NoFacts.type = NoFacts
 
 /** The laws of the narrow lists' representation on the real library: the backend facts of the corpora's knowledge files that bind the
   * list family and the binary naturals (`tests/library_fixtures/narrow_lists`),
@@ -63,13 +66,13 @@ class NarrowListCorporaLawTest extends GeneratedProperties:
       buildRoot.resolve("tests/library_fixtures/narrow_lists.lambdalattice"),
       Vector(BackendChecks(natives))
     )
-    NarrowBlockCompilation(library.index, natives)
+    NarrowBlockCompilation(library.index, natives, gezi.weakhead.ReadingConfiguration.withoutFacts)
 
   /** The members of the JIT tests' library terms (`TermTables.jitLibraryTerms`). */
-  private lazy val terms: Map[String, Instruction] =
+  private lazy val terms: Map[String, Configured[NoFacts.type]] =
     StandardLibrary.entryMembers(buildRoot, TermTables.jitLibraryTerms, Expansions.none)._1
 
-  private def term(name: String): Instruction =
+  private def term(name: String): Configured[NoFacts.type] =
     terms.getOrElse(name, throw IllegalArgumentException(s"${TermTables.jitLibraryTerms.file} has no member $name"))
 
   override def sharedFixtures: Vector[scala.concurrent.Future[Unit] => Any] = Vector(_ => compilation, _ => terms, _ => plus)
@@ -77,24 +80,24 @@ class NarrowListCorporaLawTest extends GeneratedProperties:
   /** The canonical binary numeral of the value, of the library's
     * binary_zero, binary_even and binary_odd.
     */
-  private def numeral(value: Int): Instruction =
+  private def numeral(value: Int): Configured[NoFacts.type] =
     if value == 0 then term("binary_zero")
-    else Instruction.Apply(term(if (value & 1) == 1 then "binary_odd" else "binary_even"), numeral(value >> 1))
+    else NoFacts.application(term(if (value & 1) == 1 then "binary_odd" else "binary_even"), numeral(value >> 1))
 
   /** `list_type (binary_set p)`, p true when the filter admits zero. */
-  private def listCriterion(admitsZero: Boolean): Instruction =
-    Instruction.Apply(term("list_type"), Instruction.Apply(term("binary_set"), term(if admitsZero then "true" else "false")))
+  private def listCriterion(admitsZero: Boolean): Configured[NoFacts.type] =
+    NoFacts.application(term("list_type"), NoFacts.application(term("binary_set"), term(if admitsZero then "true" else "false")))
 
   /** The list of the elements, each tail at whose place `filters` holds an
     * entry filtered by that entry's criterion, the root's at place 0.
     */
-  private def list(elements: Vector[Int], filters: Map[Int, Boolean]): Instruction =
+  private def list(elements: Vector[Int], filters: Map[Int, Boolean]): Configured[NoFacts.type] =
     elements.indices.foldRight(filtered(term("nil"), elements.size, filters))((place, rest) =>
-      filtered(Instruction.Apply(Instruction.Apply(term("cons"), numeral(elements(place))), rest), place, filters)
+      filtered(NoFacts.application(NoFacts.application(term("cons"), numeral(elements(place))), rest), place, filters)
     )
 
-  private def filtered(tail: Instruction, place: Int, filters: Map[Int, Boolean]): Instruction =
-    filters.get(place).fold(tail)(admitsZero => Instruction.Parallel(tail, listCriterion(admitsZero)))
+  private def filtered(tail: Configured[NoFacts.type], place: Int, filters: Map[Int, Boolean]): Configured[NoFacts.type] =
+    filters.get(place).fold(tail)(admitsZero => NoFacts.parallel(tail, listCriterion(admitsZero)))
 
   /** A numeral's value, zero one time in three. */
   private val value: Gen[Int] = Gen.frequency1(1 -> Gen.constant(0), 2 -> Gen.int(Range.constant(1, 7)))
@@ -120,7 +123,7 @@ class NarrowListCorporaLawTest extends GeneratedProperties:
     * (`TermTables.problemLibraryTerms`), which the fixture binds to the
     * native `wren_binary_plus`.
     */
-  private lazy val plus: Instruction =
+  private lazy val plus: Configured[NoFacts.type] =
     StandardLibrary.entryMembers(buildRoot, TermTables.problemLibraryTerms, Expansions.none)._1
       .getOrElse("merge_binary_plus", throw IllegalArgumentException(s"${TermTables.problemLibraryTerms.file} has no merge_binary_plus"))
 
@@ -140,13 +143,13 @@ class NarrowListCorporaLawTest extends GeneratedProperties:
     * one-element fold exhausted its tables after 108,271 steps (measured
     * 2026-11-21).
     */
-  private def referenceNormalForms(program: Instruction): Option[Vector[Instruction]] =
-    val state = ReadingState.knowingTop(referenceLimit).copy(parallels = gezi.weakhead.ParallelReading.HeadsMet)
+  private def referenceNormalForms(program: Configured[NoFacts.type]): Option[Vector[Configured[NoFacts.type]]] =
+    val state = ReadingState.knowingTop(referenceLimit, gezi.weakhead.ReadingConfiguration.withoutFacts).copy(parallels = gezi.weakhead.ParallelReading.HeadsMet)
     NormalForms.normalForms(Mode.TablingWeakHead, program).result(state) match
       case Computed.Done(normalForms, _) => Some(normalForms)
       case Computed.Stopped(_)           => None
 
-  private def closed(instruction: Instruction): Term = Term.closed(instruction)
+  private def closed(instruction: Configured[NoFacts.type]): Term = Term.closed(instruction)
 
   /** A recursion's list under `∥ list_type (binary_set true)`, the narrow
     * block's list branch.
@@ -174,7 +177,7 @@ class NarrowListCorporaLawTest extends GeneratedProperties:
     )
 
 
-  private def program(term: Term): Instruction = Defunctionalization.thunkInstruction(term.deBruijnTerm(Map.empty))
+  private def program(term: Term): Configured[NoFacts.type] = Defunctionalization.thunkInstruction(term.deBruijnTerm(Map.empty))(using gezi.ir.NoFacts)
 
   /** A list's elements and the filters at its tails, its root filtered by
     * `list_type (binary_set true)`.

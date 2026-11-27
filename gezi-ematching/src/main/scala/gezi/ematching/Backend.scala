@@ -3,6 +3,7 @@ package gezi.ematching
 import gezi.egraph.GraphBuilding
 import gezi.egraph.GraphView
 import gezi.ir.Code
+import gezi.ir.NativeSpecializer
 
 /** A match of an orientation: the root of the class its matched side was
   * found in, and the node each metavariable was bound to, `None` for a
@@ -33,10 +34,10 @@ object Matching:
   * order, the same entries read, the same nodes built in the same order.
   */
 trait Backend:
-  def compiled(program: Program): CompiledProgram
+  def compiled[C <: NativeSpecializer & Singleton](program: Program[C]): CompiledProgram[C]
 
 /** A program as a backend runs it. */
-trait CompiledProgram:
+trait CompiledProgram[C <: NativeSpecializer & Singleton]:
 
   /** The matches of the seeds filed under the kind and the key, from the
     * delta node, read off the graph by a run of their tree
@@ -46,13 +47,13 @@ trait CompiledProgram:
     */
   def matches(
       kind: SeedKind,
-      key: SeedKey,
-      graph: GraphView,
+      key: SeedKey[C],
+      graph: GraphView[C],
       delta: Int
   ): Matching
 
   /** The node of the orientation's added side, built with the bindings. */
-  def added[Graph <: GraphBuilding[Graph]](
+  def added[Graph <: GraphBuilding[C, Graph]](
       orientation: Int,
       graph: Graph,
       bindings: Vector[Option[Int]]
@@ -61,7 +62,7 @@ trait CompiledProgram:
   /** The node of the orientation's shared subterm at the index, built with
     * the bindings.
     */
-  def shared[Graph <: GraphBuilding[Graph]](
+  def shared[Graph <: GraphBuilding[C, Graph]](
       orientation: Int,
       part: Int,
       graph: Graph,
@@ -69,7 +70,7 @@ trait CompiledProgram:
   ): (Graph, Int)
 
   /** The node of the code's body with its slots read as the given nodes. */
-  def body[Graph <: GraphBuilding[Graph]](
+  def body[Graph <: GraphBuilding[C, Graph]](
       code: Code,
       graph: Graph,
       slotValues: Vector[Int]

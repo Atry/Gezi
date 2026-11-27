@@ -6,7 +6,6 @@ import hedgehog.Result
 import gezi.generatedinputs.GeneratedProperties
 import gezi.generatedinputs.HoasGenerators
 import gezi.generatedinputs.LambdalatticeText
-import gezi.ir.Instruction
 import scala.jdk.StreamConverters.*
 
 /** The law that the text of a generated term, applied to a generated string

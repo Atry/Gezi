@@ -1,6 +1,6 @@
 package gezi.jit
 
-import gezi.ir.Instruction
+import gezi.ir.Pure
 import gezi.weakhead.BooleanReading
 import gezi.weakhead.NaturalReading
 import gezi.weakhead.Shape
@@ -29,12 +29,12 @@ class StandardLibraryBackendTest extends gezi.generatedinputs.FailFastSuite:
 
   /** The library term of the key, the member of its own file
     * `<directory>/<key>` under the fixture read by projection
-    * (`StandardLibrary.entryMember`): the instruction the library's knowledge
+    * (`StandardLibrary.entryMember`): the pure key the library's knowledge
     * names, with no table from paths to terms.
     */
-  private def fixtureTerm(fixture: String, directory: String, key: String): Instruction =
+  private def fixtureTerm(fixture: String, directory: String, key: String): Pure =
     val root = LibraryFiles.fixture(fixture)
-    StandardLibrary.entryMember(root, root.resolve(s"$directory/$key.lambdalattice"), Expansions.none)._1
+    Pure.required(StandardLibrary.entryMember(root, root.resolve(s"$directory/$key.lambdalattice"), Expansions.none)._1)
 
   private def rejected(fixture: String, name: String): BackendSetReason =
     intercept[StandardLibraryMalformed](compiled(fixture, name)).reason match

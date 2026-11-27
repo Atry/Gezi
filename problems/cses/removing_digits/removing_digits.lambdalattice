@@ -10,7 +10,7 @@
 # otherwise, for each nonzero decimal digit of number, the lengths of the sequences
 # from number - digit, each plus one), and its least member taken. The decimal digits are
 # found by repeated division by ten, written bit by bit from the low end of the
-# binary numeral (ten_divmod). Its reading is exponential in number even under
+# binary numeral (ten_quotient_remainder). Its reading is exponential in number even under
 # tabling, since every step sequence is counted; the replacement the family asks
 # for is the one-dimensional recurrence fewest(number) = 1 + min over the nonzero
 # digits of number of fewest(number - digit), on fixed-width integers.
@@ -18,7 +18,7 @@
 # DEFINITION 14: the program P, the point's term, is built of λ and application
 # only: its text holds no top, no choice, no parallel and no literal (the ten is
 # written with binary_zero, binary_even and binary_odd). It β-reduces to V, the
-# canonical binary numeral of the answer: every recursion ends, since ten_divmod
+# canonical binary numeral of the answer: every recursion ends, since ten_quotient_remainder
 # and digits consume a binary numeral (the quotient by ten of a positive number is
 # smaller, and the recursion of digits stops at zero), step_lengths consumes number, which
 # falls by a nonzero digit at each call, and every other recursion consumes a
@@ -70,12 +70,12 @@
       (λhalf continue. self half λquotient remainder. settle quotient (binary_double remainder) continue)
       λhalf continue. self half λquotient remainder. settle quotient (binary_odd remainder) continue
   )
-λ ten_divmod
+λ ten_quotient_remainder
 . ( λ tuple
     . tuple
     λ. fixpoint
     λ self number
-    . number nil (λ_. ten_divmod number λquotient digit. cons digit λ. self quotient) λ_. ten_divmod number λquotient digit. cons digit λ. self quotient
+    . number nil (λ_. ten_quotient_remainder number λquotient digit. cons digit λ. self quotient) λ_. ten_quotient_remainder number λquotient digit. cons digit λ. self quotient
   )
 λ digits
 . ( λ tuple

@@ -20,37 +20,32 @@
 # Ω, the least term of ⊑_O.
 . (λtuple. tuple λ. (λx. x x) λx. x x)
 λ bottom
-# expression_type:
-# The expressions of a computation graph: a call, a new, or a decode, their arguments expressions.
-. ( λ tuple
+# expression_types:
+# The expressions of a computation graph and their argument lists, one fixed point of their pair, so that each names
+# the other as the same term, the pair's field: an expression is a call, a new, or a decode, a call's and a new's
+# arguments the pair's lists; a list of arguments is a cons of an expression and the pair's lists, or nil.
+. ( λtuple
     . tuple
-    λ on_call on_new on_decode
-    . ( λ fix open
-        . fix
-        λ expression
-        . ( (λc n d. c open λ. fix λa. ((λh t _ k. k h t) expression a + λn _. n))
-          + (λc n d. n open open λ. fix λa. ((λh t _ k. k h t) expression a + λn _. n))
-          + λc n d. d open
-          )
+      ( (λx f. f λ. x x f)
+        (λx f. f λ. x x f)
+        ( λ types s
+          . s
+            ( (λc n d. c ((λx. x x) λx. x x) (types λ_ a. a))
+            + (λc n d. n ((λx. x x) λx. x x) ((λx. x x) λx. x x) (types λ_ a. a))
+            + λc n d. d ((λx. x x) λx. x x)
+            )
+            ((λh t _ k. k h t) (types λe _. e) (types λ_ a. a) + λn _. n)
+        )
       )
-      ((λx f. f λ. x x f) λx f. f λ. x x f)
-      ((λx. x x) λx. x x)
-      on_call
-      on_new
-      on_decode
   )
+λ expression_types
+# expression_type:
+# The expressions: the first of expression_types.
+. (λtuple. tuple λon_call on_new on_decode. expression_types (λe _. e) on_call on_new on_decode)
 λ expression_type
 # arguments_type:
-# The Scott lists (prelude/list) of expressions.
-. ( λ tuple
-    . tuple
-    λ on_nil on_cons
-    . (λx f. f λ. x x f)
-      (λx f. f λ. x x f)
-      (λa. ((λh t _ k. k h t) expression_type a + λn _. n))
-      on_nil
-      on_cons
-  )
+# The Scott lists (prelude/list) of expressions: the second of expression_types.
+. (λtuple. tuple λon_nil on_cons. expression_types (λ_ a. a) on_nil on_cons)
 λ arguments_type
 # output_alphabet:
 # The outputs: an answer, open, or an expression.

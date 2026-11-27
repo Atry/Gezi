@@ -130,6 +130,9 @@ final case class Tables[State, Key, Answer](
   /** Whether a producer runs: an evaluation is in progress in these tables. */
   def inProgress: Boolean = active.nonEmpty
 
+  /** The key of the producer running innermost, if one runs. */
+  def innermostKey: Option[Key] = active.headOption.map(frame(_).key)
+
   /** The number of tables held, complete or not. */
   def held: Int = complete.size + open.size
 
@@ -360,12 +363,21 @@ final case class FrameRecord[State, Key, Answer](
   *   stopped or incomplete table is never kept there.
   * @param body
   *   the answers of a key, given the function itself to call on keys
+  * @param whenCompleted
+  *   the state after a component's tables completed, given the state holding
+  *   them, the component's leader and its other members; the state as it is
+  *   by default
+  * @param whenStopped
+  *   the state after a stop reached the outermost call, given the state
+  *   holding `Tables.stopped`; the state as it is by default
   */
 final case class Tabling[State, Key, Answer](
     tables: State => Tables[State, Key, Answer],
     withTables: (State, Tables[State, Key, Answer]) => State,
     completedTables: State => CompletedTables[State, Key, Answer],
-    body: (Key, Key => Answers[State, Answer]) => Answers[State, Answer]
+    body: (Key, Key => Answers[State, Answer]) => Answers[State, Answer],
+    whenCompleted: (State, Key, Vector[Key]) => State = (state: State, _: Key, _: Vector[Key]) => state,
+    whenStopped: State => State = (state: State) => state
 ):
 
   private type Driven = Trampoline[Computed[State, Unit]]
@@ -390,7 +402,7 @@ final case class Tabling[State, Key, Answer](
       tailcall(stream.pull.run(state)).map {
         case Computed.Done(Some((answer, more)), after) => Computed.Done(Some((answer, outermost(more))), after)
         case Computed.Done(None, after)                 => Computed.Done(None, after)
-        case Computed.Stopped(stopped)                  => Computed.Stopped(withTables(stopped, tables(stopped).stopped))
+        case Computed.Stopped(stopped)                  => Computed.Stopped(whenStopped(withTables(stopped, tables(stopped).stopped)))
       }
     ))
 
@@ -528,7 +540,7 @@ final case class Tabling[State, Key, Answer](
           if record.reads.forall((key, count) => current.answerCount(key) == count) then
             val completedNow = completed(current, identity, record)
             completedTables(after).kept(record.key, record.members, completedNow.complete)
-            done(Computed.Done((), withTables(after, completedNow)))
+            done(Computed.Done((), whenCompleted(withTables(after, completedNow), record.key, record.members)))
           else tailcall(pulled(identity, withTables(after, current.copy(open = staled(current, record)).frameChanged(identity, _ => again(record)))))
         case Some(producer) =>
           val forwarded = current

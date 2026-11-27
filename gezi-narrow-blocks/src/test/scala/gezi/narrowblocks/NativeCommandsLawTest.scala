@@ -5,10 +5,13 @@ import hedgehog.Range
 import hedgehog.Result
 import gezi.generatedinputs.GeneratedProperties
 import gezi.generatedinputs.HoasGenerators
-import gezi.ir.Instruction
+import gezi.ir.Configured
+import gezi.ir.NoFacts
 import gezi.rewritetrace.Positions
 import gezi.rewritetrace.Trace
 import gezi.rewritetrace.TraceCommand
+
+private given nativeCommandsLawTestNoFacts: NoFacts.type = NoFacts
 
 /** The law of the lemma route's native commands
   * (`LemmaRoute.nativeCommands`, the trace's `native`): on a generated term, with values for some of its
@@ -22,7 +25,7 @@ import gezi.rewritetrace.TraceCommand
 class NativeCommandsLawTest extends GeneratedProperties:
 
   /** Every subterm of the term, the root first, in preorder, each once. */
-  private def subterms(term: Instruction): Vector[Instruction] =
+  private def subterms(term: Configured[NoFacts.type]): Vector[Configured[NoFacts.type]] =
     (term +: term.layer.children.flatMap(subterms)).distinct
 
   property("a term replayed through its native commands is the term with its values substituted") {
@@ -45,7 +48,7 @@ class NativeCommandsLawTest extends GeneratedProperties:
       Result
         .all(
           List(
-            Result.assert(replayed == LemmaRoute.substituted(term, valueOf, names)).log("the replay differs"),
+            Result.assert(replayed == LemmaRoute.substituted(term, valueOf, names)(using gezi.ir.NoFacts)).log("the replay differs"),
             Result.assert(placed).log("a command puts a value where its subterm is not")
           )
         )

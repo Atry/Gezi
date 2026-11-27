@@ -1,6 +1,7 @@
 package gezi.jupyter.kernel
 
 import almond.interpreter.api.ExecuteResult
+import gezi.ir.Configured
 import hedgehog.Gen
 import hedgehog.Range
 import hedgehog.Result
@@ -8,6 +9,7 @@ import java.nio.file.Files
 import gezi.contest.entry.Entry
 import gezi.contest.entry.Interaction
 import gezi.contest.entry.OutputDisplay
+import gezi.ir.NoFacts
 import gezi.frontend.DeBruijnTerm
 import gezi.generatedinputs.GeneratedProperties
 import gezi.generatedinputs.HoasGenerators
@@ -17,6 +19,8 @@ import scala.concurrent.Await
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
 import scala.concurrent.duration.DurationInt
+
+private given cellInterruptLawTestNoFacts: NoFacts.type = NoFacts
 
 /** Jupyter's interrupt reaches the entry that runs a cell: a cell whose key the entry would run until it is stopped is
   * answered with an `Interrupted` error soon after an interrupt, within the
@@ -29,8 +33,8 @@ class CellInterruptLawTest extends GeneratedProperties:
   /** An entry that runs until it is stopped, and throws when it is not
     * stopped within a second.
     */
-  private object UntilStopped extends Entry:
-    def run(cell: DeBruijnTerm, source: gezi.hotspot.ExpansionSource, stop: StopSignal): Interaction =
+  private object UntilStopped extends Entry[NoFacts.type]:
+    def run(cell: gezi.frontend.DeBruijnTermOf[Configured[NoFacts.type]], source: gezi.hotspot.ExpansionSource, stop: StopSignal): Interaction[NoFacts.type] =
       val deadline = System.nanoTime + 1000000000L
       @annotation.tailrec
       def waited(): Unit =
@@ -39,7 +43,7 @@ class CellInterruptLawTest extends GeneratedProperties:
           Thread.sleep(1)
           waited()
       waited()
-      Interaction.Finished(OutputDisplay.NoNormalForm, Vector.empty, this)
+      Interaction.Finished(OutputDisplay.noScottADTValue[NoFacts.type], Vector.empty, this)
 
   // Five inputs, not the default twenty: each waits for its interrupt, and
   // the suite's deadline of 3 s bounds them all.

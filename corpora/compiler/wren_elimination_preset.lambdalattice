@@ -1,0 +1,43 @@
+# The Prolog backend with the binary naturals (wren_binary_preset) and a type
+# check that types applications by their eliminations
+# (wren_scott_elimination) instead of the application rule of the HM
+# baseline (hindley_milner_unions_application): its round lists
+# hindley_milner_unions_core, so that a parameter only eliminated, as xs n
+# (λh t. a), has no function type to refute the candidacies its eliminations
+# give it. The library is prolog_backend_preset, wren_binary_preset and
+# wren_scott_elimination and wren_binary_refutations; the round is the backend's shapes, the binary
+# naturals' shapes and their refutations (wren_binary_refutations), the
+# arithmetic schemes, the core of the HM baseline and wren_scott_elimination. No entry lists it yet (#2163, step 1).
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega corpora "compiler") "prolog_backend_preset")
+λ prolog_backend_preset _
+. omega (omega (omega corpora "compiler") "wren_binary_preset")
+λ wren_binary_preset _ _ _ _
+. omega (omega (omega corpora "compiler") "prolog_backend_shapes")
+λ prolog_backend_shapes
+. omega (omega (omega corpora "compiler") "binary_wren_shapes")
+λ binary_wren_shapes
+. omega (omega (omega corpora "compiler") "native_arithmetic_unions")
+λ native_arithmetic_unions
+. omega (omega (omega corpora "compiler") "hindley_milner_unions_core")
+λ hindley_milner_unions_core
+. omega (omega (omega corpora "compiler") "wren_scott_elimination")
+λ wren_scott_elimination
+. omega (omega (omega corpora "compiler") "wren_binary_refutations")
+λ wren_binary_refutations
+. (λtuple. tuple (wren_scott_elimination + wren_binary_refutations + wren_binary_preset + prolog_backend_preset))
+λ wren_elimination_preset
+. ( λ tuple
+    . tuple
+      ( wren_scott_elimination
+      + binary_wren_shapes
+      + wren_binary_refutations
+      + prolog_backend_shapes
+      + native_arithmetic_unions
+      + hindley_milner_unions_core
+      )
+  )
+λ wren_elimination_type_check
+. export wren_elimination_preset wren_elimination_type_check

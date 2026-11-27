@@ -23,7 +23,10 @@ import gezi.generatedinputs.GeneratedProperties
   * the family through `CorpusSources.variantSources`. The second instance
   * is the family itself, so a point whose candidates hold none outside its
   * reference falls back on its peers' normal forms, as a family without
-  * candidates does. Its purpose is to catch:
+  * candidates does. Every draw begins with two points, one pure and one a
+  * choice, whose candidates hold the reference and a normal form outside it
+  * (`everyCase`), so that every case below is drawn in every iteration. Its
+  * purpose is to catch:
   *
   *   - a computed candidate written as a trap that is equal to the
   *     reference, which would mark a correct entry wrong;
@@ -99,12 +102,29 @@ class ComputedTrapsLawTest extends GeneratedProperties:
       candidates <- Gen.frequency1(1 -> Gen.constant(normalForm), 3 -> normalForms).list(Range.constant(0, 4))
     yield GeneratedPoint(normalForm, choice, candidates.toVector)
 
-  /** One to four points and a trap count from one to three. */
+  /** Two points that hold every case the laws tell apart, each with the
+    * candidates N, equal to its reference, and `λx. N`, outside it (another
+    * closed βη normal form: x is not free in the closed N, so the abstraction
+    * is neither a β-redex nor an η-redex): one pure, one the choice N + N.
+    */
+  private val everyCase: Gen[Vector[GeneratedPoint]] =
+    for
+      pure <- normalForms
+      chosen <- normalForms
+    yield Vector(
+      GeneratedPoint(pure, false, Vector(pure, DeBruijnTerm.Lambda(pure))),
+      GeneratedPoint(chosen, true, Vector(chosen, DeBruijnTerm.Lambda(chosen)))
+    )
+
+  /** The two points of `everyCase`, then one to four drawn points, and a
+    * trap count from one to three.
+    */
   private val draws: Gen[(Vector[GeneratedPoint], Int)] =
     for
+      cases <- everyCase
       points <- generatedPoints.list(Range.constant(1, 4))
       count <- Gen.int(Range.constant(1, 3))
-    yield (points.toVector, count)
+    yield (cases ++ points.toVector, count)
 
   private def evaluationName(repetitions: Int): String = s"computed_traps/repetitions_$repetitions"
 
@@ -132,17 +152,9 @@ class ComputedTrapsLawTest extends GeneratedProperties:
     val traps = judgments.collect { case (evaluation, candidate, false) => evaluation -> candidate }.groupMap(_._1)(_._2)
     (references, traps, judgments.map(_._1).toSet)
 
-  /** Whether a pure point's candidates hold a normal form other than its own. */
-  private def hasOutsideCandidate(point: GeneratedPoint): Boolean = !point.choice && point.candidates.exists(_ != point.normalForm)
-
   property("computed traps: never the reference, never on a program that is not pure, at most count, the family's first", _.copy(testLimit = 50)) {
     for
       draw <- draws.forAll
-        .cover(30, "a pure point with a candidate outside its reference", (points, _) => points.exists(hasOutsideCandidate))
-        .cover(10, "a choice point with a candidate outside its reference", (points, _) =>
-          points.exists(point => point.choice && point.candidates.exists(_ != point.normalForm))
-        )
-        .cover(10, "a candidate equal to the reference", (points, _) => points.exists(point => point.candidates.contains(point.normalForm)))
     yield
       val (points, count) = draw
       val (references, traps, judged) = written(points, count)

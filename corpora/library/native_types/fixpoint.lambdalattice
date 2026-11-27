@@ -6,5 +6,5 @@
 . (λtuple. tuple λmixin. mixin mixin)
 λ omega
 . omega (omega (omega (omega corpora "library") "native_types") "markers")
-λ $generic _ _ _
+λ $generic _ _ _ _
 . export λ. $generic λ. (λx f. f λ. x x f) λx f. f λ. x x f

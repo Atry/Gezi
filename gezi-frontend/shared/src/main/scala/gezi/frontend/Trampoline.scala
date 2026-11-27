@@ -55,6 +55,20 @@ private[frontend] object Trampoline:
         )
     from(0, Vector.empty, state)
 
+  /** The results of the step on each item and its index, in order, a state
+    * threaded from one item to the next.
+    */
+  def indexedThreaded[Item, Result, State](items: Vector[Item], state: State)(
+      step: (Item, Int, State) => TailRec[(Result, State)]
+  ): TailRec[(Vector[Result], State)] =
+    def from(index: Int, results: Vector[Result], current: State): TailRec[(Vector[Result], State)] =
+      if index >= items.size then done((results, current))
+      else
+        tailcall(step(items(index), index, current)).flatMap((result, next) =>
+          from(index + 1, results :+ result, next)
+        )
+    from(0, Vector.empty, state)
+
   /** The state after the step on each item in turn: `TailRecFolds.folded`. */
   def folded[Item, State](items: Vector[Item], start: State)(
       step: (State, Item) => TailRec[State]

@@ -19,9 +19,10 @@ import snapshot4s.generated.snapshotConfig
   *     another encoding, a row of another width): every row of every table,
   *     its name, its site and its Result, one snapshot for each batch.
   *   - The definition law, whose purpose is to catch a Result of the second
-  *     batch's tables that is not the problem's answer by its statement, independently of
-  *     the native solver: each row's Result is the definition's computed in
-  *     the test (`CsesSecondBatchDefinitions`).
+  *     or the third batch's tables that is not the problem's answer by its
+  *     statement, independently of the native solver: each row's Result is
+  *     the definition's computed in the test (`CsesSecondBatchDefinitions`,
+  *     `CsesThirdBatchDefinitions`).
   *   - The solver law, whose purpose is to catch a Result that is not the
   *     problem's answer at the row's inputs, or inputs decoded otherwise than
   *     the table writes them: each row's Result is the native solver's
@@ -37,16 +38,28 @@ import snapshot4s.generated.snapshotConfig
   */
 class CsesPointsReferenceTest extends FailFastSuite with snapshot4s.munit.SnapshotAssertions:
 
+  given gezi.ir.NoFacts.type = gezi.ir.NoFacts
+
   private val group = ReductionTesting.group
 
+  /** The library's expansions, and each table's points: its file's rows
+    * decoded and its problem's function read, both kept by the group, so
+    * that a test is timed by its own work. MEASURED 2026-11-22 (CPUs 4 and 5
+    * of contest.slice, nice 10, the 1-minute load about 20): with only the
+    * dice function a fixture, the third batch's rows test, which decodes its
+    * ten files, took 3.022 s and the rectangle_cutting reading test, which
+    * reads its function first, 3.005 s, past their 3 s; in two runs before
+    * that both had passed.
+    */
   override def sharedFixtures: Vector[scala.concurrent.Future[Unit] => Any] =
-    Vector(_ => group.problems.sharedExpansions, _ => group.cses.diceCombinations)
+    Vector[scala.concurrent.Future[Unit] => Any](_ => group.problems.sharedExpansions) ++
+      CsesPoints.all.map(table => (_: scala.concurrent.Future[Unit]) => table.points(group))
 
-  private def normalForms(program: Term): Either[String, Set[DeBruijnTerm]] =
+  private def normalForms(program: Term): Either[String, Set[gezi.frontend.DeBruijnTermOf[gezi.ir.Configured[gezi.ir.NoFacts.type]]]] =
     NormalForms
       .normalForms(Mode.TablingWeakHead, Reduction.programRoot(program))
-      .result(ReadingState.knowingTop(CsesPointsReferenceTest.stepLimit)) match
-      case Computed.Done(forms, _) => Right(forms.map(Defunctionalization.instructionTerm).toSet)
+      .result(ReadingState.knowingTop(CsesPointsReferenceTest.stepLimit, gezi.weakhead.ReadingConfiguration.withoutFacts)) match
+      case Computed.Done(forms, _) => Right(forms.map(form => Defunctionalization.instructionTerm[gezi.ir.NoFacts.type](form)).toSet)
       case Computed.Stopped(after) => Left(s"the reading stopped: ${after.exhausted}, ${after.budget.spent} steps, ${after.tables.held} tables")
 
   /** A Result as the tables write it: a natural in decimal, an option `none`
@@ -73,7 +86,16 @@ class CsesPointsReferenceTest extends FailFastSuite with snapshot4s.munit.Snapsh
     assertFileSnapshot(rowsText(CsesPoints.secondBatch), "cses/points_second_batch.txt")
   }
 
-  CsesPointsReferenceTest.secondBatchDefinitions.foreach(defined =>
+  test("every row of every table of the third batch reads") {
+    assertFileSnapshot(rowsText(CsesPoints.thirdBatch), "cses/points_third_batch.txt")
+  }
+
+  test("every row of every table of the fourth batch reads") {
+    assertFileSnapshot(rowsText(CsesPoints.fourthBatch), "cses/points_fourth_batch.txt")
+  }
+
+  (CsesPointsReferenceTest.secondBatchDefinitions ++ CsesPointsReferenceTest.thirdBatchDefinitions ++
+    CsesPointsReferenceTest.fourthBatchDefinitions).foreach(defined =>
     test(s"${defined.table.table}: each row's Result is the problem's definition's") {
       def checked[Site](of: CsesPointsReferenceTest.Defined[Site]): Unit =
         of.table.rows(group).foreach(row => assertEquals(row.result, of.definition(row.site), row.point))
@@ -94,7 +116,7 @@ class CsesPointsReferenceTest extends FailFastSuite with snapshot4s.munit.Snapsh
     }
 
     test(s"${table.table}: each program reads its row's Result") {
-      def checked[Site](of: CsesPointTable[Site]): Vector[(String, NativeValue, Reference, Either[String, Set[DeBruijnTerm]])] =
+      def checked[Site](of: CsesPointTable[Site]): Vector[(String, NativeValue, Reference, Either[String, Set[gezi.frontend.DeBruijnTermOf[gezi.ir.Configured[gezi.ir.NoFacts.type]]]])] =
         of.rows(group).zip(of.points(group)).map((row, point) =>
           assertEquals(point.point, row.point)
           (row.point, row.result, point.drawn.reference, normalForms(point.drawn.program))
@@ -108,13 +130,13 @@ class CsesPointsReferenceTest extends FailFastSuite with snapshot4s.munit.Snapsh
     }
   )
 
-/** The budget of the reading law, and the definitions of the second batch's
-  * problems the tables' Results are checked against.
+/** The budget of the reading law, and the definitions of the second and the
+  * third batch's problems the tables' Results are checked against.
   */
 object CsesPointsReferenceTest:
 
-  /** A table of the second batch and its problem's definition
-    * (`CsesSecondBatchDefinitions`).
+  /** A table of the second or the third batch and its problem's definition
+    * (`CsesSecondBatchDefinitions`, `CsesThirdBatchDefinitions`).
     */
   final case class Defined[Site](table: CsesPointTable[Site], definition: Site => NativeValue)
 
@@ -132,6 +154,38 @@ object CsesPointsReferenceTest:
     Defined(CsesPoints.countingDivisors, CsesSecondBatchDefinitions.countingDivisors),
     Defined(CsesPoints.binomialCoefficients, CsesSecondBatchDefinitions.binomialCoefficients),
     Defined(CsesPoints.distinctNumbers, CsesSecondBatchDefinitions.distinctNumbers)
+  )
+
+  /** The third batch's tables, each with its problem's definition, in the
+    * order of `CsesPoints.thirdBatch`.
+    */
+  val thirdBatchDefinitions: Vector[Defined[?]] = Vector(
+    Defined(CsesPoints.moneySums, CsesThirdBatchDefinitions.moneySums),
+    Defined(CsesPoints.rectangleCutting, CsesThirdBatchDefinitions.rectangleCutting),
+    Defined(CsesPoints.increasingSubsequence, CsesThirdBatchDefinitions.increasingSubsequence),
+    Defined(CsesPoints.arrayDescription, CsesThirdBatchDefinitions.arrayDescription),
+    Defined(CsesPoints.buildingRoads, CsesThirdBatchDefinitions.buildingRoads),
+    Defined(CsesPoints.roadReparation, CsesThirdBatchDefinitions.roadReparation),
+    Defined(CsesPoints.gameRoutes, CsesThirdBatchDefinitions.gameRoutes),
+    Defined(CsesPoints.staticRangeSums, CsesThirdBatchDefinitions.staticRangeSums),
+    Defined(CsesPoints.trailingZeros, CsesThirdBatchDefinitions.trailingZeros),
+    Defined(CsesPoints.sumOfDivisors, CsesThirdBatchDefinitions.sumOfDivisors)
+  )
+
+  /** The fourth batch's tables, each with its problem's definition, in the
+    * order of `CsesPoints.fourthBatch`.
+    */
+  val fourthBatchDefinitions: Vector[Defined[?]] = Vector(
+    Defined(CsesPoints.exponentiationTwo, CsesFourthBatchDefinitions.exponentiationTwo),
+    Defined(CsesPoints.ferrisWheel, CsesFourthBatchDefinitions.ferrisWheel),
+    Defined(CsesPoints.missingNumber, CsesFourthBatchDefinitions.missingNumber),
+    Defined(CsesPoints.repetitions, CsesFourthBatchDefinitions.repetitions),
+    Defined(CsesPoints.staticRangeMinimums, CsesFourthBatchDefinitions.staticRangeMinimums),
+    Defined(CsesPoints.stringMatching, CsesFourthBatchDefinitions.stringMatching),
+    Defined(CsesPoints.subarraySums, CsesFourthBatchDefinitions.subarraySums),
+    Defined(CsesPoints.sumOfTwoValues, CsesFourthBatchDefinitions.sumOfTwoValues),
+    Defined(CsesPoints.treeDiameter, CsesFourthBatchDefinitions.treeDiameter),
+    Defined(CsesPoints.treeMatching, CsesFourthBatchDefinitions.treeMatching)
   )
 
   /** The steps of the reading law's readings: 150,000, twice the largest

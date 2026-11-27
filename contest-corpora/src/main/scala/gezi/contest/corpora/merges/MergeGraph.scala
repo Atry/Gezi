@@ -27,16 +27,16 @@ final class MergeGraph(problems: ProblemFamilies):
 
   private val file = problems("merge_graph")
 
-  private def trueTerm: Term = file.program("true_term")
+  private def trueTerm: ProblemTerm = file.program("true_term")
 
-  private def falseTerm: Term = file.program("false_term")
+  private def falseTerm: ProblemTerm = file.program("false_term")
 
   import MergeGraph.{graph, reachBody}
 
   /** The Church Boolean of "target is reachable from start", under the lets
     * of the Booleans, the nodes, `is_target` and `reach` (`graph_term/5`).
     */
-  def graphTerm(count: Int, edges: Vector[(Int, Int)], start: Int, target: Int): Term =
+  def graphTerm(count: Int, edges: Vector[(Int, Int)], start: Int, target: Int): ProblemTerm =
     λ(trueValue =>
       λ(falseValue =>
         MergeGraph.numeralLets(
@@ -69,7 +69,7 @@ final class MergeGraph(problems: ProblemFamilies):
     )
 
   /** The point's program. */
-  def program(name: String): Term =
+  def program(name: String): ProblemTerm =
     points
       .find(_._1 == name)
       .map((_, shape, size) =>
@@ -130,7 +130,7 @@ object MergeGraph:
   /** For each node, the choice of `self self` applied to each of its
     * successors, in the edges' order (`successor_merges/6`).
     */
-  private def successorMerges(count: Int, edges: Vector[(Int, Int)], nodes: Vector[Term], self: Term): Vector[Term] =
+  private def successorMerges(count: Int, edges: Vector[(Int, Int)], nodes: Vector[ProblemTerm], self: ProblemTerm): Vector[ProblemTerm] =
     (0 until count).toVector.map(index =>
       choice(edges.collect { case (from, to) if from == index => self(self)(nodes(to)) }*)
     )
@@ -138,7 +138,7 @@ object MergeGraph:
   /** `\self. \v. [is_target v, successors v]` (`reach_body/5`): see the
     * comment of `numeralCase` on why the encoding is sound.
     */
-  def reachBody(count: Int, edges: Vector[(Int, Int)], nodes: Vector[Term], isTarget: Term): Term =
+  def reachBody(count: Int, edges: Vector[(Int, Int)], nodes: Vector[ProblemTerm], isTarget: ProblemTerm): ProblemTerm =
     λ(self => λ(v => choice(isTarget(v), numeralCase(successorMerges(count, edges, nodes, self), v))))
 
   /** `\self. \budget. \v. [is_target v, budget top (\p. successors p v)]`:
@@ -152,7 +152,7 @@ object MergeGraph:
     * normal form in ⊑_O. A budget of the node count
     * reaches every reachable node: each is reached by a path of fewer steps.
     */
-  def budgetedReachBody(count: Int, edges: Vector[(Int, Int)], nodes: Vector[Term], isTarget: Term): Term =
+  def budgetedReachBody(count: Int, edges: Vector[(Int, Int)], nodes: Vector[ProblemTerm], isTarget: ProblemTerm): ProblemTerm =
     λ(self =>
       λ(budget =>
         λ(v =>
@@ -170,10 +170,10 @@ object MergeGraph:
   private def budgetedSuccessorMerges(
       count: Int,
       edges: Vector[(Int, Int)],
-      nodes: Vector[Term],
-      self: Term,
-      predecessor: Term
-  ): Vector[Term] =
+      nodes: Vector[ProblemTerm],
+      self: ProblemTerm,
+      predecessor: ProblemTerm
+  ): Vector[ProblemTerm] =
     (0 until count).toVector.map(index =>
       choice(edges.collect { case (from, to) if from == index => self(self)(predecessor)(nodes(to)) }*)
     )
@@ -211,7 +211,7 @@ object MergeGraph:
     * of `problems/reachable_set` and `problems/empty_set_reachability`
     * rest on this.
     */
-  def numeralCase(cases: Vector[Term], node: Term): Term =
+  def numeralCase(cases: Vector[ProblemTerm], node: ProblemTerm): ProblemTerm =
     if cases.isEmpty then top
     else node(cases.head)(λ(predecessor => numeralCase(cases.tail, predecessor)))
 
@@ -219,8 +219,8 @@ object MergeGraph:
     * variables it is given: node 0 is zero, each next node the successor of
     * the one before it (`numeral_lets/4`).
     */
-  def numeralLets(count: Int, body: Vector[Term] => Term): Term =
-    def bound(index: Int, previous: Option[Term], nodes: Vector[Term]): Term =
+  def numeralLets(count: Int, body: Vector[ProblemTerm] => ProblemTerm): ProblemTerm =
+    def bound(index: Int, previous: Option[ProblemTerm], nodes: Vector[ProblemTerm]): ProblemTerm =
       if index == count then body(nodes)
       else
         val value = previous match

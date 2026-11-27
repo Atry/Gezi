@@ -58,8 +58,8 @@ final case class CsesPointTable[Site](
     )
 
 /** The point tables of the CSES problems of `problems/cses`, the five of
-  * the first batch and the ten of the second, with the decoders of their
-  * fields.
+  * the first batch and the ten of the second, the third and the fourth, with the
+  * decoders of their fields.
   */
 object CsesPoints:
 
@@ -120,7 +120,7 @@ object CsesPoints:
       { case Vector(point, computers, connections, result) =>
         CsesPoint(
           ProblemData.text(point),
-          MessageRoute.Site(ProblemData.small(computers), ProblemData.list(connections).map(connection)),
+          MessageRoute.Site(ProblemData.small(computers), SeededInput.Input.Written(ProblemData.list(connections).map(connection))),
           optionalNatural(result)
         )
       }
@@ -131,7 +131,7 @@ object CsesPoints:
     CsesPointTable(
       CountingRooms(Spelling.Direct, CountingRooms.rungs.head),
       { case Vector(point, map, result) =>
-        CsesPoint(ProblemData.text(point), CountingRooms.Site(ProblemData.texts(map).map(squares)), natural(result))
+        CsesPoint(ProblemData.text(point), CountingRooms.Site(SeededInput.Input.Written(ProblemData.texts(map).map(squares))), natural(result))
       }
     )
 
@@ -204,7 +204,7 @@ object CsesPoints:
       { case Vector(point, grid, result) =>
         CsesPoint(
           ProblemData.text(point),
-          GridPaths.Site(ProblemData.list(grid).map(row => ProblemData.list(row).map(ProblemData.truth))),
+          GridPaths.Site(SeededInput.Input.Written(ProblemData.list(grid).map(row => ProblemData.list(row).map(ProblemData.truth)))),
           natural(result)
         )
       }
@@ -228,8 +228,8 @@ object CsesPoints:
       { case Vector(point, cities, flights, result) =>
         CsesPoint(
           ProblemData.text(point),
-          ShortestRoutesSingleSource.Site(ProblemData.small(cities), ProblemData.list(flights).map(triple)),
-          naturals(result)
+          ShortestRoutesSingleSource.Site(ProblemData.small(cities), SeededInput.Input.Written(ProblemData.list(flights).map(triple))),
+          natural(result)
         )
       }
     )
@@ -241,7 +241,7 @@ object CsesPoints:
       { case Vector(point, cities, roads, queries, result) =>
         CsesPoint(
           ProblemData.text(point),
-          ShortestRoutesQueries.Site(ProblemData.small(cities), ProblemData.list(roads).map(triple), ProblemData.list(queries).map(smallPair)),
+          ShortestRoutesQueries.Site(ProblemData.small(cities), SeededInput.Input.Written(ProblemData.list(roads).map(triple)), SeededInput.Input.Written(ProblemData.list(queries).map(smallPair))),
           NativeValue.Elements(ProblemData.list(result).map(optionalNatural))
         )
       }
@@ -252,7 +252,7 @@ object CsesPoints:
     CsesPointTable(
       CountingDivisors(Spelling.Direct, CountingDivisors.rungs.head),
       { case Vector(point, numbers, result) =>
-        CsesPoint(ProblemData.text(point), CountingDivisors.Site(ProblemData.smalls(numbers)), naturals(result))
+        CsesPoint(ProblemData.text(point), CsesFamily.NumbersSite(SeededInput.Input.Written(ProblemData.smalls(numbers))), natural(result))
       }
     )
 
@@ -263,7 +263,7 @@ object CsesPoints:
     CsesPointTable(
       BinomialCoefficients(Spelling.Direct, BinomialCoefficients.rungs.head),
       { case Vector(point, queries, result) =>
-        CsesPoint(ProblemData.text(point), BinomialCoefficients.Site(ProblemData.list(queries).map(smallPair)), naturals(result))
+        CsesPoint(ProblemData.text(point), BinomialCoefficients.Site(SeededInput.Input.Written(ProblemData.list(queries).map(smallPair))), naturals(result))
       }
     )
 
@@ -272,7 +272,7 @@ object CsesPoints:
     CsesPointTable(
       DistinctNumbers(Spelling.Direct, DistinctNumbers.rungs.head),
       { case Vector(point, numbers, result) =>
-        CsesPoint(ProblemData.text(point), DistinctNumbers.Site(ProblemData.smalls(numbers)), natural(result))
+        CsesPoint(ProblemData.text(point), CsesFamily.NumbersSite(SeededInput.Input.Written(ProblemData.smalls(numbers))), natural(result))
       }
     )
 
@@ -288,6 +288,232 @@ object CsesPoints:
     countingDivisors,
     binomialCoefficients,
     distinctNumbers
+  )
+
+  // The third batch.
+
+  /** `money_sums_point(Point, Coins, Result)`. */
+  val moneySums: CsesPointTable[MoneySums.Site] =
+    CsesPointTable(
+      MoneySums(Spelling.Direct, MoneySums.rungs.head),
+      { case Vector(point, coins, result) =>
+        CsesPoint(ProblemData.text(point), MoneySums.Site(ProblemData.smalls(coins)), natural(result))
+      }
+    )
+
+  /** `rectangle_cutting_point(Point, First, Second, Result)`. */
+  val rectangleCutting: CsesPointTable[RectangleCutting.Site] =
+    CsesPointTable(
+      RectangleCutting(Spelling.Direct, RectangleCutting.rungs.head),
+      { case Vector(point, first, second, result) =>
+        CsesPoint(ProblemData.text(point), RectangleCutting.Site(ProblemData.small(first), ProblemData.small(second)), natural(result))
+      }
+    )
+
+  /** `increasing_subsequence_point(Point, Numbers, Result)`. */
+  val increasingSubsequence: CsesPointTable[IncreasingSubsequence.Site] =
+    CsesPointTable(
+      IncreasingSubsequence(Spelling.Direct, IncreasingSubsequence.rungs.head),
+      { case Vector(point, numbers, result) =>
+        CsesPoint(ProblemData.text(point), CsesFamily.NumbersSite(SeededInput.Input.Written(ProblemData.smalls(numbers))), natural(result))
+      }
+    )
+
+  /** `array_description_point(Point, Bound, Entries, Result)`, 0 for an
+    * unknown entry.
+    */
+  val arrayDescription: CsesPointTable[ArrayDescription.Site] =
+    CsesPointTable(
+      ArrayDescription(Spelling.Direct, ArrayDescription.rungs.head),
+      { case Vector(point, bound, entries, result) =>
+        CsesPoint(ProblemData.text(point), ArrayDescription.Site(ProblemData.small(bound), SeededInput.Input.Written(ProblemData.smalls(entries))), natural(result))
+      }
+    )
+
+  /** `building_roads_point(Point, Cities, Roads, Result)`, each road a pair
+    * of its cities.
+    */
+  val buildingRoads: CsesPointTable[BuildingRoads.Site] =
+    CsesPointTable(
+      BuildingRoads(Spelling.Direct, BuildingRoads.rungs.head),
+      { case Vector(point, cities, roads, result) =>
+        CsesPoint(ProblemData.text(point), BuildingRoads.Site(ProblemData.small(cities), SeededInput.Input.Written(ProblemData.list(roads).map(smallPair))), natural(result))
+      }
+    )
+
+  /** `road_reparation_point(Point, Cities, Roads, Result)`, each road the
+    * triple `pair a (pair b cost)`.
+    */
+  val roadReparation: CsesPointTable[RoadReparation.Site] =
+    CsesPointTable(
+      RoadReparation(Spelling.Direct, RoadReparation.rungs.head),
+      { case Vector(point, cities, roads, result) =>
+        CsesPoint(ProblemData.text(point), RoadReparation.Site(ProblemData.small(cities), SeededInput.Input.Written(ProblemData.list(roads).map(triple))), natural(result))
+      }
+    )
+
+  /** `game_routes_point(Point, Levels, Flights, Result)`, each flight a pair
+    * of its levels.
+    */
+  val gameRoutes: CsesPointTable[GameRoutes.Site] =
+    CsesPointTable(
+      GameRoutes(Spelling.Direct, GameRoutes.rungs.head),
+      { case Vector(point, levels, flights, result) =>
+        CsesPoint(ProblemData.text(point), GameRoutes.Site(ProblemData.small(levels), SeededInput.Input.Written(ProblemData.list(flights).map(smallPair))), natural(result))
+      }
+    )
+
+  /** `static_range_sums_point(Point, Values, Queries, Result)`, each query a
+    * pair of a and b.
+    */
+  val staticRangeSums: CsesPointTable[StaticRangeSums.Site] =
+    CsesPointTable(
+      StaticRangeSums(Spelling.Direct, StaticRangeSums.rungs.head),
+      { case Vector(point, values, queries, result) =>
+        CsesPoint(
+          ProblemData.text(point),
+          StaticRangeSums.Site(SeededInput.Input.Written(ProblemData.smalls(values)), SeededInput.Input.Written(ProblemData.list(queries).map(smallPair))),
+          natural(result)
+        )
+      }
+    )
+
+  /** `trailing_zeros_point(Point, Number, Result)`. */
+  val trailingZeros: CsesPointTable[TrailingZeros.Site] =
+    CsesPointTable(
+      TrailingZeros(Spelling.Direct, TrailingZeros.rungs.head),
+      { case Vector(point, number, result) =>
+        CsesPoint(ProblemData.text(point), TrailingZeros.Site(ProblemData.small(number)), natural(result))
+      }
+    )
+
+  /** `sum_of_divisors_point(Point, Limit, Result)`. */
+  val sumOfDivisors: CsesPointTable[SumOfDivisors.Site] =
+    CsesPointTable(
+      SumOfDivisors(Spelling.Direct, SumOfDivisors.rungs.head),
+      { case Vector(point, limit, result) =>
+        CsesPoint(ProblemData.text(point), SumOfDivisors.Site(ProblemData.small(limit).toLong), natural(result))
+      }
+    )
+
+  /** The ten tables of the third batch. */
+  val thirdBatch: Vector[CsesPointTable[?]] = Vector(
+    moneySums,
+    rectangleCutting,
+    increasingSubsequence,
+    arrayDescription,
+    buildingRoads,
+    roadReparation,
+    gameRoutes,
+    staticRangeSums,
+    trailingZeros,
+    sumOfDivisors
+  )
+
+  // The fourth batch.
+
+  /** `exponentiation_two_point(Point, Base, ExponentBase, ExponentPower, Result)`. */
+  val exponentiationTwo: CsesPointTable[ExponentiationTwo.Site] =
+    CsesPointTable(
+      ExponentiationTwo(Spelling.Direct, ExponentiationTwo.rungs.head),
+      { case Vector(point, base, exponentBase, exponentPower, result) =>
+        CsesPoint(ProblemData.text(point), ExponentiationTwo.Site(ProblemData.small(base), ProblemData.small(exponentBase), ProblemData.small(exponentPower)), natural(result))
+      }
+    )
+
+  /** `ferris_wheel_point(Point, Capacity, Weights, Result)`. */
+  val ferrisWheel: CsesPointTable[FerrisWheel.Site] =
+    CsesPointTable(
+      FerrisWheel(Spelling.Direct, FerrisWheel.rungs.head),
+      { case Vector(point, capacity, weights, result) =>
+        CsesPoint(ProblemData.text(point), FerrisWheel.Site(ProblemData.small(capacity), SeededInput.Input.Written(ProblemData.smalls(weights))), natural(result))
+      }
+    )
+
+  /** `missing_number_point(Point, Upper, Numbers, Result)`. */
+  val missingNumber: CsesPointTable[MissingNumber.Site] =
+    CsesPointTable(
+      MissingNumber(Spelling.Direct, MissingNumber.rungs.head),
+      { case Vector(point, upper, numbers, result) =>
+        CsesPoint(ProblemData.text(point), MissingNumber.Site(ProblemData.small(upper), SeededInput.Input.Written(ProblemData.smalls(numbers))), natural(result))
+      }
+    )
+
+  /** `repetitions_point(Point, Letters, Result)`, each letter 0 to 3. */
+  val repetitions: CsesPointTable[Repetitions.Site] =
+    CsesPointTable(
+      Repetitions(Spelling.Direct, Repetitions.rungs.head),
+      { case Vector(point, letters, result) =>
+        CsesPoint(ProblemData.text(point), CsesFamily.NumbersSite(SeededInput.Input.Written(ProblemData.smalls(letters))), natural(result))
+      }
+    )
+
+  /** `static_range_minimums_point(Point, Values, Queries, Result)`, each query a pair of a and b. */
+  val staticRangeMinimums: CsesPointTable[StaticRangeMinimums.Site] =
+    CsesPointTable(
+      StaticRangeMinimums(Spelling.Direct, StaticRangeMinimums.rungs.head),
+      { case Vector(point, values, queries, result) =>
+        CsesPoint(ProblemData.text(point), StaticRangeMinimums.Site(SeededInput.Input.Written(ProblemData.smalls(values)), SeededInput.Input.Written(ProblemData.list(queries).map(smallPair))), natural(result))
+      }
+    )
+
+  /** `string_matching_point(Point, Text, Pattern, Result)`, each letter a number. */
+  val stringMatching: CsesPointTable[StringMatching.Site] =
+    CsesPointTable(
+      StringMatching(Spelling.Direct, StringMatching.rungs.head),
+      { case Vector(point, text, pattern, result) =>
+        CsesPoint(ProblemData.text(point), StringMatching.Site(SeededInput.Input.Written(ProblemData.smalls(text)), SeededInput.Input.Written(ProblemData.smalls(pattern))), natural(result))
+      }
+    )
+
+  /** `subarray_sums_point(Point, Target, Values, Result)`. */
+  val subarraySums: CsesPointTable[SubarraySums.Site] =
+    CsesPointTable(
+      SubarraySums(Spelling.Direct, SubarraySums.rungs.head),
+      { case Vector(point, target, values, result) =>
+        CsesPoint(ProblemData.text(point), SubarraySums.Site(ProblemData.small(target), SeededInput.Input.Written(ProblemData.smalls(values))), natural(result))
+      }
+    )
+
+  /** `sum_of_two_values_point(Point, Target, Values, Result)`. */
+  val sumOfTwoValues: CsesPointTable[SumOfTwoValues.Site] =
+    CsesPointTable(
+      SumOfTwoValues(Spelling.Direct, SumOfTwoValues.rungs.head),
+      { case Vector(point, target, values, result) =>
+        CsesPoint(ProblemData.text(point), SumOfTwoValues.Site(ProblemData.small(target), SeededInput.Input.Written(ProblemData.smalls(values))), natural(result))
+      }
+    )
+
+  /** `tree_diameter_point(Point, Nodes, Edges, Result)`, each edge a pair of its nodes. */
+  val treeDiameter: CsesPointTable[TreeSite.Site] =
+    CsesPointTable(
+      TreeDiameter(Spelling.Direct, TreeDiameter.rungs.head),
+      { case Vector(point, nodes, edges, result) =>
+        CsesPoint(ProblemData.text(point), TreeSite.Site(ProblemData.small(nodes), SeededInput.Input.Written(ProblemData.list(edges).map(smallPair))), natural(result))
+      }
+    )
+
+  /** `tree_matching_point(Point, Nodes, Edges, Result)`, each edge a pair of its nodes. */
+  val treeMatching: CsesPointTable[TreeSite.Site] =
+    CsesPointTable(
+      TreeMatching(Spelling.Direct, TreeMatching.rungs.head),
+      { case Vector(point, nodes, edges, result) =>
+        CsesPoint(ProblemData.text(point), TreeSite.Site(ProblemData.small(nodes), SeededInput.Input.Written(ProblemData.list(edges).map(smallPair))), natural(result))
+      }
+    )
+
+  /** The ten tables of the fourth batch. */
+  val fourthBatch: Vector[CsesPointTable[?]] = Vector(
+    exponentiationTwo,
+    ferrisWheel,
+    missingNumber,
+    repetitions,
+    staticRangeMinimums,
+    stringMatching,
+    subarraySums,
+    sumOfTwoValues,
+    treeDiameter,
+    treeMatching
   )
 
   // The problems built as CSES families are, outside problems/cses.
@@ -339,4 +565,4 @@ object CsesPoints:
   val speculativeUntabling: Vector[CsesPointTable[?]] = Vector(weightedPaths)
 
   /** Every table of the CSES problems. */
-  val all: Vector[CsesPointTable[?]] = firstBatch ++ secondBatch
+  val all: Vector[CsesPointTable[?]] = firstBatch ++ secondBatch ++ thirdBatch ++ fourthBatch

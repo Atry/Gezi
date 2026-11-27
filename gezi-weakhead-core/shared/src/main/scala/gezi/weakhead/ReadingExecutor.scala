@@ -1,14 +1,12 @@
 package gezi.weakhead
 
-import gezi.ir.Instruction
-import gezi.hotspot.CompilationUnit
 import gezi.hotspot.ExecutionDependencies
 import gezi.hotspot.Executor
 import gezi.hotspot.ExpansionSource
-import gezi.hotspot.NormalForm
 import gezi.hotspot.Progress
 import gezi.hotspot.Spent
 import scala.annotation.tailrec
+import gezi.ir.{Configured, NativeSpecializer, NoFacts, Value}
 
 /** Where a reading of normal forms stopped: the stream of the normal forms
   * not yet read and the reading's state just before it was pulled, the last
@@ -20,11 +18,11 @@ import scala.annotation.tailrec
   * the state is a pure function of them, so a suspension may be resumed any
   * number of times.
   */
-final case class ReadingSuspension(
-    program: Instruction,
-    rest: Answers[ReadingState, Instruction],
-    state: ReadingState,
-    seen: Set[Instruction],
+final case class ReadingSuspension[C <: NativeSpecializer & Singleton](
+    program: Configured[C],
+    rest: Answers[ReadingState[C], Configured[C]],
+    state: ReadingState[C],
+    seen: Set[Configured[C]],
     source: ExpansionSource
 )
 
@@ -49,7 +47,8 @@ final case class ReadingSuspension(
   * call's dependencies gave (`ExecutionDependencies.source`): a call under another
   * version starts from no table and from the JIT state without its answers
   * (`JitState.withoutAnswers`), so that no reading answers from contents a
-  * reading of that version would not read.
+  * reading of that version would not read. Only its expansions outlive the
+  * version, to be reused where a content is unchanged (`Expansions`).
   *
   * A budget that asks for counted units (`countedUnits`) has the call count
   * the applications of each code (`gezi.hotspot.CompilationUnit.Code`) its
@@ -76,6 +75,9 @@ final case class ReadingSuspension(
   *
   * @param mode
   *   the mode the heads are taken under
+  * @param configuration
+  *   the configuration its readings build and read terms under; under the JIT, the JIT's own
+  *   (`JitEvaluator.readingConfiguration`)
   * @param jitState
   *   the JIT's part of the state the next execution starts from
   * @param sharedRetention
@@ -118,20 +120,31 @@ final case class ReadingSuspension(
   *   the index of the keys' spines (`ReadingState.spinePrefixes`) that the
   *   next call starts from, kept and dropped with `tables` under the
   *   retention (`ReadingState.keptSpinePrefixes`); none at first
+  * @param expansions
+  *   the URI expansions the next call starts from, whatever the retention of
+  *   the tables (`Expansions`): those of `source` under the same source, and
+  *   under another one those it may reuse where a content is unchanged; none
+  *   at first
   */
-final case class ReadingExecutor(
+final case class ReadingExecutor[C <: NativeSpecializer & Singleton](
     mode: Mode,
-    jitState: JitState,
+    // No default, so that no executor under facts reads as written by omission.
+    configuration: ReadingConfiguration[C],
+    jitState: JitState[C],
     sharedRetention: Option[gezi.hotspot.Retention] = None,
     source: Option[ExpansionSource] = None,
     applications: ApplicationReading = ApplicationReading.ByLayer,
     tableRetention: TableRetention = TableRetention.NoneKept,
-    tables: Tables[ReadingState, Value, ParallelSet] = Tables.empty,
-    unverified: Set[Value] = Set.empty,
+    tables: Tables[ReadingState[C], Value[C], ParallelSet[C]] = Tables.empty[ReadingState[C], Value[C], ParallelSet[C]],
+    unverified: Set[Value[C]] = Set.empty[Value[C]],
     continuations: ContinuationReading = ContinuationReading.Substituted,
     parallels: ParallelReading = ParallelReading.BothSides,
-    spinePrefixes: Map[Value, Value] = Map.empty
-) extends Executor[ReadingSuspension]:
+    spinePrefixes: Map[Value[C], Value[C]] = Map.empty[Value[C], Value[C]],
+    expansions: Expansions[C] = Expansions.none[C]
+) extends Executor[C, ReadingSuspension[C]]:
+
+  /** The native specializer of the configuration, in scope for every construction the executor's readings make. */
+  private given specializer: C = configuration.specializer
 
   /** The normal forms of the closed term read from the tables an earlier
     * call left (`tables`) within the budget's steps, counting the
@@ -144,11 +157,11 @@ final case class ReadingExecutor(
     * (`gezi.contest.entry.EntryData`: an entry sets no limit of its own).
     */
   def executed(
-      term: Instruction,
+      term: Configured[C],
       dependencies: ExecutionDependencies,
       budget: gezi.hotspot.Budget
-  ): (ReadingExecutor, ExecutionDependencies, Progress[ReadingSuspension]) =
-    pulled(term, NormalForms.normalForm(mode, ReadOut.Whole, term), started(dependencies, budget), Set.empty, Vector.empty, dependencies)
+  ): (ReadingExecutor[C], ExecutionDependencies, Progress[C, ReadingSuspension[C]]) =
+    pulled(term, NormalForms.normalForm(mode, ParallelSetReading.Whole, Value.of(term)), started(dependencies, budget).copy(jitState = jitStateFor(dependencies).readingStarted), Set.empty, Vector.empty, dependencies)
 
   /** A computation of this executor's reading state run within the budget,
     * from the state a reading of a term starts from (`started`): this
@@ -163,15 +176,19 @@ final case class ReadingExecutor(
     * this executor keeps the state it ends in, and table sharing hands its
     * tables to other readings, so a table a module wrote would answer them.
     *
+    * The JIT state's per-reading costs (`JitState.readingStarted`) are not
+    * cleared here: every caller clears them once, when its own budget starts
+    * (`readingStarted`), however many computations it runs within it.
+    *
     * FIXME (found in a review): the contract https://github.com/Atry/private-overlay/issues/1947
     * is kept by review and not by the type. This module cannot name the JIT's types,
     * so the signature is generic over any computation of the reading state.
     */
   def computed[Result](
-      computation: Computation[ReadingState, Result],
+      computation: Computation[ReadingState[C], Result],
       dependencies: ExecutionDependencies,
       budget: gezi.hotspot.Budget
-  ): (ReadingExecutor, Option[Result], Long) =
+  ): (ReadingExecutor[C], Option[Result], Long) =
     val state = started(dependencies, budget)
     computation.resultUnless(state, budget.stop) match
       case None                               => (left(state, dependencies), None, 0L)
@@ -190,27 +207,45 @@ final case class ReadingExecutor(
     * this executor's was read under another source.
     */
   def resumed(
-      suspension: ReadingSuspension,
+      suspension: ReadingSuspension[C],
       dependencies: ExecutionDependencies,
       budget: gezi.hotspot.Budget
-  ): (ReadingExecutor, ExecutionDependencies, Progress[ReadingSuspension]) =
+  ): (ReadingExecutor[C], ExecutionDependencies, Progress[C, ReadingSuspension[C]]) =
     if suspension.source ne dependencies.source then
       throw IllegalArgumentException("a stopped reading is resumed under the expansion source it was read under")
     val start =
       suspension.state.copy(
         budget = Budget.stoppedBy(budget.steps, budget.stop),
         exhausted = None,
-        jitState = if source.contains(dependencies.source) then jitState else jitState.withoutAnswers,
+        jitState = jitStateFor(dependencies).readingStarted,
         sharing = sharing(dependencies),
-        codeApplications = counting(budget)
+        codeApplications = counting(budget),
+        // The pins of one version: the JIT state kept above was read through
+        // this executor's expansions, so a later call under this source must
+        // not expand one of those nodes again from a newer content.
+        expansions = if source.contains(dependencies.source) then suspension.state.expansions.joined(expansions) else suspension.state.expansions
       )
     pulled(suspension.program, suspension.rest, start, suspension.seen, Vector.empty, dependencies)
 
   /** The program the suspended reading was started on, the residual the
     * class's Scaladoc describes.
     */
-  def exported(suspension: ReadingSuspension, dependencies: ExecutionDependencies): (ExecutionDependencies, Option[Instruction]) =
+  def exported(suspension: ReadingSuspension[C], dependencies: ExecutionDependencies): (ExecutionDependencies, Option[Configured[C]]) =
     (dependencies, Some(suspension.program))
+
+  /** This executor's JIT state for a reading under the dependencies: without
+    * its answers when it was read under another source.
+    */
+  private def jitStateFor(dependencies: ExecutionDependencies): JitState[C] =
+    if source.contains(dependencies.source) then jitState else jitState.withoutAnswers
+
+  /** This executor with the JIT state's per-reading costs cleared
+    * (`JitState.readingStarted`): every caller of `computed` calls it when its
+    * own budget starts, once for all the computations it runs within that
+    * budget, or the costs of its earlier budgets count against the new one;
+    * `executed` and `resumed` clear them themselves.
+    */
+  def readingStarted: ReadingExecutor[C] = copy(jitState = jitState.readingStarted)
 
   /** The state a reading of a term starts from: the tables this executor
     * keeps, the budget's steps, stopped by its stop signal, the counts of
@@ -220,21 +255,22 @@ final case class ReadingExecutor(
     * without its answers when the dependencies' source is not the one they were
     * read under.
     */
-  private def started(dependencies: ExecutionDependencies, budget: gezi.hotspot.Budget): ReadingState =
+  private def started(dependencies: ExecutionDependencies, budget: gezi.hotspot.Budget): ReadingState[C] =
     val sameContents = source.contains(dependencies.source)
     ReadingState
-      .knowingTop(budget.steps)
+      .knowingTop(budget.steps, configuration)
       .copy(
         tables = if sameContents then tables else Tables.empty,
         budget = Budget.stoppedBy(budget.steps, budget.stop),
-        jitState = if sameContents then jitState else jitState.withoutAnswers,
+        jitState = jitStateFor(dependencies),
         sharing = sharing(dependencies),
         applications = applications,
         continuations = continuations,
         parallels = parallels,
         unverified = if sameContents then unverified else Set.empty,
         codeApplications = counting(budget),
-        spinePrefixes = if sameContents then spinePrefixes else Map.empty
+        spinePrefixes = if sameContents then spinePrefixes else Map.empty,
+        expansions = if sameContents then expansions else expansions.underAnotherVersion
       )
 
   /** The progress of a call: the normal forms found, the suspension, and
@@ -242,16 +278,16 @@ final case class ReadingExecutor(
     * and, when counted, its applications of codes.
     */
   private def progress(
-      found: Vector[NormalForm],
-      suspension: Option[ReadingSuspension],
-      spentIn: ReadingState
-  ): Progress[ReadingSuspension] =
+      found: Vector[Configured[C]],
+      suspension: Option[ReadingSuspension[C]],
+      spentIn: ReadingState[C]
+  ): Progress[C, ReadingSuspension[C]] =
     Progress(
       found,
       suspension,
       Spent(
         spentIn.budget.spent,
-        spentIn.codeApplications.fold(Map.empty[CompilationUnit, Long])(_.map((code, count) => (CompilationUnit.Code(code), count)))
+        spentIn.codeApplications.getOrElse(Map.empty)
       )
     )
 
@@ -269,35 +305,36 @@ final case class ReadingExecutor(
     */
   @tailrec
   private def pulled(
-      program: Instruction,
-      answers: Answers[ReadingState, Instruction],
-      state: ReadingState,
-      seen: Set[Instruction],
-      found: Vector[NormalForm],
+      program: Configured[C],
+      answers: Answers[ReadingState[C], Configured[C]],
+      state: ReadingState[C],
+      seen: Set[Configured[C]],
+      found: Vector[Configured[C]],
       dependencies: ExecutionDependencies
-  ): (ReadingExecutor, ExecutionDependencies, Progress[ReadingSuspension]) =
+  ): (ReadingExecutor[C], ExecutionDependencies, Progress[C, ReadingSuspension[C]]) =
     answers.pull.resultUnless(state, state.budget.stop) match
       case None =>
-        (left(state, dependencies), dependencies, progress(found, Some(ReadingSuspension(program, answers, state, seen, dependencies.source)), state))
+        (left(state, dependencies), dependencies, progress(found, Some(ReadingSuspension[C](program, answers, state, seen, dependencies.source)), state))
       case Some(Computed.Done(None, after)) =>
         (left(after, dependencies), dependencies, progress(found, None, after))
       case Some(Computed.Done(Some((normalForm, rest)), after)) =>
         if seen.contains(normalForm) then pulled(program, rest, after, seen, found, dependencies)
         else pulled(program, rest, after, seen + normalForm, found :+ normalForm, dependencies)
       case Some(Computed.Stopped(after)) =>
-        (left(after, dependencies), dependencies, progress(found, Some(ReadingSuspension(program, answers, state, seen, dependencies.source)), after))
+        (left(after, dependencies), dependencies, progress(found, Some(ReadingSuspension[C](program, answers, state, seen, dependencies.source)), after))
 
   /** This executor for the next call after a call under the dependencies that
     * ended in the state: its JIT state, the tables the retention keeps of it,
     * and the dependencies' source, which they were read under.
     */
-  private def left(state: ReadingState, dependencies: ExecutionDependencies): ReadingExecutor =
+  private def left(state: ReadingState[C], dependencies: ExecutionDependencies): ReadingExecutor[C] =
     copy(
       jitState = state.jitState,
       tables = state.keptTables(tableRetention),
       unverified = state.keptUnverified(tableRetention),
       spinePrefixes = state.keptSpinePrefixes(tableRetention),
-      source = Some(dependencies.source)
+      source = Some(dependencies.source),
+      expansions = state.expansions
     )
 
   /** The sharing of the readings' complete tables in the dependencies' cache
@@ -315,5 +352,5 @@ final case class ReadingExecutor(
 /** The weak-head reference as an executor. */
 object ReadingExecutor:
 
-  /** The weak-head reference under `tabling(weak_head)`, with no JIT state. */
-  val tablingWeakHead: ReadingExecutor = ReadingExecutor(Mode.TablingWeakHead, NoJitState)
+  /** The weak-head reference under `tabling(weak_head)`, with no JIT state, reading programs of no facts. */
+  val tablingWeakHead: ReadingExecutor[NoFacts.type] = ReadingExecutor(Mode.TablingWeakHead, ReadingConfiguration.withoutFacts, NoJitState)

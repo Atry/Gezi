@@ -4,6 +4,7 @@ import gezi.ir.Code
 import gezi.ir.CodeLayer
 import gezi.ir.Hole
 import scala.util.control.TailCalls.TailRec
+import scala.util.control.TailCalls.done
 import scala.util.control.TailCalls.tailcall
 import gezi.ir.{Apply, Choice, Parallel, Slot, Thunk}
 
@@ -134,18 +135,37 @@ object ThunkDefinitions:
     case DefinitionPart.Defining(code, holes, arity) =>
       (DefinitionConstant.ThunkOf(arity), Vector(DefinitionPart.CodePart(code), DefinitionPart.HolesPart(holes)))
 
-  /** The HOL term of a part, every type in it, built without sharing: the
-    * terms of statements and of the judge's manifests, which stand alone.
-    * A trampoline: a code is as deep as a body, and a number is unary.
+  /** The HOL term of a part, every type in it: the terms of statements and
+    * of the judge's manifests, which stand alone. Each part is built once and
+    * its term object reused wherever the part recurs, so that the term is a
+    * graph as large as the parts' (a subcode the code shares, every number
+    * of a unary chain): it stands for the same tree, which a reader that
+    * walks it as a tree writes as before, while `HolTermText.sharedText`
+    * writes it at the graph's size. Built as a tree, a defining term of one
+    * of the judge's points wrote up to 34,028,221 characters
+    * even with its types shared, its slots' unary numbers written out at
+    * every occurrence (measured 2026-11-22). A trampoline: a code is as deep
+    * as a body, and a number is unary.
     */
-  def term(part: DefinitionPart, typeTerm: HolType => HolTypeTerm): HolTerm = termBuilt(part, typeTerm).result
+  def term(part: DefinitionPart, typeTerm: HolType => HolTypeTerm): HolTerm = termBuilt(part, typeTerm, Map.empty).result._1
 
-  private def termBuilt(part: DefinitionPart, typeTerm: HolType => HolTypeTerm): TailRec[HolTerm] =
-    val (constant, arguments) = layer(part)
-    val head: HolTerm = HolTerm.Constant(constantName(constant), typeTerm(constantType(constant)))
-    ArticleStore
-      .traversed(arguments)(argument => tailcall(termBuilt(argument, typeTerm)))
-      .map(_.foldLeft(head)(HolTerm.Application(_, _)))
+  private def termBuilt(
+      part: DefinitionPart,
+      typeTerm: HolType => HolTypeTerm,
+      built: Map[DefinitionPart, HolTerm]
+  ): TailRec[(HolTerm, Map[DefinitionPart, HolTerm])] =
+    built.get(part) match
+      case Some(found) => done((found, built))
+      case None =>
+        val (constant, arguments) = layer(part)
+        val head: HolTerm = HolTerm.Constant(constantName(constant), typeTerm(constantType(constant)))
+        def applied(index: Int, function: HolTerm, current: Map[DefinitionPart, HolTerm]): TailRec[(HolTerm, Map[DefinitionPart, HolTerm])] =
+          if index >= arguments.size then done((function, current.updated(part, function)))
+          else
+            tailcall(termBuilt(arguments(index), typeTerm, current)).flatMap((argument, after) =>
+              applied(index + 1, HolTerm.Application(function, argument), after)
+            )
+        applied(0, head, built)
 
   /** The defining term of the thunk constant of the code and the holes,
     * `LambdaJit.Code.thunkOf C H` at the type of a constant with `arity`

@@ -10,7 +10,8 @@ import gezi.generatedinputs.GeneratedProperties
 import gezi.generatedinputs.HoasGenerators
 import gezi.ir.BindingNormalForm
 import gezi.ir.BuiltInRule
-import gezi.ir.Instruction
+import gezi.ir.Configured
+import gezi.ir.NoFacts
 import gezi.ir.LemmaIdentifier
 import gezi.ir.Store
 import gezi.ir.Thunk
@@ -40,19 +41,19 @@ import gezi.standardlibrary.StandardLibraryIndex
   */
 class ExplanationRespellingLawTest extends GeneratedProperties:
 
-  private def closed(text: String): Instruction = Defunctionalization.thunkInstruction(Lambdalattice.term(text))
+  private def closed(text: String): Configured[NoFacts.type] = Defunctionalization.thunkInstruction[gezi.ir.NoFacts.type](Lambdalattice.term(text))(using gezi.ir.NoFacts)
 
-  private val lemmas: Vector[LemmaSides] = Vector(
+  private val lemmas: Vector[LemmaSides[NoFacts.type]] = Vector(
     LemmaSides(LemmaIdentifier(0), closed("λa. λb. (λx. λy. x) a b"), closed("λa. λb. a"))
   )
 
-  private val index: StandardLibraryIndex = StandardLibraryIndex(Vector.empty, lemmas, Vector.empty, Vector.empty)
+  private val index: StandardLibraryIndex[NoFacts.type] = StandardLibraryIndex(NoFacts, Vector.empty, lemmas, Vector.empty, Vector.empty)
 
-  private val saturator: StandardSaturator = StandardSaturator(
-    SaturationOptions(lemmas.map(_.lemma), BuiltInRule.all, 16, BaselineLemmaEncoding, ClosureCompilation, StandardIndexer, StandardOrientationCompiler, MemoRetention.Kept)
+  private val saturator: StandardSaturator[NoFacts.type] = StandardSaturator(
+    SaturationOptions(lemmas.map(_.lemma), BuiltInRule.beforeOptIn, 16, BaselineLemmaEncoding, ClosureCompilation, StandardIndexer.of[gezi.ir.NoFacts.type], StandardOrientationCompiler, MemoRetention.Kept, gezi.ir.TermConstruction(gezi.ir.NoFacts))
   )
 
-  private def counts(graph: EGraph): Vector[Long] =
+  private def counts(graph: EGraph[NoFacts.type]): Vector[Long] =
     val live = graph.liveNodes
     Vector(
       live.size.toLong,
@@ -61,7 +62,7 @@ class ExplanationRespellingLawTest extends GeneratedProperties:
       graph.respellingCounts.layersRespelled
     )
 
-  private def unspelled(graph: EGraph): Vector[Int] =
+  private def unspelled(graph: EGraph[NoFacts.type]): Vector[Int] =
     (0 until graph.nodeCount).toVector.filter(node =>
       graph.madeLayer(node) match
         case Thunk(code, holes, fillings) if holes.nonEmpty => BindingNormalForm.respelled(code, holes, fillings.size).nonEmpty
@@ -74,8 +75,8 @@ class ExplanationRespellingLawTest extends GeneratedProperties:
       argument <- HoasGenerators.instruction.forAll
     yield
       // The residual itself and the application that leaves it: the graph respells the one and the β rule the other.
-      val program = Instruction.Choice(ResidualPrograms.residual(thunk, argument), Instruction.Apply(thunk, argument))
-      def graph(explained: Boolean): EGraph =
+      val program = NoFacts.choice(ResidualPrograms.residual(thunk, argument), NoFacts.application(thunk, argument))
+      def graph(explained: Boolean): EGraph[NoFacts.type] =
         saturator.saturated(index, Vector(program), explained, StopSignal.completedWith(scala.concurrent.Future.never)).graph
       val explained = graph(true)
       val plain = graph(false)
@@ -94,19 +95,19 @@ class ExplanationRespellingLawTest extends GeneratedProperties:
     for
       thunk <- ResidualPrograms.thunks.forAll
       argument <- HoasGenerators.instruction.forAll
-    yield ResidualPrograms.residual(thunk, argument) match
-      case residual @ Instruction.Thunk(code, holes, fillings) if holes.nonEmpty =>
-        BindingNormalForm.respelled(code, holes, fillings.size) match
-          case Some((spelledCode, spelledHoles, overPlaceholders)) =>
-            val values = BindingNormalForm.placeholders(fillings.size).zip(fillings).toMap
-            def substituted(term: Instruction): Instruction =
-              values.getOrElse(term, if term.opaque then term else Instruction(term.layered.map(substituted)))
-            val spelling = Instruction.Thunk(spelledCode, spelledHoles, overPlaceholders.map(substituted))
-            val empty = EGraph.empty(Store(Set.empty), Map.empty, explained = true)
-            val (once, first) = empty.instructionAdded(residual)
-            val (twice, second) = once.instructionAdded(residual)
-            val (_, third) = twice.instructionAdded(spelling)
-            Result.diff(Vector(first, second, third), Vector(first, first, first))(_ == _).log(s"$residual and its spelling $spelling")
-          case None => Result.failure.log(s"the residual $residual is its own spelling: the generator drifted")
-      case other => Result.failure.log(s"no residual thunk with holes: $other")
+    yield
+      val residual = ResidualPrograms.residual(thunk, argument)
+      residual.layer match
+        case Thunk(code, holes, fillings) if holes.nonEmpty =>
+          BindingNormalForm.respelled(code, holes, fillings.size) match
+            case Some((spelledCode, spelledHoles, overPlaceholders)) =>
+              // The spelling's fillings are codes over the slots of the thunk's own fillings: their instances.
+              val spelling = NoFacts.thunkOrInstance(spelledCode, spelledHoles, overPlaceholders.map(filling => NoFacts.instance(filling, fillings)))
+              val empty = EGraph.empty(Store(Set.empty, gezi.ir.TermConstruction(gezi.ir.NoFacts)), Map.empty, explained = true)
+              val (once, first) = empty.instructionAdded(residual)
+              val (twice, second) = once.instructionAdded(residual)
+              val (_, third) = twice.instructionAdded(spelling)
+              Result.diff(Vector(first, second, third), Vector(first, first, first))(_ == _).log(s"$residual and its spelling $spelling")
+            case None => Result.failure.log(s"the residual $residual is its own spelling: the generator drifted")
+        case other => Result.failure.log(s"no residual thunk with holes: $other")
   }

@@ -8,7 +8,6 @@ import gezi.extraction.Shape
 import gezi.extraction.Spelled
 import gezi.ir.Code
 import gezi.ir.CodeLayer
-import gezi.ir.Instruction
 import gezi.ir.Layer
 import gezi.ir.LemmaIdentifier
 import gezi.ir.Pattern
@@ -17,6 +16,7 @@ import gezi.locations.SourceMap
 import scala.annotation.tailrec
 import scala.collection.immutable.HashMap
 import gezi.ir.{Apply, Choice, NoinlineLeaf, Parallel, Slot, Thunk}
+import gezi.ir.{Configured, NativeSpecializer}
 
 /** The locations of an e-graph's nodes: those each node was given (`own`)
   * and the maps of the codes of its thunk nodes (`codeMaps`), one for each
@@ -28,11 +28,11 @@ final case class Provenance(own: HashMap[Int, Set[Location]], codeMaps: HashMap[
   def node(node: Int): Set[Location] = own.getOrElse(node, Set.empty)
 
   /** The locations of the node's class: those of all its live members. */
-  def ofClass(graph: EGraph, node: Int): Set[Location] =
+  def ofClass[C <: NativeSpecializer & Singleton](graph: EGraph[C], node: Int): Set[Location] =
     graph.classMembers(graph.root(node)).flatMap(member => this.node(member.node)).toSet
 
   /** The node's own locations, or its class's when it was given none. */
-  def locations(graph: EGraph, node: Int): Set[Location] =
+  def locations[C <: NativeSpecializer & Singleton](graph: EGraph[C], node: Int): Set[Location] =
     val ownLocations = this.node(node)
     if ownLocations.nonEmpty then ownLocations else ofClass(graph, node)
 
@@ -63,7 +63,7 @@ final case class Provenance(own: HashMap[Int, Set[Location]], codeMaps: HashMap[
     * name, which spells its class in one leaf, are a leaf of their node's
     * locations.
     */
-  def shapeMap(graph: EGraph, shape: Shape, children: Vector[SourceMap]): SourceMap =
+  def shapeMap[C <: NativeSpecializer & Singleton](graph: EGraph[C], shape: Shape[C], children: Vector[SourceMap]): SourceMap =
     shape match
       case Shape.Name(instruction) =>
         SourceMap.leaf(graph.instructionNode(instruction).fold(Set.empty[Location])(locations(graph, _)))
@@ -78,21 +78,21 @@ final case class Provenance(own: HashMap[Int, Set[Location]], codeMaps: HashMap[
     * the pattern builds holds the locations of the choice node it is read
     * off.
     */
-  private def patternMap(graph: EGraph, node: Int, shape: Shape, children: Vector[SourceMap]): SourceMap =
+  private def patternMap[C <: NativeSpecializer & Singleton](graph: EGraph[C], node: Int, shape: Shape[C], children: Vector[SourceMap]): SourceMap =
     val nodeLocations = locations(graph, node)
-    Shape.spelled[SourceMap](
+    Shape.spelled[C, SourceMap](
       shape,
       children,
       _ => SourceMap.leaf(nodeLocations),
       layer => SourceMap(nodeLocations, None, layer.children, Vector.empty)
-    )
+    )(using gezi.ir.NotTerm.granted[SourceMap]) // a source map is locations, no term of the IR
 
   /** The source maps of the roots' spellings by the extraction, the roots
     * spelled in order with one memo of the classes spelled, as a caller that
     * spells its outputs of the same roots in the same order does: each map
     * has the shape of the instruction spelled of its root.
     */
-  def extracted[Cost](graph: EGraph, extracted: Extracted[Cost], roots: Vector[Int]): Vector[SourceMap] =
+  def extracted[C <: NativeSpecializer & Singleton, Cost](graph: EGraph[C], extracted: Extracted[C, Cost], roots: Vector[Int]): Vector[SourceMap] =
     roots
       .foldLeft((Spelled[SourceMap, Unit]((), Map.empty), Vector.empty[SourceMap])) { case ((state, maps), root) =>
         val (after, map) = Extraction.spelled(extracted, root, state)((unit, shape, children) =>
@@ -105,7 +105,7 @@ final case class Provenance(own: HashMap[Int, Set[Location]], codeMaps: HashMap[
 object Provenance:
 
   /** A term added to the graph with the source map of its occurrence. */
-  final case class Input(instruction: Instruction, map: SourceMap)
+  final case class Input[C <: NativeSpecializer & Singleton](instruction: Configured[C], map: SourceMap)
 
   /** The locations of the graph's nodes:
     *
@@ -131,7 +131,7 @@ object Provenance:
     * lemmas are given by their sides; an instance of a lemma not given walks
     * nothing.
     */
-  def of(graph: EGraph, inputs: Vector[Input], lemmas: Map[LemmaIdentifier, (Pattern, Pattern)]): Provenance =
+  def of[C <: NativeSpecializer & Singleton](graph: EGraph[C], inputs: Vector[Input[C]], lemmas: Map[LemmaIdentifier, (Pattern[C], Pattern[C])]): Provenance =
     val fromInputs = inputs.foldLeft(Provenance(HashMap.empty, HashMap.empty))((provenance, input) =>
       inputPlaces(graph, List((input.instruction, input.map)), provenance)
     )
@@ -149,7 +149,7 @@ object Provenance:
     )
 
   @tailrec
-  private def inputPlaces(graph: EGraph, pending: List[(Instruction, SourceMap)], provenance: Provenance): Provenance =
+  private def inputPlaces[C <: NativeSpecializer & Singleton](graph: EGraph[C], pending: List[(Configured[C], SourceMap)], provenance: Provenance): Provenance =
     pending match
       case Nil => provenance
       case (instruction, map) :: rest =>
@@ -172,9 +172,9 @@ object Provenance:
     * the side's other nodes were there before it and take nothing.
     */
   @tailrec
-  private def patternWalked(
-      graph: EGraph,
-      pending: List[(Pattern, Int)],
+  private def patternWalked[C <: NativeSpecializer & Singleton](
+      graph: EGraph[C],
+      pending: List[(Pattern[C], Int)],
       locations: Set[Location],
       matchedRoot: Int,
       provenance: Provenance
@@ -198,7 +198,7 @@ object Provenance:
           case _                                                                               => provenance.firstLocated(node, locations)
         patternWalked(graph, below ++ rest, locations, matchedRoot, walked)
 
-  private def betaWalked(graph: EGraph, thunk: Int, application: Int, body: Int, provenance: Provenance): Provenance =
+  private def betaWalked[C <: NativeSpecializer & Singleton](graph: EGraph[C], thunk: Int, application: Int, body: Int, provenance: Provenance): Provenance =
     val callSites = provenance.node(application)
     def inlined(callees: Set[Location]): Set[Location] =
       callees.flatMap(callee => callSites.map(Location.Inlined(callee, _)))
@@ -213,8 +213,8 @@ object Provenance:
       case _ => provenance
 
   @tailrec
-  private def codeWalked(
-      graph: EGraph,
+  private def codeWalked[C <: NativeSpecializer & Singleton](
+      graph: EGraph[C],
       pending: List[(Code, SourceMap, Int)],
       inlined: Set[Location] => Set[Location],
       provenance: Provenance

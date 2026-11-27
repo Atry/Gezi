@@ -1,0 +1,57 @@
+# The typed branches of double and even on the unary naturals, bound to the
+# natives natural_double and natural_even of the standard set. A call of the
+# define equals the choice of itself and the typed version at a filtered
+# operand, for every operand, by monotonicity alone. The typed version never
+# replaces the define. The paper proofs are section 21 of the file the
+# declarations cite.
+#
+# Both typed versions are noinline leaves, so a lemma never matches inside its
+# own right side. Termination of this module's saturation, derived and not
+# proved: the left sides' instances are the program's own calls, and the right
+# sides add only a leaf applied to a filter of an operand already there.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "native_types") "natural")
+λ _ _ _ nat_type
+. omega (omega (omega (omega corpora "library") "native_arithmetic") "native_arithmetic")
+λ double even
+. omega (omega (omega (omega corpora "library") "plover_compositions") "plover_typed_natives")
+λ _ _ _ plover_typed_double plover_typed_even
+. export
+  ( λ _ rewriting _ _
+    . rewriting
+    λ _ _ leaves
+    . leaves
+      ( λkey. key double
+      + λkey. key even
+      + λkey. key plover_typed_double
+      + λkey. key plover_typed_even
+      )
+  + λ _ _ _ backend
+    . backend
+    λ _ natives _ _ _ _
+    . natives
+      ( λ binding. binding plover_typed_double λkey. key "natural_double"
+      + λ binding. binding plover_typed_even λkey. key "natural_even"
+      )
+  + λ _ rewriting _ _
+    . rewriting
+    λ _ lemmas _
+    . lemmas
+      ( λ lemma
+        . lemma
+          (λkey. key "plover_typed_double_branch")
+          (λ number. double number)
+          (λ number. (double number + plover_typed_double (number ∥ nat_type)))
+        λ _ metadata _
+        . metadata λkey. key "[plover_typed_double_branch](docs/design/gezi-plover-ordered-compositions-proofs.md)"
+      + λ lemma
+        . lemma
+          (λkey. key "plover_typed_even_branch")
+          (λ number. even number)
+          (λ number. (even number + plover_typed_even (number ∥ nat_type)))
+        λ _ metadata _
+        . metadata λkey. key "[plover_typed_even_branch](docs/design/gezi-plover-ordered-compositions-proofs.md)"
+      )
+  )

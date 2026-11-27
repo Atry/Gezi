@@ -53,13 +53,13 @@ abstract class MixinBuiltinFamily[Site](val spelling: Spelling)
   /** The fragments of members the site's data writes over the class's
     * self, each a function of that self.
     */
-  protected def fragments(writing: MixinBuiltinWriting, site: Site): Vector[Term => Term]
+  protected def fragments(writing: MixinBuiltinWriting, site: Site): Vector[ProblemTerm => ProblemTerm]
 
   /** The count of the fragments a site writes. */
   protected def fragmentCount: Int
 
   /** The members of the class after its data, over its self. */
-  protected def tail(writing: MixinBuiltinWriting, self: Term): Vector[Term]
+  protected def tail(writing: MixinBuiltinWriting, self: ProblemTerm): Vector[ProblemTerm]
 
   /** The labels the program reads off the class, the last `church`. */
   protected def readPath: Vector[String]
@@ -73,7 +73,7 @@ abstract class MixinBuiltinFamily[Site](val spelling: Spelling)
   /** The class of the fragments: the inherited entries, the observer, the
     * fragments and the tail, over the class's self.
     */
-  private def classOf(writing: MixinBuiltinWriting, mixinBuiltin: Term, written: Vector[Term => Term]): Term =
+  private def classOf(writing: MixinBuiltinWriting, mixinBuiltin: ProblemTerm, written: Vector[ProblemTerm => ProblemTerm]): ProblemTerm =
     λ(self =>
       choice(
         (inheritedEntries.map(writing.inherited(mixinBuiltin, _, self)) ++
@@ -84,33 +84,33 @@ abstract class MixinBuiltinFamily[Site](val spelling: Spelling)
     )
 
   /** The class read at the path: each label projected, then the instance. */
-  private def read(writing: MixinBuiltinWriting, mixin: Term): Term =
+  private def read(writing: MixinBuiltinWriting, mixin: ProblemTerm): ProblemTerm =
     writing.instantiated(readPath.foldLeft(mixin)(writing.projected))
 
   /** The class's function of the fragments, `λx1 … xk. read (class)`. */
-  private def function(writing: MixinBuiltinWriting, mixinBuiltin: Term): Term =
+  private def function(writing: MixinBuiltinWriting, mixinBuiltin: ProblemTerm): ProblemTerm =
     abstractions(fragmentCount, arguments => read(writing, classOf(writing, mixinBuiltin, arguments.map(argument => self => argument(self)))))
 
   /** The site's fragments, each closed, `λself. members`. */
-  private def arguments(writing: MixinBuiltinWriting, site: Site): Vector[Term] =
+  private def arguments(writing: MixinBuiltinWriting, site: Site): Vector[ProblemTerm] =
     val written = fragments(writing, site)
     assert(written.size == fragmentCount, s"${written.size} fragments, not $fragmentCount")
     written.map(fragment => λ(self => fragment(self)))
 
   /** The single program of the site, its class written out. */
-  private def single(writing: MixinBuiltinWriting, mixinBuiltin: Term, site: Site): Term =
+  private def single(writing: MixinBuiltinWriting, mixinBuiltin: ProblemTerm, site: Site): ProblemTerm =
     read(writing, classOf(writing, mixinBuiltin, fragments(writing, site)))
 
   /** The direct single program of the site: what a family's point table
     * (`MixinBuiltinPoints`) reads.
     */
-  final def directProgram(group: ReductionGroup, site: Site): Term = directProgramOver(group.mixinBuiltin.directMixin, site)
+  final def directProgram(group: ReductionGroup, site: Site): ProblemTerm = directProgramOver(group.mixinBuiltin.directMixin, site)
 
   /** The direct single program of the site over another term for the
     * directory `mixin_builtin`: the tests' check that the library the points
     * carry reads as the directory tree's own term does.
     */
-  private[reductions] def directProgramOver(mixin: Term, site: Site): Term =
+  private[reductions] def directProgramOver(mixin: ProblemTerm, site: Site): ProblemTerm =
     λ(mixinBuiltin => single(MixinBuiltinWriting(identity), mixinBuiltin, site))(mixin)
 
   /** A site drawn from the draws, for the tests' laws. */
@@ -128,21 +128,21 @@ abstract class MixinBuiltinFamily[Site](val spelling: Spelling)
         (MixinBuiltinWriting(MixinBuiltinSpelling.renamed(renaming)), after)
 
   /** The closed term in the spelling: shuffled when respelled. */
-  private def spelled(term: Term, draws: Draws): (Term, Draws) = spelling match
+  private def spelled(term: ProblemTerm, draws: Draws): (ProblemTerm, Draws) = spelling match
     case Spelling.Direct    => (term, draws)
     case Spelling.Respelled => MixinBuiltinSpelling.shuffled(term, draws)
 
   /** The library in the spelling. */
-  private def library(group: ReductionGroup, writing: MixinBuiltinWriting, draws: Draws): (Term, Draws) = spelling match
+  private def library(group: ReductionGroup, writing: MixinBuiltinWriting, draws: Draws): (ProblemTerm, Draws) = spelling match
     case Spelling.Direct    => (group.mixinBuiltin.directMixin, draws)
     case Spelling.Respelled => MixinBuiltinSpelling.shuffled(group.mixinBuiltin.mixinTerm(writing.renamed), draws)
 
-  protected final def repeated(group: ReductionGroup, drawn: MixinBuiltinFamily.Drawn[Site]): Term =
+  protected final def repeated(group: ReductionGroup, drawn: MixinBuiltinFamily.Drawn[Site]): ProblemTerm =
     val (writing, draws) = writingOf(group, drawn)
     val (mixin, afterMixin) = library(group, writing, draws)
     val (written, afterFunction) = spelled(λ(mixinBuiltin => function(writing, mixinBuiltin)), afterMixin)
-    val (siteArguments, _) = drawn.sites.foldLeft((Vector.empty[Vector[Term]], afterFunction)) { case ((found, current), site) =>
-      val (spelledArguments, after) = arguments(writing, site).foldLeft((Vector.empty[Term], current)) { case ((done, before), argument) =>
+    val (siteArguments, _) = drawn.sites.foldLeft((Vector.empty[Vector[ProblemTerm]], afterFunction)) { case ((found, current), site) =>
+      val (spelledArguments, after) = arguments(writing, site).foldLeft((Vector.empty[ProblemTerm], current)) { case ((done, before), argument) =>
         val (spelledArgument, next) = spelled(argument, before)
         (done :+ spelledArgument, next)
       }
@@ -150,11 +150,11 @@ abstract class MixinBuiltinFamily[Site](val spelling: Spelling)
     }
     λ(mixinBuiltin => Repetition.sites(group.attractors, written(mixinBuiltin), siteArguments))(mixin)
 
-  protected final def singles(group: ReductionGroup, drawn: MixinBuiltinFamily.Drawn[Site]): Vector[Term] =
+  protected final def singles(group: ReductionGroup, drawn: MixinBuiltinFamily.Drawn[Site]): Vector[ProblemTerm] =
     val (writing, draws) = writingOf(group, drawn)
     val (mixin, afterMixin) = library(group, writing, draws)
     drawn.sites
-      .foldLeft((Vector.empty[Term], afterMixin)) { case ((found, current), site) =>
+      .foldLeft((Vector.empty[ProblemTerm], afterMixin)) { case ((found, current), site) =>
         val (written, after) = spelled(λ(mixinBuiltin => single(writing, mixinBuiltin, site)), current)
         (found :+ written(mixin), after)
       }
@@ -195,7 +195,7 @@ final case class MixinBuiltinEquation(left: BigInt, right: BigInt, result: BigIn
   */
 private[reductions] object MixinBuiltinEquations:
 
-  def tail(writing: MixinBuiltinWriting, self: Term): Vector[Term] =
+  def tail(writing: MixinBuiltinWriting, self: ProblemTerm): Vector[ProblemTerm] =
     import writing.*
     Vector(
       definition("_sum")(sum => projected(projected(self, "A"), "Plus")(sum) + definition("addend")(addend => keyed(self(self), "B")(addend))),
@@ -241,12 +241,12 @@ final class MixinBuiltinBinary(spelling: Spelling, val nominal: NominalRanges)
       .flatMap((role, value) => (0 to value.bitLength).map(MixinBuiltinFamily.digitMember(role, _)))
       .toSet ++ MixinBuiltinEquations.tailLabels ++ Set("BinNatFactory", "Zero", "Odd", "Even", "half", "halfOfPredecessor")
 
-  protected def fragments(writing: MixinBuiltinWriting, site: MixinBuiltinEquation): Vector[Term => Term] =
+  protected def fragments(writing: MixinBuiltinWriting, site: MixinBuiltinEquation): Vector[ProblemTerm => ProblemTerm] =
     MixinBuiltinFamily.roles.zip(site.operands).map((role, value) => self => MixinBuiltinBinary.members(writing, self, role, value))
 
   protected val fragmentCount: Int = 3
 
-  protected def tail(writing: MixinBuiltinWriting, self: Term): Vector[Term] = MixinBuiltinEquations.tail(writing, self)
+  protected def tail(writing: MixinBuiltinWriting, self: ProblemTerm): Vector[ProblemTerm] = MixinBuiltinEquations.tail(writing, self)
 
   protected val readPath: Vector[String] = MixinBuiltinEquations.readPath
 
@@ -259,7 +259,7 @@ object MixinBuiltinBinary:
     * 0 to its count of digits, each `Odd` or `Even` with the member of the
     * next half, and the last `Zero`.
     */
-  def members(writing: MixinBuiltinWriting, self: Term, role: String, value: BigInt): Term =
+  def members(writing: MixinBuiltinWriting, self: ProblemTerm, role: String, value: BigInt): ProblemTerm =
     import writing.*
     choice((0 to value.bitLength).map(index =>
       val digits = value >> index
@@ -351,12 +351,12 @@ final class MixinBuiltinNatural(spelling: Spelling, val nominal: NominalRanges)
       .flatMap((role, value) => (0 to value.toInt).map(MixinBuiltinFamily.digitMember(role, _)))
       .toSet ++ MixinBuiltinEquations.tailLabels ++ Set("NatFactory", "Zero", "Successor", "predecessor")
 
-  protected def fragments(writing: MixinBuiltinWriting, site: MixinBuiltinEquation): Vector[Term => Term] =
+  protected def fragments(writing: MixinBuiltinWriting, site: MixinBuiltinEquation): Vector[ProblemTerm => ProblemTerm] =
     MixinBuiltinFamily.roles.zip(site.operands).map((role, value) => self => MixinBuiltinNatural.members(writing, self, role, value.toInt))
 
   protected val fragmentCount: Int = 3
 
-  protected def tail(writing: MixinBuiltinWriting, self: Term): Vector[Term] = MixinBuiltinEquations.tail(writing, self)
+  protected def tail(writing: MixinBuiltinWriting, self: ProblemTerm): Vector[ProblemTerm] = MixinBuiltinEquations.tail(writing, self)
 
   protected val readPath: Vector[String] = MixinBuiltinEquations.readPath
 
@@ -369,7 +369,7 @@ object MixinBuiltinNatural:
     * i from 0 to n, each a `Successor` with the member of the next as its
     * `predecessor`, and the last `Zero`.
     */
-  def members(writing: MixinBuiltinWriting, self: Term, role: String, value: Int): Term =
+  def members(writing: MixinBuiltinWriting, self: ProblemTerm, role: String, value: Int): ProblemTerm =
     import writing.*
     choice((0 to value).map(index =>
       val factory = keyed(self(self), "NatFactory")
@@ -480,12 +480,12 @@ final class MixinBuiltinBoolean(spelling: Spelling, val nominal: NominalRanges, 
       MixinBuiltinOperation.values.flatMap(operation => Vector(operation.objectLabel, operation.valueLabel)) ++
       Set("_check", "church", "not", "other", "BooleanFactory", "True", "False")
 
-  protected def fragments(writing: MixinBuiltinWriting, site: MixinBuiltinExpression): Vector[Term => Term] =
+  protected def fragments(writing: MixinBuiltinWriting, site: MixinBuiltinExpression): Vector[ProblemTerm => ProblemTerm] =
     Vector(self => MixinBuiltinBoolean.members(writing, self, site))
 
   protected val fragmentCount: Int = 1
 
-  protected def tail(writing: MixinBuiltinWriting, self: Term): Vector[Term] = Vector.empty
+  protected def tail(writing: MixinBuiltinWriting, self: ProblemTerm): Vector[ProblemTerm] = Vector.empty
 
   protected val readPath: Vector[String] = Vector("_check", "church")
 
@@ -501,7 +501,7 @@ object MixinBuiltinBoolean:
   /** The members of the expression over the class's self: the object of
     * each binary operation, and `_check`, inheriting the root's value.
     */
-  def members(writing: MixinBuiltinWriting, self: Term, expression: MixinBuiltinExpression): Term =
+  def members(writing: MixinBuiltinWriting, self: ProblemTerm, expression: MixinBuiltinExpression): ProblemTerm =
     val (value, objects, _) = written(writing, self, expression, 1)
     choice((objects :+ writing.definition("_check")(check => value(check)))*)
 
@@ -510,10 +510,10 @@ object MixinBuiltinBoolean:
     */
   private def written(
       writing: MixinBuiltinWriting,
-      self: Term,
+      self: ProblemTerm,
       expression: MixinBuiltinExpression,
       next: Int
-  ): (Term, Vector[Term], Int) =
+  ): (ProblemTerm, Vector[ProblemTerm], Int) =
     import writing.*
     expression match
       case MixinBuiltinExpression.Constant(value) =>

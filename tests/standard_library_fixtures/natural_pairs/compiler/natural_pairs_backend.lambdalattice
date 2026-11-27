@@ -1,8 +1,9 @@
 # A test-only knowledge file for a set of natives an entry adds to the
 # standard set: pairs of naturals as one data family, natural_pair, whose
-# codec encodes with the native bound to pair. The natives natural_pair_make
-# and natural_pair_swap are no natives of the standard set; the test gives
-# them (NativeBackendExtensionTest). The pair's fields are naturals of the
+# codec encodes with pair, the constructor at position 0 of
+# natural_pair_type's data family. The family and the native
+# natural_pair_swap are not in the standard set; the test gives them
+# (NativeBackendExtensionTest). The pair's fields are naturals of the
 # standard set's big_integer, whose codec's constructors nat_type's data
 # family gives. The file is not named natural_pairs: its own name would
 # shadow the fixture's directory, the binder its imports read.
@@ -42,6 +43,12 @@
     . s nat_type (integer_literal 0) λ. cons zero λ. cons successor nil
   + λ _ _ _ backend
     . backend
+    λ _ _ _ families _ _
+    . families
+    λ s
+    . s natural_pair_type (integer_literal 0) λ. cons pair nil
+  + λ _ _ _ backend
+    . backend
     λ _ _ representations _ _ _
     . representations
       ( λs. s natural_pair_type λk. k "natural_pair"
@@ -50,8 +57,5 @@
   + λ _ _ _ backend
     . backend
     λ _ natives _ _ _ _
-    . natives
-      ( λs. s swap λk. k "natural_pair_swap"
-      + λs. s pair λk. k "natural_pair_make"
-      )
+    . natives λs. s swap λk. k "natural_pair_swap"
   )

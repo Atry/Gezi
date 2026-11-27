@@ -13,7 +13,7 @@ object ReductionMixinBinary:
   private val family = "reduction_mixin_binary"
 
   /** The program of an equation (`binary_point_surface/2`). */
-  def binaryPointSurface(mixins: MixinLibrary, operation: String, left: BigInt, right: BigInt, result: BigInt): Term =
+  def binaryPointSurface(mixins: MixinLibrary, operation: String, left: BigInt, right: BigInt, result: BigInt): ProblemTerm =
     withBinaryLibrary(mixins)(names =>
       equationRead(
         mixins,
@@ -25,13 +25,13 @@ object ReductionMixinBinary:
     )
 
   /** The body under the lets of the library `binary`. */
-  private[reductions] def withBinaryLibrary(mixins: MixinLibrary)(body: MixinNames => Term): Term =
+  private[reductions] def withBinaryLibrary(mixins: MixinLibrary)(body: MixinNames => ProblemTerm): ProblemTerm =
     mixins.withMixinLibrary(Vector("binary"), Vector.empty)(body)
 
   /** `Result.equality(Left.operation(Right))` read at church, the three
     * operands binary objects.
     */
-  private[reductions] def equationRead(mixins: MixinLibrary, operation: String, left: Term, right: Term, result: Term): Term =
+  private[reductions] def equationRead(mixins: MixinLibrary, operation: String, left: ProblemTerm, right: ProblemTerm, result: ProblemTerm): ProblemTerm =
     val operated = mixins.slotApplied("binary", operation, left, right)
     val compared = mixins.slotApplied("binary", "equality", result, operated)
     mixins.readSlot("boolean", "church", compared)

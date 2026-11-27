@@ -1,17 +1,24 @@
 package gezi.narrowblocks
 
+import gezi.generatedinputs.GeneratedProperties
+import gezi.ir.Code
+import gezi.ir.Hole
+import gezi.ir.Configured
+import gezi.ir.NoFacts
+import gezi.ir.Pure
+import gezi.jit.BinaryNaturalFamily
+import gezi.jit.NativesProvider
+import gezi.saturation.StopSignal
+import gezi.standardlibrary.CombinatorProperty
+import gezi.standardlibrary.NativeBound
+import gezi.standardlibrary.Property
+import gezi.standardlibrary.StandardLibraryIndex
 import hedgehog.Gen
 import hedgehog.Range
 import hedgehog.Result
 import java.math.BigInteger
-import gezi.generatedinputs.GeneratedProperties
-import gezi.ir.Code
-import gezi.ir.Hole
-import gezi.ir.Instruction
-import gezi.jit.NativesProvider
-import gezi.saturation.StopSignal
-import gezi.standardlibrary.NativeBound
-import gezi.standardlibrary.StandardLibraryIndex
+
+private given narrowBlockDepthLawTestNoFacts: NoFacts.type = NoFacts
 
 /** The laws that a closed narrow natural nested thousands deep compiles
   * to one block that computes it, or is refused with its reason, and is
@@ -46,52 +53,60 @@ import gezi.standardlibrary.StandardLibraryIndex
 class NarrowBlockDepthLawTest extends GeneratedProperties:
 
   /** λx. x x, bound to zero. */
-  private val zero = Instruction.Thunk(Code.Apply(Code.Slot(0), Code.Slot(0)), Vector(Hole.Bound(0)), Vector.empty)
+  private val zero = NoFacts.thunkOrInstance(Code.Apply(Code.Slot(0), Code.Slot(0)), Vector(Hole.Bound(0)), Vector.empty)
 
   /** λx y. y x, bound to even. */
   private val even =
-    Instruction.Thunk(Code.Apply(Code.Slot(1), Code.Slot(0)), Vector(Hole.Bound(0), Hole.Bound(1)), Vector.empty)
+    NoFacts.thunkOrInstance(Code.Apply(Code.Slot(1), Code.Slot(0)), Vector(Hole.Bound(0), Hole.Bound(1)), Vector.empty)
 
   /** λx y z. z y x, bound to odd. */
-  private val odd = Instruction.Thunk(
+  private val odd = NoFacts.thunkOrInstance(
     Code.Apply(Code.Apply(Code.Slot(2), Code.Slot(1)), Code.Slot(0)),
     Vector(Hole.Bound(0), Hole.Bound(1), Hole.Bound(2)),
     Vector.empty
   )
 
+  /** λx y. x (y y), the criterion `binary_set` whose `data_family` lists
+    * zero, even and odd, in the codec's order (`BinaryNaturalFamily`).
+    */
+  private val binarySet = NoFacts.thunkOrInstance(
+    Code.Apply(Code.Slot(0), Code.Apply(Code.Slot(1), Code.Slot(1))),
+    Vector(Hole.Bound(0), Hole.Bound(1)),
+    Vector.empty
+  )
+
   /** λx y. y y x, bound to plus. */
-  private val plus = Instruction.Thunk(
+  private val plus = NoFacts.thunkOrInstance(
     Code.Apply(Code.Apply(Code.Slot(1), Code.Slot(1)), Code.Slot(0)),
     Vector(Hole.Bound(0), Hole.Bound(1)),
     Vector.empty
   )
 
   private val compilation = NarrowBlockCompilation(
-    StandardLibraryIndex(
-      Vector.empty,
+    StandardLibraryIndex(NoFacts, Vector.empty,
       Vector.empty,
       Vector(
-        NativeBound(zero, "binary_zero"),
-        NativeBound(even, "binary_even"),
-        NativeBound(odd, "binary_odd"),
-        NativeBound(plus, "wren_binary_plus")
+        NativeBound(Pure.required(plus), "wren_binary_plus")
       ),
-      Vector.empty
+      Vector(
+        CombinatorProperty(Pure.required(binarySet), Property.NativeSpecialization(BinaryNaturalFamily.identity.name)),
+        CombinatorProperty(Pure.required(binarySet), Property.DataFamily(0, Vector(zero, even, odd).map(Pure.required)))
+      )
     ),
     NativesProvider.loaded
-  )
+  , gezi.weakhead.ReadingConfiguration.withoutFacts)
 
   /** The canonical binary numeral of the value, least significant digit
     * outermost.
     */
-  private def numeral(value: Int): Instruction =
+  private def numeral(value: Int): Configured[NoFacts.type] =
     if value == 0 then zero
-    else Instruction.Apply(if (value & 1) == 1 then odd else even, numeral(value >> 1))
+    else NoFacts.application(if (value & 1) == 1 then odd else even, numeral(value >> 1))
 
   /** `λx. plus x l`, the literal l a filling: a closed function that adds
     * the literal's value.
     */
-  private def adding(literal: Int): Instruction = Instruction.Thunk(
+  private def adding(literal: Int): Configured[NoFacts.type] = NoFacts.thunkOrInstance(
     Code.Apply(Code.Apply(Code.Slot(1), Code.Slot(0)), Code.Slot(2)),
     Vector(Hole.Bound(0)),
     Vector(plus, numeral(literal))
@@ -100,12 +115,12 @@ class NarrowBlockDepthLawTest extends GeneratedProperties:
   /** The chain of calls of the functions adding each literal of `rest`,
     * the first innermost, over the numeral of `first`.
     */
-  private def calls(first: Int, rest: List[Int]): Instruction =
-    rest.foldLeft(numeral(first))((sum, literal) => Instruction.Apply(adding(literal), sum))
+  private def calls(first: Int, rest: List[Int]): Configured[NoFacts.type] =
+    rest.foldLeft(numeral(first))((sum, literal) => NoFacts.application(adding(literal), sum))
 
   /** The left-nested chain of plus over the numerals. */
-  private def sums(first: Int, rest: List[Int]): Instruction =
-    rest.foldLeft(numeral(first))((sum, literal) => Instruction.Apply(Instruction.Apply(plus, sum), numeral(literal)))
+  private def sums(first: Int, rest: List[Int]): Configured[NoFacts.type] =
+    rest.foldLeft(numeral(first))((sum, literal) => NoFacts.application(NoFacts.application(plus, sum), numeral(literal)))
 
   // Five inputs, not the default 20: every input is thousands of levels
   // deep, so each one checks the law at the depth it is about; one input

@@ -18,6 +18,9 @@ import gezi.ir.BindingNormalForm
   */
 class BindingNormalFormSpellingLawTest extends GeneratedProperties:
 
+  given gezi.ir.NoFacts.type = gezi.ir.NoFacts
+  given gezi.ir.StorageAccess = gezi.ir.StorageAccess.granted()
+
   /** Catches a spelling that renumbers a body's slots, shares two closed
     * parts the front end keeps apart or keeps apart two it shares, or folds
     * a chain the front end does not: the front end's instruction is its own
@@ -25,7 +28,7 @@ class BindingNormalFormSpellingLawTest extends GeneratedProperties:
     */
   property("the front end's instruction is its own spelling") {
     for root <- HoasGenerators.instruction.forAll
-    yield Result.diff(BindingNormalForm.spelled(root), root)(_ == _)
+    yield Result.diff(BindingNormalForm.spelled(root), root)(gezi.ir.Configured.same(_, _))
   }
 
   /** Catches a spelling of an instruction the front end did not make (a
@@ -37,5 +40,5 @@ class BindingNormalFormSpellingLawTest extends GeneratedProperties:
     for
       size <- Gen.int(Range.linear(1, 8)).forAll
       root <- HoasGenerators.evaluatorInstruction(size).forAll
-    yield Result.diff(BindingNormalForm.spelled(root), Respelling.respelled(root, Set.empty))(_ == _)
+    yield Result.diff(BindingNormalForm.spelled(root), Respelling.respelled(root, Set.empty))(gezi.ir.Configured.same(_, _))
   }

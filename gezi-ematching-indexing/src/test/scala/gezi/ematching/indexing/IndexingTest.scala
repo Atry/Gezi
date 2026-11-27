@@ -13,7 +13,8 @@ import gezi.ematching.Step
 import gezi.ir.CodeLayer
 import gezi.ir.Code
 import gezi.ir.Direction
-import gezi.ir.Instruction
+import gezi.ir.Configured
+import gezi.ir.NoFacts
 import gezi.ir.Hole
 import gezi.ir.LemmaIdentifier
 import gezi.ir.Pattern
@@ -21,22 +22,25 @@ import gezi.ir.{Apply, Slot}
 
 class IndexingTest extends gezi.generatedinputs.FailFastSuite:
 
-  private val head = Instruction.opaque("head")
-  private val other = Instruction.opaque("other")
-  private val third = Instruction.opaque("third")
+  private type C = NoFacts.type
+  private given C = NoFacts
 
-  private def metavariable(index: Int) = Pattern.Metavariable(index)
+  private val head = NoFacts.opaque("head")
+  private val other = NoFacts.opaque("other")
+  private val third = NoFacts.opaque("third")
 
-  private def instruction(name: Instruction) = Pattern.InstructionReference(name)
+  private def metavariable(index: Int): Pattern[C] = Pattern.Metavariable(index)
 
-  private def application(function: Pattern, argument: Pattern) =
+  private def instruction(name: Configured[C]): Pattern[C] = Pattern.InstructionReference(name)
+
+  private def application(function: Pattern[C], argument: Pattern[C]): Pattern[C] =
     Pattern.Apply(function, argument)
 
   private def orientation(
       index: Int,
       arity: Int,
-      matched: Pattern,
-      added: Pattern,
+      matched: Pattern[C],
+      added: Pattern[C],
       essential: Vector[Int],
       functions: Vector[Int] = Vector.empty
   ) = Orientation(
@@ -51,15 +55,15 @@ class IndexingTest extends gezi.generatedinputs.FailFastSuite:
     shared = Vector.empty
   )
 
-  private def seeds(orientations: Orientation*) =
-    Indexing.program(orientations.toVector, Set.empty).seeds
+  private def seeds(orientations: Orientation[C]*) =
+    Indexing.program[C](orientations.toVector, Set.empty).seeds
 
   test("a matched instruction is its own seed, filed under the instruction") {
     assertEquals(
       seeds(orientation(0, 1, instruction(head), instruction(other), Vector.empty)),
       Map(
         (SeedKind.Add, SeedKey.InstructionNode(head)) -> Vector(
-          Seed(0, Vector(Step.Root(0, 1)), 1, Vector(None))
+          Seed[C](0, Vector(Step.Root[C](0, 1)), 1, Vector(None))
         )
       )
     )
@@ -76,15 +80,15 @@ class IndexingTest extends gezi.generatedinputs.FailFastSuite:
     assertEquals(
       seeds(idempotence),
       Map(
-        (SeedKind.Merge, SeedKey.Parallel) -> Vector(
-          Seed(
+        (SeedKind.Merge, SeedKey.Parallel[C]()) -> Vector(
+          Seed[C](
             0,
             Vector(
-              Step.Layer(0, LayerTemplate.Parallel, Vector(1, 2)),
-              Step.Root(1, 3),
-              Step.Root(2, 4),
-              Step.Same(4, 3),
-              Step.Root(0, 5)
+              Step.Layer[C](0, LayerTemplate.Parallel, Vector(1, 2)),
+              Step.Root[C](1, 3),
+              Step.Root[C](2, 4),
+              Step.Same[C](4, 3),
+              Step.Root[C](0, 5)
             ),
             5,
             Vector(Some(3))
@@ -103,18 +107,18 @@ class IndexingTest extends gezi.generatedinputs.FailFastSuite:
     assertEquals(
       program((SeedKind.Add, SeedKey.Headed(Head(head, 1)))),
       Vector(
-        Seed(
+        Seed[C](
           0,
           Vector(
-            Step.Layer(0, LayerTemplate.Apply, Vector(1, 2)),
-            Step.Root(1, 3),
+            Step.Layer[C](0, LayerTemplate.Apply, Vector(1, 2)),
+            Step.Root[C](1, 3),
             Step.InstructionIn(head, 3),
-            Step.Root(2, 4),
-            Step.EachMember(4, MemberShape.Parallel, 5),
-            Step.Layer(5, LayerTemplate.Parallel, Vector(6, 7)),
-            Step.Root(6, 8),
-            Step.Root(7, 9),
-            Step.Root(0, 10)
+            Step.Root[C](2, 4),
+            Step.EachMember[C](4, MemberShape.Parallel, 5),
+            Step.Layer[C](5, LayerTemplate.Parallel, Vector(6, 7)),
+            Step.Root[C](6, 8),
+            Step.Root[C](7, 9),
+            Step.Root[C](0, 10)
           ),
           10,
           Vector(Some(8), Some(9))
@@ -122,18 +126,18 @@ class IndexingTest extends gezi.generatedinputs.FailFastSuite:
       )
     )
     assertEquals(
-      program((SeedKind.Add, SeedKey.Parallel)),
+      program((SeedKind.Add, SeedKey.Parallel[C]())),
       Vector(
-        Seed(
+        Seed[C](
           0,
           Vector(
-            Step.Layer(0, LayerTemplate.Parallel, Vector(1, 2)),
-            Step.Root(1, 3),
-            Step.Root(2, 4),
-            Step.Root(0, 5),
+            Step.Layer[C](0, LayerTemplate.Parallel, Vector(1, 2)),
+            Step.Root[C](1, 3),
+            Step.Root[C](2, 4),
+            Step.Root[C](0, 5),
             Step.InstructionNode(head, 6),
-            Step.Lookup(LayerTemplate.Apply, Vector(6, 5), 7),
-            Step.Root(7, 8)
+            Step.Lookup[C](LayerTemplate.Apply, Vector(6, 5), 7),
+            Step.Root[C](7, 8)
           ),
           8,
           Vector(Some(3), Some(4))
@@ -151,23 +155,23 @@ class IndexingTest extends gezi.generatedinputs.FailFastSuite:
       program,
       Map(
         (SeedKind.Add, SeedKey.Headed(Head(head, 1))) -> Vector(
-          Seed(
+          Seed[C](
             0,
             Vector(
-              Step.Layer(0, LayerTemplate.Apply, Vector(1, 2)),
-              Step.Root(1, 3),
+              Step.Layer[C](0, LayerTemplate.Apply, Vector(1, 2)),
+              Step.Root[C](1, 3),
               Step.InstructionIn(head, 3),
               Step.Once(
                 Vector(
-                  Step.Root(2, 4),
+                  Step.Root[C](2, 4),
                   Step.EachHeadMember(4, Head(other, 1), 5),
-                  Step.Layer(5, LayerTemplate.Apply, Vector(6, 7)),
-                  Step.Root(6, 8),
+                  Step.Layer[C](5, LayerTemplate.Apply, Vector(6, 7)),
+                  Step.Root[C](6, 8),
                   Step.InstructionIn(other, 8),
-                  Step.Root(7, 9)
+                  Step.Root[C](7, 9)
                 )
               ),
-              Step.Root(0, 10)
+              Step.Root[C](0, 10)
             ),
             10,
             Vector(Some(9))
@@ -183,27 +187,27 @@ class IndexingTest extends gezi.generatedinputs.FailFastSuite:
     assertEquals(
       seeds(orientation(0, 1, matched, instruction(third), Vector.empty)),
       Map(
-        (SeedKind.Add, SeedKey.Parallel) -> Vector(
-          Seed(
+        (SeedKind.Add, SeedKey.Parallel[C]()) -> Vector(
+          Seed[C](
             0,
             Vector(
-              Step.Layer(0, LayerTemplate.Parallel, Vector(1, 2)),
+              Step.Layer[C](0, LayerTemplate.Parallel, Vector(1, 2)),
               Step.Once(
                 Vector(
-                  Step.Root(1, 3),
+                  Step.Root[C](1, 3),
                   Step.EachHeadMember(3, Head(other, 1), 4),
-                  Step.Layer(4, LayerTemplate.Apply, Vector(5, 6)),
-                  Step.Root(5, 7),
+                  Step.Layer[C](4, LayerTemplate.Apply, Vector(5, 6)),
+                  Step.Root[C](5, 7),
                   Step.InstructionIn(other, 7),
-                  Step.Root(6, 8)
+                  Step.Root[C](6, 8)
                 )
               ),
               Step.InstructionNode(other, 9),
-              Step.Lookup(LayerTemplate.Apply, Vector(9, 8), 10),
-              Step.Root(2, 11),
-              Step.Root(10, 12),
-              Step.Same(12, 11),
-              Step.Root(0, 13)
+              Step.Lookup[C](LayerTemplate.Apply, Vector(9, 8), 10),
+              Step.Root[C](2, 11),
+              Step.Root[C](10, 12),
+              Step.Same[C](12, 11),
+              Step.Root[C](0, 13)
             ),
             13,
             Vector(Some(8))
@@ -215,20 +219,20 @@ class IndexingTest extends gezi.generatedinputs.FailFastSuite:
   }
 
   test("a lambda position is a seed under Closure, binding its metavariable to the class") {
-    val matched = Pattern.Parallel(Pattern.Closure(0), metavariable(1))
+    val matched = Pattern.Parallel(Pattern.Closure[C](0), metavariable(1))
     val program = seeds(orientation(0, 2, matched, instruction(other), Vector(0, 1)))
     assertEquals(
-      program((SeedKind.Add, SeedKey.Closure)),
+      program((SeedKind.Add, SeedKey.Closure[C]())),
       Vector(
-        Seed(
+        Seed[C](
           0,
           Vector(
-            Step.Root(0, 1),
-            Step.HasClosure(1),
-            Step.EachUser(1, UserRole.Left, 2),
-            Step.Layer(2, LayerTemplate.Parallel, Vector(3, 4)),
-            Step.Root(4, 5),
-            Step.Root(2, 6)
+            Step.Root[C](0, 1),
+            Step.HasClosure[C](1),
+            Step.EachUser[C](1, UserRole.Left, 2),
+            Step.Layer[C](2, LayerTemplate.Parallel, Vector(3, 4)),
+            Step.Root[C](4, 5),
+            Step.Root[C](2, 6)
           ),
           6,
           Vector(Some(1), Some(5))
@@ -253,25 +257,25 @@ class IndexingTest extends gezi.generatedinputs.FailFastSuite:
       Vector(0)
     )
     assertEquals(
-      seeds(first, second)((SeedKind.Add, SeedKey.Parallel)).map(_.orientation),
+      seeds(first, second)((SeedKind.Add, SeedKey.Parallel[C]())).map(_.orientation),
       Vector(0, 1)
     )
   }
 
   test("an added side reads the applications of function metavariables and of lambdas") {
     val identity = Code(Slot(0))
-    val lambda = Pattern.Thunk(identity, Vector(Hole.Bound(0)), Vector.empty)
+    val lambda = Pattern.Thunk[C](identity, Vector(Hole.Bound(0)), Vector.empty)
     val added = application(
-      application(Pattern.Closure(0), metavariable(1)),
+      application(Pattern.Closure[C](0), metavariable(1)),
       application(lambda, application(metavariable(1), metavariable(0)))
     )
     assertEquals(
       Indexing.building(added, Vector(0)),
       Building.Apply(
-        Building.Apply(Building.Value(0), Building.Value(1), read = true),
+        Building.Apply(Building.Value[C](0), Building.Value[C](1), read = true),
         Building.Apply(
-          Building.Thunk(identity, Vector(Hole.Bound(0)), Vector.empty),
-          Building.Apply(Building.Value(1), Building.Value(0), read = false),
+          Building.Thunk[C](identity, Vector(Hole.Bound(0)), Vector.empty),
+          Building.Apply(Building.Value[C](1), Building.Value[C](0), read = false),
           read = true
         ),
         read = true
@@ -280,10 +284,10 @@ class IndexingTest extends gezi.generatedinputs.FailFastSuite:
     assertEquals(
       Indexing.building(added, Vector.empty),
       Building.Apply(
-        Building.Apply(Building.Value(0), Building.Value(1), read = false),
+        Building.Apply(Building.Value[C](0), Building.Value[C](1), read = false),
         Building.Apply(
-          Building.Thunk(identity, Vector(Hole.Bound(0)), Vector.empty),
-          Building.Apply(Building.Value(1), Building.Value(0), read = false),
+          Building.Thunk[C](identity, Vector(Hole.Bound(0)), Vector.empty),
+          Building.Apply(Building.Value[C](1), Building.Value[C](0), read = false),
           read = true
         ),
         read = false
@@ -294,14 +298,14 @@ class IndexingTest extends gezi.generatedinputs.FailFastSuite:
   test("a code's body is one layer over references to its subcodes") {
     val slot = Code(Slot(1))
     val application = Code(Apply(slot, slot))
-    val program = Indexing.program(Vector.empty, Set(slot, application))
+    val program = Indexing.program[C](Vector.empty, Set(slot, application))
     assertEquals(
       program.codes,
       Map(
-        slot -> Building.Value(1),
+        slot -> Building.Value[C](1),
         application -> Building.Apply(
-          Building.CodeBody(slot),
-          Building.CodeBody(slot),
+          Building.CodeBody[C](slot),
+          Building.CodeBody[C](slot),
           read = false
         )
       )

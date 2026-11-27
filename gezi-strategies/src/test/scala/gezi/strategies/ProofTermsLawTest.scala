@@ -13,10 +13,12 @@ import gezi.generatedinputs.GeneratedProperties
 import gezi.generatedinputs.HoasGenerators
 import gezi.generatedinputs.LambdalatticeText
 import gezi.ir.BuiltInRule
-import gezi.ir.Instruction
+import gezi.ir.Configured
+import gezi.ir.NoFacts
 import gezi.ir.LemmaIdentifier
 import gezi.lemmaencoding.baseline.BaselineLemmaEncoding
 import gezi.orientation.StandardOrientationCompiler
+import gezi.proofs.OpentheoryArticle
 import gezi.saturation.StopSignal
 import gezi.standardlibrary.LemmaSides
 import gezi.standardlibrary.StandardLibraryIndex
@@ -35,13 +37,17 @@ import gezi.standardlibrary.StandardLibraryIndex
   */
 class ProofTermsLawTest extends GeneratedProperties:
 
-  private def closed(text: String): Instruction = Defunctionalization.thunkInstruction(Lambdalattice.term(text))
+  private given NoFacts.type = NoFacts
 
-  private def equation(number: Int, left: String, right: String): LemmaSides =
+  private given gezi.ir.StorageAccess = gezi.ir.StorageAccess.granted()
+
+  private def closed(text: String): Configured[NoFacts.type] = Defunctionalization.thunkInstruction[gezi.ir.NoFacts.type](Lambdalattice.term(text))(using gezi.ir.NoFacts)
+
+  private def equation(number: Int, left: String, right: String): LemmaSides[NoFacts.type] =
     LemmaSides(LemmaIdentifier(number), closed(left), closed(right))
 
-  private def index(lemmas: Vector[LemmaSides]): StandardLibraryIndex =
-    StandardLibraryIndex(Vector.empty, lemmas, Vector.empty, Vector.empty)
+  private def index(lemmas: Vector[LemmaSides[NoFacts.type]]): StandardLibraryIndex[NoFacts.type] =
+    StandardLibraryIndex(NoFacts, Vector.empty, lemmas, Vector.empty, Vector.empty)
 
   private val firstOrderLemmas = Vector(
     equation(0, "λa. λb. (a + b)", "λa. λb. (b + a)"),
@@ -57,8 +63,8 @@ class ProofTermsLawTest extends GeneratedProperties:
     * families' 16 is not measured; measure the most a generated round adds
     * and set twice that, with the measurement.
     */
-  private def options(lemmas: Vector[LemmaSides], rules: Set[BuiltInRule], budget: Int): SaturationOptions =
-    SaturationOptions(lemmas.map(_.lemma), rules, budget, BaselineLemmaEncoding, ClosureCompilation, StandardIndexer, StandardOrientationCompiler, MemoRetention.Kept)
+  private def options(lemmas: Vector[LemmaSides[NoFacts.type]], rules: Set[BuiltInRule], budget: Int): SaturationOptions[NoFacts.type] =
+    SaturationOptions(lemmas.map(_.lemma), rules, budget, BaselineLemmaEncoding, ClosureCompilation, StandardIndexer.of[gezi.ir.NoFacts.type], StandardOrientationCompiler, MemoRetention.Kept, gezi.ir.TermConstruction(gezi.ir.NoFacts))
 
   private val closedText: Gen[String] = HoasGenerators.closedTerm.map(LambdalatticeText.text)
 
@@ -93,22 +99,30 @@ class ProofTermsLawTest extends GeneratedProperties:
       case 1 => s"λz. z ((λk. λl. k) ($constant) z) ($other)"
       case _ => s"λz. (λk. λl. k) ($constant) z ((λk. λl. k) ($constant) z)"
 
-  private val writeBack = Some(LocalExtraction(Vector(Compression), _ => Set.empty, MemoRetention.Kept))
+  private val writeBack = Some(LocalExtraction(Vector(Compression.at[gezi.ir.NoFacts.type]), _ => Set.empty, SpellingRetention.KeptWithinAPass))
 
-  private def isEigenvariable(instruction: Instruction): Boolean =
+  private def isEigenvariable(instruction: Configured[NoFacts.type]): Boolean =
     instruction.opaque && instruction.toString.contains("eigenvariable")
 
-  private def holds(term: Instruction, leaves: Set[Instruction]): Boolean =
+  private def holds(term: Configured[NoFacts.type], leaves: Set[Configured[NoFacts.type]]): Boolean =
     leaves.contains(term) || (!term.opaque && term.layer.children.exists(holds(_, leaves)))
 
-  private def holdsEigenvariable(term: Instruction): Boolean =
+  private def holdsEigenvariable(term: Configured[NoFacts.type]): Boolean =
     isEigenvariable(term) || (!term.opaque && term.layer.children.exists(holdsEigenvariable))
 
   /** The problems of a round's graph: written-back thunks whose terms hold
     * their own eigenvariables, and an input term that holds any.
     */
-  private def problems(graph: EGraph, input: Int): Vector[String] =
-    val terms = GraphProof.proof(graph, Vector.empty, Vector.empty).terms
+  private def problems(
+      lemmas: Vector[LemmaSides[NoFacts.type]],
+      saturator: Saturator[NoFacts.type],
+      graph: EGraph[NoFacts.type],
+      inputTerm: Configured[NoFacts.type],
+      input: Int
+  ): Vector[String] =
+    val libraryIndex = index(lemmas)
+    val proof = GraphProof.proof(graph, Vector((inputTerm, inputTerm)), saturator.lemmas(libraryIndex))
+    val terms = OpentheoryArticle.derivation(libraryIndex, inputTerm, inputTerm, proof).nodeTerm
     val escaped = graph.unions.collect(union =>
       union.justification match
         case Justification.Abstraction(eigenvariables, _, _) => (union.second, eigenvariables.map(terms).toSet)
@@ -116,17 +130,17 @@ class ProofTermsLawTest extends GeneratedProperties:
     val inputs = Option.when(holdsEigenvariable(terms(input)))(s"the input's term ${terms(input)} holds an eigenvariable")
     escaped ++ inputs
 
-  private def law(lemmas: Vector[LemmaSides], saturator: Saturator, programs: Gen[String], stop: StopSignal) =
+  private def law(lemmas: Vector[LemmaSides[NoFacts.type]], saturator: Saturator[NoFacts.type], programs: Gen[String], stop: StopSignal) =
     programs.forAllWithLog(identity).map(program =>
       val input = closed(program)
       val run = saturator.saturated(index(lemmas), Vector(input), explained = true, stop)
       val Vector(inputNode) = run.inputNodes: @unchecked
-      val found = problems(run.graph, inputNode)
+      val found = problems(lemmas, saturator, run.graph, input, inputNode)
       Result.assert(found.isEmpty).log(found.mkString("\n"))
     )
 
   stoppableProperty("first-order rounds: no proof term holds an eigenvariable outside its opening") { stopped =>
-    law(firstOrderLemmas, StandardSaturator(options(firstOrderLemmas, BuiltInRule.all, 24)), firstOrderPrograms, StopSignal.completedWith(stopped))
+    law(firstOrderLemmas, StandardSaturator(options(firstOrderLemmas, BuiltInRule.beforeOptIn, 24)), firstOrderPrograms, StopSignal.completedWith(stopped))
   }
 
   stoppableProperty("higher-order rounds: no proof term holds an eigenvariable outside its opening") { stopped =>
@@ -138,5 +152,5 @@ class ProofTermsLawTest extends GeneratedProperties:
   }
 
   stoppableProperty("write-back rounds with the β rule: no proof term holds an eigenvariable outside its opening") { stopped =>
-    law(openingLemmas, HigherOrderSaturator(options(openingLemmas, BuiltInRule.all, 16), writeBack, None, gezi.saturation.OpeningCriterionChoice.CallsAHead), openingPrograms, StopSignal.completedWith(stopped))
+    law(openingLemmas, HigherOrderSaturator(options(openingLemmas, BuiltInRule.beforeOptIn, 16), writeBack, None, gezi.saturation.OpeningCriterionChoice.CallsAHead), openingPrograms, StopSignal.completedWith(stopped))
   }

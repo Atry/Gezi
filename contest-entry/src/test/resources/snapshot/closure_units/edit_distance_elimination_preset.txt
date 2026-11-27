@@ -1,0 +1,7 @@
+lemmas: 127
+kept: true
+instances: 105
+end: Some(FixedPoint(105))
+unions: Beta 3, Eta 2, Lemma 85
+eigenvariables: 22
+parallels at each eigenvariable, sorted: 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0

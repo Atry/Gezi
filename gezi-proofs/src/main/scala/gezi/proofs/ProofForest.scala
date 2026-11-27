@@ -1,47 +1,45 @@
 package gezi.proofs
 
 import gezi.ir.Code
-import gezi.ir.Instruction
 import gezi.ir.Hole
-import gezi.ir.Layer
 import scala.annotation.tailrec
 import gezi.ir.Thunk
+import gezi.ir.{NativeSpecializer}
 
-/** One step of a path in the forest: the union, from the node of one index
-  * to the node of the other.
+/** One step of a path in the forest: the union, from one node to the
+  * other.
   */
 final case class PathStep(union: Int, from: Int, to: Int)
 
-/** The terms of a proof and the forest its unions make. A NODE is a term of
-  * the proof; its index is its place in the proof's terms, the order the
-  * search made them.
+/** The nodes of a proof and the forest its unions make. A NODE is a node of
+  * the proof, by its number, the order the search made them; its TERM is the
+  * article's term of it (`ProofTerms.nodeTerm`). The matcher and the writer
+  * name nodes by their terms, a term standing for the first node whose term it
+  * is (`ProofTerms.node`).
   *
-  * @param indexes
-  *   each node's index
-  * @param nodes
-  *   each index's node
+  * @param terms
+  *   the article's terms, each node's among them
   * @param unions
   *   the unions, the one numbered `i` at position `i - 1`
   * @param adjacency
-  *   each node's index to its `(neighbor index, union)` pairs, one per union
-  *   that names the node, the latest union first
+  *   each node to its `(neighbor, union)` pairs, one per union that names the
+  *   node, the latest union first
   * @param parents
-  *   each node's index to its parent's index and the union between them, in
-  *   the forest rooted at the earliest node of each tree; a root has none
+  *   each node to its parent and the union between them, in the forest rooted
+  *   at the earliest node of each tree; a root has none
   * @param depths
-  *   each node's index to its depth in that rooted forest
+  *   each node to its depth in that rooted forest
   * @param thunks
-  *   each code and holes to the nodes whose layer is a thunk of them, in
-  *   creation order
+  *   each code and holes to the terms of the nodes whose layer is a thunk of
+  *   them, in creation order
   */
-final case class ProofForest(
-    indexes: Map[Instruction, Int],
-    nodes: Vector[Instruction],
+final case class ProofForest[C <: NativeSpecializer & Singleton](
+    terms: ProofTerms[C],
     unions: Vector[ProofUnion],
     adjacency: Map[Int, List[(Int, Int)]],
     parents: Map[Int, (Int, Int)],
     depths: Map[Int, Int],
-    thunks: Map[(Code, Vector[Hole]), Vector[Instruction]]
+    thunks: Map[(Code, Vector[Hole]), Vector[TermId]]
 ):
 
   /** One more than the last union's number: the time by which every union
@@ -49,21 +47,25 @@ final case class ProofForest(
     */
   def finalTime: Int = unions.size + 1
 
-  def isNode(instruction: Instruction): Boolean = indexes.contains(instruction)
+  /** The terms of the nodes, by the nodes' numbers. */
+  def nodes: Vector[TermId] = Vector.tabulate(terms.nodeCount)(terms.nodeTerm)
 
-  /** The index of a node. Throws `OpentheoryArticleError` with `NotANode`
-    * for an instruction that is no term of the proof.
+  def isNode(term: TermId): Boolean = terms.node(term).isDefined
+
+  /** The node of a term. Throws `OpentheoryArticleError` with `NotANode`
+    * for a term that is no node's.
     */
-  def index(instruction: Instruction): Int =
-    indexes.getOrElse(instruction, throw OpentheoryArticleError(ArticleErrorReason.NotANode(instruction)))
+  def index(term: TermId): Int =
+    terms.node(term).getOrElse(throw OpentheoryArticleError(ArticleErrorReason.NotANode(term)))
 
   /** The union numbered `number`. */
   def union(number: Int): ProofUnion = unions(number - 1)
 
-  /** The path from one node to the other in the forest, or nothing when the
-    * two are in two trees. Throws as `index` does.
+  /** The path from the node of one term to the node of the other in the
+    * forest, or nothing when the two are in two trees. Throws as `index`
+    * does.
     */
-  def pathSteps(first: Instruction, second: Instruction): Option[Vector[PathStep]] =
+  def pathSteps(first: TermId, second: TermId): Option[Vector[PathStep]] =
     val firstIndex = index(first)
     val secondIndex = index(second)
     climbed(firstIndex, depths(firstIndex), secondIndex, depths(secondIndex), Vector.empty, Vector.empty)
@@ -98,21 +100,22 @@ final case class ProofForest(
       )
     else None
 
-  /** The two nodes were one class before the union `time` was made: the
-    * path between them has only unions below `time`.
+  /** The nodes of the two terms were one class before the union `time` was
+    * made: one term, or the path between them has only unions below `time`.
     */
-  def connectedBefore(first: Instruction, second: Instruction, time: Int): Boolean =
+  def connectedBefore(first: TermId, second: TermId, time: Int): Boolean =
     first == second ||
       (isNode(first) && isNode(second) &&
         pathSteps(first, second).exists(_.forall(_.union < time)))
 
-  /** The nodes of the target's class before the union `time`, the target
-    * first and the others in creation order. Throws as `index` does.
+  /** The terms of the nodes of the target's class before the union `time`,
+    * the target first and the others in creation order. Throws as `index`
+    * does.
     */
-  def candidatesBefore(target: Instruction, time: Int): Vector[Instruction] =
+  def candidatesBefore(target: TermId, time: Int): Vector[TermId] =
     val targetIndex = index(target)
     val visited = classVisited(List(targetIndex), time, Set(targetIndex))
-    target +: (visited - targetIndex).toVector.sorted.map(nodes)
+    target +: (visited - targetIndex).toVector.sorted.map(terms.nodeTerm)
 
   @tailrec
   private def classVisited(stack: List[Int], time: Int, visited: Set[Int]): Set[Int] = stack match
@@ -130,24 +133,19 @@ final case class ProofForest(
 /** The forest of a proof. */
 object ProofForest:
 
-  /** The forest of the proof's terms and unions, the layers read from the
-    * store. Throws `OpentheoryArticleError` with `TermTwice` for a term
-    * named twice, `UnionsOutOfOrder` when the unions are not numbered from 1
-    * in order, `NotANode` for a union that names no term, and
-    * `UnionWithinAClass` for a union between two nodes of one tree, a defect
-    * of the search.
+  /** The forest of the proof's nodes and unions, the nodes' terms those
+    * given. Throws `OpentheoryArticleError` with `UnionsOutOfOrder` when the
+    * unions are not numbered from 1 in order, `NotANode` for a union that
+    * names no node, and `UnionWithinAClass` for a union between two nodes of
+    * one tree, a defect of the search.
     */
-  def of(proof: StrategyProof, store: ArticleStore): ProofForest =
-    val indexes = proof.terms.zipWithIndex.foldLeft(Map.empty[Instruction, Int]) { case (found, (term, index)) =>
-      if found.contains(term) then throw OpentheoryArticleError(ArticleErrorReason.TermTwice(term))
-      found.updated(term, index)
-    }
+  def of[C <: NativeSpecializer & Singleton](proof: StrategyProof[C], terms: ProofTerms[C]): ProofForest[C] =
     // An opaque term (an eigenvariable a body was opened at) has no layer
     // and is no thunk.
-    val thunks = proof.terms.filterNot(_.opaque).foldLeft(Map.empty[(Code, Vector[Hole]), Vector[Instruction]]) {
+    val thunks = (0 until terms.nodeCount).map(terms.nodeTerm).foldLeft(Map.empty[(Code, Vector[Hole]), Vector[TermId]]) {
       (filed, term) =>
-        store.layer(term) match
-          case Thunk(code, holes, _) =>
+        terms.key(term) match
+          case TermKey.Layered(Thunk(code, holes, _)) =>
             filed.updated((code, holes), filed.getOrElse((code, holes), Vector.empty) :+ term)
           case _ => filed
     }
@@ -155,20 +153,22 @@ object ProofForest:
       case (edges, (union, position)) =>
         if union.index != position + 1 then
           throw OpentheoryArticleError(ArticleErrorReason.UnionsOutOfOrder(position + 1, union.index))
-        def nodeIndex(instruction: Instruction) =
-          indexes.getOrElse(instruction, throw OpentheoryArticleError(ArticleErrorReason.NotANode(instruction)))
+        def nodeIndex(node: Int) =
+          if node < 0 || node >= terms.nodeCount then
+            throw OpentheoryArticleError(ArticleErrorReason.NotANodeNumber(node))
+          node
         val first = nodeIndex(union.first)
         val second = nodeIndex(union.second)
         edges
           .updated(first, (second, union.index) :: edges.getOrElse(first, Nil))
           .updated(second, (first, union.index) :: edges.getOrElse(second, Nil))
     }
-    val (parents, depths) = proof.terms.indices.foldLeft((Map.empty[Int, (Int, Int)], Map.empty[Int, Int])) {
+    val (parents, depths) = (0 until terms.nodeCount).foldLeft((Map.empty[Int, (Int, Int)], Map.empty[Int, Int])) {
       case ((parentsSoFar, depthsSoFar), index) =>
         if depthsSoFar.contains(index) then (parentsSoFar, depthsSoFar)
         else descended(List(index), adjacency, parentsSoFar, depthsSoFar.updated(index, 0))
     }
-    ProofForest(indexes, proof.terms, proof.unions, adjacency, parents, depths, thunks)
+    ProofForest(terms, proof.unions, adjacency, parents, depths, thunks)
 
   /** The tree of the nodes on the stack, rooted: each neighbor met for the
     * first time gets its parent and depth and is pushed; a neighbor met

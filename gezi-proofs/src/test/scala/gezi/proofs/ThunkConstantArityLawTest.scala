@@ -6,7 +6,10 @@ import hedgehog.Result
 import gezi.generatedinputs.GeneratedProperties
 import gezi.ir.Code
 import gezi.ir.Hole
-import gezi.ir.Instruction
+import gezi.ir.Configured
+import gezi.ir.LayerWith
+import gezi.ir.NoFacts
+import gezi.ir.NonEmptyHoles
 import gezi.ir.Thunk
 import gezi.standardlibrary.StandardLibraryIndex
 
@@ -24,9 +27,13 @@ import gezi.standardlibrary.StandardLibraryIndex
   * one filling only, `Statements.eta`).
   */
 class ThunkConstantArityLawTest extends GeneratedProperties:
+
+  given gezi.ir.StorageAccess = gezi.ir.StorageAccess.granted()
+
+  private given NoFacts.type = NoFacts
   import ThunkConstantArityLawTest.*
 
-  private val index: StandardLibraryIndex = StandardLibraryIndex(Vector.empty, Vector.empty, Vector.empty, Vector.empty)
+  private val index: StandardLibraryIndex[NoFacts.type] = StandardLibraryIndex(NoFacts, Vector.empty, Vector.empty, Vector.empty, Vector.empty)
 
   /** An arity of thousands, above the 2,468 measured, with a slot
     * the code reads, below `smallArity`.
@@ -84,7 +91,8 @@ class ThunkConstantArityLawTest extends GeneratedProperties:
       index,
       term,
       term,
-      StrategyProof(Vector(term), Vector.empty, Vector(ProofEquation(term, term)), Vector.empty)
+      // Node 0 is the identity thunk every filling is, node 1 the thunk constant over them.
+      StrategyProof[NoFacts.type](Vector(identityLayer, thunkLayer(arity, read)), Vector.empty, Vector(ProofEquation(1, 1)), Vector.empty)
     )
 
 object ThunkConstantArityLawTest:
@@ -101,22 +109,25 @@ object ThunkConstantArityLawTest:
   private val functionTypeText = "type([\"->\"]"
 
   /** `λx. x`, a thunk of no filling. */
-  private val identityThunk: Instruction =
-    Instruction(Thunk(Code.Slot(0), Vector(Hole.Bound(0)), Vector.empty[Instruction]))
+  private given NoFacts.type = NoFacts
 
-  /** The thunk of `arity` fillings, each `λx. x`, whose code applies the
-    * hole to the filling `read`.
-    */
-  private def thunk(arity: Int, read: Int): Instruction =
-    Instruction(
-      Thunk(
-        Code(gezi.ir.Apply(Code.Slot(arity), Code.Slot(read))),
-        Vector(Hole.Bound(arity)),
-        Vector.fill(arity)(identityThunk)
-      )
+  private val identityThunk: Configured[NoFacts.type] =
+    NoFacts.thunk(Code.Slot(0), NonEmptyHoles(Hole.Bound(0), Vector.empty), Vector.empty)
+
+  private val identityLayer: LayerWith[Int, Configured[NoFacts.type]] =
+    Thunk(Code.Slot(0), Vector(Hole.Bound(0)), Vector.empty[Int])
+
+  /** The node layer of the thunk constant, its fillings the node 0 each. */
+  private def thunkLayer(arity: Int, read: Int): LayerWith[Int, Configured[NoFacts.type]] =
+    Thunk(Code(gezi.ir.Apply(Code.Slot(arity), Code.Slot(read))), Vector(Hole.Bound(arity)), Vector.fill(arity)(0))
+
+  private def thunk(arity: Int, read: Int): Configured[NoFacts.type] =
+    NoFacts.thunk(
+      Code(gezi.ir.Apply(Code.Slot(arity), Code.Slot(read))),
+      NonEmptyHoles(Hole.Bound(arity), Vector.empty),
+      Vector.fill(arity)(identityThunk)
     )
 
-  /** The head of an application's spine. */
   @scala.annotation.tailrec
   private def head(term: HolTerm): HolTerm = term match
     case HolTerm.Application(function, _) => head(function)

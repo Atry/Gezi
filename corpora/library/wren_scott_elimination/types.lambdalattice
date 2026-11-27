@@ -1,0 +1,39 @@
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega corpora "library") "top")
+λ top
+# applied_type:
+# The type of an application of a function of the type f to an argument of
+# the type a, in the zero universe of the module hindley_milner_unions: top up
+# to contextual equivalence, as every term built of that module's type
+# combinators is; noinline, written in a form programs do not write. It stays
+# until f's class holds a shape: a function type gives its result, a
+# structure the eliminator of its alternatives (wren_scott_elimination).
+. (λtuple. tuple λf a. (top ∥ top ∥ (top ∥ top) ∥ top ∥ top))
+λ applied_type
+# remaining_arms:
+# The type of a Scott value of the alternatives s applied to the arms of the
+# alternatives before them, whose elimination gives r: top up to contextual
+# equivalence; noinline.
+. (λtuple. tuple λs r. (top ∥ top ∥ top ∥ (top ∥ top) ∥ top))
+λ remaining_arms
+# elimination_result:
+# The type of the result of the elimination of a Scott value of the
+# alternatives s whose first arm is of the type a, a type variable of that
+# elimination: top up to contextual equivalence; noinline.
+. (λtuple. tuple λs a. (top ∥ (top ∥ top) ∥ (top ∥ top) ∥ top))
+λ elimination_result
+# fields_function:
+# The type of a function of the fields f, one parameter each, whose result
+# is of the type r: top up to contextual equivalence; noinline.
+. (λtuple. tuple λf r. (top ∥ top ∥ top ∥ (top ∥ top ∥ top)))
+λ fields_function
+# eliminated_as:
+# The mark that a value of the type v is eliminated as a Scott value of the
+# structure s, its arms' types read as s's alternatives: top up to contextual
+# equivalence; noinline. It stands in v's class, so that s's candidacies reach
+# v (wren_scott_elimination) while v and s stay two classes.
+. (λtuple. tuple λv s. (top ∥ top ∥ (top ∥ top ∥ top) ∥ top))
+λ eliminated_as
+. export applied_type remaining_arms elimination_result fields_function eliminated_as

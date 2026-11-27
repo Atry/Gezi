@@ -1,9 +1,9 @@
 package gezi.jmh.pipeline
 
+import gezi.ir.NativeSpecializer
 import gezi.jit.Jit
 import gezi.jit.JitRunState
 import gezi.weakhead.Computed
-import gezi.weakhead.NoJitState
 import gezi.weakhead.NormalForms
 import gezi.weakhead.ReadingState
 
@@ -17,22 +17,23 @@ import gezi.weakhead.ReadingState
   * does not show.
   */
 @main def instanceCheckpointCounts(): Unit =
-  val input = InstanceCheckpointInputs()
-  val policies: Vector[(String, Jit)] = Vector(
-    "default" -> input.default,
-    s"every ${InstanceCheckpointInputs.shortInterval} steps" -> input.shortInterval,
-    s"every ${InstanceCheckpointInputs.longInterval} steps" -> input.longInterval
+  countsOf(InstanceCheckpointInputs().setup)
+
+/** The counts of each policy of the setup, whose configuration the method binds. */
+private def countsOf[C <: NativeSpecializer & Singleton](setup: InstanceCheckpointSetup[C]): Unit =
+  given C = setup.specializer
+  val policies: Vector[(String, Jit[C])] = Vector(
+    "default" -> setup.default,
+    s"every ${InstanceCheckpointInputs.shortInterval} steps" -> setup.shortInterval,
+    s"every ${InstanceCheckpointInputs.longInterval} steps" -> setup.longInterval
   )
   policies.foreach((name, jit) =>
     val (outcome, after) =
-      NormalForms.normalForms(gezi.weakhead.Mode.Jit(jit), input.program).result(ReadingState.fresh(InstanceCheckpointInputs.limit)) match
+      NormalForms.normalForms(gezi.weakhead.Mode.Jit(jit), setup.program).result(ReadingState.fresh(InstanceCheckpointInputs.limit, jit.readingConfiguration)) match
         case Computed.Done(normalForms, after) => (s"finished(${normalForms.size})", after)
         case Computed.Stopped(after)           => ("stopped", after)
-    val (entries, hits, held) = after.jitState match
-      case run: JitRunState =>
-        val costs = run.tableCosts.values.toVector
-        (costs.map(_.entries).sum, costs.map(_.hits).sum, run.instanceTables.complete.size + run.olderInstances.size)
-      case NoJitState => (0L, 0L, 0)
-      case other      => throw IllegalStateException(s"the JIT left another state: $other")
+    val run = JitRunState.of(after, jit.configuration)
+    val costs = run.tableCosts.values.toVector
+    val (entries, hits, held) = (costs.map(_.entries).sum, costs.map(_.hits).sum, run.instanceTables.complete.size + run.olderInstances.size)
     println(Vector(name, outcome, s"steps=${after.budget.spent}", s"entries=$entries", s"hits=$hits", s"held=$held").mkString("\t"))
   )

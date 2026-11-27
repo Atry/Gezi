@@ -1,6 +1,7 @@
 package gezi.frontend
 
-import gezi.ir.Instruction
+import gezi.ir.Configured
+import gezi.ir.NativeSpecializer
 import gezi.ir.Spine
 import gezi.locations.Span
 import parsley.Parsley
@@ -481,7 +482,7 @@ object Lambdalattice:
     * linear in the text's length: a fragment is prepended in constant time
     * and the text is joined once.
     */
-  def text(term: DeBruijnTerm, names: Map[Instruction, String]): String =
+  def text[K](term: DeBruijnTermOf[K], names: Map[K, String]): String =
     rendered(term, 0, Position.Whole, List.empty, names, false).result.reverse.mkString
 
   /** `text` with the literals the reader spreads written back as literals: a
@@ -499,7 +500,7 @@ object Lambdalattice:
     * spelled in full at each of the 104, against 47 written with its literal
     * (measured 2026-11-19).
     */
-  def textWithLiterals(term: DeBruijnTerm, names: Map[Instruction, String]): String =
+  def textWithLiterals[K](term: DeBruijnTermOf[K], names: Map[K, String]): String =
     rendered(term, 0, Position.Whole, List.empty, names, true).result.reverse.mkString
 
   /** The text of the closed instruction's readback
@@ -512,17 +513,24 @@ object Lambdalattice:
     * Throws `IllegalArgumentException` for an instruction holding an opaque
     * instruction, which reads back as a constant.
     */
-  def closedText(instruction: Instruction): String =
-    textWithLiterals(Defunctionalization.instructionTerm(instruction), Map.empty)
+  def closedText[C <: NativeSpecializer & Singleton](instruction: Configured[C])(using C): String =
+    textWithLiterals(Defunctionalization.instructionTerm(instruction), Map.empty[Configured[C], String])
+
+  /** `closedText` of the term with each native storage written as its view `v ∥ T`, the sides in turn: the text a
+    * formatter writes of a term of a configuration (a trace's, `gezi.rewritetrace.TraceText`), which the reader reads
+    * back in that configuration as the same term, the parallel of a storage's unique spelling built as the storage.
+    */
+  def closedTextViewed[C <: NativeSpecializer & Singleton](instruction: Configured[C])(using C, gezi.ir.StorageAccess): String =
+    textWithLiterals(Defunctionalization.instructionTermViewed(instruction), Map.empty[Configured[C], String])
 
   /** The complete literals a chain of variable arguments partial function
     * abstractions at the term begins with, the term under their bits, and
     * the number of the bits, when there is at least one literal and the term
     * under the bits reads none of their binders.
     */
-  private def literalBinders(term: DeBruijnTerm): Option[(Vector[LiteralWriting.Written], DeBruijnTerm, Int)] =
+  private def literalBinders[K](term: DeBruijnTermOf[K]): Option[(Vector[LiteralWriting.Written], DeBruijnTermOf[K], Int)] =
     @scala.annotation.tailrec
-    def collected(current: DeBruijnTerm, bits: Vector[Boolean], under: Vector[DeBruijnTerm]): (Vector[Boolean], Vector[DeBruijnTerm]) =
+    def collected(current: DeBruijnTermOf[K], bits: Vector[Boolean], under: Vector[DeBruijnTermOf[K]]): (Vector[Boolean], Vector[DeBruijnTermOf[K]]) =
       current match
         case DeBruijnTerm.Lambda(DeBruijnTerm.Apply(DeBruijnTerm.Apply(DeBruijnTerm.Variable(0), first), second))
             if second == Literals.top && first != Literals.top =>
@@ -545,18 +553,18 @@ object Lambdalattice:
   /** An argument of an application as the literal mode writes it: a
     * complete literal, or a term.
     */
-  private enum WrittenArgument:
+  private enum WrittenArgument[+K]:
     case Literal(written: LiteralWriting.Written)
-    case Term(term: DeBruijnTerm)
+    case Term(term: DeBruijnTermOf[K])
 
   /** The arguments, each run of closed Scott booleans that makes up complete
     * literals written as those literals, the bits after the last complete
     * one as terms.
     */
-  private def literalArguments(arguments: Vector[DeBruijnTerm]): Vector[WrittenArgument] =
-    def isBit(argument: DeBruijnTerm): Boolean = argument == Literals.one || argument == Literals.zero
+  private def literalArguments[K](arguments: Vector[DeBruijnTermOf[K]]): Vector[WrittenArgument[K]] =
+    def isBit(argument: DeBruijnTermOf[K]): Boolean = argument == Literals.one || argument == Literals.zero
     @scala.annotation.tailrec
-    def grouped(rest: Vector[DeBruijnTerm], found: Vector[WrittenArgument]): Vector[WrittenArgument] =
+    def grouped(rest: Vector[DeBruijnTermOf[K]], found: Vector[WrittenArgument[K]]): Vector[WrittenArgument[K]] =
       rest.headOption match
         case None => found
         case Some(argument) if !isBit(argument) => grouped(rest.tail, found :+ WrittenArgument.Term(argument))
@@ -590,7 +598,7 @@ object Lambdalattice:
     case Atom
 
   /** Whether the term stands at the position with no parentheses. */
-  private def fits(term: DeBruijnTerm, position: Position): Boolean =
+  private def fits[K](term: DeBruijnTermOf[K], position: Position): Boolean =
     (term, position) match
       case (_, Position.Whole)                                                => true
       case (DeBruijnTerm.Choice(_, _) | DeBruijnTerm.Parallel(_, _), Position.ChainLeft) => true
@@ -610,12 +618,12 @@ object Lambdalattice:
   /** The fragments of the text before the term, most recent first, followed
     * by the term's own.
     */
-  private def rendered(
-      term: DeBruijnTerm,
+  private def rendered[K](
+      term: DeBruijnTermOf[K],
       depth: Int,
       position: Position,
       before: List[String],
-      names: Map[Instruction, String],
+      names: Map[K, String],
       literals: Boolean
   ): TailRec[List[String]] =
     if !fits(term, position) then
@@ -638,7 +646,7 @@ object Lambdalattice:
             tailcall(rendered(right, depth, Position.Application, " ∥ " :: withLeft, names, literals))
           )
         case DeBruijnTerm.Apply(_, _) if literals =>
-          val (head, arguments) = Spine.of(term)
+          val (head, arguments) = Spine.of[[Child] =>> DeBruijnLayer[K, Child]](term)
           tailcall(rendered(head, depth, Position.Function, before, names, literals)).flatMap(withHead =>
             Trampoline.folded(literalArguments(arguments).toVector, withHead)((fragments, argument) =>
               argument match
@@ -922,6 +930,11 @@ object Lambdalattice:
     def bound(name: String): Scope =
       Scope(levels.updated(name, depth), depth + 1, name)
 
+    /** The scope under `count` abstractions that bind no name, the bits of a
+      * literal binder.
+      */
+    def underBits(count: Int): Scope = copy(depth = depth + count)
+
   /** A node the grammar read: its term and the spans of the term's nodes,
     * in UTF-16 code units until `located` counts them in code points. A
     * node's extent is its span with the parentheses around it.
@@ -998,8 +1011,9 @@ object Lambdalattice:
       val binders = Vector(Vector() -> SpelledBinder.Named("t", span), Vector(0) -> SpelledBinder.Named("f", span))
       Literals.arguments(read).map(bit => Read(bit, SyntaxSpans.Generated(span, Vector.empty, Vector.empty, binders)))
 
-    /** The variable arguments partial function of the literal over the body, spanning
-      * from the literal to the body's end, the body written at its path.
+    /** The variable arguments partial function of the literal over the body,
+      * read under the literal's bits (`Scope.underBits`), spanning from the
+      * literal to the body's end, the body written at its path.
       */
     def partialFunction(literal: (Literal, Span), body: Read): Read =
       val (read, span) = literal
@@ -1028,7 +1042,7 @@ object Lambdalattice:
             missBinders.map((path, name) => (miss ++ path) -> SpelledBinder.Named(name, span))
         )
       }
-      Read(Literals.partialFunction(read, body.term), spans)
+      Read(Literals.partialFunctionUnderBits(read, body.term), spans)
 
     /** The binders of top, `(λf. (λx. f (x x)) (λx. f (x x))) (λz. λx. z ∥ x)`
       * (`Term.top`), each at its path from top's root with its name there.
@@ -1202,12 +1216,21 @@ object Lambdalattice:
 
     /** `λL. M`, the variable arguments partial function of the literal
       * (`Literals.partialFunction`), L bare or alone in parentheses, its body
-      * read in the abstraction's own scope: the bits it takes have no names.
+      * read under the abstractions of its bits, which have no names, so that
+      * its variables need no shift past them: each enclosing literal would
+      * otherwise walk the whole of the body again.
       */
     private lazy val literalAbstraction: Parsley[Read] =
       // `zip` takes its parser by name, which `afterBinder` needs, since it
-      // reads this value.
-      (binderLiteral | parenthesizedBinderLiteral).zip(afterBinder).map(Read.partialFunction(_, _))
+      // reads this value. The literal's reference is read before the body,
+      // whose own literal binders may write it.
+      (binderLiteral | parenthesizedBinderLiteral)
+        .fillRef(literal =>
+          literal.get.zip(
+            scope.local((scope.get, literal.get).zipped((current, read) => current.underBits(Literals.bits(read._1).size)))(afterBinder)
+          )
+        )
+        .map(Read.partialFunction(_, _))
 
     /** An abstraction, or a head atom applied to its arguments, nested to the
       * left: each argument a name, a term in parentheses, or a literal, bare

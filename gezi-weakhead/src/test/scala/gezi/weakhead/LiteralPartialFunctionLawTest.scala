@@ -1,5 +1,7 @@
 package gezi.weakhead
 
+import gezi.ir.NoFacts
+import gezi.ir.Value
 import hedgehog.Gen
 import hedgehog.Range
 import hedgehog.Result
@@ -29,6 +31,8 @@ import gezi.weakhead.EvaluatorTesting.*
   */
 class LiteralPartialFunctionLawTest extends GeneratedProperties:
 
+  given NoFacts.type = NoFacts
+
   private val modes = Vector(Mode.WeakHead, Mode.TablingWeakHead)
 
   private val limit: Long = 20000
@@ -51,8 +55,8 @@ class LiteralPartialFunctionLawTest extends GeneratedProperties:
 
   private val literals: Gen[Literal] = Gen.choice1(text, integer, byteString, array)
 
-  private def valueOfTerm(term: DeBruijnTerm): Value =
-    Values.ofInstruction(Defunctionalization.thunkInstruction(term), Set.empty)
+  private def valueOfTerm(term: DeBruijnTerm): Value[NoFacts.type] =
+    Values.ofInstruction(Defunctionalization.thunkInstruction(term)(using gezi.ir.NoFacts), Set.empty)
 
   property("the partial function of a literal answers its literal only") {
     for

@@ -38,11 +38,11 @@ object SetFreeScope:
   /** The loop over the unary steps (`scope_point_surface/2`,
     * `loop_surface/4`).
     */
-  def pointSurface(group: ReductionGroup, point: ScopePoint): Term =
+  def pointSurface(group: ReductionGroup, point: ScopePoint): ProblemTerm =
     loopApplied(group, point.loop, point.spelling, unary(point.steps))
 
   /** The loop of the spelling over the steps, a unary numeral. */
-  private[reductions] def loopApplied(group: ReductionGroup, loop: String, spelling: Spelling, steps: Term): Term = loop match
+  private[reductions] def loopApplied(group: ReductionGroup, loop: String, spelling: Spelling, steps: ProblemTerm): ProblemTerm = loop match
     case "fibonacci" =>
       val template = Attractors.spelledSurface(
         spelling,

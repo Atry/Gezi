@@ -1,0 +1,177 @@
+# Schemes in the zero universe of hindley_milner_unions for names its type
+# check otherwise leaves symbolic, as hindley_milner_unions and
+# binary_wren_shapes write theirs: the three constructors of the binary
+# naturals, merge_binary_increment, merge_binary_times and plover_binary_modulo
+# (the binary modulo of the library plover_compositions, which problems
+# spell the same), and the prelude's fixpoint, Turing's combinator with no
+# marker, which hindley_milner_unions types only under the marker $generic
+# (native_types' fixpoint). A `$name`-tagged library name is typed by a scheme
+# only, never by its body (unions_occurrence_candidate), so a program over
+# binary naturals or over the prelude's fixpoint keeps its types symbolic
+# without these. Enabled in the type-check round beside binary_wren_shapes,
+# whose candidacy of the binary naturals' structure the binary schemes rely
+# on: the recursive type of three alternatives written out in each binary
+# scheme below.
+#
+# Each scheme is sound by the section absorption: Name = [Name, Name ∥
+# (zero_universe_scheme S)], equation 6 (M + (M ∥ N) = M) read right to
+# left, with M the define and N the scheme, whatever the scheme says.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega corpora "library") "hindley_milner_unions") "shapes")
+λ structure alternative no_alternative field no_field recursive_type
+. omega (omega (omega (omega corpora "library") "hindley_milner_unions") "types")
+λ function_type _ scheme zero_universe_scheme _
+. omega (omega (omega (omega corpora "library") "binary") "natural")
+λ binary_zero binary_even binary_odd _ _
+. omega (omega (omega (omega corpora "library") "prelude") "fixpoint")
+λ fixpoint
+. omega (omega (omega (omega corpora "library") "binary") "arithmetic")
+λ merge_binary_increment _ merge_binary_times _
+. omega (omega (omega (omega corpora "library") "plover_compositions") "plover_compositions")
+λ _ _ plover_binary_modulo _ _ _
+. export
+λ _ rewriting _ _
+. rewriting
+λ _ lemmas _
+. lemmas
+  ( λ s
+    . s
+      (λk. k "solo_binary_increment_scheme") merge_binary_increment
+      ( merge_binary_increment
+      ∥ λ
+        . zero_universe_scheme
+        λ
+        . function_type
+          ( λ
+            . recursive_type
+            λ x_0
+            . structure
+            λ
+            . alternative no_field λ. alternative (field x_0 no_field) λ. alternative (field x_0 no_field) no_alternative
+          )
+        λ
+        . recursive_type
+        λ x_0
+        . structure
+        λ
+        . alternative no_field λ. alternative (field x_0 no_field) λ. alternative (field x_0 no_field) no_alternative
+      + merge_binary_increment
+      ) λ_ md _. md λk. k "[absorption](docs/design/gezi-hindley-milner-unions-proofs.md#absorption)"
+  + λ s
+    . s
+      (λk. k "solo_binary_times_scheme") merge_binary_times
+      ( merge_binary_times
+      ∥ λ
+        . zero_universe_scheme
+        λ
+        . function_type
+          ( λ
+            . recursive_type
+            λ x_0
+            . structure
+            λ
+            . alternative no_field λ. alternative (field x_0 no_field) λ. alternative (field x_0 no_field) no_alternative
+          )
+        λ
+        . function_type
+          ( λ
+            . recursive_type
+            λ x_0
+            . structure
+            λ
+            . alternative no_field λ. alternative (field x_0 no_field) λ. alternative (field x_0 no_field) no_alternative
+          )
+        λ
+        . recursive_type
+        λ x_0
+        . structure
+        λ
+        . alternative no_field λ. alternative (field x_0 no_field) λ. alternative (field x_0 no_field) no_alternative
+      + merge_binary_times
+      ) λ_ md _. md λk. k "[absorption](docs/design/gezi-hindley-milner-unions-proofs.md#absorption)"
+  + λ s
+    . s
+      (λk. k "solo_binary_modulo_scheme") plover_binary_modulo
+      ( plover_binary_modulo
+      ∥ λ
+        . zero_universe_scheme
+        λ
+        . function_type
+          ( λ
+            . recursive_type
+            λ x_0
+            . structure
+            λ
+            . alternative no_field λ. alternative (field x_0 no_field) λ. alternative (field x_0 no_field) no_alternative
+          )
+        λ
+        . function_type
+          ( λ
+            . recursive_type
+            λ x_0
+            . structure
+            λ
+            . alternative no_field λ. alternative (field x_0 no_field) λ. alternative (field x_0 no_field) no_alternative
+          )
+        λ
+        . recursive_type
+        λ x_0
+        . structure
+        λ
+        . alternative no_field λ. alternative (field x_0 no_field) λ. alternative (field x_0 no_field) no_alternative
+      + plover_binary_modulo
+      ) λ_ md _. md λk. k "[absorption](docs/design/gezi-hindley-milner-unions-proofs.md#absorption)"
+  # The constructors of the binary naturals, by the structures of their
+  # bodies, as hindley_milner_unions writes those of two alternatives:
+  # binary_zero, λz.λe.λo. z, the first of three alternatives with no field;
+  # binary_even, λh.λz.λe.λo. e h, the second of three with one field;
+  # binary_odd, λh.λz.λe.λo. o h, the third of three with one field.
+  + λ s
+    . s
+      (λk. k "solo_binary_zero_scheme") binary_zero
+      ( binary_zero
+      ∥ zero_universe_scheme λ. scheme λx_0. scheme λx_1. structure λ. alternative no_field λ. alternative x_0 λ. alternative x_1 no_alternative
+      + binary_zero
+      ) λ_ md _. md λk. k "[absorption](docs/design/gezi-hindley-milner-unions-proofs.md#absorption)"
+  + λ s
+    . s
+      (λk. k "solo_binary_even_scheme") binary_even
+      ( binary_even
+      ∥ λ
+        . zero_universe_scheme
+        λ
+        . scheme
+        λ x_0
+        . scheme
+        λ x_1
+        . scheme
+        λ x_2
+        . function_type x_1 λ. structure λ. alternative x_0 λ. alternative (field x_1 no_field) λ. alternative x_2 no_alternative
+      + binary_even
+      ) λ_ md _. md λk. k "[absorption](docs/design/gezi-hindley-milner-unions-proofs.md#absorption)"
+  + λ s
+    . s
+      (λk. k "solo_binary_odd_scheme") binary_odd
+      ( binary_odd
+      ∥ λ
+        . zero_universe_scheme
+        λ
+        . scheme
+        λ x_0
+        . scheme
+        λ x_1
+        . scheme
+        λ x_2
+        . function_type x_1 λ. structure λ. alternative x_0 λ. alternative x_2 λ. alternative (field x_1 no_field) no_alternative
+      + binary_odd
+      ) λ_ md _. md λk. k "[absorption](docs/design/gezi-hindley-milner-unions-proofs.md#absorption)"
+  # The prelude's fixpoint, Turing's fixed point combinator with no marker, by
+  # the scheme forall b. (b -> b) -> b that hindley_milner_unions gives the
+  # marked fixpoint of native_types.
+  + λ s
+    . s
+      (λk. k "solo_prelude_fixpoint_scheme") fixpoint
+      (fixpoint ∥ zero_universe_scheme λ. scheme λx_0. function_type (function_type x_0 x_0) x_0 + fixpoint) λ_ md _. md λk. k "[absorption](docs/design/gezi-hindley-milner-unions-proofs.md#absorption)"
+  )

@@ -1,5 +1,8 @@
 package gezi.contest
 
+import gezi.ir.NoFacts
+import gezi.ir.StorageAccess
+
 /** The contest judge:
   * a round's points file ([[PointsFile]], written with
   * `judgePointsFile` or [[PointsFile.written]]), the reference readers
@@ -15,4 +18,13 @@ package gezi.contest
   * depends on `contest-entry`, `contest-runner`, `contest-corpora` and
   * `jit`.
   */
-package object judge
+package object judge:
+
+  /** The judge reads and writes every term under no facts: the reference readers' programs, the points file's lines,
+    * the entries' answer lines (`gezi.contest.runner.PipeLines.answerRead`). An entry's own configuration is its
+    * JVM's.
+    */
+  private[judge] given NoFacts.type = NoFacts
+
+  /** The capability to read a storage's view under no facts, which have no storage: the judge's own, granted here. */
+  private[judge] given StorageAccess = StorageAccess.granted()

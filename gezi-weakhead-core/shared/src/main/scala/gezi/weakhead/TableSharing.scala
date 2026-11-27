@@ -6,6 +6,7 @@ import gezi.hotspot.CacheGuard
 import gezi.hotspot.CacheNamespace
 import gezi.hotspot.ExpansionSource
 import gezi.hotspot.Retention
+import gezi.ir.{NativeSpecializer, Value}
 
 /** Whether a reading's complete tables of `tabling(weak_head)` are kept in
   * the cache service beside its state, so that other readings read them
@@ -44,14 +45,26 @@ enum TableSharing:
     * extremes never reads the tables of the first, each table kept with the
     * mark of its head (`SharedReadingTables`).
     */
-  def completedTables(state: ReadingState): CompletedTables[ReadingState, Value, ParallelSet] = this match
-    case TableSharing.Local => CompletedTables.unshared
-    case TableSharing.Shared(cache, retention, source) =>
-      SharedReadingTables(
-        cache,
-        CompletedTableNamespace(state.extremes, state.applications, state.continuations, state.parallels, source, retention),
-        state.unverified
-      )
+  def completedTables[C <: NativeSpecializer & Singleton](
+      state: ReadingState[C]
+  ): CompletedTables[ReadingState[C], Value[C], ParallelSet[C]] =
+    this match
+      case TableSharing.Local => CompletedTables.unshared
+      case TableSharing.Shared(cache, retention, source) =>
+        SharedReadingTables(
+          cache,
+          CompletedTableNamespace(
+            state.extremes,
+            state.applications,
+            state.continuations,
+            state.parallels,
+            state.storages,
+            state.specializer,
+            source,
+            retention
+          ),
+          state.unverified
+        )
 
 /** A complete table of `tabling(weak_head)` as the cache service keeps it:
   * its answers, and whether the head of its key, a function applied to an
@@ -62,25 +75,29 @@ enum TableSharing:
   * in the one entry with the answers, which the service keeps or drops
   * together under every retention.
   */
-final case class KeptTable(answers: AnswerSet[ParallelSet], unverified: Boolean)
+final case class KeptTable[C <: NativeSpecializer & Singleton](answers: AnswerSet[ParallelSet[C]], unverified: Boolean)
 
 /** The namespace of the complete tables of `tabling(weak_head)` read under
   * one set of inputs: a key is an interned value, and the namespace holds
   * every other input the table's answers depend on, the known extremes, the
   * application reading, the continuation reading (whose `Packed` may lose
   * answers `Substituted` finds), the parallel reading (whose `HeadsMet` may
-  * lose answers `BothSides` finds) and the expansion source, so that two readings share
+  * lose answers `BothSides` finds), the storage reading (which natives a reading calls),
+  * the native specializer whose spelling the tables' terms are in (a term of one configuration is never read under another)
+  * and the expansion source, so that two readings share
   * a table only where they would compute the same one. Two namespaces are
   * one when their fields are equal.
   */
-final case class CompletedTableNamespace(
+final case class CompletedTableNamespace[C <: NativeSpecializer & Singleton](
     extremes: KnownExtremes,
     applications: ApplicationReading,
     continuations: ContinuationReading,
     parallels: ParallelReading,
+    storages: Option[StorageReading[C]],
+    specializer: C,
     source: ExpansionSource,
     override val retention: Retention
-) extends CacheNamespace[Value, KeptTable]("weakhead.completed_tables")
+) extends CacheNamespace[Value[C], KeptTable[C]]("weakhead.completed_tables")
 
 /** The complete tables of `tabling(weak_head)` kept in a namespace of the
   * cache service, each with the mark of its key's head (`KeptTable`): a
@@ -91,17 +108,21 @@ final case class CompletedTableNamespace(
   * Each call takes the namespace's lock on its own and releases it before it
   * returns, so no guard escapes it.
   */
-final case class SharedReadingTables(cache: Cache, namespace: CompletedTableNamespace, unverified: Set[Value])
-    extends CompletedTables[ReadingState, Value, ParallelSet]:
+final case class SharedReadingTables[C <: NativeSpecializer & Singleton](
+    cache: Cache,
+    namespace: CompletedTableNamespace[C],
+    unverified: Set[Value[C]]
+) extends CompletedTables[ReadingState[C], Value[C], ParallelSet[C]]:
 
-  def found(key: Value): Option[(AnswerSet[ParallelSet], ReadingState => ReadingState)] =
-    cache.locked(namespace)(_.tryGet(key)).map(kept =>
-      (kept.answers, SharedReadingTables.markedHead(key).filter(_ => kept.unverified).fold(identity[ReadingState]) { head => state =>
-        state.copy(unverified = state.unverified + head)
-      })
-    )
+  private given specializer: C = namespace.specializer
 
-  def kept(leader: Value, members: Vector[Value], complete: Map[Value, AnswerSet[ParallelSet]]): Unit =
+  def found(key: Value[C]): Option[(AnswerSet[ParallelSet[C]], ReadingState[C] => ReadingState[C])] =
+    cache.locked(namespace)(_.tryGet(key)).map { kept =>
+      val marked = SharedReadingTables.markedHead(key).filter(_ => kept.unverified)
+      (kept.answers, marked.fold(identity[ReadingState[C]])(head => state => state.copy(unverified = state.unverified + head)))
+    }
+
+  def kept(leader: Value[C], members: Vector[Value[C]], complete: Map[Value[C], AnswerSet[ParallelSet[C]]]): Unit =
     val tables = (leader +: members).map(key =>
       key -> KeptTable(complete(key), SharedReadingTables.markedHead(key).exists(unverified.contains))
     )
@@ -115,7 +136,7 @@ object SharedReadingTables:
     * applied to the pack. A mark kept with another application of the same
     * head states the same fact of the head.
     */
-  def markedHead(key: Value): Option[Value] = key match
+  def markedHead[C <: NativeSpecializer & Singleton](key: Value[C])(using C): Option[Value[C]] = key match
     case Value.Apply(head, _) => Some(head)
     case _                    => None
 

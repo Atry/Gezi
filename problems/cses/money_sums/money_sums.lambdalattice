@@ -1,10 +1,12 @@
 # money_sums:
 # CSES 1745, Money Sums (https://cses.fi/problemset/task/1745), in our own
 # words: given the values of some coins, the sums of money that some nonempty
-# set of the coins makes, each sum listed once, in increasing order. The input is
+# set of the coins makes, each sum counted once. The input is
 # a Scott list (corpora/library/prelude/list) of positive binary naturals
-# (corpora/library/binary/natural) and the answer a Scott list of binary naturals.
-# Part of the CSES port's third batch.
+# (corpora/library/binary/natural) and the answer the sum of those distinct sums, a
+# binary natural (CSES asks the list of the sums; the sum keeps the work and makes the
+# answer one number, where the list of distinct sums at the top rung made a point's
+# answer and its trap megabytes). Part of the CSES port's third batch.
 #
 # THE PROGRAM, written by the definition: the list of the sums of all nonempty
 # subsets of the coins is built (the subsets of a coin followed by the others are
@@ -19,9 +21,9 @@
 #
 # DEFINITION 14: the program P, the point's term, is built of λ and application
 # only: its text holds no top, no choice, no parallel and no literal. It β-reduces
-# to V, the Scott list of the canonical binary numerals of the answer: every
-# recursion ends, since nonempty_sums consumes the finite list of coins and
-# every other recursion consumes a finite list; the branches that a Scott boolean
+# to V, the canonical binary numeral of the sum of the distinct sums: every
+# recursion ends, since nonempty_sums consumes the finite list of coins, the sum
+# consumes the finite list of distinct sums, and every other recursion consumes a finite list; the branches that a Scott boolean
 # discards are never read. The program calls no subtraction. So ⊢_β P = V, and P ≃_O V by the soundness of the derivable
 # equations for the contextual preorder of Definition 14 (Lean
 # `ContextualPreorder.contextualEquivalenceOfDerivableLatticeEta`): V is an
@@ -36,6 +38,8 @@
 λ fixpoint
 . omega (omega (omega (omega (omega gezi "corpora") "library") "prelude") "list")
 λ nil cons append map _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "natural")
+λ binary_zero _ _ _ _
 . omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "arithmetic")
 λ _ merge_binary_plus _ merge_binary_equality
 . omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "order")
@@ -69,6 +73,13 @@
       . self others (insert sum accumulated)
   )
 λ sorted_distinct
-. (λtuple. tuple λcoins. sorted_distinct (nonempty_sums coins) nil)
+. ( λ tuple
+    . tuple
+    λ coins
+    . fixpoint
+      ( λ self total rest
+        . rest total λ sum others. self (merge_binary_plus total sum) others
+      ) binary_zero (sorted_distinct (nonempty_sums coins) nil)
+  )
 λ money_sums
 . export money_sums

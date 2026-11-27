@@ -8,7 +8,8 @@ import gezi.generatedinputs.GeneratedProperties
 import gezi.generatedinputs.HoasGenerators
 import gezi.ir.Code
 import gezi.ir.Hole
-import gezi.ir.Instruction
+import gezi.ir.Configured
+import gezi.ir.NoFacts
 import gezi.rewritetrace.PositionSegment
 import gezi.rewritetrace.Positions
 import gezi.rewritetrace.ReplaySpelling
@@ -40,18 +41,22 @@ import gezi.rewritetrace.ReplaySpelling
   */
 class ReplaySpellingLawTest extends GeneratedProperties:
 
-  private def readback(term: Instruction): String = gezi.frontend.Lambdalattice.closedText(term)
+  private given NoFacts.type = NoFacts
 
-  private val frontEndTerms: Gen[Instruction] =
-    HoasGenerators.closedTerm.map(term => Defunctionalization.thunkInstruction(term.deBruijnTerm(Map.empty)))
+  private given gezi.ir.StorageAccess = gezi.ir.StorageAccess.granted()
 
-  private val residuals: Gen[Instruction] =
+  private def readback(term: Configured[NoFacts.type]): String = gezi.frontend.Lambdalattice.closedText(term)
+
+  private val frontEndTerms: Gen[Configured[NoFacts.type]] =
+    HoasGenerators.closedTerm.map(term => Defunctionalization.thunkInstruction[gezi.ir.NoFacts.type](term.deBruijnTerm(Map.empty))(using gezi.ir.NoFacts))
+
+  private val residuals: Gen[Configured[NoFacts.type]] =
     for
       thunk <- ResidualPrograms.thunks
       argument <- frontEndTerms
     yield ResidualPrograms.residual(thunk, argument)
 
-  private val terms: Gen[Instruction] = Gen.choice1(frontEndTerms, residuals)
+  private val terms: Gen[Configured[NoFacts.type]] = Gen.choice1(frontEndTerms, residuals)
 
   property("a term's spelling reads back to the term's readback") {
     for term <- terms.forAll
@@ -72,7 +77,7 @@ class ReplaySpellingLawTest extends GeneratedProperties:
 
   property("every thunk with holes of a spelled term is its own respelling") {
     for term <- terms.forAll
-    yield Result.diff(ResidualPrograms.respellable(ReplaySpelling.term(term)), Set.empty[Instruction])(_ == _)
+    yield Result.diff(ResidualPrograms.respellable(ReplaySpelling.term(term)), Set.empty[Configured[NoFacts.type]])(_ == _)
   }
 
   /** A thunk of one hole z whose code is `z (s1 (s1 (… (s1 s2))))`, `depth`
@@ -81,14 +86,14 @@ class ReplaySpellingLawTest extends GeneratedProperties:
     * The depth stays under the bound of `BindingNormalForm.respelled`, which
     * recurses on the code (its FIXME at `read`).
     */
-  private val deepCodes: Gen[(Instruction, Instruction)] =
+  private val deepCodes: Gen[(Configured[NoFacts.type], Configured[NoFacts.type])] =
     for
       depth <- Gen.int(Range.linear(200, 1000))
       first <- frontEndTerms
       second <- frontEndTerms
     yield
       val chain = (1 to depth).foldLeft(Code.Slot(2))((inner, _) => Code.Apply(Code.Slot(1), inner))
-      (Instruction.Thunk(Code.Apply(Code.Slot(0), chain), Vector(Hole.Bound(0)), Vector(first, second)), second)
+      (NoFacts.thunkOrInstance(Code.Apply(Code.Slot(0), chain), Vector(Hole.Bound(0)), Vector(first, second)), second)
 
   /** Purpose: catch positions translated wrongly through a respelled
     * filling as deep as its code: the spelling leaves no thunk respellable,
@@ -104,7 +109,7 @@ class ReplaySpellingLawTest extends GeneratedProperties:
       val found = ReplaySpelling.positions(thunk, Vector(PositionSegment.Filling(1)))
       Result.all(
         List(
-          Result.diff(ResidualPrograms.respellable(spelled), Set.empty[Instruction])(_ == _),
+          Result.diff(ResidualPrograms.respellable(spelled), Set.empty[Configured[NoFacts.type]])(_ == _),
           Result.assert(found.nonEmpty).log("the second filling has no position in the spelling"),
           Result.assert(found.forall(position => Positions.subterm(spelled, position) eq second)).log(s"${found.size} positions")
         )

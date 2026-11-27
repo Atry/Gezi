@@ -1,0 +1,70 @@
+exponentiation_two_point
+  cses_exponentiation_two_sample_small: Site(3,7,1) => 2187
+  cses_exponentiation_two_fifteen_squared_twice: Site(15,2,2) => 50625
+  cses_exponentiation_two_exponent_to_the_zero_power: Site(5,4,0) => 5
+  cses_exponentiation_two_base_to_the_zero: Site(7,0,2) => 1
+  cses_exponentiation_two_one_exponent: Site(5,1,9) => 5
+  cses_exponentiation_two_base_zero: Site(0,2,3) => 0
+  cses_exponentiation_two_two_to_the_nine: Site(2,3,2) => 512
+  cses_exponentiation_two_zero_to_the_zero_power: Site(0,0,0) => 0
+ferris_wheel_point
+  cses_ferris_wheel_sample: Site(10,Vector(7, 2, 3, 9)) => 3
+  cses_ferris_wheel_single_child: Site(5,Vector(5)) => 1
+  cses_ferris_wheel_pairs_of_ones: Site(4,Vector(1, 1, 1, 1)) => 2
+  cses_ferris_wheel_no_pair_fits: Site(6,Vector(4, 4, 4)) => 3
+  cses_ferris_wheel_two_pairs: Site(7,Vector(3, 4, 4, 3)) => 2
+  cses_ferris_wheel_pairing_the_lightest_is_not_enough: Site(8,Vector(2, 6, 6, 3)) => 3
+missing_number_point
+  cses_missing_number_sample: Site(5,Vector(2, 3, 1, 5)) => 4
+  cses_missing_number_single_number: Site(1,Vector()) => 1
+  cses_missing_number_first_lost: Site(2,Vector(2)) => 1
+  cses_missing_number_last_lost: Site(3,Vector(2, 1)) => 3
+  cses_missing_number_middle_lost_in_order: Site(6,Vector(1, 2, 4, 5, 6)) => 3
+repetitions_point
+  cses_repetitions_sample: Site(Vector(0, 3, 3, 1, 2, 2, 2, 0)) => 3
+  cses_repetitions_single_letter: Site(Vector(2)) => 1
+  cses_repetitions_one_run: Site(Vector(1, 1, 1, 1)) => 4
+  cses_repetitions_alternating: Site(Vector(0, 1, 0, 1)) => 1
+  cses_repetitions_longest_in_the_middle: Site(Vector(2, 2, 0, 0, 0, 3, 1)) => 3
+  cses_repetitions_two_equal_runs: Site(Vector(3, 3, 1, 1, 0, 2)) => 2
+static_range_minimums_point
+  cses_static_range_minimums_sample: Site(Vector(3, 2, 4, 5, 1, 1, 5, 3),Vector((2,4), (5,6), (1,8), (3,3))) => 8
+  cses_static_range_minimums_single_value: Site(Vector(5),Vector((1,1))) => 5
+  cses_static_range_minimums_whole_list_increasing: Site(Vector(1, 2, 3, 4),Vector((1,4), (2,4))) => 3
+  cses_static_range_minimums_same_query_twice: Site(Vector(4, 2, 6, 3),Vector((2,3), (2,3))) => 4
+  cses_static_range_minimums_minimum_at_the_edge: Site(Vector(9, 7, 8, 5),Vector((1,3), (3,4), (4,4))) => 17
+string_matching_point
+  cses_string_matching_sample: Site(Vector(18, 0, 8, 15, 15, 20, 0, 10, 0, 20, 15, 15, 8, 0, 18),Vector(15, 15)) => 2
+  cses_string_matching_single_letter: Site(Vector(0),Vector(0)) => 1
+  cses_string_matching_overlapping: Site(Vector(0, 0, 0, 0),Vector(0, 0)) => 3
+  cses_string_matching_pattern_longer_than_text: Site(Vector(0, 1),Vector(0, 1, 2)) => 0
+  cses_string_matching_no_occurrence: Site(Vector(0, 1, 0, 1),Vector(1, 1)) => 0
+  cses_string_matching_whole_text: Site(Vector(0, 1, 2),Vector(0, 1, 2)) => 1
+subarray_sums_point
+  cses_subarray_sums_sample: Site(7,Vector(2, 4, 1, 2, 7)) => 3
+  cses_subarray_sums_single_number: Site(5,Vector(5)) => 1
+  cses_subarray_sums_one_window: Site(3,Vector(1, 1, 1)) => 1
+  cses_subarray_sums_no_window: Site(4,Vector(3, 3, 3)) => 0
+  cses_subarray_sums_overlapping_windows: Site(2,Vector(1, 1, 1, 1)) => 3
+  cses_subarray_sums_large_numbers: Site(6,Vector(6, 1, 5, 6)) => 3
+sum_of_two_values_point
+  cses_sum_of_two_values_sample: Site(8,Vector(2, 7, 5, 1)) => 1
+  cses_sum_of_two_values_no_pair: Site(3,Vector(1, 1)) => 0
+  cses_sum_of_two_values_single_number: Site(10,Vector(5)) => 0
+  cses_sum_of_two_values_equal_numbers: Site(4,Vector(2, 2, 2)) => 3
+  cses_sum_of_two_values_every_pair: Site(2,Vector(1, 1, 1, 1)) => 6
+  cses_sum_of_two_values_two_pairs: Site(6,Vector(1, 2, 3, 4, 5)) => 2
+tree_diameter_point
+  cses_tree_diameter_sample: Site(5,Vector((1,2), (1,3), (3,4), (3,5))) => 3
+  cses_tree_diameter_single_node: Site(1,Vector()) => 0
+  cses_tree_diameter_single_edge: Site(2,Vector((1,2))) => 1
+  cses_tree_diameter_path: Site(4,Vector((1,2), (2,3), (3,4))) => 3
+  cses_tree_diameter_star: Site(4,Vector((1,2), (1,3), (1,4))) => 2
+  cses_tree_diameter_edges_written_backwards: Site(5,Vector((2,1), (3,2), (4,3), (5,3))) => 3
+tree_matching_point
+  cses_tree_matching_sample: Site(5,Vector((1,2), (1,3), (3,4), (3,5))) => 2
+  cses_tree_matching_single_node: Site(1,Vector()) => 0
+  cses_tree_matching_single_edge: Site(2,Vector((1,2))) => 1
+  cses_tree_matching_path: Site(4,Vector((1,2), (2,3), (3,4))) => 2
+  cses_tree_matching_star: Site(4,Vector((1,2), (1,3), (1,4))) => 1
+  cses_tree_matching_edges_written_backwards: Site(5,Vector((2,1), (3,2), (4,3), (5,3))) => 2

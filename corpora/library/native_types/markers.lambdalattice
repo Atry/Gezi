@@ -1,4 +1,4 @@
-# The four markers: each
+# The five markers: each
 # is the identity on what it wraps, spelled as a one-key partial function of a
 # literal, of the identity, applied to that literal, and then to the wrapped
 # term: (λ"$k". λv. v) "$k" is λv. v by the β rule (a partial function of a
@@ -34,4 +34,12 @@
 # noinline. Evaluation reads c and never reads t.
 . (λtuple. tuple λt c. (λ"$closure" v. v) "$closure" c)
 λ $closure
-. export $generic $constructor $name $closure
+# $repelled:
+# The marker of a term the extraction does not spell: a class that holds
+# $repelled applied to a term has no entry, so no term the extraction spells
+# reads through it (the combinator property repeller); noinline. The
+# knowledge writes it at a typed version's filter whose operand's type is
+# refuted for the filter.
+. (λtuple. tuple λx. (λ"$repelled" v. v) "$repelled" x)
+λ $repelled
+. export $generic $constructor $name $closure $repelled

@@ -1,5 +1,9 @@
 package gezi.weakhead
 
+import gezi.ir.NoFacts
+import gezi.ir.NativeSpecializer.*
+import gezi.ir.Configured
+import gezi.ir.Value
 import hedgehog.Gen
 import hedgehog.Range
 import hedgehog.Result
@@ -7,7 +11,6 @@ import gezi.frontend.Defunctionalization
 import gezi.frontend.Literals
 import gezi.generatedinputs.GeneratedProperties
 import gezi.generatedinputs.HoasGenerators
-import gezi.ir.Instruction
 
 /** The options of `ApplicationReading` on generated closed terms, read
   * under the extremes of the contest's readings (top a greatest term,
@@ -36,25 +39,27 @@ import gezi.ir.Instruction
   */
 class ApplicationReadingLawTest extends GeneratedProperties:
 
+  given NoFacts.type = NoFacts
+
   /** The steps of one reading, `TopKnowledgeLawTest`'s limit. */
   private val limit: Long = 20000
 
-  private val top: Instruction = Defunctionalization.thunkInstruction(Literals.top)
+  private val top: Configured[NoFacts.type] = Defunctionalization.thunkInstruction[NoFacts.type](Literals.top)
 
-  private val terms: Gen[Instruction] =
+  private val terms: Gen[Configured[NoFacts.type]] =
     val generated = HoasGenerators.evaluatorInstruction(8)
     Gen.frequency1(
       2 -> generated,
-      1 -> generated.list(Range.linear(1, 3)).map(_.foldLeft(top)(Instruction.Apply(_, _)))
+      1 -> generated.list(Range.linear(1, 3)).map(_.foldLeft(top)(NoFacts.application(_, _)))
     )
 
   private def heads(
       mode: Mode,
-      term: Instruction,
+      term: Configured[NoFacts.type],
       applications: ApplicationReading
-  ): Bounded[Vector[ParallelSet]] =
-    val start = ReadingState.knowingTop(limit).copy(applications = applications)
-    WeakHead.heads(mode, term).collected.result(start) match
+  ): Bounded[Vector[ParallelSet[NoFacts.type]]] =
+    val start = ReadingState.knowingTop(limit, gezi.weakhead.ReadingConfiguration.withoutFacts).copy(applications = applications)
+    WeakHead.heads(mode, Value.of(term)).collected.result(start) match
       case Computed.Done(found, _) => Bounded.Finished(found)
       case Computed.Stopped(after) => EvaluatorTesting.stopped(after)
 
@@ -84,21 +89,21 @@ class ApplicationReadingLawTest extends GeneratedProperties:
     * tables (its divergence points) and what it reads from a table (its
     * longest tabled prefix).
     */
-  private val sharedSpines: Gen[Instruction] =
+  private val sharedSpines: Gen[Configured[NoFacts.type]] =
     for
       head <- HoasGenerators.evaluatorInstruction(4)
       pool <- HoasGenerators.evaluatorInstruction(2).list(Range.singleton(3)).map(_.toVector)
       spines <- Gen.int(Range.constant(0, 2)).list(Range.linear(1, 5)).list(Range.linear(1, 4))
     yield spines
-      .map(_.foldLeft(head)((function, index) => Instruction.Apply(function, pool(index))))
-      .reduceLeft(Instruction.Choice(_, _))
+      .map(_.foldLeft(head)((function, index) => NoFacts.application(function, pool(index))))
+      .reduceLeft(NoFacts.choice(_, _))
 
   /** Keys of two letters looked up in a choice of variable arguments partial
     * functions of literals (`λ"key". value`), each lookup the record applied
     * to its key's elements (`Literals.arguments`), several lookups in one
     * choice: a binary trie, whose branch nodes are `BySharedPrefix`'s divergence points.
     */
-  private val lookups: Gen[Instruction] =
+  private val lookups: Gen[Configured[NoFacts.type]] =
     val key = Gen.string(Gen.element1('a', 'b'), Range.linear(1, 4))
     for
       fields <- key.list(Range.linear(1, 4)).map(_.distinct.toVector)
@@ -108,18 +113,18 @@ class ApplicationReadingLawTest extends GeneratedProperties:
         .map((name, value) =>
           Defunctionalization.thunkInstruction(
             Literals.partialFunction(gezi.frontend.Literal.text(name), Literals.integerTerm(BigInt(value)))
-          )
+          )(using gezi.ir.NoFacts): Configured[NoFacts.type]
         )
-        .reduceLeft(Instruction.Choice(_, _))
+        .reduceLeft(NoFacts.choice(_, _))
       looked
         .map(name =>
           Literals
             .arguments(gezi.frontend.Literal.text(name))
-            .foldLeft(record)((function, element) => Instruction.Apply(function, Defunctionalization.thunkInstruction(element)))
+            .foldLeft(record)((function, element) => NoFacts.application(function, Defunctionalization.thunkInstruction(element)(using gezi.ir.NoFacts)): Configured[NoFacts.type])
         )
-        .reduceLeft(Instruction.Choice(_, _))
+        .reduceLeft(NoFacts.choice(_, _))
 
-  private val shared: Gen[Instruction] = Gen.frequency1(1 -> terms, 2 -> sharedSpines, 2 -> lookups)
+  private val shared: Gen[Configured[NoFacts.type]] = Gen.frequency1(1 -> terms, 2 -> sharedSpines, 2 -> lookups)
 
   /** The steps of one reading of the law below. Lower than `limit`: a
     * generated self-application that never finishes runs to the limit, and
@@ -140,9 +145,9 @@ class ApplicationReadingLawTest extends GeneratedProperties:
   private val sharedLimit: Long = 2000
 
   /** The heads of a tabled reading and the keys of the tables it completed. */
-  private def tabled(term: Instruction, applications: ApplicationReading): Bounded[(Set[ParallelSet], Set[Value])] =
-    val start = ReadingState.knowingTop(sharedLimit).copy(applications = applications)
-    WeakHead.heads(Mode.TablingWeakHead, term).collected.result(start) match
+  private def tabled(term: Configured[NoFacts.type], applications: ApplicationReading): Bounded[(Set[ParallelSet[NoFacts.type]], Set[Value[NoFacts.type]])] =
+    val start = ReadingState.knowingTop(sharedLimit, gezi.weakhead.ReadingConfiguration.withoutFacts).copy(applications = applications)
+    WeakHead.heads(Mode.TablingWeakHead, Value.of(term)).collected.result(start) match
       case Computed.Done(found, after) => Bounded.Finished((found.toSet, after.tables.complete.keySet))
       case Computed.Stopped(after)     => EvaluatorTesting.stopped(after)
 

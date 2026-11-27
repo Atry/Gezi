@@ -118,7 +118,21 @@ object SourceMap:
   val unlocated: SourceMap = SourceMap(Set.empty, None, Vector.empty, Vector.empty)
 
   /** A place with its locations and nothing below it. */
-  def leaf(locations: Set[Location]): SourceMap = SourceMap(locations, None, Vector.empty, Vector.empty)
+  def leaf(locations: Set[Location]): SourceMap =
+    if locations.isEmpty then unlocated else SourceMap(locations, None, Vector.empty, Vector.empty)
+
+  /** The map of a place with its parts, `unlocated` itself when neither the
+    * place nor anything below it is located, since such a map locates nothing
+    * below its place: a term read with no spans builds no map of its shape.
+    */
+  def of(locations: Set[Location], code: Option[SourceMap], children: Vector[SourceMap], binders: Vector[Set[BinderOrigin]]): SourceMap =
+    if locations.isEmpty && binders.isEmpty && code.forall(_ eq unlocated) && children.forall(_ eq unlocated) then unlocated
+    else SourceMap(locations, code, children, binders)
+
+  /** `of` a place of two parts and no code. */
+  def pair(locations: Set[Location], left: SourceMap, right: SourceMap): SourceMap =
+    if locations.isEmpty && (left eq unlocated) && (right eq unlocated) then unlocated
+    else SourceMap(locations, None, Vector(left, right), Vector.empty)
 
   /** The map of the code alone: the map with each slot's place a leaf at its
     * locations, an inner thunk's code included. A slot's place may hold the

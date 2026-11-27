@@ -22,15 +22,20 @@ import gezi.weakhead.NoJitState
   */
 class InstanceCheckpointsLawTest extends GeneratedProperties:
 
-  private def configuration(checkpoints: InstanceCheckpoints): JitConfiguration =
-    JitConfiguration(
-      noFacts,
+  private val encoding = noFactsEncoding
+
+  private given encoding.type = encoding
+
+  private def configuration(checkpoints: InstanceCheckpoints): JitConfiguration[encoding.type] =
+    JitConfiguration[encoding.type](
+      encoding,
       JitConfiguration.defaultBudget,
       PredicatePerCode,
       ClosureBackend,
       DispatchMode.NoDispatch,
       instanceTable = true,
-      instanceCheckpoints = checkpoints
+      instanceCheckpoints = checkpoints,
+      storageAccess = gezi.ir.StorageAccess.granted()
     )
 
   private val limit: Long = 200000
@@ -48,11 +53,11 @@ class InstanceCheckpointsLawTest extends GeneratedProperties:
         case Vector(only) => only
         case other        => throw IllegalStateException(s"one value per term, not ${other.size}")
       def read(checkpoints: InstanceCheckpoints) =
-        NativesTesting.normalFormsSpent(Mode.Jit(Jit(configuration(checkpoints))), value, limit, NoJitState)
+        NativesTesting.normalFormsSpent(Jit(configuration(checkpoints)), value, limit, NoJitState)
       val default = read(ProfitableCheckpoints)
       val policy = read(EveryStepsCheckpoints(interval))
       (default.outcome, policy.outcome) match
         case (Bounded.Finished(expected), Bounded.Finished(found)) =>
-          Result.diff(found, expected)(_ == _).log(s"interval $interval, term $term")
+          Result.assert(sameTerms(found, expected)).log(s"interval $interval, term $term")
         case _ => Result.success
   }

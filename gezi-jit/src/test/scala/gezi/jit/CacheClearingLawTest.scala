@@ -11,16 +11,16 @@ import gezi.generatedinputs.GeneratedProperties
 import gezi.generatedinputs.HoasGenerators
 import gezi.hotspot.Cache
 import gezi.hotspot.baselines.BaselineCaches
-import gezi.ir.Instruction
-import gezi.ir.Layer
+import gezi.frontend.TermOf
+import gezi.ir.NoFacts
 import gezi.jit.NativesTesting.normalFormsSpent
 import gezi.strategies.DispatchStrategies
 import gezi.strategies.StrategyTesting
 import gezi.weakhead.Bounded
 import gezi.weakhead.Mode
 import gezi.weakhead.NoJitState
-import gezi.weakhead.Value
-import gezi.ir.Choice
+import gezi.ir.Value
+import gezi.ir.{Configured, NativeSpecializer}
 
 /** The clearing law (clearing a cache changes only cost, never an answer)
   * on the cache service of the baseline and `jit`'s namespace
@@ -54,17 +54,23 @@ import gezi.ir.Choice
   */
 class CacheClearingLawTest extends GeneratedProperties:
 
+  given gezi.ir.StorageAccess = gezi.ir.StorageAccess.granted()
+
   // Measured 2026-11-16 on 2 CPUs (contest-lean.slice, CPUs 10,11, nice 10), the 1-minute load 9 to 22 over the run, every deadline raised to 600 s: the slowest test of CacheClearingLawTest, "a filled cache service dispatches and reads what an empty one does", takes 8.287 s; the bound is 1.5 times that rounded up to 5 s.
   // FIXME: this suite exceeds the 3 s default with no reason yet; its slow tests are to be made fast. https://github.com/Atry/private-overlay/issues/1925
   override val munitTimeout: scala.concurrent.duration.Duration = scala.concurrent.duration.Duration(15, "s")
 
   /** The natives-on library, its facts, the type check's round, the strategies with their schedule, the JIT and the generators' leaves, forced before the first test and not charged to it (FailFastSuite). */
   override def sharedFixtures: Vector[scala.concurrent.Future[Unit] => Any] =
-    Vector(_ => library, _ => facts, _ => knowledge, _ => strategies, _ => jit, _ => JitTesting.nativeRouteLeaves)
+    Vector(_ => library, _ => facts, _ => knowledge, _ => strategies, _ => jit, _ => JitTesting.nativeRouteLeaves[NoFacts.type](using NoFacts))
 
   private lazy val library = NativesTesting.nativesOn
 
   private lazy val facts = BackendFacts.of(library)
+
+  private lazy val encoding: StorageEncoding = facts.storageEncoding
+
+  private given encoding.type = encoding
 
   private lazy val knowledge = StrategyTesting.round("prolog_backend_type_check")
 
@@ -77,24 +83,24 @@ class CacheClearingLawTest extends GeneratedProperties:
     * without the refinement passed with it.)
     */
   private object Doubled extends OutputRefinement:
-    def refined(facts: BackendFacts, output: Instruction): Instruction =
-      Instruction(Choice(output, output))
+    def refined[C <: NativeSpecializer & Singleton](specializer: StorageEncoding & C, output: Configured[C])(using gezi.ir.StorageAccess): Configured[C] =
+      specializer.choice(output, output)
 
   /** Three strategies of one dispatch strategy, so one JIT reads them all:
     * the schedule of 300 instances a round refined as the baseline refines,
     * the same schedule refined by `Doubled`, and its first round alone, the
     * type check without the erasure of the occurrence tags.
     */
-  private lazy val strategies: Vector[CompilationStrategy] =
-    val schedule = BaselineRounds.nativeRouteSchedule(library, knowledge, 300)
+  private lazy val strategies: Vector[CompilationStrategy[encoding.type]] =
+    val schedule = BaselineRounds.nativeRouteSchedule[encoding.type](library, knowledge, 300)
     Vector(
-      CompilationStrategy(DispatchStrategies.fallback, schedule),
-      CompilationStrategy(DispatchStrategies.fallback, schedule, Doubled),
-      CompilationStrategy(DispatchStrategies.fallback, schedule.take(1))
+      CompilationStrategy[encoding.type](DispatchStrategies.fallback, schedule),
+      CompilationStrategy[encoding.type](DispatchStrategies.fallback, schedule, Doubled),
+      CompilationStrategy[encoding.type](DispatchStrategies.fallback, schedule.take(1))
     )
 
   private lazy val jit =
-    Jit(JitConfiguration(facts, JitConfiguration.defaultBudget, PredicatePerCode, ClosureBackend, DispatchMode.Dispatch(DispatchStrategies.fallback), instanceTable = false))
+    Jit(JitConfiguration[encoding.type](encoding, JitConfiguration.defaultBudget, PredicatePerCode, ClosureBackend, DispatchMode.Dispatch(DispatchStrategies.fallback), instanceTable = false, storageAccess = gezi.ir.StorageAccess.granted()))
 
   /** The steps a reading may take. A reading's heap grows linearly with its
     * steps: measured
@@ -105,23 +111,24 @@ class CacheClearingLawTest extends GeneratedProperties:
     */
   private val limit: Long = 20000
 
-  private def closedProgram: Gen[Term] =
+  private def closedProgram: Gen[TermOf[Configured[NoFacts.type]]] =
     for
       nodes <- Gen.int(Range.linear(1, 12))
-      open <- HoasGenerators.openTermOver(0, nodes, JitTesting.nativeRouteLeaves)
+      open <- HoasGenerators.openTermOver(0, nodes, JitTesting.nativeRouteLeaves[NoFacts.type](using NoFacts))
     yield open(Vector.empty)
 
-  private def strategy: Gen[CompilationStrategy] = Gen.int(Range.constant(0, 2)).map(strategies(_))
+  private def strategy: Gen[CompilationStrategy[encoding.type]] = Gen.int(Range.constant(0, 2)).map(strategies(_))
 
   /** The program interned and dispatched under the strategy with the
     * service: the input and the dispatch.
     */
-  private def dispatched(program: Term, strategy: CompilationStrategy, cache: Cache, stop: StopSignal): (Instruction, Dispatched) =
-    val input = StrategyTesting.programInput(library, program)
-    (input, StrategyDispatch.dispatched(strategy, input, facts, cache, stop))
+  private def dispatched(program: TermOf[Configured[NoFacts.type]], strategy: CompilationStrategy[encoding.type], cache: Cache, stop: StopSignal): (Configured[encoding.type], Dispatched[encoding.type]) =
+    val inputWithoutFacts = StrategyTesting.programInput(library, program)
+    val input = encoding.crossedAllFromNoFacts(Vector(inputWithoutFacts))(inputWithoutFacts)
+    (input, StrategyDispatch.dispatched[encoding.type](strategy, input, encoding, cache, stop))
 
-  private def reading(dispatch: Dispatched): Bounded[Vector[Instruction]] =
-    normalFormsSpent(Mode.Jit(jit), dispatch.refined, limit, NoJitState).outcome
+  private def reading(dispatch: Dispatched[encoding.type]): Bounded[Vector[Configured[encoding.type]]] =
+    normalFormsSpent(jit, Value.of(dispatch.refined), limit, NoJitState).outcome
 
   stoppableProperty("a filled cache service dispatches and reads what an empty one does", _.copy(testLimit = SuccessCount(5))) { stopped =>
     for
@@ -136,14 +143,14 @@ class CacheClearingLawTest extends GeneratedProperties:
       fillings.foreach((program, programStrategy) => dispatched(program, programStrategy, filling, StopSignal.completedWith(stopped)))
       val (input, filled) = dispatched(point, pointStrategy, filling, StopSignal.completedWith(stopped))
       val (_, empty) = dispatched(point, pointStrategy, BaselineCaches.provider(), StopSignal.completedWith(stopped))
-      val reference = normalFormsSpent(Mode.TablingWeakHead, input, limit).outcome
-      def amongReference(outcome: Bounded[Vector[Instruction]]): Result = (outcome, reference) match
-        case (Bounded.Finished(found), Bounded.Finished(expected)) => Result.assert(found.forall(expected.contains)).log(s"$found not among $expected")
+      val reference = normalFormsSpent(Mode.TablingWeakHead, JitTesting.plainConfiguration(encoding), Value.of(input), limit).outcome
+      def amongReference(outcome: Bounded[Vector[Configured[encoding.type]]]): Result = (outcome, reference) match
+        case (Bounded.Finished(found), Bounded.Finished(expected)) => Result.assert(found.forall(candidate => expected.exists(Configured.same(candidate, _)))).log(s"$found not among $expected")
         case _                                                     => Result.success
       val (filledReading, emptyReading) = (reading(filled), reading(empty))
       Result.all(
         List(
-          Result.diff(filled.refined, empty.refined)(_ == _).log("the filled service's refined term is not the one a dispatch computes"),
+          Result.assert(Configured.same(filled.refined, empty.refined)).log("the filled service's refined term is not the one a dispatch computes"),
           (filledReading, emptyReading) match
             case (Bounded.Finished(filledFound), Bounded.Finished(emptyFound)) => Result.diff(filledFound.toSet, emptyFound.toSet)(_ == _)
             case _                                                             => Result.success

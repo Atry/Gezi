@@ -14,9 +14,9 @@ import gezi.frontend.Defunctionalization
 import gezi.frontend.ExchangeText
 import gezi.frontend.ProgramPurity
 import gezi.frontend.Term
-import gezi.ir.Instruction
 import scala.collection.View
 import scala.jdk.CollectionConverters.*
+import gezi.ir.{Configured, NoFacts}
 
 /** What a point asks: every normal form of the program (an evaluation
   * point, its reference the finite set tabling(weak_head) reads), or whether a
@@ -25,20 +25,37 @@ import scala.jdk.CollectionConverters.*
   * an entry can find; a judgment asks whether one value is a solution.
   */
 enum Question:
-  case Evaluation(reference: Set[DeBruijnTerm])
-  case Judgment(candidate: Instruction, member: Boolean)
+  case Evaluation(reference: Set[Configured[NoFacts.type]])
+  case Judgment(candidate: Configured[NoFacts.type], member: Boolean)
 
 /** A point of a round: its name, stage, family and weight, its closed
-  * program as the front end's instruction, and what it asks.
+  * program as the `ExchangeText.line` its points file holds, and what it
+  * asks. The program stays its line: the supervisor hands it to the runner
+  * as it is (`gezi.contest.runner.PipeLines.evaluationLine`), and the runner
+  * reads it in the entry's JVM, so that the supervisor's heap holds the
+  * points file's text and not the programs' IR (measured 2026-11-22 on the
+  * points of five MIXINv2 builtin families, seed 20261122, R = 64, ten
+  * points, 6.07 MB: read as instructions, out of memory at 256 MB, and at
+  * 4 GB 277 to 292 s with 675 to 730 MB live afterwards). The reference's
+  * normal forms and a judgment's candidate are small and are instructions;
+  * an answer is compared with them as instructions (`Outcome.judged`).
   */
 final case class Point(
     name: String,
     stage: String,
     family: String,
     weight: BigDecimal,
-    program: Instruction,
+    programLine: String,
     question: Question
-)
+):
+
+  /** The program's instruction, read from its line now and not kept: for
+    * the few readers that need it (the article manifest), never for the
+    * pass. Throws `IllegalArgumentException` for a line that is no line of
+    * the exchange format.
+    */
+  def program: Configured[NoFacts.type] =
+    ExchangeText.term[NoFacts.type](programLine).fold(reason => throw IllegalArgumentException(s"the program of $name: $reason"), identity)
 
 /** A point of a points file: an evaluation point, whose reference the
   * writer reads by tabling(weak_head) (`Reference.Read`, the default) or takes as
@@ -53,17 +70,17 @@ enum PointSource:
       stage: String,
       family: String,
       weight: BigDecimal,
-      program: Term,
+      program: gezi.contest.corpora.common.ProblemTerm,
       reference: Reference = Reference.Read,
-      trapCandidates: Vector[DeBruijnTerm] = Vector.empty
+      trapCandidates: Vector[gezi.contest.corpora.common.ProblemDeBruijnTerm] = Vector.empty
   )
   case JudgmentSource(
       name: String,
       stage: String,
       family: String,
       weight: BigDecimal,
-      program: Term,
-      candidate: Term,
+      program: gezi.contest.corpora.common.ProblemTerm,
+      candidate: gezi.contest.corpora.common.ProblemTerm,
       member: Boolean
   )
 
@@ -143,8 +160,10 @@ final case class WrittenFile(unwritten: Vector[Unwritten], traps: Vector[(String
   *   - `weight`: a decimal number;
   *   - `kind`: `evaluation` or `judgment`;
   *   - `program`: for an evaluation point the closed program, an
-  *     instruction as one `ExchangeText.line`; for a judgment point
-  *     `@<program name>`, a reference to a row of the programs file;
+  *     instruction as one `ExchangeText.line`, which `read` checks for the
+  *     line's shape only (`ExchangeText.shaped`) and the runner reads; for a
+  *     judgment point `@<program name>`, a reference to a row of the programs
+  *     file;
   *   - `candidate`: for a judgment point the candidate as such a line, empty
   *     for an evaluation point;
   *   - `normal_forms`: for an evaluation point the reference, the finite set
@@ -193,15 +212,15 @@ object PointsFile:
     repeatedName(points.map(_.name)).foreach(name => throw IllegalArgumentException(s"$file: the point $name is written twice"))
     points
 
-  /** The programs of a programs file, by name. */
-  private def programsRead(file: Path): Map[String, Instruction] =
+  /** The programs of a programs file, by name, each its line. */
+  private def programsRead(file: Path): Map[String, String] =
     val lines = Files.readAllLines(file, StandardCharsets.UTF_8).asScala.toVector
     if lines.headOption != Some(programsHeader) then throw IllegalArgumentException(s"$file:1: the header is not $programsHeader")
     val programs = lines.zipWithIndex.drop(1).map((line, index) =>
       def malformed(reason: String): Nothing = throw IllegalArgumentException(s"$file:${index + 1}: $reason")
       line.split("\t", -1).toVector match
         case Vector(name, _, termText) =>
-          name -> ExchangeText.term(termText).fold(reason => malformed(s"the term: $reason"), identity)
+          if ExchangeText.shaped(termText) then name -> termText else malformed(s"the term is no line of the exchange format: ${termText.take(80)}")
         case fields => malformed(s"${fields.size} fields, not 3")
     )
     repeatedName(programs.map(_._1)).foreach(name => throw IllegalArgumentException(s"$file: the program $name is written twice"))
@@ -212,12 +231,14 @@ object PointsFile:
       number: Int,
       line: String,
       programsFile: Path,
-      programs: Option[Map[String, Instruction]]
+      programs: Option[Map[String, String]]
   ): Point =
     def malformed(reason: String): Nothing = throw IllegalArgumentException(s"$file:$number: $reason")
-    def term(text: String, column: String): Instruction =
-      ExchangeText.term(text).fold(reason => malformed(s"the $column: $reason"), identity)
-    def judgedProgram(text: String): Instruction =
+    def term(text: String, column: String): Configured[NoFacts.type] =
+      ExchangeText.term[NoFacts.type](text).fold(reason => malformed(s"the $column: $reason"), identity)
+    def programLine(text: String, column: String): String =
+      if ExchangeText.shaped(text) then text else malformed(s"the $column is no line of the exchange format: ${text.take(80)}")
+    def judgedProgram(text: String): String =
       if !text.startsWith("@") then
         malformed(s"a judgment point's program is a reference @<name> to $programsFile, not ${text.take(40)}")
       val name = text.drop(1)
@@ -233,11 +254,11 @@ object PointsFile:
           case "evaluation" =>
             if candidateText.nonEmpty then malformed("an evaluation point has a candidate")
             (
-              term(programText, "program"),
+              programLine(programText, "program"),
               Question.Evaluation(
                 ExchangeText
-                  .normalForms(normalFormsText)
-                  .fold(reason => malformed(s"the normal forms: $reason"), _.map(Defunctionalization.instructionTerm).toSet)
+                  .normalForms[NoFacts.type](normalFormsText)
+                  .fold(reason => malformed(s"the normal forms: $reason"), _.toSet)
               )
             )
           case "judgment" =>
@@ -331,13 +352,13 @@ object PointsFile:
     * candidate's index among all the point's candidates, members and traps
     * together, sorted by their `ExchangeText.line`. The name does not say
     * whether the candidate is a member: an entry receives the name on the
-    * pipe (`PipeLines.cellLine`), and a name that said it would give the
+    * pipe (`PipeLines.evaluationLine`, `PipeLines.judgmentLine`), and a name that said it would give the
     * answer away.
     */
   private def judgmentPoints(
       evaluation: PointSource.EvaluationSource,
-      reference: Vector[DeBruijnTerm],
-      traps: Vector[DeBruijnTerm],
+      reference: Vector[gezi.contest.corpora.common.ProblemDeBruijnTerm],
+      traps: Vector[gezi.contest.corpora.common.ProblemDeBruijnTerm],
       weight: BigDecimal
   ): Vector[PointSource.JudgmentSource] =
     (reference.map(_ -> true) ++ traps.map(_ -> false)).sortBy((candidate, _) => line(candidate)).zipWithIndex.map {
@@ -410,20 +431,20 @@ object PointsFile:
     */
   private def traps(
       name: String,
-      program: Instruction,
-      reference: Vector[DeBruijnTerm],
-      computedCandidates: Vector[DeBruijnTerm],
+      program: Configured[NoFacts.type],
+      reference: Vector[gezi.contest.corpora.common.ProblemDeBruijnTerm],
+      computedCandidates: Vector[gezi.contest.corpora.common.ProblemDeBruijnTerm],
       secondPoint: SecondPoint,
       secondPoints: Map[String, SecondPoint],
       budget: Long,
       count: Int
-  ): (Vector[DeBruijnTerm], TrapOutcome) =
+  ): (Vector[gezi.contest.corpora.common.ProblemDeBruijnTerm], TrapOutcome) =
     val withheld = Vector(
       Option.when(!ProgramPurity.pureInstruction(program))(TrapWithheld.NotPure),
       Option.when(reference.size > 1)(TrapWithheld.MoreThanOneNormalForm),
       Option.when(reference.isEmpty)(TrapWithheld.NoNormalForm)
     ).flatten
-    def outside(normalForms: Vector[DeBruijnTerm]): Vector[DeBruijnTerm] =
+    def outside(normalForms: Vector[gezi.contest.corpora.common.ProblemDeBruijnTerm]): Vector[gezi.contest.corpora.common.ProblemDeBruijnTerm] =
       normalForms.distinct.filterNot(reference.contains).sortBy(line).take(count)
     lazy val computed = outside(computedCandidates)
     if withheld.nonEmpty then (Vector.empty, TrapOutcome.Withheld(withheld))
@@ -507,7 +528,7 @@ object PointsFile:
     * judgment points that refer to it, and the program, whose line is made
     * only when the file is written.
     */
-  private final case class ProgramRow(name: String, family: String, program: Instruction):
+  private final case class ProgramRow(name: String, family: String, program: Configured[NoFacts.type]):
     def text: String = Vector(name, family, ExchangeText.line(program)).mkString("\t")
 
   /** A row of the points file, whose text is made only when the file is
@@ -515,7 +536,7 @@ object PointsFile:
     * bad row is refused before the file is opened).
     */
   private enum WrittenRow:
-    case EvaluationRow(source: PointSource.EvaluationSource, program: Instruction, normalForms: Vector[DeBruijnTerm])
+    case EvaluationRow(source: PointSource.EvaluationSource, program: Configured[NoFacts.type], normalForms: Vector[gezi.contest.corpora.common.ProblemDeBruijnTerm])
     case JudgmentRow(source: PointSource.JudgmentSource, programName: String)
 
     def name: String = this match
@@ -540,7 +561,7 @@ object PointsFile:
           "evaluation",
           ExchangeText.line(program),
           "",
-          ExchangeText.normalFormsLine(normalForms.map(Defunctionalization.thunkInstruction).sortBy(ExchangeText.line))
+          ExchangeText.normalFormsLine(normalForms.map(Defunctionalization.thunkInstruction[NoFacts.type](_)).sortBy(ExchangeText.line))
         ).mkString("\t")
       case JudgmentRow(source, programName) =>
         Vector(
@@ -559,7 +580,7 @@ object PointsFile:
       throw IllegalArgumentException(s"the text ${text.take(40)} holds a tab or a line break")
 
   /** The line of a normal form, by which candidates are ranked. */
-  private def line(term: DeBruijnTerm): String = ExchangeText.line(Defunctionalization.thunkInstruction(term))
+  private def line(term: gezi.contest.corpora.common.ProblemDeBruijnTerm): String = ExchangeText.line(Defunctionalization.thunkInstruction[NoFacts.type](term))
 
   /** The instruction of a HOAS program or candidate, each closed
     * instruction it holds (`Term.closed`, a library term read by projection)
@@ -567,7 +588,7 @@ object PointsFile:
     * written at the size of its graph.
     * An opaque instruction stays one, and `ExchangeText.line` throws for it.
     */
-  def closedTerm(term: Term): Instruction = Defunctionalization.thunkInstruction(term.deBruijnTerm(Map.empty))
+  def closedTerm(term: gezi.contest.corpora.common.ProblemTerm): Configured[NoFacts.type] = Defunctionalization.thunkInstruction[NoFacts.type](term.deBruijnTerm(Map.empty))
 
   /** The points by family, in the order the seed draws (`SeededOrder`):
     * the family names, sorted, shuffled from the seed, then each family's

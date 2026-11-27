@@ -1,6 +1,7 @@
 package gezi.ir
 
 import gezi.ir.Interned.Interned
+import scala.collection.immutable.BitSet
 
 /** An instruction: one interned term of the IR ([[Interned]]), the canonical
   * object of its layer ([[IrLayer]]). `Instruction(layer)` returns the one live
@@ -36,21 +37,9 @@ type Instruction = Interned[IrLayer]
 
 object Instruction:
 
-  /** The canonical instruction of the layer. Throws
-    * `IllegalArgumentException` for a noinline leaf, which is no layer of the
-    * IR: the store says which instructions are noinline.
-    */
-  def apply(layer: Layer[Instruction] | IrLayer[Instruction]): Instruction = layer match
-    case NoinlineLeaf(_) =>
-      throw IllegalArgumentException(
-        "a noinline leaf is not interned: the store names the noinline instructions"
-      )
-    case application @ gezi.ir.Apply(_, _)   => Interned[IrLayer](application)
-    case parallel @ gezi.ir.Parallel(_, _)   => Interned[IrLayer](parallel)
-    case choice @ gezi.ir.Choice(_, _)       => Interned[IrLayer](choice)
-    case thunk @ gezi.ir.Thunk(_, _, _)      => Interned[IrLayer](thunk)
-    case node @ UriNode(_)                        => Interned[IrLayer](node)
-    case opaqueTerm @ gezi.ir.Opaque(_)      => Interned[IrLayer](opaqueTerm)
+  // TODO: deleted: `Instruction.apply`, the canonical instruction of any layer. Wrong because it builds a term from children of any configuration, the untyped public
+  // construction every term after the front end could be made by; issue https://github.com/Atry/private-overlay/issues/2261,
+  // design v38, section 1. Read it back with `git show 7669694cc:gezi/ir/src/main/scala/gezi/ir/Identifiers.scala`.
 
   /** The canonical opaque instruction of the name. */
   def opaque(name: String): Instruction = Interned[IrLayer](gezi.ir.Opaque(name))
@@ -62,8 +51,9 @@ object Instruction:
 
   /** The canonical application, and its parts; an opaque instruction is none. */
   object Apply:
-    def apply(function: Instruction, argument: Instruction): Instruction =
-      Instruction(gezi.ir.Apply(function, argument))
+    // TODO: deleted: `Instruction.Apply.apply`. Wrong because it builds a term from children of any configuration, the untyped public
+    // construction every term after the front end could be made by; issue https://github.com/Atry/private-overlay/issues/2261,
+    // design v38, section 1. Read it back with `git show 7669694cc:gezi/ir/src/main/scala/gezi/ir/Identifiers.scala`.
 
     def unapply(instruction: Instruction): Option[(Instruction, Instruction)] = instruction.layer match
       case gezi.ir.Apply(function, argument) => Some((function, argument))
@@ -73,7 +63,6 @@ object Instruction:
     * instruction is none.
     */
   object Parallel:
-    def apply(left: Instruction, right: Instruction): Instruction = Instruction(gezi.ir.Parallel(left, right))
 
     def unapply(instruction: Instruction): Option[(Instruction, Instruction)] = instruction.layer match
       case gezi.ir.Parallel(left, right) => Some((left, right))
@@ -83,17 +72,14 @@ object Instruction:
     * is none.
     */
   object Choice:
-    def apply(left: Instruction, right: Instruction): Instruction = Instruction(gezi.ir.Choice(left, right))
+    // TODO: deleted: `Instruction.Choice.apply`. Wrong because it builds a term from children of any configuration, the untyped public
+    // construction every term after the front end could be made by; issue https://github.com/Atry/private-overlay/issues/2261,
+    // design v38, section 1. Read it back with `git show 7669694cc:gezi/ir/src/main/scala/gezi/ir/Identifiers.scala`.
 
     def unapply(instruction: Instruction): Option[(Instruction, Instruction)] = instruction.layer match
       case gezi.ir.Choice(left, right) => Some((left, right))
       case _                               => None
 
-    /** The members nested to the right ([[ChoiceSpine.nested]]): one is
-      * itself; none throws.
-      */
-    def nested(members: Vector[Instruction]): Instruction =
-      ChoiceSpine.nested[Instruction](members, Choice(_, _))
 
   /** The members of an instruction's right `+` spine ([[ChoiceSpine.members]]):
     * the instruction itself for one that is no choice, an opaque one
@@ -108,8 +94,9 @@ object Instruction:
     * an opaque instruction is none.
     */
   object Thunk:
-    def apply(code: Code, holes: Vector[Hole], fillings: Vector[Instruction]): Instruction =
-      Instruction(gezi.ir.Thunk(code, holes, fillings))
+    // TODO: deleted: `Instruction.Thunk.apply`, which also built thunks with no holes. Wrong because it builds a term from children of any configuration, the untyped public
+    // construction every term after the front end could be made by; issue https://github.com/Atry/private-overlay/issues/2261,
+    // design v38, section 1. Read it back with `git show 7669694cc:gezi/ir/src/main/scala/gezi/ir/Identifiers.scala`.
 
     def unapply(instruction: Instruction): Option[(Code, Vector[Hole], Vector[Instruction])] = instruction.layer match
       case gezi.ir.Thunk(code, holes, fillings) => Some((code, holes, fillings))
@@ -125,24 +112,33 @@ type Code = Interned[CodeLayer]
   * `Choice` and `Thunk`), as a code used to hold its own lazy fields before
   * every code was a shared constructor.
   *
-  * @param occurrences
-  *   the occurrences of each slot the code reads, counted up to 2 (2 meaning
-  *   two or more), an occurrence in the fillings of an inner thunk with holes
-  *   counted as 2
+  * Slots are small integers and every code's facts are the union of its
+  * parts', so they are bit sets, whose union allocates a word per 64 slots.
+  *
+  * @param slotsRead
+  *   the slots the code reads
+  * @param slotsReadMoreThanOnce
+  *   the slots the code may read more than once: those with two or more
+  *   occurrences in the code written out as a tree, and those with an
+  *   occurrence in the fillings of an inner thunk that has holes, a lambda
+  *   that may be applied any number of times
   * @param slotsReadOutsideParallelRightOperands
   *   the slots the code reads at a position that is not the right operand of
   *   a parallel: its own slots, and the slots read so by those fillings of its
   *   inner thunks whose slot the inner code reads so; an inner thunk's code
   *   reads the inner thunk's slots, not these
   */
-final case class CodeFacts(occurrences: Map[Int, Int], slotsReadOutsideParallelRightOperands: Set[Int]):
+final case class CodeFacts(slotsRead: BitSet, slotsReadMoreThanOnce: BitSet, slotsReadOutsideParallelRightOperands: BitSet):
 
-  /** The slots the code may read more than once: those with two or more
-    * occurrences in the code written out as a tree, and those with an
-    * occurrence in the fillings of an inner thunk that has holes, a lambda
-    * that may be applied any number of times.
+  /** The facts of a code that reads this code's slots and the other's, each
+    * occurrence counted, the slots read outside right operands being `outside`.
     */
-  lazy val slotsReadMoreThanOnce: Set[Int] = occurrences.collect { case (slot, count) if count > 1 => slot }.toSet
+  private[ir] def joined(other: CodeFacts, outside: BitSet): CodeFacts =
+    CodeFacts(
+      slotsRead | other.slotsRead,
+      slotsReadMoreThanOnce | other.slotsReadMoreThanOnce | (slotsRead & other.slotsRead),
+      outside
+    )
 
 /** How a code hands its result to the continuation in one of its slots:
   * the slot occurs
@@ -190,7 +186,7 @@ object Code:
     */
   def passedFilling(fillings: Vector[Code], slot: Int): Option[Int] =
     val bare = fillings.indices.filter(index => fillings(index).layer == gezi.ir.Slot(slot))
-    val reading = fillings.indices.filter(index => facts(fillings(index)).occurrences.contains(slot))
+    val reading = fillings.indices.filter(index => facts(fillings(index)).slotsRead(slot))
     bare match
       case Seq(index) if reading == Seq(index) => Some(index)
       case _                                   => None
@@ -200,7 +196,7 @@ object Code:
     * does: a chain of continuations nested n deep is n codes deep.
     */
   private[ir] def computedTailPlans(root: Code): Map[Int, TailPlan] =
-    def reads(code: Code, slot: Int): Boolean = facts(code).occurrences.contains(slot)
+    def reads(code: Code, slot: Int): Boolean = facts(code).slotsRead(slot)
     @scala.annotation.tailrec
     def spine(current: Code, arguments: List[Code]): (Code, List[Code]) = current.layer match
       case gezi.ir.Apply(function, argument) => spine(function, argument :: arguments)
@@ -227,7 +223,7 @@ object Code:
               case _                                                         => Map.empty[Int, TailPlan]
         val passed = argument.layer match
           case gezi.ir.Thunk(inner, holes, fillings) if holes.nonEmpty =>
-            facts(argument).occurrences.keys.filterNot(reads(function, _)).flatMap(slot =>
+            facts(argument).slotsRead.toVector.filterNot(reads(function, _)).flatMap(slot =>
               passedFilling(fillings, slot).flatMap(index =>
                 found(inner).get(filledSlot(inner, holes, fillings.size, index)).map(plan => slot -> TailPlan(plan.arity, steps = true))
               )
@@ -264,7 +260,7 @@ object Code:
     */
   def fillingCount(code: Code, holes: Vector[Hole]): Option[Int] =
     val bound = holes.collect { case Hole.Bound(slot) => slot }
-    val slotCount = facts(code).occurrences.keys.maxOption.fold(0)(_ + 1)
+    val slotCount = facts(code).slotsRead.lastOption.fold(0)(_ + 1)
     Option.when(bound.distinct.size == bound.size && bound.forall(_ < slotCount))(slotCount - bound.size)
 
   /** The slots the code may read more than once
@@ -286,46 +282,44 @@ object Code:
     * thunk, so that asking them recurses no deeper: read lazily, a chain of
     * thunks nested n deep, which a text in the multi-line CPS layout makes,
     * computed its facts n frames deep and overflowed the stack on
-    * `hidden_37_courses_large`).
+    * `hidden_37_courses_large`). A slot's facts are the ones its interned
+    * constructor holds, so a slot takes no entry of the walk.
     */
   private[ir] def computedFacts(root: Code): CodeFacts =
-    def parts(code: Code): List[Code] = code.layer match
+    def isSlot(code: Code): Boolean = code.layer match
+      case gezi.ir.Slot(_) => true
+      case _               => false
+    def parts(code: Code): List[Code] = (code.layer match
       case gezi.ir.Slot(_)                   => Nil
       case gezi.ir.Apply(function, argument) => List(function, argument)
       case gezi.ir.Parallel(left, right)     => List(left, right)
       case gezi.ir.Choice(left, right)       => List(left, right)
       case gezi.ir.Thunk(_, _, fillings)     => fillings.toList
-    def summed(counts: List[Map[Int, Int]]): Map[Int, Int] =
-      counts.foldLeft(Map.empty[Int, Int])((total, count) =>
-        count.foldLeft(total)((sum, entry) => sum.updated(entry._1, (sum.getOrElse(entry._1, 0) + entry._2).min(2)))
-      )
+    ).filterNot(isSlot)
+    def factsIn(code: Code, found: Map[Code, CodeFacts]): CodeFacts =
+      if isSlot(code) then facts(code) else found(code)
     def factsOf(code: Code, found: Map[Code, CodeFacts]): CodeFacts = code.layer match
-      case gezi.ir.Slot(index) => CodeFacts(Map(index -> 1), Set(index))
+      case gezi.ir.Slot(index) =>
+        val read = BitSet(index)
+        CodeFacts(read, BitSet.empty, read)
       case gezi.ir.Apply(function, argument) =>
-        CodeFacts(
-          summed(List(found(function).occurrences, found(argument).occurrences)),
-          found(function).slotsReadOutsideParallelRightOperands ++ found(argument).slotsReadOutsideParallelRightOperands
-        )
+        val (functionFacts, argumentFacts) = (factsIn(function, found), factsIn(argument, found))
+        functionFacts.joined(argumentFacts, functionFacts.slotsReadOutsideParallelRightOperands | argumentFacts.slotsReadOutsideParallelRightOperands)
       case gezi.ir.Parallel(left, right) =>
-        CodeFacts(
-          summed(List(found(left).occurrences, found(right).occurrences)),
-          found(left).slotsReadOutsideParallelRightOperands
-        )
+        val (leftFacts, rightFacts) = (factsIn(left, found), factsIn(right, found))
+        leftFacts.joined(rightFacts, leftFacts.slotsReadOutsideParallelRightOperands)
       case gezi.ir.Choice(left, right) =>
-        CodeFacts(
-          summed(List(found(left).occurrences, found(right).occurrences)),
-          found(left).slotsReadOutsideParallelRightOperands ++ found(right).slotsReadOutsideParallelRightOperands
-        )
+        val (leftFacts, rightFacts) = (factsIn(left, found), factsIn(right, found))
+        leftFacts.joined(rightFacts, leftFacts.slotsReadOutsideParallelRightOperands | rightFacts.slotsReadOutsideParallelRightOperands)
       case gezi.ir.Thunk(inner, holes, fillings) =>
-        val counted = summed(fillings.toList.map(found(_).occurrences))
-        CodeFacts(
-          if holes.nonEmpty then counted.map((slot, _) => (slot, 2)) else counted,
-          fillings
-            .zip(fillingsReadOutsideParallelRightOperands(inner, holes, fillings.size))
-            .collect { case (filling, true) => found(filling).slotsReadOutsideParallelRightOperands }
-            .flatten
-            .toSet
-        )
+        val fillingFacts = fillings.map(factsIn(_, found))
+        val outside = fillingFacts
+          .lazyZip(fillingsReadOutsideParallelRightOperands(inner, holes, fillings.size))
+          .foldLeft(BitSet.empty) { case (read, (filling, readOutside)) =>
+            if readOutside then read | filling.slotsReadOutsideParallelRightOperands else read
+          }
+        val counted = fillingFacts.foldLeft(CodeFacts(BitSet.empty, BitSet.empty, BitSet.empty))((total, filling) => total.joined(filling, outside))
+        if holes.nonEmpty then counted.copy(slotsReadMoreThanOnce = counted.slotsRead) else counted
     @scala.annotation.tailrec
     def computed(pending: List[(Code, Boolean)], found: Map[Code, CodeFacts]): Map[Code, CodeFacts] =
       pending match
@@ -348,7 +342,7 @@ object Code:
     layer match
       case gezi.ir.Thunk(inner, _, _) =>
         facts(inner) match
-          case CodeFacts(_, _) => Interned[CodeLayer](layer)
+          case CodeFacts(_, _, _) => Interned[CodeLayer](layer)
       case _ => Interned[CodeLayer](layer)
 
   /** The canonical reference to the slot of the index, and its index. */

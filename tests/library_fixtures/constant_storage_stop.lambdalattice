@@ -1,0 +1,37 @@
+# The Prolog backend's preset with two more lemmas, for the laws of the
+# constant storage stop (gezi.saturation.ConstantStorageStop). An
+# application of double is judged by its argument's class, double x +
+# (double x ∥ x), an instance of absorption, law (6), sound for every x: its
+# left side is rooted at an application of double, so that a round that
+# stops at the classes of folded applications matches it nowhere there. A
+# parallel equals its parallel with itself, parallel idempotence: its left
+# side is rooted at a bare parallel, so that it matches a storage through its
+# pattern view in a round that stops.
+# FIXME: the imports project "corpora" off the variable gezi, the name https://github.com/Atry/private-overlay/issues/1924
+# of the project root's own directory; they break if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega gezi "corpora") "compiler") "prolog_backend_preset")
+λ prolog_backend_preset _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "native_arithmetic") "native_arithmetic")
+λ double _
+. export
+  ( ( λ _ rewriting _ _
+      . rewriting
+      λ _ lemmas _
+      . lemmas
+        ( λ s
+          . s
+            (λk. k "constant_storage_stop_judged_double")
+            (λx_0. double x_0)
+            (λx_0. (double x_0 ∥ x_0 + double x_0)) λ_ md _. md λk. k "[absorption](docs/design/gezi-hindley-milner-unions-proofs.md#absorption)"
+        + λ s
+          . s
+            (λk. k "constant_storage_stop_parallel_idempotent")
+            (λx_0 x_1. (x_0 ∥ x_1))
+            (λx_0 x_1. ((x_0 ∥ x_1) ∥ (x_0 ∥ x_1))) λ_ md _. md λk. k "[parallel_idempotence](docs/design/gezi-hindley-milner-unions-proofs.md#parallel_idempotence)"
+        )
+    )
+  + prolog_backend_preset
+  )

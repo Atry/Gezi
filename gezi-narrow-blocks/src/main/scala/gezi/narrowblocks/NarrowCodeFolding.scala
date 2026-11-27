@@ -3,6 +3,7 @@ package gezi.narrowblocks
 import gezi.ir
 import gezi.ir.Code
 import gezi.ir.Hole
+import gezi.ir.NativeSpecializer
 import gezi.strategies.CodeFold
 import gezi.strategies.CodeFolding
 import gezi.strategies.FoldState
@@ -108,9 +109,9 @@ object NarrowCodeState:
   * counts: no fact about a node's type, and no record kept beside the term,
   * a memo of a function of the syntax (`CONTRIBUTING.md`, "Tables").
   */
-object NarrowCodeFolding extends CodeFolding:
+final class NarrowCodeFolding[C <: NativeSpecializer & Singleton] extends CodeFolding[C]:
 
-  def folded(layer: CodeFold, reading: TermReading): FoldState = layer match
+  def folded(layer: CodeFold[C], reading: TermReading[C]): FoldState = layer match
     case CodeFold.Filling(term, repeated) =>
       val kind = termKind(term)
       val residual = if repeated then BigInt(0) else counted(term)
@@ -157,6 +158,16 @@ object NarrowCodeFolding extends CodeFolding:
         ),
         Vector(leftState, criterionState)
       )
+    case CodeFold.RangeParallel(left, range) => folded(CodeFold.Parallel(left, range), reading)
+    case CodeFold.Choice(members, _) =>
+      // The narrow grammar reads the code as written: a choice is no
+      // expression, and an operand only as a closed term, every slot it reads
+      // holding a `Closed` term (`NarrowBlocks.operand`, `closedSlots`).
+      val memberStates = members.map(own)
+      val closedFillings = memberStates.forall(_.reading.closedFillings)
+      val holeDepths = memberStates.flatMap(_.reading.holeDepths).toSet
+      val parse = NarrowParse(false, closedFillings && holeDepths.isEmpty, false)
+      NarrowCodeState.joined(NarrowCodeReading(parse, parse, NarrowShape.OtherShape, closedFillings, holeDepths), memberStates)
     case CodeFold.InnerThunk(depth, _, holes, fillings, body, unread) =>
       val bodyState = own(body)
       val unreadStates = unread.map(own)
@@ -198,7 +209,7 @@ object NarrowCodeFolding extends CodeFolding:
     * it is read only by its reading, as a criterion, as `NarrowBlockOrder`
     * counts an unpriced child of a thunk.
     */
-  private def counted(term: OrderTerm): BigInt = term match
+  private def counted(term: OrderTerm[C]): BigInt = term match
     case OrderTerm.Folded(state, _) => blockState(state).residual
     case _                          => 1
 
@@ -235,7 +246,7 @@ object NarrowCodeFolding extends CodeFolding:
     case _                                       => NarrowParse.refused
 
   /** The kind of a filling's term, as `NarrowBlockOrder` reads a child. */
-  private def termKind(term: OrderTerm): NarrowKind = term match
+  private def termKind(term: OrderTerm[C]): NarrowKind = term match
     case OrderTerm.Folded(state, _)                           => blockState(state).kind
     case OrderTerm.Unpriced(NarrowBlockReading(unpricedKind)) => unpricedKind
     case _                                                    => NarrowKind.Closed

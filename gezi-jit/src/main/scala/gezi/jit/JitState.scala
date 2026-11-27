@@ -5,6 +5,7 @@ import gezi.weakhead.AnswerSet
 import gezi.weakhead.ReadingState
 import gezi.weakhead.Tables
 import gezi.ir.Code
+import gezi.ir.{Configured, NativeSpecializer}
 
 /** The costs the JIT counts (jit_native_counts/2, jit_native_call_count/2,
   * jit_encoding_count/1): costs only, which no answer depends on.
@@ -36,6 +37,9 @@ import gezi.ir.Code
   * @param decodingCaseVisits
   *   the nodes visited to check that a field kept unread holds no case of a
   *   decoding (`JitValues.caseWalk`)
+  * @param fallbackChecks
+  *   the checks of fallback points' operands run (`JitRules.fallbackOutcome`), a check whose heads a reading replays
+  *   from `CheckedHeads` not counted again
   */
 final case class JitCounts(
     nativeCalls: Long,
@@ -43,7 +47,8 @@ final case class JitCounts(
     decodings: Long,
     encodings: Long,
     syntaxReads: Long,
-    decodingCaseVisits: Long
+    decodingCaseVisits: Long,
+    fallbackChecks: Long
 ):
 
   /** The count of the calls of the native. */
@@ -51,28 +56,33 @@ final case class JitCounts(
 
 /** No cost counted. */
 object JitCounts:
-  val empty: JitCounts = JitCounts(0, Map.empty, 0, 0, 0, 0)
+  val empty: JitCounts = JitCounts(0, Map.empty, 0, 0, 0, 0, 0)
 
 /** A reading of a fallback point's operand in a representation, among the
   * readings in progress around a reading (jit.pl, THE READING OF AN
   * INFINITE VALUE).
   */
-final case class OperandReading(representation: Representation, operand: JitValue)
+final case class OperandReading[C <: NativeSpecializer & Singleton](representation: Representation[JitValue[C]], operand: JitValue[C])
 
 /** The readings in progress around a reading, as Brent's cycle detection
   * keeps them (path_extended/3): none, or the reading at the last power of
   * two along the nested readings, the readings since and the power.
   */
-enum ReadingPath:
-  case Empty
-  case Path(tortoise: OperandReading, steps: Int, power: Int)
+enum ReadingPath[C <: NativeSpecializer & Singleton]:
+  case Empty()
+  case Path(tortoise: OperandReading[C], steps: Int, power: Int)
+
+  /** Whether no reading is in progress. */
+  def isEmpty: Boolean = this match
+    case Empty()    => true
+    case Path(_, _, _) => false
 
   /** The path extended by the reading, or nothing when the reading is the
     * tortoise in spelling (R. P. Brent, "An improved Monte Carlo
     * factorization algorithm", BIT 20, 1980, doi:10.1007/bf01933190).
     */
-  def extended(reading: OperandReading): Option[ReadingPath] = this match
-    case Empty => Some(Path(reading, 1, 1))
+  def extended(reading: OperandReading[C]): Option[ReadingPath[C]] = this match
+    case Empty() => Some(Path(reading, 1, 1))
     case Path(tortoise, steps, power) =>
       if reading == tortoise then None
       else if steps == power then Some(Path(reading, 1, 2 * power))
@@ -148,38 +158,223 @@ enum ReadingPath:
   *   (`BlockArtifact`, `NativeBlockMechanism.run`): a pure function of the
   *   code and of the configuration this state belongs to, never a judgment
   *   about a value
+  * @param groupBlocks
+  *   the group block of each thunk the group block mechanism was asked about,
+  *   or none when it is no block (`GroupBlocks.compiled`): a pure function of
+  *   the thunk's syntax and the configuration, carried from one reading to
+  *   the next with the compiled codes, so that the later points of a family
+  *   do not scan the thunk again; the young generation under the instance
+  *   retention's `Generations` (`Jit`'s `groupBlockEntered`)
+  * @param olderGroupBlocks
+  *   the old generation of `groupBlocks`
   * @param caseFree
   *   the values known to hold no case of a decoding (`CaseFreeValues`), a
   *   pure function of each value and never a fact about its type
   * @param decodedPoints
   *   the values of the decode points read to their end (`DecodedPoints`)
+  * @param checkedHeads
+  *   the heads the uncut checks of fallback points found (`CheckedHeads`)
+  * @param sharedTerms
+  *   the closed canonical terms a slot read more than once was filled with (`SharedTerms`), each of which an evaluation
+  *   reads through the instance table, always tabled
+  * @param openTraces
+  *   under `InstanceReuse.VerifiedAcrossVersions`, what the reading of each
+  *   instance whose table is not complete read so far
+  * @param verifiable
+  *   under the same option, the tables completed or verified under this
+  *   version, with what they read
+  * @param earlierVerifiable
+  *   under the same option, those of earlier versions, which answer nothing
+  *   until they are verified (`Jit.verifiedOrRead`)
+  * @param verifying
+  *   under the same option, the instances whose tables of earlier versions
+  *   are being verified now (`Jit.verificationOf`)
+  * @param checkOpenings
+  *   the open tables a fallback point's check opened, each with `cuts` as it
+  *   was when the table opened (`checkOpened`), so that a table whose
+  *   reading saw a cut is dropped when it completes (`componentCompleted`)
+  * @param wastedGroupBlockSteps
+  *   the steps the group blocks' entries and runs spent in this reading and
+  *   gave no value for (a decoding that ran out or read no storage, a block
+  *   that admitted no argument or stopped), all blocks together, which the
+  *   mechanism's share of the reading's budget bounds
+  *   (`Jit.groupBlockEntered`): a cost, never a type; an entry nested in
+  *   another's decoding is counted again in the outer one's, which may only
+  *   overcount
+  * @param givenUpGroupBlocks
+  *   the thunks whose group block this reading gave up, a decoding of their
+  *   arguments having run out or their block stopped other than on a
+  *   rejected row: a cost, never a type
   */
-final case class JitRunState(
-    configuration: JitConfiguration,
-    compiled: Map[Code, CompiledCode],
+final case class JitRunState[C <: NativeSpecializer & Singleton](
+    configuration: JitConfiguration[C],
+    compiled: Map[Code, CompiledCode[C]],
     compilationOrder: Vector[Code],
     counts: JitCounts,
-    readingPath: ReadingPath,
-    instanceTables: Tables[ReadingState, TabledInstance, JitHead] = Tables.empty,
-    olderInstances: Map[TabledInstance, AnswerSet[JitHead]] = Map.empty,
-    criteria: Map[gezi.ir.Instruction, Option[Representation]] = Map.empty,
+    readingPath: ReadingPath[C],
+    instanceTables: Tables[ReadingState[C], TabledInstance[C], JitHead[C]] = Tables.empty[ReadingState[C], TabledInstance[C], JitHead[C]],
+    olderInstances: Map[TabledInstance[C], AnswerSet[JitHead[C]]] = Map.empty[TabledInstance[C], AnswerSet[JitHead[C]]],
+    criteria: Map[Configured[C], Option[Representation[JitValue[C]]]] = Map.empty[Configured[C], Option[Representation[JitValue[C]]]],
     tableCosts: Map[Code, TableCost] = Map.empty,
     cuts: Long = 0,
     blockRecord: BlockRecord = BlockRecord.empty,
     blockArtifacts: Map[Code, BlockArtifact] = Map.empty,
+    groupBlocks: Map[Configured[C], Option[GroupBlockArtifact[C]]] = Map.empty[Configured[C], Option[GroupBlockArtifact[C]]],
+    olderGroupBlocks: Map[Configured[C], Option[GroupBlockArtifact[C]]] = Map.empty[Configured[C], Option[GroupBlockArtifact[C]]],
     lastCheckpointSpent: Long = 0,
     caseFree: CaseFreeValues = CaseFreeValues.empty,
-    decodedPoints: DecodedPoints = DecodedPoints.empty
-) extends JitState:
+    decodedPoints: DecodedPoints[C] = DecodedPoints.empty[C],
+    checkedHeads: CheckedHeads[C] = CheckedHeads.empty[C],
+    sharedTerms: SharedTerms[C] = SharedTerms.empty[C],
+    openTraces: Map[TabledInstance[C], ReadTrace[C]] = Map.empty[TabledInstance[C], ReadTrace[C]],
+    verifiable: Map[TabledInstance[C], VerifiableTable[C]] = Map.empty[TabledInstance[C], VerifiableTable[C]],
+    earlierVerifiable: Map[TabledInstance[C], VerifiableTable[C]] = Map.empty[TabledInstance[C], VerifiableTable[C]],
+    verifying: Set[TabledInstance[C]] = Set.empty[TabledInstance[C]],
+    checkOpenings: Map[TabledInstance[C], Long] = Map.empty[TabledInstance[C], Long],
+    wastedGroupBlockSteps: Long = 0,
+    givenUpGroupBlocks: Set[Configured[C]] = Set.empty[Configured[C]]
+) extends JitState[C]:
+
+  /** This state for a reading that starts now: the group blocks' waste and
+    * give-ups, which count against one reading's budget, cleared.
+    */
+  def readingStarted: JitState[C] = copy(wastedGroupBlockSteps = 0, givenUpGroupBlocks = Set.empty)
 
   /** This state without the instance table's answers, its young and its old
     * generation, and the values of its decode points, all read through the
     * expansions of the URI nodes they met; the compiled codes, blocks and
     * criteria, read off syntax alone (a URI node has no layer to read,
-    * `Jit.layerOf`), and the costs are kept.
+    * `Jit.layerOf`), and the costs are kept. The verifiable tables stay, none
+    * of them answering until it is verified, within the retention's size.
     */
-  def withoutAnswers: JitState =
-    copy(instanceTables = Tables.empty, olderInstances = Map.empty, decodedPoints = DecodedPoints.empty)
+  def withoutAnswers: JitState[C] =
+    val carried = earlierVerifiable ++ verifiable
+    copy(
+      instanceTables = Tables.empty,
+      olderInstances = Map.empty,
+      decodedPoints = DecodedPoints.empty,
+      checkedHeads = CheckedHeads.empty,
+      sharedTerms = SharedTerms.empty,
+      openTraces = Map.empty,
+      verifiable = Map.empty,
+      earlierVerifiable = if withinRetention(carried.size) then carried else verifiable,
+      verifying = Set.empty,
+      wastedGroupBlockSteps = 0,
+      givenUpGroupBlocks = Set.empty
+    )
+
+  /** This state with the table of an earlier version, whose reads hold,
+    * completed under this version; a key completed or in progress meanwhile
+    * keeps its own table.
+    */
+  def tableVerified(key: TabledInstance[C], table: VerifiableTable[C]): JitRunState[C] =
+    if completeAnswers(key).isDefined || instanceTables.open.contains(key) then this
+    else
+      copy(
+        instanceTables = instanceTables.copy(complete = instanceTables.complete.updated(key, table.answers)),
+        verifiable = verifiable.updated(key, table)
+      )
+
+  /** Whether the retention lets the state hold that many verifiable tables. */
+  private def withinRetention(size: Int): Boolean = configuration.instanceRetention match
+    case InstanceRetention.Generations(limit) => size <= limit
+    case InstanceRetention.NeverDropped       => true
+
+  /** This state with the read noted for the producer running innermost, if
+    * any, under `InstanceReuse.VerifiedAcrossVersions`.
+    */
+  def readNoted(read: InstanceRead[C]): JitRunState[C] = traceChanged(_.read(read))
+
+  /** This state with the innermost producer's trace marked as not saying all
+    * it depends on.
+    */
+  def traceMadeOpaque: JitRunState[C] = traceChanged(_.copy(opaque = true))
+
+  private def traceChanged(change: ReadTrace[C] => ReadTrace[C]): JitRunState[C] =
+    if configuration.instanceReuse == InstanceReuse.WithinVersion then this
+    else
+      instanceTables.innermostKey.fold(this)(reader =>
+        copy(openTraces = openTraces.updated(reader, change(openTraces.getOrElse(reader, ReadTrace.empty[C]))))
+      )
+
+  /** This state with the reader's trace as it was, none for no reader. */
+  def traceRestored(reader: Option[TabledInstance[C]], trace: Option[ReadTrace[C]]): JitRunState[C] =
+    reader.fold(this)(key => copy(openTraces = trace.fold(openTraces - key)(openTraces.updated(key, _))))
+
+  /** This state after a stop: the trace of every instance whose table is
+    * open marked as not saying all it depends on, since a reading a budget
+    * cut short may have noted only part of what it read.
+    */
+  def openReadingsStopped: JitRunState[C] =
+    if configuration.instanceReuse == InstanceReuse.WithinVersion then this
+    else
+      copy(openTraces =
+        instanceTables.open.keysIterator.foldLeft(openTraces)((traces, key) =>
+          traces.updated(key, traces.getOrElse(key, ReadTrace.empty[C]).copy(opaque = true))
+        )
+      )
+
+  /** This state with the table of the instance noted as opened in a fallback
+    * point's check, at the cuts made so far.
+    */
+  def checkOpened(key: TabledInstance[C]): JitRunState[C] = copy(checkOpenings = checkOpenings.updated(key, cuts))
+
+  /** This state after the component of the leader and the members completed:
+    * the tables of the component that a fallback point's check opened and
+    * whose reading saw a cut dropped (`cutReadingsDropped`); its traces
+    * closed, and its tables verifiable when the trace says all
+    * they depend on, the component did not complete inside a fallback point's
+    * check, whose cuts depend on the readings around it, and every instance
+    * read outside the component is complete, so that the answers it read are
+    * a table's whole answers.
+    */
+  def componentCompleted(leader: TabledInstance[C], members: Vector[TabledInstance[C]]): JitRunState[C] =
+    cutReadingsDropped(members :+ leader).tracesClosed(leader, members)
+
+  /** This state without the complete tables of the component that a fallback
+    * point's check opened while a cut was made after they opened: their heads
+    * may be the check's (`Jit.tabledInstance`). The cuts only grow, so a cut
+    * made after a table opened and before its component completed is one its
+    * reading may have seen; a cut of another reading in between drops a table
+    * that could have stayed, which costs a reading again and changes no
+    * answer.
+    */
+  private def cutReadingsDropped(component: Vector[TabledInstance[C]]): JitRunState[C] =
+    val dropped = component.filter(key => checkOpenings.get(key).exists(_ < cuts))
+    copy(
+      instanceTables = instanceTables.copy(complete = instanceTables.complete -- dropped),
+      checkOpenings = checkOpenings -- component
+    )
+
+  private def tracesClosed(leader: TabledInstance[C], members: Vector[TabledInstance[C]]): JitRunState[C] =
+    if configuration.instanceReuse == InstanceReuse.WithinVersion then this
+    else
+      val component = members :+ leader
+      val inside = component.toSet
+      val trace = component.flatMap(openTraces.get).foldLeft(ReadTrace.empty[C])(_.joined(_))
+      val held = Option.unless(trace.opaque || !readingPath.isEmpty)(trace.reads).flatMap(reads => heldReads(reads, inside))
+      val base = if withinRetention(verifiable.size + component.size) then verifiable else Map.empty[TabledInstance[C], VerifiableTable[C]]
+      val kept = held.fold(verifiable)(reads =>
+        component.foldLeft(base)((tables, member) =>
+          completeAnswers(member).fold(tables)(answers => tables.updated(member, VerifiableTable(answers, reads)))
+        )
+      )
+      copy(openTraces = openTraces -- component, verifiable = kept)
+
+  /** The reads outside the component with what they gave, none when one of
+    * the instances read has no complete table.
+    */
+  private def heldReads(reads: Vector[InstanceRead[C]], inside: Set[TabledInstance[C]]): Option[Vector[HeldRead[C]]] =
+    reads.foldLeft(Option(Vector.empty[HeldRead[C]])) {
+      case (None, _) => None
+      case (found, InstanceRead.Table(key)) if inside.contains(key) => found
+      case (Some(found), InstanceRead.Table(key)) => completeAnswers(key).map(answers => found :+ HeldRead.Table(key, answers))
+      case (Some(found), InstanceRead.Expansion(node, expansion)) => Some(found :+ HeldRead.Expansion(node, expansion))
+    }
+
+  /** The answers of the key's complete table, in either generation. */
+  def completeAnswers(key: TabledInstance[C]): Option[AnswerSet[JitHead[C]]] =
+    instanceTables.complete.get(key).orElse(olderInstances.get(key))
 
   /** The steps spent since the last instance the table recorded
     * (`lastCheckpointSpent`, a reading's spent steps then), given the steps
@@ -195,7 +390,7 @@ final case class JitRunState(
 /** A decode point `x ∥ C`: the representation its criterion names and the
   * term x.
   */
-final case class DecodePoint(representation: Representation, term: JitValue)
+final case class DecodePoint[C <: NativeSpecializer & Singleton](representation: Representation[JitValue[C]], term: JitValue[C])
 
 /** The values of the decode points read to their end: the table of the heads
   * of the term `x ∥ C`, a pure function of the term as the instance table's
@@ -204,26 +399,80 @@ final case class DecodePoint(representation: Representation, term: JitValue)
   * instance table is (`InstanceRetention`), a value found in the older
   * generation being completed in the young one again.
   */
-final case class DecodedPoints(
-    young: Map[DecodePoint, Vector[NativeValue]],
-    older: Map[DecodePoint, Vector[NativeValue]]
+final case class DecodedPoints[C <: NativeSpecializer & Singleton](
+    young: Map[DecodePoint[C], Vector[NativeValue[JitValue[C]]]],
+    older: Map[DecodePoint[C], Vector[NativeValue[JitValue[C]]]]
 ):
 
   /** The values of the point, if it was read to its end. */
-  def found(point: DecodePoint): Option[Vector[NativeValue]] = young.get(point).orElse(older.get(point))
+  def found(point: DecodePoint[C]): Option[Vector[NativeValue[JitValue[C]]]] = young.get(point).orElse(older.get(point))
 
   /** These points with the values of the point recorded. */
-  def recorded(point: DecodePoint, values: Vector[NativeValue], retention: InstanceRetention): DecodedPoints =
+  def recorded(point: DecodePoint[C], values: Vector[NativeValue[JitValue[C]]], retention: InstanceRetention): DecodedPoints[C] =
     retention match
       case InstanceRetention.Generations(size) if young.size >= size && !young.contains(point) =>
-        DecodedPoints(Map(point -> values), young)
+        DecodedPoints[C](Map(point -> values), young)
       case InstanceRetention.Generations(_) | InstanceRetention.NeverDropped =>
         copy(young = young.updated(point, values))
 
 object DecodedPoints:
 
   /** No point read. */
-  val empty: DecodedPoints = DecodedPoints(Map.empty, Map.empty)
+  def empty[C <: NativeSpecializer & Singleton]: DecodedPoints[C] = DecodedPoints[C](Map.empty, Map.empty)
+
+/** The operand of a fallback point's check, read under a dispatch mode: the key of the heads the check found. */
+final case class CheckedOperand[C <: NativeSpecializer & Singleton](operand: JitValue[C], mode: DispatchMode)
+
+/** The heads the uncut checks of fallback points found, by the operand and the dispatch mode it was read under: the
+  * memo of a pure function of the term, as the instance table's entries are, whose emptying changes only how many steps
+  * a later reading takes (`CONTRIBUTING.md`, "Tables"). It holds heads only, never whether they are of a type: that is
+  * read off the heads at each use. A check that saw a cut is not recorded, its heads depending on the readings around
+  * it. It is kept in two generations, as the instance table is (`InstanceRetention`), and emptied with it when the
+  * contents of the URI nodes change (`JitRunState.withoutAnswers`), the heads having been read through them.
+  */
+final case class CheckedHeads[C <: NativeSpecializer & Singleton](
+    young: Map[CheckedOperand[C], Vector[JitHead[C]]],
+    older: Map[CheckedOperand[C], Vector[JitHead[C]]]
+):
+
+  /** The heads of the operand under the mode, if an uncut check found them. */
+  def found(operand: CheckedOperand[C]): Option[Vector[JitHead[C]]] = young.get(operand).orElse(older.get(operand))
+
+  /** These heads with the heads of the operand recorded. */
+  def recorded(operand: CheckedOperand[C], heads: Vector[JitHead[C]], retention: InstanceRetention): CheckedHeads[C] =
+    retention match
+      case InstanceRetention.Generations(size) if young.size >= size && !young.contains(operand) =>
+        CheckedHeads[C](Map(operand -> heads), young)
+      case InstanceRetention.Generations(_) | InstanceRetention.NeverDropped =>
+        copy(young = young.updated(operand, heads))
+
+object CheckedHeads:
+
+  /** No check recorded. */
+  def empty[C <: NativeSpecializer & Singleton]: CheckedHeads[C] = CheckedHeads[C](Map.empty, Map.empty)
+
+/** The closed canonical terms a slot read more than once, at a cost, was filled with (`JitRules.shared`): an evaluation
+  * of such a term reads it through the instance table under the key `TabledInstance(cellCode, [term])`, always tabled,
+  * so that the reads share it. A closed canonical term is never wrapped in a cell, which would be a second spelling of
+  * it. Kept in two generations, as the instance table is: a term dropped with the older generation is shared again only
+  * once a slot is filled with it again, which costs speed, never an answer; emptied with the instance table when the
+  * contents of the URI nodes change.
+  */
+final case class SharedTerms[C <: NativeSpecializer & Singleton](young: Set[JitValue[C]], older: Set[JitValue[C]]):
+
+  /** Whether an evaluation of the term reads it through the instance table. */
+  def contains(term: JitValue[C]): Boolean = young.contains(term) || older.contains(term)
+
+  /** These terms with the term added. */
+  def added(term: JitValue[C], retention: InstanceRetention): SharedTerms[C] =
+    retention match
+      case InstanceRetention.Generations(size) if young.size >= size && !young.contains(term) => SharedTerms[C](Set(term), young)
+      case InstanceRetention.Generations(_) | InstanceRetention.NeverDropped                    => copy(young = young + term)
+
+object SharedTerms:
+
+  /** No term shared. */
+  def empty[C <: NativeSpecializer & Singleton]: SharedTerms[C] = SharedTerms[C](Set.empty, Set.empty)
 
 /** A code's use of the instance table: the instances read into it, the
   * steps their readings spent, the instances taken from it, the steps
@@ -313,14 +562,11 @@ object TableCost:
   * content, the same in every process; the table is only looked up and
   * updated, never iterated (`JitRunState.instanceTables`).
   *
-  * No filling needs a key of its own. An `Evaluated` filling, the operand a
-  * fallback point's check passes on with its heads, is an interned
-  * constructor like every other value of the JIT (`JitLayer`): two equal
-  * ones are one object, its hash code is computed when it is made, and `==`
-  * compares it by its parts, each by `eq` or a differing hash code, at the
-  * cost of its width as any filling.
+  * No filling needs a key of its own: every value of the JIT is interned (`JitLayer`), so two equal ones are one
+  * object, its hash code is computed when it is made, and `==` compares it by its parts, each by `eq` or a differing
+  * hash code, at the cost of its width as any filling.
   */
-final case class TabledInstance(code: Code, fillings: Vector[JitValue]):
+final case class TabledInstance[C <: NativeSpecializer & Singleton](code: Code, fillings: Vector[JitValue[C]]):
 
   /** The hash, computed once when the key is made: a key is looked up and
     * looked up in `JitRunState.instanceTables` and `JitRunState.olderInstances`
@@ -332,8 +578,8 @@ final case class TabledInstance(code: Code, fillings: Vector[JitValue]):
 object JitRunState:
 
   /** A fresh part for the configuration: an empty cache, no cost counted. */
-  def fresh(configuration: JitConfiguration): JitRunState =
-    JitRunState(configuration, Map.empty, Vector.empty, JitCounts.empty, ReadingPath.Empty)
+  def fresh[C <: NativeSpecializer & Singleton](configuration: JitConfiguration[C]): JitRunState[C] =
+    JitRunState(configuration, Map.empty, Vector.empty, JitCounts.empty, ReadingPath.Empty())
 
   /** The JIT's part of the reading's state under the configuration, a fresh
     * one when the state holds none, or one of another configuration
@@ -353,6 +599,17 @@ object JitRunState:
     * they differ, as for another configuration.
     * https://github.com/Atry/private-overlay/issues/2086
     */
-  def of(state: ReadingState, configuration: JitConfiguration): JitRunState = state.jitState match
-    case found: JitRunState if found.configuration eq configuration => found
-    case _                                                         => fresh(configuration)
+  def of[C <: NativeSpecializer & Singleton](state: ReadingState[C], configuration: JitConfiguration[C]): JitRunState[C] =
+    held(state.jitState, configuration).getOrElse(fresh(configuration))
+
+  /** The JIT's part a reading's state holds under the configuration (`ReadingState.jitState`), none when it is none
+    * or one of another configuration (compared by reference), as `of` reads it.
+    */
+  def held[C <: NativeSpecializer & Singleton](state: JitState[C], configuration: JitConfiguration[C]): Option[JitRunState[C]] =
+    state match
+      // Registered conversion (issue 2261, section 8): a JIT state in a reading of `C` is of `C`, `JitState` being
+      // covariant only so that `NoJitState` is every reading's, and no JIT state of another configuration being one
+      // of `C`'s (`C` is a singleton type); the configuration it was built under, compared by reference, says it is
+      // this JIT's.
+      case found: (JitRunState[C] @unchecked) if found.configuration eq configuration => Some(found)
+      case _                                                                        => None

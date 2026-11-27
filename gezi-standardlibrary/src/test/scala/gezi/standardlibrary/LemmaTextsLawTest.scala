@@ -2,7 +2,9 @@ package gezi.standardlibrary
 
 import gezi.frontend.Defunctionalization
 import gezi.frontend.Lambdalattice
-import gezi.ir.Instruction
+import gezi.ir.Configured
+import gezi.ir.NoFacts
+import gezi.ir.StorageAccess
 
 /** The law of `LemmaSources.texts` on the native route's library
   * (`tests/library_fixtures/native_route_lemmas.lambdalattice`): each side's
@@ -17,16 +19,26 @@ import gezi.ir.Instruction
   */
 class LemmaTextsLawTest extends gezi.generatedinputs.FailFastSuite:
 
+  given NoFacts.type = NoFacts
+  given StorageAccess = StorageAccess.granted()
+
+  private type NoFactsTerm = Configured[NoFacts.type]
+
   /** The library the lemmas are taken from, a shared fixture. */
   private lazy val library: StandardLibrary =
     LibraryFiles.compiled("tests/library_fixtures/native_route_lemmas.lambdalattice", Vector.empty)
 
   override def sharedFixtures: Vector[scala.concurrent.Future[Unit] => Any] = Vector(_ => library)
 
-  /** The fixture's seven knowledge files. */
+  /** The fixture's knowledge files that write lemmas, hindley_milner_unions
+    * being hindley_milner_unions_judgments, hindley_milner_unions_application
+    * and hindley_milner_unions_occurrences.
+    */
   private val files = Vector(
     "closure_application",
-    "hindley_milner_unions",
+    "hindley_milner_unions_application",
+    "hindley_milner_unions_judgments",
+    "hindley_milner_unions_occurrences",
     "native_arithmetic",
     "native_arithmetic_unions",
     "native_types",
@@ -41,15 +53,15 @@ class LemmaTextsLawTest extends gezi.generatedinputs.FailFastSuite:
     * redex is evaluated and the values stand in the names' places. A
     * `thunkInstruction` of the text alone would keep the redex.
     */
-  private def bound(text: String, names: Vector[(String, Instruction)]): Instruction =
+  private def bound(text: String, names: Vector[(String, NoFactsTerm)]): NoFactsTerm =
     val holder = "side_holder"
     assert(!names.exists(_._1 == holder), s"a lemma names $holder")
     val abstracted = names.foldRight(s"(λ$holder. $holder ($text))")((name, body) => s"(λ${name._1}. $body)")
     val applied = names.foldLeft(abstracted)((function, name) => s"$function (${Lambdalattice.closedText(name._2)})")
-    val instruction = Defunctionalization.thunkInstruction(Lambdalattice.term(applied))
+    val instruction = Defunctionalization.thunkInstruction[NoFacts.type](Lambdalattice.term(applied))
     // One evaluator step per character, as a trace's text is read (TraceReading.readingLimit).
     gezi.knowledgereading.KnowledgeReading.run(
-      gezi.knowledgereading.KnowledgeReading.soleField(instruction).map(field =>
+      gezi.knowledgereading.KnowledgeReading.soleField(gezi.ir.Value.of(instruction)).map(field =>
         gezi.knowledgereading.KnowledgeReading.term(field, Set.empty)
       ),
       applied.length.toLong
@@ -68,8 +80,8 @@ class LemmaTextsLawTest extends gezi.generatedinputs.FailFastSuite:
       val problems = lemmas.flatMap((named, sides) =>
         texts.get(named.lemma).toVector.flatMap(text =>
           Vector(
-            Option.unless(bound(text.leftText, text.names) eq sides.left)(s"${named.name}: the left side reads otherwise"),
-            Option.unless(bound(text.rightText, text.names) eq sides.right)(s"${named.name}: the right side reads otherwise")
+            Option.unless(Configured.same(bound(text.leftText, text.names), sides.left))(s"${named.name}: the left side reads otherwise"),
+            Option.unless(Configured.same(bound(text.rightText, text.names), sides.right))(s"${named.name}: the right side reads otherwise")
           ).flatten
         )
       )

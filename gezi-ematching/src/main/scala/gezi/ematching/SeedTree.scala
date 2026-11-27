@@ -1,5 +1,7 @@
 package gezi.ematching
 
+import gezi.ir.NativeSpecializer
+
 /** Where a seed's steps end in a tree: the seed's number among the seeds
   * filed under its kind and key, and what its match is made of.
   */
@@ -25,10 +27,10 @@ final case class SeedEnd(
   * each group in the order found, which is the sequence the seeds run one by
   * one in their order would give.
   */
-final case class SeedTree(
-    steps: Vector[Step],
+final case class SeedTree[C <: NativeSpecializer & Singleton](
+    steps: Vector[Step[C]],
     ends: Vector[SeedEnd],
-    branches: Vector[SeedTree]
+    branches: Vector[SeedTree[C]]
 )
 
 object SeedTree:
@@ -36,8 +38,8 @@ object SeedTree:
   /** The tree of the seeds, numbered by their position; the tree of no seed
     * runs no step and makes no match.
     */
-  def of(seeds: Vector[Seed]): SeedTree =
-    if seeds.isEmpty then SeedTree(Vector.empty, Vector.empty, Vector.empty)
+  def of[C <: NativeSpecializer & Singleton](seeds: Vector[Seed[C]]): SeedTree[C] =
+    if seeds.isEmpty then SeedTree[C](Vector.empty, Vector.empty, Vector.empty)
     else grown(seeds.zipWithIndex, 0)
 
   /** The tree of the numbered seeds, all of which begin with the same
@@ -45,7 +47,7 @@ object SeedTree:
     * that end there, and one branch for each next step, in the order the
     * seeds first take it.
     */
-  private def grown(seeds: Vector[(Seed, Int)], depth: Int): SeedTree =
+  private def grown[C <: NativeSpecializer & Singleton](seeds: Vector[(Seed[C], Int)], depth: Int): SeedTree[C] =
     val prefix = commonLength(seeds.map(_._1.steps), depth)
     val end = depth + prefix
     val (ending, going) = seeds.partition(_._1.steps.size == end)
@@ -63,7 +65,7 @@ object SeedTree:
   /** The number of steps after `depth` that every sequence has, equal in
     * all.
     */
-  private def commonLength(sequences: Vector[Vector[Step]], depth: Int): Int =
+  private def commonLength[C <: NativeSpecializer & Singleton](sequences: Vector[Vector[Step[C]]], depth: Int): Int =
     val shortest = sequences.map(_.size).min - depth
     (0 until shortest)
       .find(offset =>
@@ -74,13 +76,13 @@ object SeedTree:
   /** The registers a run of the tree uses: one more than the largest a step
     * of it writes or a match of it reads, register 0 included.
     */
-  def registerCount(tree: SeedTree): Int =
+  def registerCount[C <: NativeSpecializer & Singleton](tree: SeedTree[C]): Int =
     1 + (0 +: (tree.steps.flatMap(writtenRegisters) ++
       tree.ends.flatMap(end => end.root +: end.bindings.flatten) ++
       tree.branches.map(registerCount(_) - 1))).max
 
   /** The registers the step writes, those of a witness's steps included. */
-  private def writtenRegisters(step: Step): Vector[Register] = step match
+  private def writtenRegisters[C <: NativeSpecializer & Singleton](step: Step[C]): Vector[Register] = step match
     case Step.Layer(_, _, children)             => children
     case Step.Root(_, target)                   => Vector(target)
     case Step.EachHeadMember(_, _, target)      => Vector(target)

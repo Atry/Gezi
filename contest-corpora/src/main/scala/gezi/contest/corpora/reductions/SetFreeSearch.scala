@@ -63,7 +63,7 @@ object SetFreeSearch:
     stated ++ sized
 
   /** `Search Successors Goal Stack` (`ladder_point_surface/2`). */
-  def pointSurface(attractors: Attractors, point: LadderPoint): Term =
+  def pointSurface(attractors: Attractors, point: LadderPoint): ProblemTerm =
     val search = point.search match
       case Search.DepthFirst => attractors.functionSurface("depth_first", point.spelling)
       case Search.LeavesOnly =>
@@ -73,13 +73,13 @@ object SetFreeSearch:
     )
 
   /** `cons 0 nil` in the spelling. */
-  def stack(attractors: Attractors, spelling: Spelling): Term =
+  def stack(attractors: Attractors, spelling: Spelling): ProblemTerm =
     attractors.functionSurface("cons", spelling)(unary(0))(attractors.functionSurface("nil", spelling))
 
   /** The body of the leaves-only search, with append as its leading
     * parameter (`leaves_only_template/1`).
     */
-  def leavesOnlyTemplate(attractors: Attractors): Term =
+  def leavesOnlyTemplate(attractors: Attractors): ProblemTerm =
     val falseValue = attractors.attractorSurface("false", Spelling.Direct)
     val trueValue = attractors.attractorSurface("true", Spelling.Direct)
     λ(append =>
@@ -102,7 +102,7 @@ object SetFreeSearch:
   /** `\k. k = n then nil else cons (k + 1) (cons (k + 1) nil)`
     * (`successors/3`).
     */
-  def successors(attractors: Attractors, spelling: Spelling, height: Int): Term =
+  def successors(attractors: Attractors, spelling: Spelling, height: Int): ProblemTerm =
     def function(name: String) = attractors.functionSurface(name, spelling)
     val equal = function("natural_equal")
     val limit = unary(height)
@@ -115,7 +115,7 @@ object SetFreeSearch:
     λ(node => equal(node)(limit)(nilOne)(consOne(successorOne(node))(consTwo(successorTwo(node))(nilTwo))))
 
   /** `\k. k = target` (`goal/3`). */
-  def goal(attractors: Attractors, spelling: Spelling, target: Int): Term =
+  def goal(attractors: Attractors, spelling: Spelling, target: Int): ProblemTerm =
     val equal = attractors.functionSurface("natural_equal", spelling)
     λ(node => equal(node)(unary(target)))
 

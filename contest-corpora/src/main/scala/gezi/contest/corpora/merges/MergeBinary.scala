@@ -20,7 +20,7 @@ final class MergeBinary(problems: ProblemFamilies, dynamic: MergeDynamic):
   private val file = problems("merge_binary")
 
   /** The Church Boolean of `left * right == claimed` (`product_term/4`). */
-  def productTerm(left: BigInt, right: BigInt, claimed: BigInt): Term =
+  def productTerm(left: BigInt, right: BigInt, claimed: BigInt): ProblemTerm =
     dynamic.withArithmetic(names =>
       λ(zero =>
         λ(times => names.equality(times(dynamic.binary(left))(dynamic.binary(right)))(dynamic.binary(claimed)))(
@@ -50,7 +50,7 @@ final class MergeBinary(problems: ProblemFamilies, dynamic: MergeDynamic):
     (left, right, (left * right) ^ flipped)
 
   /** The point's program. */
-  def program(point: String): Term =
+  def program(point: String): ProblemTerm =
     val (left, right, claimedProduct) = claimed(point)
     productTerm(left, right, claimedProduct)
 

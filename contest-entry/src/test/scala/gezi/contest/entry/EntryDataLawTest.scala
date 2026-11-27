@@ -8,12 +8,15 @@ import gezi.frontend.Lambdalattice
 import gezi.frontend.Literals
 import gezi.generatedinputs.GeneratedProperties
 import gezi.ir.BuiltInRule
-import gezi.ir.Instruction
+import gezi.ir.Configured
+import gezi.ir.NoFacts
 import gezi.knowledgereading.KnowledgeReading
 import gezi.standardlibrary.KnowledgeSlot
 import gezi.standardlibrary.KnowledgeText
 import gezi.weakhead.Computation
-import gezi.weakhead.Value
+import gezi.ir.Value
+
+private given entryDataLawTestNoFacts: NoFacts.type = NoFacts
 
 /** The laws of the entry's data form (`EntryData`). Their purpose is to
   * catch a reader that loses or changes a setting, takes a round's setting
@@ -48,8 +51,8 @@ class EntryDataLawTest extends GeneratedProperties:
   private def knowledgeMembers(slot: KnowledgeSlot): Gen[Vector[String]] =
     knowledgeMember(slot).list(Range.linear(0, 3)).map(_.toVector.distinct)
 
-  private def term(text: String): Instruction =
-    Defunctionalization.thunkInstruction(Lambdalattice.term(text))
+  private def term(text: String): Configured[NoFacts.type] =
+    Defunctionalization.thunkInstruction(Lambdalattice.term(text))(using gezi.ir.NoFacts)
 
   /** The knowledge of the parts as `EntryText` writes it: their choice, top
     * for none.
@@ -104,11 +107,13 @@ class EntryDataLawTest extends GeneratedProperties:
       lemmaEncoding <- published(LemmaEncodingImplementation.values)
       ematching <- published(EmatchingImplementation.values)
       respellings <- published(MemoRetentionOption.values)
-      writeBackSpellings <- published(MemoRetentionOption.values)
+      writeBackSpellings <- published(WriteBackSpellingsOption.values)
       openingCriterion <- published(OpeningCriterionOption.values)
+      stopDrawn <- Gen.boolean
+      rules = BuiltInRule.values.toVector.zip(chosen).collect { case (rule, true) => rule }.toSet
       settings = RoundSettings(
         opening,
-        BuiltInRule.values.toVector.zip(chosen).collect { case (rule, true) => rule }.toSet,
+        rules,
         indexer,
         orientationCompiler,
         saturator,
@@ -117,7 +122,10 @@ class EntryDataLawTest extends GeneratedProperties:
         ematching,
         respellings,
         writeBackSpellings,
-        openingCriterion
+        openingCriterion,
+        // A round that stops at constant storages cannot also expand
+        // storages' views (`EntryData`'s refusal, its own law below).
+        stopDrawn && !rules.contains(BuiltInRule.StorageView)
       )
       options <- contributions(EntryData.roundGroupWidths, EntryText.roundSlots(settings))
     yield Round(knowledge, settings, options)
@@ -140,6 +148,7 @@ class EntryDataLawTest extends GeneratedProperties:
         Gen.constant(LookaheadOption.Lazily),
         Gen.long(Range.linear(1L, 1L << 40)).map(LookaheadOption.WithinSteps(_))
       )
+      instanceReuse <- Gen.element1(InstanceReuseOption.WithinVersion, InstanceReuseOption.VerifiedAcrossVersions)
     yield JitOptions(
       DispatchOption.Fallback,
       BackendOption.Closure,
@@ -150,7 +159,8 @@ class EntryDataLawTest extends GeneratedProperties:
       budget,
       checkpoints,
       nativeBlocks,
-      lookahead
+      lookahead,
+      instanceReuse
     )
 
   private val readingOptions: Gen[ReadingOptions] =
@@ -184,7 +194,7 @@ class EntryDataLawTest extends GeneratedProperties:
   /** How many members the knowledge's slot `natives` holds, read as the
     * library reads a slot.
     */
-  private def nativesCount(knowledge: Instruction): Int =
+  private def nativesCount(knowledge: Configured[NoFacts.type]): Int =
     val slot = KnowledgeSlot.Natives
     KnowledgeReading
       .run(
@@ -203,8 +213,31 @@ class EntryDataLawTest extends GeneratedProperties:
       jit <- options.forAll
       reading <- readingOptions.forAll
       chosen <- executor.forAll
-      place <- published(CompilationPlaceOption.values).forAll
-      options <- contributions(EntryData.backendGroupWidths, EntryText.backendSlots(jit, reading, chosen.text, place)).forAll
+      place <- Gen
+        .element1(
+          CompilationPlaceOption.Upfront(UnitSelectionOption.WholeProgram),
+          CompilationPlaceOption.Upfront(UnitSelectionOption.LetBoundClosure),
+          CompilationPlaceOption.ByExecutor
+        )
+        .forAll
+      // The pair of a closure unit and the names' tagging is refused, its own law below.
+      tagging <- published(
+        OccurrenceTaggingOption.values.filterNot(tagging =>
+          place == CompilationPlaceOption.Upfront(UnitSelectionOption.LetBoundClosure) &&
+            tagging == OccurrenceTaggingOption.NamesAndClosures
+        )
+      ).forAll
+      groupBlocks <- Gen
+        .choice1(
+          Gen.constant(GroupBlocksOption.None),
+          for
+            share <- Gen.int(Range.linear(1, 100))
+            cells <- Gen.long(Range.linear(0L, Int.MaxValue.toLong))
+            backend <- Gen.element1(GroupBackendOption.Scalar, GroupBackendOption.JvmArray)
+          yield GroupBlocksOption.Enabled(share, cells, backend)
+        )
+        .forAll
+      options <- contributions(EntryData.backendGroupWidths, EntryText.backendSlots(jit, reading, chosen.text, place, tagging, groupBlocks)).forAll
     yield
       val text = EntryText.entry(rounds.toVector.map(_.text), backend, options)
       val data = EntryData.lambdalatticeRead(text)
@@ -217,6 +250,8 @@ class EntryDataLawTest extends GeneratedProperties:
         .and(Result.diff(data.reading, reading)(_ == _))
         .and(Result.diff(data.executor, chosen.option)(_ == _))
         .and(Result.diff(data.compilationPlace, place)(_ == _))
+        .and(Result.diff(data.occurrenceTagging, tagging)(_ == _))
+        .and(Result.diff(data.groupBlocks, groupBlocks)(_ == _))
         .and(Result.diff(nativesCount(data.backend), backend.size)(_ == _))
         .log(text)
   }
@@ -237,7 +272,7 @@ class EntryDataLawTest extends GeneratedProperties:
   private val roundFields: Vector[(String, String)] =
     Vector(
       "opening" -> "(λt. λf. f)",
-      "rules" -> "(λbeta. beta)",
+      "rules" -> "(λbeta storage_view. beta)",
       "indexer" -> "(λstandard. standard)",
       "orientation_compiler" -> "(λstandard. standard)",
       "saturator" -> "(λhigher_order. higher_order)",
@@ -245,8 +280,9 @@ class EntryDataLawTest extends GeneratedProperties:
       "lemma_encoding" -> "(λbaseline. baseline)",
       "ematching" -> "(λclosures interpretation bytecode. closures)",
       "respellings" -> "(λkept not_kept. kept)",
-      "write_back_spellings" -> "(λkept not_kept. kept)",
-      "opening_criterion" -> "(λcalls_a_head calls_a_head_with_matching_arguments. calls_a_head)"
+      "write_back_spellings" -> "(λkept_within_a_pass not_kept kept_across_passes. kept_within_a_pass)",
+      "opening_criterion" -> "(λcalls_a_head calls_a_head_with_matching_arguments. calls_a_head)",
+      "constant_storage_stop" -> "(λt. λf. f)"
     )
 
   private val optionFields: Vector[(String, String)] = Vector(
@@ -259,6 +295,7 @@ class EntryDataLawTest extends GeneratedProperties:
     "budget" -> number(10000),
     "checkpoints" -> "(λprofitable every_steps. profitable)",
     "lookahead" -> "(λlazily within_steps. lazily)",
+    "instance_reuse" -> "(λwithin_version verified_across_versions. within_version)",
     "native_blocks" -> "(λnone. none)",
     "application" -> "(λby_layer by_spine by_shared_prefix. by_layer)",
     "table_sharing" -> "(λlocal strong soft_values weak_keys. local)",
@@ -266,7 +303,9 @@ class EntryDataLawTest extends GeneratedProperties:
     "continuation" -> "(λsubstituted packed. substituted)",
     "parallel" -> "(λboth_sides heads_met. both_sides)",
     "executor" -> "(λjit module. jit)",
-    "compilation_place" -> "(λupfront by_executor. upfront)"
+    "compilation_place" -> "((λunits upfront by_executor. upfront units) (λwhole_program let_bound_closure. whole_program))",
+    "occurrence_tagging" -> "(λuntagged names_and_closures. untagged)",
+    "group_blocks" -> "(λno_group_blocks group_blocks_enabled. no_group_blocks)"
   )
 
   /** The slots' names of each group of a round's options,
@@ -274,7 +313,7 @@ class EntryDataLawTest extends GeneratedProperties:
     */
   private val roundGroups: Vector[Vector[String]] = Vector(
     Vector("indexer", "orientation_compiler", "saturator", "extractor", "lemma_encoding", "ematching"),
-    Vector("opening", "rules", "respellings", "write_back_spellings", "opening_criterion")
+    Vector("opening", "rules", "respellings", "write_back_spellings", "opening_criterion", "constant_storage_stop")
   )
 
   /** The slots' names of each group of the backend's options, `jit`,
@@ -282,9 +321,9 @@ class EntryDataLawTest extends GeneratedProperties:
     */
   private val optionGroups: Vector[Vector[String]] = Vector(
     Vector("dispatch", "implementation", "granularity", "native_blocks", "budget", "trial"),
-    Vector("instance_table", "instance_retention", "checkpoints", "lookahead"),
+    Vector("instance_table", "instance_retention", "checkpoints", "lookahead", "instance_reuse"),
     Vector("application", "table_sharing", "table_retention", "continuation", "parallel"),
-    Vector("executor", "compilation_place")
+    Vector("executor", "compilation_place", "occurrence_tagging", "group_blocks")
   )
 
   /** The knowledge of the round and of the backend, a contribution of one
@@ -331,7 +370,7 @@ class EntryDataLawTest extends GeneratedProperties:
     "lemma_encoding" -> withAField,
     "ematching" -> "(λclosures interpretation bytecode. interpretation)",
     "respellings" -> "(λkept not_kept. not_kept)",
-    "write_back_spellings" -> "(λkept not_kept. not_kept)",
+    "write_back_spellings" -> "(λkept_within_a_pass not_kept kept_across_passes. kept_across_passes)",
     "opening_criterion" -> "(λcalls_a_head calls_a_head_with_matching_arguments. calls_a_head_with_matching_arguments)",
     "dispatch" -> withAField,
     "implementation" -> withAField,
@@ -342,6 +381,7 @@ class EntryDataLawTest extends GeneratedProperties:
     "budget" -> number(20000),
     "checkpoints" -> s"((λinterval profitable every_steps. every_steps interval) ${number(64)})",
     "lookahead" -> s"((λsteps lazily within_steps. within_steps steps) ${number(1000)})",
+    "instance_reuse" -> "(λwithin_version verified_across_versions. verified_across_versions)",
     "native_blocks" -> withAField,
     "application" -> "(λby_layer by_spine by_shared_prefix. by_spine)",
     "table_sharing" -> "(λlocal strong soft_values weak_keys. strong)",
@@ -349,7 +389,10 @@ class EntryDataLawTest extends GeneratedProperties:
     "continuation" -> "(λsubstituted packed. packed)",
     "parallel" -> "(λboth_sides heads_met. heads_met)",
     "executor" -> "((λselector parameters jit module. module selector parameters) (λx. x) (λx. x))",
-    "compilation_place" -> "(λupfront by_executor. by_executor)"
+    "compilation_place" -> "(λupfront by_executor. by_executor)",
+    "occurrence_tagging" -> "(λuntagged names_and_closures. names_and_closures)",
+    "constant_storage_stop" -> "(λt. λf. t)",
+    "group_blocks" -> s"((λshare_percent dense_cells backend no_group_blocks group_blocks_enabled. group_blocks_enabled share_percent dense_cells backend) ${number(50)} ${number(4096)} (λscalar_group_backend jvm_array_group_backend. jvm_array_group_backend))"
   )
 
   /** The fields with the key written once more, with another value, by
@@ -459,3 +502,47 @@ class EntryDataLawTest extends GeneratedProperties:
       (data.rounds.map(_.settings), data.jit, data.reading, data.executor, data.compilationPlace)
     twice.foreach(text => assertEquals(settings(EntryData.lambdalatticeRead(text)), settings(once), text))
   }
+
+  /** The law of the refusal of a closure unit with the names' tagging: an
+    * entry that writes `compilation_place` upfront with `let_bound_closure`
+    * and `occurrence_tagging` `names_and_closures` is refused when it is
+    * read, naming both; either with the other option of its pair reads. Its
+    * purpose is to catch an entry data reader that lets through a pair
+    * whose closure unit's tags change with each point, so that its artifact
+    * is never read again.
+    */
+  test("a closure unit with the names' tagging is refused") {
+    val closureUnit = replaced(
+      optionFields,
+      "compilation_place",
+      "((λunits upfront by_executor. upfront units) (λwhole_program let_bound_closure. let_bound_closure))"
+    )
+    val namesTagged = "(λuntagged names_and_closures. names_and_closures)"
+    val refused = intercept[EntryDataError](EntryData.lambdalatticeRead(entryText(roundFields, replaced(closureUnit, "occurrence_tagging", namesTagged))))
+    assert(
+      refused.getMessage.contains("let_bound_closure") && refused.getMessage.contains("names_and_closures"),
+      s"the refusal names both: ${refused.getMessage}"
+    )
+    EntryData.lambdalatticeRead(entryText(roundFields, closureUnit))
+    EntryData.lambdalatticeRead(entryText(roundFields, replaced(optionFields, "occurrence_tagging", namesTagged)))
+  }
+
+  /** The law of the refusal of a round that stops at constant storages and
+    * expands storages' views, whose purposes are opposite: the entry whose
+    * one round writes `constant_storage_stop` true and the rule
+    * `storage_view` is refused when it is read, naming both; the same round
+    * with either alone reads. Its purpose is to catch an entry data reader
+    * that lets the pair through to `FixpointEgraph.compiledRound`.
+    */
+  test("a round that both stops at constant storages and expands storages' views is refused") {
+    val stopped = replaced(roundFields, "constant_storage_stop", "(λt. λf. t)")
+    val bothRules = "(λbeta storage_view. storage_view)"
+    val refused = intercept[EntryDataError](EntryData.lambdalatticeRead(entryText(replaced(stopped, "rules", bothRules), optionFields)))
+    assert(
+      refused.getMessage.contains("constant_storage_stop") && refused.getMessage.contains("storage_view"),
+      s"the refusal names both: ${refused.getMessage}"
+    )
+    EntryData.lambdalatticeRead(entryText(stopped, optionFields))
+    EntryData.lambdalatticeRead(entryText(replaced(roundFields, "rules", bothRules), optionFields))
+  }
+

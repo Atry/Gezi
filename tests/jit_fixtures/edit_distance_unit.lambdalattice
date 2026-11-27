@@ -1,0 +1,41 @@
+# The function of the library edit distances' family, its direct spelling
+# (gezi.contest.corpora.reductions.LibraryEditDistances.function, Spelling.Direct),
+# written out here over the library's binary naturals, so that a test outside
+# the corpora's generators compiles the closure unit a point of the family
+# binds by its top-level let (gezi.contest.entry.ClosureUnitFilterRecordSnapshotTest).
+# The family's generator is the definition: a change there is a change here.
+# FIXME: the imports project "corpora" off the variable gezi, the name https://github.com/Atry/private-overlay/issues/1924
+# of the project root's own directory; they break if that directory is renamed.
+λ export
+. (λtuple. tuple λmixin. mixin mixin)
+λ omega
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "natural")
+λ binary_zero _ _ _ _
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "arithmetic")
+λ merge_binary_increment _ _ merge_binary_equality
+. omega (omega (omega (omega (omega gezi "corpora") "library") "binary") "order")
+λ _ _ binary_minimum
+. omega (omega (omega (omega (omega gezi "corpora") "library") "native_types") "fixpoint")
+λ fixpoint
+. export
+λ s
+. s
+  ( fixpoint
+    λ self first second
+    . first
+      (second binary_zero (λ _ second_rest. merge_binary_increment (self first second_rest)))
+      ( λ character first_rest
+        . second
+          (merge_binary_increment (self first_rest second))
+          ( λ other second_rest
+            . merge_binary_equality character other
+              (self first_rest second_rest)
+              ( merge_binary_increment
+                ( binary_minimum
+                  (self first_rest second_rest)
+                  (binary_minimum (self first_rest second) (self first second_rest))
+                )
+              )
+          )
+      )
+  )

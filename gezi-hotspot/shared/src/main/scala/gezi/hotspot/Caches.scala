@@ -73,8 +73,8 @@ trait Cache:
 /** A value that belongs to the thread that made it and must not be shared
   * with another thread or captured in a closure (a lambda, a partial
   * application, an eta-expansion, an anonymous class or a by-name argument)
-  * (`CONTRIBUTING.md`, "Tables"). A custom
-  * wart is to enforce this; until it lands, review does.
+  * (`CONTRIBUTING.md`, "Tables"), which the custom wart
+  * `NoThreadConfinedCapture` of the project `warts` enforces.
   */
 trait ThreadConfined
 

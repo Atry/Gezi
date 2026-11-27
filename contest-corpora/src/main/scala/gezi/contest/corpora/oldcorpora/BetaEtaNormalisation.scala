@@ -68,7 +68,7 @@ object BetaEtaNormalisation:
     case Lambda(body)           => !etaRedex(body) && betaEtaNormal(body)
     case other                  => throw IllegalArgumentException(s"no normal form of $other here")
 
-  private def ordered(members: Vector[DeBruijnTerm]): Vector[DeBruijnTerm] = members.distinct.sortBy(_.toString)
+  private def ordered(members: Vector[DeBruijnTerm]): Vector[DeBruijnTerm] = members.distinct.sorted(gezi.ir.ContentComparison.ordering)
 
   private def etaRedex(body: DeBruijnTerm): Boolean = body match
     case Apply(function, Variable(0)) => !occursFree(function, 0)

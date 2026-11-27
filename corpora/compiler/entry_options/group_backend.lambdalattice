@@ -1,0 +1,15 @@
+# The published list of the group backends a group block runs on (GroupBackendOption): scalar_group_backend, the JVM
+# scalar backend, the reference semantics of every backend (gezi.narrowblocks.groups.ScalarGroupBackend);
+# jvm_array_group_backend, the JVM array backend, whose columns of row numbers are int arrays moved by generated
+# kernels (gezi.narrowblocks.groups.JvmArrayGroupBackend).
+# A Scott sum whose constructors are the tuple's fields, in the order of the
+# enum's cases; an entry.lambdalattice imports this file and writes a
+# constructor as the field backend of group_blocks_enabled, and EntryData reads
+# which alternative it takes by structure
+# (gezi.contest.entry.EntryData, THE OPTIONS AS SCOTT CONSTRUCTORS).
+λ export
+. (λtuple. tuple λscalar_group_backend jvm_array_group_backend. scalar_group_backend)
+λ scalar_group_backend
+. (λtuple. tuple λscalar_group_backend jvm_array_group_backend. jvm_array_group_backend)
+λ jvm_array_group_backend
+. export scalar_group_backend jvm_array_group_backend

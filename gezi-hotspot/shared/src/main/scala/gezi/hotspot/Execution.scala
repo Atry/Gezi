@@ -1,16 +1,9 @@
 package gezi.hotspot
 
-import gezi.ir.Instruction
 import gezi.saturation.StopSignal
+import gezi.ir.{Code, Configured, NativeSpecializer}
 
-/** A normal form an executor found: the instruction of a closed thunk of the IR,
-  * what the weak-head reader gives at depth 0
-  * (`gezi.weakhead.NormalForms.normalForm`): the type the existing readers
-  * give.
-  */
-type NormalForm = Instruction
-
-/** One way of running an IR term. An executor is
+/** One way of running a term of the configuration `C`. An executor is
   * a value; what it keeps between calls (compiled codes, its own tables,
   * counts) is in the executor it returns.
   *
@@ -20,13 +13,13 @@ type NormalForm = Instruction
   * suspension may be kept and resumed later, more than once, unless the
   * executor's documentation says otherwise.
   */
-trait Executor[Suspension]:
+trait Executor[C <: NativeSpecializer & Singleton, Suspension]:
 
   /** The term run within the budget, from the start. */
-  def executed(term: Instruction, dependencies: ExecutionDependencies, budget: Budget): (Executor[Suspension], ExecutionDependencies, Progress[Suspension])
+  def executed(term: Configured[C], dependencies: ExecutionDependencies, budget: Budget): (Executor[C, Suspension], ExecutionDependencies, Progress[C, Suspension])
 
   /** The suspension run on within the budget. */
-  def resumed(suspension: Suspension, dependencies: ExecutionDependencies, budget: Budget): (Executor[Suspension], ExecutionDependencies, Progress[Suspension])
+  def resumed(suspension: Suspension, dependencies: ExecutionDependencies, budget: Budget): (Executor[C, Suspension], ExecutionDependencies, Progress[C, Suspension])
 
   /** The suspension exported as a residual term,
     * or nothing. Nothing is always allowed: the suspension is not at a safe
@@ -42,13 +35,13 @@ trait Executor[Suspension]:
     * the IR, with a sharing β-redex for a shared thunk. Deoptimization is a
     * handover by this method.
     */
-  def exported(suspension: Suspension, dependencies: ExecutionDependencies): (ExecutionDependencies, Option[Instruction])
+  def exported(suspension: Suspension, dependencies: ExecutionDependencies): (ExecutionDependencies, Option[Configured[C]])
 
   /** The program this executor runs for a Moore machine state
     * (`corpora/library/java_ffi/moore`), the state under the filter it reads
     * it by, or none for an executor that runs no FFI program.
     */
-  def foreignProgram(state: Instruction): Option[Instruction] = None
+  def foreignProgram(state: Configured[C]): Option[Configured[C]] = None
 
   /** The program of `foreignProgram`, or a compilation of it, run within the
     * budget, calling the dependencies' service (`ExecutionDependencies.foreign`).
@@ -56,10 +49,10 @@ trait Executor[Suspension]:
     * executor that runs no FFI program has no answer, a false negative.
     */
   def interacted(
-      program: Instruction,
+      program: Configured[C],
       dependencies: ExecutionDependencies,
       budget: Budget
-  ): (Executor[Suspension], ExecutionDependencies, ForeignProgress) =
+  ): (Executor[C, Suspension], ExecutionDependencies, ForeignProgress[C]) =
     (this, dependencies, ForeignProgress(Vector.empty, finished = true, Spent.none))
 
 /** What an execution may spend, and which counts it is asked to keep.
@@ -116,39 +109,32 @@ object ExpansionSource:
   /** A version nothing was yet read under. */
   def fresh(): ExpansionSource = new ExpansionSource()
 
-/** What one execution gives: the normal forms found in this call, the
-  * suspended state if it did not finish, and what it cost.
+/** What one execution gives: the normal forms found in this call, each the
+  * closed thunk of the IR that the weak-head reader gives at depth 0
+  * (`gezi.weakhead.NormalForms.normalForm`), a term of the configuration the
+  * execution read under; the suspended state if it did not finish, and what
+  * it cost.
   *
   * @param found
   *   the normal forms found in this call
   * @param suspension
   *   what `Executor.resumed` runs on, when the execution did not finish
   */
-final case class Progress[Suspension](found: Vector[NormalForm], suspension: Option[Suspension], spent: Spent)
+final case class Progress[C <: NativeSpecializer & Singleton, Suspension](found: Vector[Configured[C]], suspension: Option[Suspension], spent: Spent)
 
-/** What an execution cost: costs only, never a type. `applications` has entries only when the budget asked for counted
-  * units, and only for `Code` and `Closure` units. The baseline's executor
-  * (`gezi.weakhead.ReadingExecutor`, under the weak head's modes and under
-  * the JIT) counts `Code` units alone, each entry of an instance of the code
-  * as its machine defines it (`gezi.weakhead.WeakHead`, APPLICATIONS
-  * COUNTED, and `gezi.jit.Jit`, the same section); it counts no `Closure`
-  * unit. A unit an execution did not apply has no entry, so every count is
-  * positive.
+/** What an execution cost: costs only, never a type and never a term, so that one record serves every
+  * configuration. `applications` has entries only when the budget asked for counted units, and only for codes
+  * (the units `CompilationUnit.Code`): each entry of an instance of the code as the executor's machine defines it
+  * (`gezi.weakhead.WeakHead`, APPLICATIONS COUNTED, and `gezi.jit.Jit`, the same section). A code an execution did
+  * not apply has no entry, so every count is positive.
   *
   * @param steps
   *   the evaluator steps the execution took
   * @param applications
-  *   the applications of each unit in the execution, when counted
+  *   the applications of each code in the execution, when counted
   */
-final case class Spent(steps: Long, applications: Map[CompilationUnit, Long]):
+final case class Spent(steps: Long, applications: Map[Code, Long]):
   require(steps >= 0, s"spent steps are not negative: $steps")
-  require(
-    applications.keys.forall {
-      case CompilationUnit.Program(_) => false
-      case _                          => true
-    },
-    "applications are counted for code and closure units only"
-  )
 
 /** The costs of nothing done. */
 object Spent:

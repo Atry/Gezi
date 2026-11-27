@@ -9,8 +9,11 @@ import gezi.frontend.Defunctionalization
 import gezi.frontend.Term
 import gezi.frontend.Term.λ
 import gezi.generatedinputs.GeneratedProperties
-import gezi.ir.Instruction
+import gezi.ir.Configured
+import gezi.ir.NoFacts
 import gezi.saturation.StopSignal
+
+private given narrowSelectLawTestNoFacts: NoFacts.type = NoFacts
 
 /** The laws of the boolean branch:
   *   - a recursion that counts a natural's occurrences in a list by
@@ -34,7 +37,7 @@ class NarrowSelectLawTest extends GeneratedProperties:
 
   import NarrowListLibrary.*
 
-  private def closed(instruction: Instruction): Term = Term.closed(instruction)
+  private def closed(instruction: Configured[NoFacts.type]): Term = Term.closed(instruction)
 
   private val fixpoint = closed(NarrowBlocks.fixpointByValue)
 
@@ -63,7 +66,7 @@ class NarrowSelectLawTest extends GeneratedProperties:
   private def selected(argument: Term, whenTrue: Term, whenFalse: Term): Term =
     λ(truthValue => (truthValue ∥ booleanFilter)(whenTrue)(whenFalse))(argument)
 
-  private def program(term: Term): Instruction = Defunctionalization.thunkInstruction(term.deBruijnTerm(Map.empty))
+  private def program(term: Term): Configured[NoFacts.type] = Defunctionalization.thunkInstruction(term.deBruijnTerm(Map.empty))(using gezi.ir.NoFacts)
 
   /** A numeral's value, zero one time in three. */
   private val value: Gen[Int] = Gen.frequency1(1 -> Gen.constant(0), 2 -> Gen.int(Range.constant(1, 4)))
@@ -73,7 +76,7 @@ class NarrowSelectLawTest extends GeneratedProperties:
     Gen.list(for { number <- value; filtered <- Gen.boolean } yield (number, filtered), Range.linear(1, 8)).map(_.toVector)
 
   private def booleanLiteral(truthValue: Boolean): Term =
-    closed(Instruction.Parallel(if truthValue then truth else falsity, booleanType))
+    closed(NoFacts.parallel(if truthValue then truth else falsity, booleanType))
 
   stoppableProperty("a boolean's branch selects by its scrutinee, evaluates only the case selected, and reads only a boolean") {
     stopped =>
@@ -85,12 +88,12 @@ class NarrowSelectLawTest extends GeneratedProperties:
         second <- value.forAll
       yield
         val stop = StopSignal.completedWith(stopped)
-        def computed(program: Instruction) =
+        def computed(program: Configured[NoFacts.type]) =
           compilation.compiled(compilation.blocks(program), DebugAttributes.Omitted, stop).map(_.map(_.run(stop)))
         val occurrences = written.count(_._1 == sought)
-        val noValue = closed(plus)(closed(Instruction.Parallel(list(written), listCriterion(true))))(closed(zero))
+        val noValue = closed(plus)(closed(NoFacts.parallel(list(written), listCriterion(true))))(closed(zero))
         val programs = Vector(
-          (program(fixpoint(count)(closed(Instruction.Parallel(list(written), listCriterion(true))))(closed(numeral(sought)))), Some(BigInteger.valueOf(occurrences.toLong))),
+          (program(fixpoint(count)(closed(NoFacts.parallel(list(written), listCriterion(true))))(closed(numeral(sought)))), Some(BigInteger.valueOf(occurrences.toLong))),
           (
             program(selected(booleanLiteral(truthValue), closed(numeral(first)), closed(numeral(second)))),
             Some(BigInteger.valueOf((if truthValue then first else second).toLong))

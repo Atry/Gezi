@@ -2,9 +2,9 @@ package gezi.traceplayer
 
 import gezi.ir.Code
 import gezi.ir.Hole
-import gezi.ir.Instruction
 import gezi.ir.Layer
 import gezi.ir
+import gezi.ir.{Configured, NativeSpecializer}
 
 /** One node of an IR term as the player draws it: the layer's constructor
   * and its atoms (a thunk's code and holes), without the terms under it,
@@ -43,15 +43,16 @@ object NodeShape:
   /** The shape of the term's root: `Opaque` for an opaque instruction (a URI
     * node or an opaque term), the layer's shape for any other.
     */
-  def of(instruction: Instruction): NodeShape =
-    if instruction.opaque then Opaque(instruction.toString)
+  def of[C <: NativeSpecializer & Singleton](instruction: Configured[C])(using C): NodeShape =
+    // A storage is shown as the leaf it is in its term's layer, its view not read.
+    if instruction.opaque || ir.NativeStorage.stored(instruction.representation) then Opaque(instruction.toString)
     else
       val shape = instruction.layer match
         case ir.Apply(_, _)                  => Apply
         case ir.Parallel(_, _)               => Parallel
         case ir.Choice(_, _)                 => Choice
         case ir.Thunk(code, holes, fillings) => Thunk(code, holes, fillings.size)
-        case leaf @ (ir.UriNode(_) | ir.Opaque(_)) =>
+        case leaf @ (ir.UriNode(_) | ir.Opaque(_) | _: ir.NativeStorage) =>
           throw IllegalStateException(s"an opaque instruction is answered before its layer is read: $leaf")
       assert(
         shape.roles.size == instruction.layer.children.size,
@@ -63,7 +64,7 @@ object NodeShape:
     * Throws `IllegalArgumentException` when the root has no term there: the
     * caller asks only for the positions of the root's shape.
     */
-  def under(instruction: Instruction, index: Int): Instruction =
+  def under[C <: NativeSpecializer & Singleton](instruction: Configured[C], index: Int)(using C): Configured[C] =
     val children = if instruction.opaque then Vector.empty else instruction.layer.children
     require(
       children.indices.contains(index),

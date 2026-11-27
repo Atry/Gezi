@@ -1,0 +1,199 @@
+# sample 0
+let: f/4
+=>
+arity 4
+
+# sample 1
+let: f/0
+=>
+no unit
+
+# sample 2
+let: f/3
+=>
+arity 3
+
+# sample 3
+let: f/4
+=>
+arity 4
+
+# sample 4
+let: f/3
+=>
+arity 3
+
+# sample 5
+let: f/4
+=>
+arity 4
+
+# sample 6
+no let: f/0
+=>
+no unit
+
+# sample 7
+let: f/3
+=>
+arity 3
+
+# sample 8
+let: λ(f/1)
+=>
+no unit
+
+# sample 9
+no let: g f
+=>
+no unit
+
+# sample 10
+let: f/0
+=>
+no unit
+
+# sample 11
+let: g f
+=>
+no unit
+
+# sample 12
+let: λ(f/3)
+=>
+no unit
+
+# sample 13
+let: λ(f/2)
+=>
+no unit
+
+# sample 14
+let: λ(f/2), f/2
+=>
+arity 2
+
+# sample 15
+let: f/2
+=>
+arity 2
+
+# sample 16
+let: λ(f/3)
+=>
+no unit
+
+# sample 17
+no let: g f, λ(f/4)
+=>
+no unit
+
+# sample 18
+no let: f/4
+=>
+no unit
+
+# sample 19
+let: f/1
+=>
+arity 1
+
+# sample 20
+let: f/0, f/3
+=>
+arity 3
+
+# sample 21
+let: g f, λ(f/4)
+=>
+arity 4
+
+# sample 22
+let: λ(λ(f/2)), f/3
+=>
+arity 3
+
+# sample 23
+no let: f/2
+=>
+no unit
+
+# sample 24
+let: f/0
+=>
+no unit
+
+# sample 25
+let: f/3
+=>
+arity 3
+
+# sample 26
+let: λ(f/0), λ(g f), f/3
+=>
+arity 3
+
+# sample 27
+let: f/2
+=>
+arity 2
+
+# sample 28
+let: f/3, λ(λ(f/1))
+=>
+arity 3
+
+# sample 29
+let: λ(f/4), f/0, f/1
+=>
+arity 4
+
+# sample 30
+no let: λ(λ(f/2)), f/3, f/2
+=>
+no unit
+
+# sample 31
+let: λ(λ(f/1)), λ(g f)
+=>
+arity 1
+
+# sample 32
+let: f/4, f/2
+=>
+arity 4
+
+# sample 33
+no let: f/2, f/0, f/2
+=>
+no unit
+
+# sample 34
+let: λ(λ(g f)), f/1
+=>
+arity 1
+
+# sample 35
+let: λ(f/4), f/3
+=>
+arity 4
+
+# sample 36
+let: f/2
+=>
+arity 2
+
+# sample 37
+let: λ(λ(f/3)), f/2, g f
+=>
+arity 3
+
+# sample 38
+let: λ(f/1), λ(f/2), g f
+=>
+arity 2
+
+# sample 39
+let: f/4
+=>
+arity 4

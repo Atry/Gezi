@@ -1,14 +1,19 @@
 package gezi.weakhead
 
+import gezi.ir.NoFacts
+import gezi.ir.Value
+import gezi.ir.Configured
 import gezi.weakhead.oldcorpora.ConstructorTree
 import gezi.weakhead.oldcorpora.ScottDataType
 import gezi.weakhead.oldcorpora.ScottDecoding
 import gezi.standardlibrary.SplitMix
 import gezi.frontend.DeBruijnTerm
+import gezi.frontend.DeBruijnTermOf
+import gezi.frontend.TermOf
 import gezi.frontend.Defunctionalization
-import gezi.ir.Instruction
 import gezi.frontend.Term
 import scala.annotation.tailrec
+import gezi.ir.NativeSpecializer
 
 /** How a bounded run ended (evaluator_testing.pl's outcomes): within its
   * budget, with its value; past its budget of steps; or out of a resource
@@ -34,30 +39,33 @@ enum Bounded[+Result]:
 object EvaluatorTesting:
 
   /** The closed de Bruijn term of a HOAS term with no library name. */
-  def lambdaTerm(term: Term): DeBruijnTerm = term.deBruijnTerm(Map.empty)
+  def lambdaTerm[Constant](term: TermOf[Constant]): DeBruijnTermOf[Constant] = term.deBruijnTerm(Map.empty)
 
-  /** The thunk IR of a closed HOAS term with no library name. */
-  def instructionOf(term: Term): Instruction =
-    Defunctionalization.thunkInstruction(lambdaTerm(term))
+  /** The terms of these helpers are read under no facts. */
+  private given NoFacts.type = NoFacts
+
+  /** The thunk IR of a closed HOAS term with no library name, under no facts. */
+  def instructionOf(term: TermOf[Configured[NoFacts.type]]): Configured[NoFacts.type] =
+    Defunctionalization.thunkInstruction[NoFacts.type](lambdaTerm(term))
 
   /** The plain value of a closed HOAS term, its codes interned. */
-  def valueOf(term: Term): Value =
+  def valueOf(term: TermOf[Configured[NoFacts.type]]): Value[NoFacts.type] =
     Values.ofInstruction(instructionOf(term), Set.empty)
 
   /** The de Bruijn readback of a closed instruction. */
-  def instructionTerm(instruction: Instruction): DeBruijnTerm =
-    Defunctionalization.instructionTerm(instruction)
+  def instructionTerm(instruction: Configured[NoFacts.type]): DeBruijnTermOf[Configured[NoFacts.type]] =
+    Defunctionalization.instructionTerm[NoFacts.type](instruction)
 
   /** The de Bruijn readback of a plain head. */
-  def headTerm(head: Head): DeBruijnTerm =
+  def headTerm(head: Head[NoFacts.type]): DeBruijnTermOf[Configured[NoFacts.type]] =
     instructionTerm(Values.instruction(head.value))
 
   /** The de Bruijn readback of a parallel set of plain heads: its head's, or
     * the parallel of its heads' nested to the right. Throws for the empty
     * parallel set, which no term of the calculus spells.
     */
-  def setTerm(set: ParallelSet): DeBruijnTerm =
-    val value = set.value.getOrElse(throw AssertionError("the empty parallel set has no readback"))
+  def setTerm(set: ParallelSet[NoFacts.type]): DeBruijnTermOf[Configured[NoFacts.type]] =
+    val value = set.value(NoFacts).getOrElse(throw AssertionError("the empty parallel set has no readback"))
     instructionTerm(Values.instruction(value))
 
   /** Every parallel set of the value under the mode, its heads expanded to
@@ -66,23 +74,41 @@ object EvaluatorTesting:
     */
   def plainHeadsWithin(
       mode: Mode,
-      value: Value,
+      value: Value[NoFacts.type],
       limit: Long,
       extremes: KnownExtremes = KnownExtremes.none
-  ): Bounded[Vector[ParallelSet]] =
-    WeakHead.heads(mode, value).collected.result(ReadingState.knowing(limit, extremes)) match
-      case Computed.Done(heads, _) => Bounded.Finished(WeakHead.headsExpanded(mode, heads))
+  ): Bounded[Vector[ParallelSet[NoFacts.type]]] =
+    WeakHead.heads(mode, value).collected.result(ReadingState.knowing(limit, extremes, gezi.weakhead.ReadingConfiguration.withoutFacts)) match
+      case Computed.Done(heads, _) => Bounded.Finished(heads)
       case Computed.Stopped(after)     => stopped(after)
 
+  /** Whether the two vectors of instructions are one in order, instruction by instruction the same object. */
+  def sameInstructions(left: Vector[Configured[NoFacts.type]], right: Vector[Configured[NoFacts.type]]): Boolean =
+    left.size == right.size && left.lazyZip(right).forall(Configured.same(_, _))
+
+  /** Whether the run finished with exactly the instructions, in order, each the same object. */
+  def finishedInstructions(bounded: Bounded[Vector[Configured[NoFacts.type]]], expected: Vector[Configured[NoFacts.type]]): Boolean =
+    bounded match
+      case Bounded.Finished(found) => sameInstructions(found, expected)
+      case _                       => false
+
+  /** Whether the two runs ended alike, the instructions they finished with the same objects in order. */
+  def sameBounded(left: Bounded[Vector[Configured[NoFacts.type]]], right: Bounded[Vector[Configured[NoFacts.type]]]): Boolean =
+    (left, right) match
+      case (Bounded.Finished(leftFound), Bounded.Finished(rightFound)) => sameInstructions(leftFound, rightFound)
+      case (Bounded.Exceeded, Bounded.Exceeded)                        => true
+      case (Bounded.Exhausted(leftResource), Bounded.Exhausted(rightResource)) => leftResource == rightResource
+      case _                                                           => false
+
   /** How a run that stopped ended: out of a resource, or past its budget. */
-  def stopped(after: ReadingState): Bounded[Nothing] = after.exhausted match
+  def stopped[C <: NativeSpecializer & Singleton](after: ReadingState[C]): Bounded[Nothing] = after.exhausted match
     case Some(resource) => Bounded.Exhausted(resource)
     case None           => Bounded.Exceeded
 
   /** Every parallel set of the value under the mode, read back to de Bruijn
     * terms, in the order found, within the limit of steps.
     */
-  def headsWithin(mode: Mode, value: Value, limit: Long): Bounded[Vector[DeBruijnTerm]] =
+  def headsWithin(mode: Mode, value: Value[NoFacts.type], limit: Long): Bounded[Vector[DeBruijnTermOf[Configured[NoFacts.type]]]] =
     plainHeadsWithin(mode, value, limit) match
       case Bounded.Finished(heads) => Bounded.Finished(heads.map(setTerm))
       case Bounded.Exceeded        => Bounded.Exceeded
@@ -91,7 +117,7 @@ object EvaluatorTesting:
   /** The heads of a closed HOAS term under the mode, read back, within a
     * limit no test of a few nodes reaches.
     */
-  def surfaceHeads(mode: Mode, term: Term): Vector[DeBruijnTerm] =
+  def surfaceHeads(mode: Mode, term: TermOf[Configured[NoFacts.type]]): Vector[DeBruijnTermOf[Configured[NoFacts.type]]] =
     val value = valueOf(term)
     finishedValue(headsWithin(mode, value, smallTermLimit))
 
@@ -100,18 +126,18 @@ object EvaluatorTesting:
     */
   def normalFormsWithin(
       mode: Mode,
-      value: Value,
+      value: Value[NoFacts.type],
       limit: Long,
       extremes: KnownExtremes = KnownExtremes.none
-  ): Bounded[Vector[Instruction]] =
-    NormalForms.normalForms(mode, value).result(ReadingState.knowing(limit, extremes)) match
+  ): Bounded[Vector[Configured[NoFacts.type]]] =
+    NormalForms.normalForms(mode, value).result(ReadingState.knowing(limit, extremes, gezi.weakhead.ReadingConfiguration.withoutFacts)) match
       case Computed.Done(normalForms, _) => Bounded.Finished(normalForms)
       case Computed.Stopped(after)       => stopped(after)
 
   /** The distinct normal forms of a closed HOAS term under the mode, read
     * back, as a set.
     */
-  def surfaceNormalForms(mode: Mode, term: Term): Set[DeBruijnTerm] =
+  def surfaceNormalForms(mode: Mode, term: TermOf[Configured[NoFacts.type]]): Set[DeBruijnTermOf[Configured[NoFacts.type]]] =
     val value = valueOf(term)
     finishedValue(normalFormsWithin(mode, value, smallTermLimit)).map(instructionTerm).toSet
 
@@ -120,11 +146,11 @@ object EvaluatorTesting:
     */
   def treesWithin(
       mode: Mode,
-      value: Value,
+      value: Value[NoFacts.type],
       dataType: ScottDataType,
       limit: Long
   ): Bounded[Vector[ConstructorTree]] =
-    ScottDecoding.decoded(mode, value, dataType).collected.result(ReadingState.fresh(limit)) match
+    ScottDecoding.decoded(mode, value, dataType).collected.result(ReadingState.fresh(limit, gezi.weakhead.ReadingConfiguration.withoutFacts)) match
       case Computed.Done(trees, _) => Bounded.Finished(trees)
       case Computed.Stopped(after) => stopped(after)
 

@@ -1,6 +1,8 @@
 package gezi.contest.judge
 
 import hedgehog.Gen
+import gezi.ir.Configured
+import gezi.ir.NoFacts
 import hedgehog.Range
 import java.io.FileDescriptor
 import java.io.FileOutputStream
@@ -34,7 +36,7 @@ import snapshot4s.generated.snapshotConfig
   */
 final class PipeProbe extends EntryProvider:
 
-  def initial(entryDirectory: Path, cache: Cache, articles: ArticleDestination): Entry =
+  def initial(entryDirectory: Path, cache: Cache, articles: ArticleDestination): Entry[?] =
     Files.readString(entryDirectory.resolve("behaviour")) match
       case "exhaust" => PipeProbe.Exhausting(cache)
       case "stray"   => PipeProbe.Straying(cache)
@@ -44,13 +46,13 @@ final class PipeProbe extends EntryProvider:
 object PipeProbe:
 
   /** The entry that exhausts its heap on an evaluation point. */
-  final case class Exhausting(cache: Cache) extends Entry:
-    def run(cell: DeBruijnTerm, source: gezi.hotspot.ExpansionSource, stop: StopSignal): Interaction =
+  final case class Exhausting(cache: Cache) extends Entry[NoFacts.type]:
+    def run(cell: gezi.frontend.DeBruijnTermOf[Configured[NoFacts.type]], source: gezi.hotspot.ExpansionSource, stop: StopSignal): Interaction[NoFacts.type] =
       if judgment(cell) then unanswered(cell, this) else exhausted(Nil)
 
   /** The entry that writes a stray line on the pipe on an evaluation point. */
-  final case class Straying(cache: Cache) extends Entry:
-    def run(cell: DeBruijnTerm, source: gezi.hotspot.ExpansionSource, stop: StopSignal): Interaction =
+  final case class Straying(cache: Cache) extends Entry[NoFacts.type]:
+    def run(cell: gezi.frontend.DeBruijnTermOf[Configured[NoFacts.type]], source: gezi.hotspot.ExpansionSource, stop: StopSignal): Interaction[NoFacts.type] =
       if !judgment(cell) then
         val pipe = FileOutputStream(FileDescriptor.out)
         pipe.write("a stray line\n".getBytes(StandardCharsets.UTF_8))
@@ -66,7 +68,7 @@ object PipeProbe:
   /** The cell finished with its Output displayed unreduced, asserting
     * nothing.
     */
-  private def unanswered(cell: DeBruijnTerm, entry: Entry): Interaction =
+  private def unanswered(cell: DeBruijnTerm, entry: Entry[NoFacts.type]): Interaction[NoFacts.type] =
     Interaction.Finished(Cells.unreducedOutput(cell, Cells.initialState), Vector.empty, entry)
 
   /** Never returns: each step holds one more vector of a million cells. */
@@ -106,7 +108,7 @@ class UnansweredLineTest extends gezi.generatedinputs.FailFastSuite with SeededS
   private val program = DeBruijnTerm.Lambda(DeBruijnTerm.Variable(0))
 
   /** The program's instruction, which a point holds. */
-  private val programInstruction: gezi.ir.Instruction = gezi.frontend.Defunctionalization.thunkInstruction(program)
+  private val programInstruction: Configured[NoFacts.type] = gezi.frontend.Defunctionalization.thunkInstruction(program)(using gezi.ir.NoFacts)
 
   /** The rows of the pass, a point and its outcome a line, then each line
     * the supervisor read that was not an answer, by the file it wrote it to,
@@ -129,7 +131,7 @@ class UnansweredLineTest extends gezi.generatedinputs.FailFastSuite with SeededS
     Files.writeString(entryDirectory.resolve("behaviour"), behaviour)
     val points = kinds.toVector.zipWithIndex.map((evaluation, position) =>
       val question = if evaluation then Question.Evaluation(Set(program)) else Question.Judgment(programInstruction, true)
-      Point(s"point_$position", "test", "test", BigDecimal(1), programInstruction, question)
+      Point(s"point_$position", "test", "test", BigDecimal(1), gezi.frontend.ExchangeText.line(programInstruction), question)
     )
     val reader = Reader("probe", SupervisorCommand.entryReaderClasspath(classes.toString), Launched.EntryLaunched(entryDirectory))
     val limits = Limits(FamilyBudgets(20, 60, 60), 60, 2, None, None, None, entryDirectory, "256m", None, TestSandbox.bubblewrap, ArticleDestination.Discarded, None)

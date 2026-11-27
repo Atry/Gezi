@@ -9,12 +9,13 @@ import gezi.generatedinputs.GeneratedProperties
 import gezi.ir.Code
 import gezi.ir.DispatchPattern
 import gezi.ir.Hole
-import gezi.ir.Instruction
+import gezi.ir.Configured
 import gezi.ir.Layer
 import gezi.ir.LemmaIdentifier
-import gezi.ir.Reachability
+import gezi.ir.NoFacts
+import gezi.ir.NonEmptyHoles
 import gezi.ir.Store
-import gezi.ir.{Apply, Choice, Parallel, Thunk}
+import gezi.ir.Choice
 
 /** The laws that the extraction's dispatch patterns and the refinement's
   * are one recognition (`DispatchPattern`), on generated graphs. A graph
@@ -42,13 +43,17 @@ import gezi.ir.{Apply, Choice, Parallel, Thunk}
   */
 class DispatchPatternLawTest extends GeneratedProperties:
 
+  private type C = NoFacts.type
+
+  private given NoFacts.type = NoFacts
+
   private val lemma = Justification.Lemma(LemmaIdentifier(0), Vector.empty)
 
   /** λf. λy. f y: a thunk of two holes whose code applies the first to the
     * second.
     */
   private val identity =
-    Instruction(Thunk(Code.Apply(Code.Slot(0), Code.Slot(1)), Vector(Hole.Bound(0), Hole.Bound(1)), Vector.empty))
+    NoFacts.thunk(Code.Apply(Code.Slot(0), Code.Slot(1)), NonEmptyHoles(Hole.Bound(0), Vector(Hole.Bound(1))), Vector.empty)
 
   /** A step of a generated graph; the numbers pick among the instructions or the
     * nodes made so far, modulo their count.
@@ -78,35 +83,34 @@ class DispatchPatternLawTest extends GeneratedProperties:
     val choices = if unions then made :+ united else made
     Gen.choice1(choices.head, choices.tail*)
 
-  private final case class Generated(graph: EGraph, instructions: Vector[Instruction], store: Store)
+  private final case class Generated(graph: EGraph[C], instructions: Vector[Configured[C]], store: Store[C])
 
   private def generated(leafCount: Int, steps: List[Step]): Generated =
-    val leaves = Vector.tabulate(leafCount)(number => Instruction.opaque(s"leaf$number"))
-    val store = Store(noinline = leaves.toSet)
+    val leaves = Vector.tabulate(leafCount)(number => NoFacts.opaque(s"leaf$number"))
+    val store = Store(noinline = leaves.toSet, gezi.ir.TermConstruction(NoFacts))
     val empty = EGraph.empty(store, Map.empty, explained = false)
     val start = (leaves :+ identity).foldLeft(Generated(empty, Vector.empty, store))((current, instruction) =>
       Generated(current.graph.instructionAdded(instruction)._1, current.instructions :+ instruction, store)
     )
     steps.foldLeft(start)((current, step) =>
-      def instruction(number: Int): Instruction = current.instructions(number % current.instructions.size)
-      def added(instruction: Instruction): Generated =
+      def instruction(number: Int): Configured[C] = current.instructions(number % current.instructions.size)
+      def added(instruction: Configured[C]): Generated =
         Generated(current.graph.instructionAdded(instruction)._1, current.instructions :+ instruction, store)
-      def made(layer: Layer[Instruction]): Instruction = Instruction(layer)
       step match
-        case Step.Applied(function, argument) => added(made(Apply(instruction(function), instruction(argument))))
-        case Step.Paralleled(left, right)     => added(made(Parallel(instruction(left), instruction(right))))
-        case Step.Chosen(left, right)         => added(made(Choice(instruction(left), instruction(right))))
+        case Step.Applied(function, argument) => added(NoFacts.application(instruction(function), instruction(argument)))
+        case Step.Paralleled(left, right)     => added(NoFacts.parallel(instruction(left), instruction(right)))
+        case Step.Chosen(left, right)         => added(NoFacts.choice(instruction(left), instruction(right)))
         case Step.Specialized(function, argument, domain, range, kind, untypedFirst) =>
-          val untyped = made(Apply(instruction(function), instruction(argument)))
-          val application = made(Apply(instruction(function), made(Parallel(instruction(argument), instruction(domain)))))
+          val untyped = NoFacts.application(instruction(function), instruction(argument))
+          val application = NoFacts.application(instruction(function), NoFacts.parallel(instruction(argument), instruction(domain)))
           val typed = kind match
             case 0 => application
-            case 1 => made(Parallel(application, instruction(range)))
-            case _ => made(Apply(identity, application))
-          added(made(if untypedFirst then Choice(untyped, typed) else Choice(typed, untyped)))
+            case 1 => NoFacts.parallel(application, instruction(range))
+            case _ => NoFacts.application(identity, application)
+          added(if untypedFirst then NoFacts.choice(untyped, typed) else NoFacts.choice(typed, untyped))
         case Step.Judged(value, criterion, valueFirst) =>
-          val filtered = made(Parallel(instruction(value), instruction(criterion)))
-          added(made(if valueFirst then Choice(instruction(value), filtered) else Choice(filtered, instruction(value))))
+          val filtered = NoFacts.parallel(instruction(value), instruction(criterion))
+          added(if valueFirst then NoFacts.choice(instruction(value), filtered) else NoFacts.choice(filtered, instruction(value)))
         case Step.United(first, second) =>
           val nodes = current.graph.nodeCount
           current.copy(graph = current.graph.unionWorked(first % nodes, second % nodes, lemma, None))
@@ -115,10 +119,22 @@ class DispatchPatternLawTest extends GeneratedProperties:
   /** The refinement's view of an instruction: its layer, a noinline leaf
     * having none.
     */
-  private def instructionLayers(store: Store)(instruction: Instruction): Vector[Layer[Instruction]] =
-    if store.noinline.contains(instruction) then Vector.empty else Vector(instruction.layered)
+  private def instructionLayers(store: Store[C])(instruction: Configured[C]): Vector[Layer[Configured[C]]] =
+    if store.noinline.contains(instruction) then Vector.empty else Vector(store.expanded(instruction))
 
-  private def patternShapes(graph: EGraph): Vector[Shape] =
+  /** The terms under the roots, the roots included, each once; no term of the test holds a storage or an opaque
+    * layer but the leaves.
+    */
+  private def termsUnder(roots: Iterable[Configured[C]]): Set[Configured[C]] =
+    @scala.annotation.tailrec
+    def walked(pending: List[Configured[C]], seen: Set[Configured[C]]): Set[Configured[C]] = pending match
+      case Nil                          => seen
+      case term :: rest if seen(term)   => walked(rest, seen)
+      case term :: rest if term.opaque  => walked(rest, seen + term)
+      case term :: rest                 => walked(term.layer.children.toList ::: rest, seen + term)
+    walked(roots.toList, Set.empty)
+
+  private def patternShapes(graph: EGraph[C]): Vector[Shape[C]] =
     Extraction.productions(graph, Set.empty)._1.map(_.shape).filter {
       case Shape.Specialized(_, _) | Shape.Judged(_, _) => true
       case _                                            => false
@@ -131,15 +147,15 @@ class DispatchPatternLawTest extends GeneratedProperties:
     yield
       val Generated(graph, instructions, store) = generated(leafCount, steps)
       val layers = instructionLayers(store)
-      def classOf(instruction: Instruction): Int = graph.root(graph.instructionNode(instruction).get)
+      def classOf(instruction: Configured[C]): Int = graph.root(graph.instructionNode(instruction).get)
       val expected = instructions.distinct.flatMap(instruction =>
         layers(instruction) match
           case Vector(Choice(left, right)) =>
             val node = graph.instructionNode(instruction).get
             DispatchPattern.specializations(left, right, layers, DispatchPattern.noContract).map(found =>
-              Shape.Specialized(node, found.map(classOf))
+              Shape.Specialized[C](node, found.map(classOf))
             ) ++ DispatchPattern.fallbacks(left, right, layers).map(found =>
-              Shape.Judged(node, found.copy(value = classOf(found.value), criterion = classOf(found.criterion)))
+              Shape.Judged[C](node, found.copy(value = classOf(found.value), criterion = classOf(found.criterion)))
             )
           case _ => Vector.empty
       )
@@ -153,12 +169,12 @@ class DispatchPatternLawTest extends GeneratedProperties:
     yield
       val Generated(graph, instructions, store) = generated(leafCount, steps)
       val layers = instructionLayers(store)
-      val representative = (instructions ++ Reachability.instructionsUnder(instructions)).flatMap(instruction =>
+      val representative = (instructions ++ termsUnder(instructions)).flatMap(instruction =>
         graph.instructionNode(instruction).map(node => (graph.root(node), instruction))
       ).toMap
       val misread = patternShapes(graph).flatMap { shape =>
         val parts = shape.children.map(representative)
-        val spelled = Shape.spelled[Instruction](shape, parts, instruction => instruction, Instruction(_))
+        val spelled = Shape.spelledTerm(shape, parts)
         val Vector(Choice(left, right)) = layers(spelled): @unchecked
         val readBack = DispatchPattern.specializations(left, right, layers, DispatchPattern.noContract).headOption match
           case Some(found) => Some(found.parts)

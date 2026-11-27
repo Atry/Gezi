@@ -6,7 +6,7 @@ package gezi
   * ([[Lambdalattice]]);
   * each is translated to a [[DeBruijnTerm]], which [[Defunctionalization]]
   * translates to the thunk IR, canonical instructions and codes
-  * (`gezi.ir.Instruction`) built as it converts. Nothing after the front end sees a de Bruijn term.
+  * (`gezi.ir.Configured`, the terms of one configuration) built as it converts. Nothing after the front end sees a de Bruijn term.
   * [[ExchangeText]] writes a closed instruction as one line of
   * lambda-lattice text at the size of its graph and reads it back: the form
   * of the problem corpora's references and of the judge's points file and

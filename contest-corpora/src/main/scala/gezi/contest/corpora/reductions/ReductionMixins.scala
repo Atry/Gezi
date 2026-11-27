@@ -16,7 +16,7 @@ object ReductionMixins:
   private val family = "reduction_mixins"
 
   /** `run n accumulator = n accumulator (\p. run p (step accumulator))`. */
-  private def runMixin(mixins: MixinLibrary): Term =
+  private def runMixin(mixins: MixinLibrary): ProblemTerm =
     mixins.selfMixin("counter", "run")(self =>
       λ(count =>
         λ(accumulator =>
@@ -31,7 +31,7 @@ object ReductionMixins:
     * the lets of the arithmetic and of the mixin encoding
     * (`counter_surface/3`).
     */
-  def counterSurface(group: ReductionGroup, count: Int, increments: Vector[Int]): Term =
+  def counterSurface(group: ReductionGroup, count: Int, increments: Vector[Int]): ProblemTerm =
     val mixins = group.mixins
     group.arithmetic.withArithmetic(names =>
       mixins.withMixinLibrary(Vector.empty, Vector("counter"))(_ =>

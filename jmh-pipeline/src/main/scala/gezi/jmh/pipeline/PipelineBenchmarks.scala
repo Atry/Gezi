@@ -4,6 +4,7 @@ import java.util.concurrent.TimeUnit // the JMH protocol's exception (the user, 
 import gezi.programfamilies.CompiledConfiguration
 import gezi.programfamilies.FrontEnd
 import gezi.programfamilies.Pipeline
+import gezi.ir.NoFacts
 import gezi.programfamilies.Saturated
 import gezi.backendcomparison.Compiled
 import org.openjdk.jmh.annotations.Benchmark
@@ -55,7 +56,7 @@ class PipelineBenchmarks:
   /** The run's input compiled by the index and the closure backend. */
   @Benchmark
   @OutputTimeUnit(TimeUnit.MICROSECONDS)
-  def indexCompiled(input: ItemInput): Compiled =
+  def indexCompiled(input: ItemInput): Compiled[NoFacts.type] =
     Pipeline.indexCompiled(input.compiled, input.afterFrontEnd)
 
   /** The graph saturated to its End. */

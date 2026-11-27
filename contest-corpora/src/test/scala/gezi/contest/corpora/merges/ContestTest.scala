@@ -118,7 +118,7 @@ class ContestReadingTest extends MergeProblemsSuite:
     * (`thunk_instruction/2`, not interned).
     */
   private def pointValue(point: String) =
-    Values.ofInstruction(Defunctionalization.thunkInstruction(pointTerm(point)), Set.empty)
+    Values.ofInstruction(Defunctionalization.thunkInstruction(pointTerm(point))(using gezi.ir.NoFacts), Set.empty)
 
   test("theReferenceEvaluatorReadsTheIntendedAnswer") {
     headPoints.filterNot((point, _) => beyondReference(point)).foreach((point, value) =>
@@ -130,7 +130,7 @@ class ContestReadingTest extends MergeProblemsSuite:
     headPoints.foreach((point, _) =>
       val seconds = answers.pointLimits(point).seconds.toDouble
       val root = pointValue(point)
-      val outcome = Reading.termReading(Mode.TablingWeakHead, root, Reading.budgetSteps(3 * seconds))
+      val outcome = Reading.termReading(Mode.TablingWeakHead, root, Reading.budgetSteps(3 * seconds), gezi.weakhead.ReadingConfiguration.withoutFacts)
       outcome match
         case ReadingOutcome.Heads(heads) => assert(heads.nonEmpty, point)
         case other                       => fail(s"$point: $other")
@@ -144,9 +144,9 @@ class ContestReadingTest extends MergeProblemsSuite:
         case Bounded.Finished(head) => head
         case other                  => fail(s"$point: the reference did not finish: $other")
       val root = pointValue(point)
-      Reading.termReading(Mode.TablingWeakHead, root, Reading.budgetSteps(3)) match
+      Reading.termReading(Mode.TablingWeakHead, root, Reading.budgetSteps(3), gezi.weakhead.ReadingConfiguration.withoutFacts) match
         case ReadingOutcome.Heads(Vector(set)) =>
-          set.view match
+          set.view(gezi.ir.NoFacts) match
             case ParallelView.Single(head) =>
               assertEquals((point, claims.ContestAnswers.headTerm(head)), (point, expected))
             case _ => fail(s"$point: not one head: $set")

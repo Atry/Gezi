@@ -1,21 +1,25 @@
 package gezi.orientation
 
 import gezi.ir.Direction
-import gezi.ir.Instruction
+import gezi.ir.NoFacts
 import gezi.ir.LemmaIdentifier
 import gezi.ir.Pattern
 
 class OrientationsTest extends gezi.generatedinputs.FailFastSuite:
+  private given NoFacts.type = NoFacts
 
-  private val head = Instruction.opaque("head")
-  private val other = Instruction.opaque("other")
 
-  private def metavariable(index: Int) = Pattern.Metavariable(index)
+  private type C = NoFacts.type
 
-  private def application(function: Pattern, argument: Pattern) =
+  private val head = NoFacts.opaque("head")
+  private val other = NoFacts.opaque("other")
+
+  private def metavariable(index: Int): Pattern[C] = Pattern.Metavariable(index)
+
+  private def application(function: Pattern[C], argument: Pattern[C]): Pattern[C] =
     Pattern.Apply(function, argument)
 
-  private def orientation(matched: Pattern, added: Pattern) = Orientation(
+  private def orientation(matched: Pattern[C], added: Pattern[C]): Orientation[C] = Orientation(
     index = 0,
     lemma = LemmaIdentifier(0),
     direction = Direction.Forward,

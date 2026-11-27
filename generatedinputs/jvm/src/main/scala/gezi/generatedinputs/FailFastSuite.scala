@@ -123,18 +123,20 @@ abstract class FailFastSuite extends munit.FunSuite:
       )
     )
 
+  // The bounded run is the innermost transform, so that munit's own transforms, `.fail` among them, see the body's
+  // outcome once it has run, not the stoppable body it starts.
   override def munitTestTransforms: List[TestTransform] =
-    super.munitTestTransforms :+ new TestTransform(
+    new TestTransform(
       "fail fast",
       test => test.withBody(() => FailFastSuite.boundedInRun(munitTimeout, Promise[Unit]())(test.body))
-    )
+    ) +: super.munitTestTransforms
 
   /** A test whose body receives the stop request of its deadline: a read-only future
     * that the runner completes when the test overruns, for
     * `StopSignal.completedWith`; the body cannot complete it itself.
     */
-  def stoppableTest(name: String)(body: Future[Unit] => Any)(using munit.Location): Unit =
-    test(name)(FailFastSuite.Stoppable(body))
+  def stoppableTest(options: munit.TestOptions)(body: Future[Unit] => Any)(using munit.Location): Unit =
+    test(options)(FailFastSuite.Stoppable(body))
 
 /** The failure of a test whose body did not return within its deadline. */
 final class TestDeadlineExceeded(message: String) extends RuntimeException(message)
