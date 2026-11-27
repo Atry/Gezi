@@ -3,7 +3,6 @@ package com.yang_bo.gezi.traceplayer
 import com.thoughtworks.binding.Binding
 import com.thoughtworks.binding.Binding.Constant
 import com.yang_bo.html.*
-import com.yang_bo.html.adaptors.AccessibleAdaptors.given
 import com.yang_bo.gezi.frontend.ReadableText
 import org.scalajs.dom
 

@@ -32,16 +32,16 @@ libraryDependencies += "org.scala-js" %% "scalajs-dom" % "2.8.1"
 // Binding.scala, html.scala and LatestEvent.scala, the player's interface
 // (https://github.com/Atry/private-overlay/issues/1497, section 6.5, "界面"; the
 // user, 2026-11-09: "我觉得应该用Binding.scala做控制UI"; "https://github.com/ThoughtWorksInc/LatestEvent.scala
-// 可以避免很多Var的使用"). html 3.0.3+61-a38243c3 and latestevent
-// 2.0.0+13-cd63a4e2, the latest builds for Scala 3 and Scala.js on Maven
-// Central (2026-11-09), are both built against Binding.scala 12.2.0, whose
-// `ChangedListener` LatestEvent implements; Binding.scala 13.0.0-M0 replaces
-// that API by streams, so binding stays at 12.2.0, named here because the
-// player's own code uses it.
+// 可以避免很多Var的使用"). html.scala 3.0.4 fixes adaptor lookup from the
+// player's call sites, so no local compatibility bridge is needed.
+// LatestEvent 2.0.0+13-cd63a4e2 and html.scala are built against Binding.scala
+// 12.2.0, whose `ChangedListener` LatestEvent implements; Binding.scala
+// 13.0.0-M0 replaces that API by streams, so binding stays at 12.2.0, named
+// here because the player's own code uses it.
 libraryDependencies ++= Seq(
   "com.thoughtworks.binding" %% "binding" % "12.2.0",
   "com.thoughtworks.binding" %% "latestevent" % "2.0.0+13-cd63a4e2",
-  "com.yang-bo" %% "html" % "3.0.3+61-a38243c3"
+  "com.yang-bo" %% "html" % "3.0.4"
 )
 
 libraryDependencies += "com.siriusxm" %% "snapshot4s-munit" % "0.2.11" % Test
